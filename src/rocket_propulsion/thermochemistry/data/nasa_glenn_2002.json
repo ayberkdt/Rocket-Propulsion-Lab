@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "source": {
+    "title": "NASA Glenn Coefficients for Calculating Thermodynamic Properties of Individual Species, NASA/TP-2002-211556",
+    "authors": "B. J. McBride, M. J. Zehe, S. Gordon",
+    "publication_year": "2002",
+    "url": "https://ntrs.nasa.gov/citations/20020085330",
+    "license_note": "United States Government work; public use permitted by NTRS"
+  },
+  "model": {
+    "name": "NASA Glenn seven-term cp polynomial with two integration constants",
+    "coefficient_order": ["a1", "a2", "a3", "a4", "a5", "a6", "a7", "b1", "b2"],
+    "reference_pressure_pa": 100000
+  },
+  "species": [
+    {
+      "key": "H2",
+      "name": "Hydrogen",
+      "formula": {"H": 2},
+      "molecular_mass_g_mol": 2.01588,
+      "heat_of_formation_j_mol_298": 0.0,
+      "intervals": [
+        {
+          "minimum_temperature_k": 200.0,
+          "maximum_temperature_k": 1000.0,
+          "coefficients": [40783.2321, -800.918604, 8.21470201, -0.01269714457, 0.00001753605076, -1.20286027e-8, 3.36809349e-12, 2682.484665, -30.43788844]
+        },
+        {
+          "minimum_temperature_k": 1000.0,
+          "maximum_temperature_k": 6000.0,
+          "coefficients": [560812.801, -837.150474, 2.975364532, 0.001252249124, -3.74071619e-7, 5.9366252e-11, -3.6069941e-15, 5339.82441, -2.202774769]
+        }
+      ]
+    },
+    {
+      "key": "O2",
+      "name": "Oxygen",
+      "formula": {"O": 2},
+      "molecular_mass_g_mol": 31.9988,
+      "heat_of_formation_j_mol_298": 0.0,
+      "intervals": [
+        {
+          "minimum_temperature_k": 200.0,
+          "maximum_temperature_k": 1000.0,
+          "coefficients": [-34255.6342, 484.700097, 1.119010961, 0.00429388924, -6.83630052e-7, -2.0233727e-9, 1.039040018e-12, -3391.45487, 18.4969947]
+        },
+        {
+          "minimum_temperature_k": 1000.0,
+          "maximum_temperature_k": 6000.0,
+          "coefficients": [-1037939.022, 2344.830282, 1.819732036, 0.001267847582, -2.188067988e-7, 2.053719572e-11, -8.19346705e-16, -16890.10929, 17.38716506]
+        }
+      ]
+    },
+    {
+      "key": "H2O",
+      "name": "Water vapor",
+      "formula": {"H": 2, "O": 1},
+      "molecular_mass_g_mol": 18.01528,
+      "heat_of_formation_j_mol_298": -241826.0,
+      "intervals": [
+        {
+          "minimum_temperature_k": 200.0,
+          "maximum_temperature_k": 1000.0,
+          "coefficients": [-39479.6083, 575.573102, 0.931782653, 0.00722271286, -7.34255737e-6, 4.95504349e-9, -1.336933246e-12, -33039.7431, 17.24205775]
+        },
+        {
+          "minimum_temperature_k": 1000.0,
+          "maximum_temperature_k": 6000.0,
+          "coefficients": [1034972.096, -2412.698562, 4.64611078, 0.002291998307, -6.83683048e-7, 9.42646893e-11, -4.82238053e-15, -13842.86509, -7.97814851]
+        }
+      ]
+    },
+    {
+      "key": "OH",
+      "name": "Hydroxyl radical",
+      "formula": {"O": 1, "H": 1},
+      "molecular_mass_g_mol": 17.00734,
+      "heat_of_formation_j_mol_298": 37278.206,
+      "intervals": [
+        {
+          "minimum_temperature_k": 200.0,
+          "maximum_temperature_k": 1000.0,
+          "coefficients": [-1998.85899, 93.0013616, 3.050854229, 0.001529529288, -3.157890998e-6, 3.31544618e-9, -1.138762683e-12, 2991.214235, 4.67411079]
+        },
+        {
+          "minimum_temperature_k": 1000.0,
+          "maximum_temperature_k": 6000.0,
+          "coefficients": [1017393.379, -2509.957276, 5.11654786, 0.000130529993, -8.28432226e-8, 2.006475941e-11, -1.556993656e-15, 20196.40206, -11.01282337]
+        }
+      ]
+    },
+    {
+      "key": "H",
+      "name": "Atomic hydrogen",
+      "formula": {"H": 1},
+      "molecular_mass_g_mol": 1.00794,
+      "heat_of_formation_j_mol_298": 217998.828,
+      "intervals": [
+        {
+          "minimum_temperature_k": 200.0,
+          "maximum_temperature_k": 1000.0,
+          "coefficients": [0.0, 0.0, 2.5, 0.0, 0.0, 0.0, 0.0, 25473.6599, -0.446682853]
+        },
+        {
+          "minimum_temperature_k": 1000.0,
+          "maximum_temperature_k": 6000.0,
+          "coefficients": [60.7877425, -0.181935441, 2.500211817, -1.226512864e-7, 3.73287633e-11, -5.68774456e-15, 3.410210197e-19, 25474.86398, -0.448191777]
+        }
+      ]
+    },
+    {
+      "key": "O",
+      "name": "Atomic oxygen",
+      "formula": {"O": 1},
+      "molecular_mass_g_mol": 15.9994,
+      "heat_of_formation_j_mol_298": 249175.003,
+      "intervals": [
+        {
+          "minimum_temperature_k": 200.0,
+          "maximum_temperature_k": 1000.0,
+          "coefficients": [-7953.6113, 160.7177787, 1.966226438, 0.00101367031, -1.110415423e-6, 6.5175075e-10, -1.584779251e-13, 28403.62437, 8.40424182]
+        },
+        {
+          "minimum_temperature_k": 1000.0,
+          "maximum_temperature_k": 6000.0,
+          "coefficients": [261902.0262, -729.872203, 3.31717727, -0.000428133436, 1.036104594e-7, -9.43830433e-12, 2.725038297e-16, 33924.2806, -0.667958535]
+        }
+      ]
+    },
+    {
+      "key": "N2",
+      "name": "Nitrogen",
+      "formula": {"N": 2},
+      "molecular_mass_g_mol": 28.0134,
+      "heat_of_formation_j_mol_298": 0.0,
+      "intervals": [
+        {
+          "minimum_temperature_k": 200.0,
+          "maximum_temperature_k": 1000.0,
+          "coefficients": [22103.71497, -381.846182, 6.08273836, -0.00853091441, 0.00001384646189, -9.62579362e-9, 2.519705809e-12, 710.846086, -10.76003744]
+        },
+        {
+          "minimum_temperature_k": 1000.0,
+          "maximum_temperature_k": 6000.0,
+          "coefficients": [587712.406, -2239.249073, 6.06694922, -0.00061396855, 1.491806679e-7, -1.923105485e-11, 1.061954386e-15, 12832.10415, -15.86640027]
+        }
+      ]
+    },
+    {
+      "key": "CO",
+      "name": "Carbon monoxide",
+      "formula": {"C": 1, "O": 1},
+      "molecular_mass_g_mol": 28.0101,
+      "heat_of_formation_j_mol_298": -110535.196,
+      "intervals": [
+        {
+          "minimum_temperature_k": 200.0,
+          "maximum_temperature_k": 1000.0,
+          "coefficients": [14890.45326, -292.2285939, 5.72452717, -0.00817623503, 0.00001456903469, -1.087746302e-8, 3.027941827e-12, -13031.31878, -7.85924135]
+        },
+        {
+          "minimum_temperature_k": 1000.0,
+          "maximum_temperature_k": 6000.0,
+          "coefficients": [461919.725, -1944.704863, 5.91671418, -0.000566428283, 1.39881454e-7, -1.787680361e-11, 9.62093557e-16, -2466.261084, -13.87413108]
+        }
+      ]
+    },
+    {
+      "key": "CO2",
+      "name": "Carbon dioxide",
+      "formula": {"C": 1, "O": 2},
+      "molecular_mass_g_mol": 44.0095,
+      "heat_of_formation_j_mol_298": -393510.0,
+      "intervals": [
+        {
+          "minimum_temperature_k": 200.0,
+          "maximum_temperature_k": 1000.0,
+          "coefficients": [49436.5054, -626.411601, 5.30172524, 0.002503813816, -2.127308728e-7, -7.68998878e-10, 2.849677801e-13, -45281.9846, -7.04827944]
+        },
+        {
+          "minimum_temperature_k": 1000.0,
+          "maximum_temperature_k": 6000.0,
+          "coefficients": [117696.2419, -1788.791477, 8.29152319, -0.0000922315678, 4.86367688e-9, -1.891053312e-12, 6.33003659e-16, -39083.5059, -26.52669281]
+        }
+      ]
+    },
+    {
+      "key": "CH4",
+      "name": "Methane",
+      "formula": {"C": 1, "H": 4},
+      "molecular_mass_g_mol": 16.04246,
+      "heat_of_formation_j_mol_298": -74600.0,
+      "intervals": [
+        {
+          "minimum_temperature_k": 200.0,
+          "maximum_temperature_k": 1000.0,
+          "coefficients": [-176685.0998, 2786.18102, -12.0257785, 0.0391761929, -0.0000361905443, 2.026853043e-8, -4.97670549e-12, -23313.1436, 89.0432275]
+        },
+        {
+          "minimum_temperature_k": 1000.0,
+          "maximum_temperature_k": 6000.0,
+          "coefficients": [3730042.76, -13835.01485, 20.49107091, -0.001961974759, 4.72731304e-7, -3.72881469e-11, 1.623737207e-15, 75320.6691, -121.9124889]
+        }
+      ]
+    }
+  ]
+}

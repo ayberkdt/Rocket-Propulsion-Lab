@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "cea-rp1311-example-8-lox-lh2",
+      "source": "NASA RP-1311 Part II, example 8",
+      "status": "recorded-external-gate",
+      "expected": {
+        "chamber_temperature_k": 3389.27,
+        "characteristic_velocity_m_s": 2333.4,
+        "vacuum_effective_exhaust_velocity_m_s": 4555.4,
+        "exit_effective_exhaust_velocity_m_s": 4399.7
+      },
+      "relative_tolerance": 0.01
+    },
+    {
+      "id": "moc-boundary-compatibility",
+      "source": "NASA method-of-characteristics design context; compatibility invariant",
+      "status": "automated",
+      "expected": {
+        "wall_tangency_max_deg": 1e-8,
+        "centerline_symmetry_max_deg": 1e-10,
+        "exit_mach_absolute": 1e-8,
+        "refined_length_change_relative": 0.01
+      }
+    },
+    {
+      "id": "loss-budget-conservation",
+      "source": "sequential efficiency accounting identity",
+      "status": "automated",
+      "expected": {
+        "thrust_balance_residual_n": 1e-10,
+        "specific_impulse_balance_residual_s": 1e-10
+      }
+    }
+  ]
+}

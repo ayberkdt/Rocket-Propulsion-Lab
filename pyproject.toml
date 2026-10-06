@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rocket-propulsion-lab"
+version = "0.9.0"
+description = "Compressible-flow and thermodynamics calculators for rocket propulsion studies."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Ayberk Demirkanat" }]
+keywords = ["rocket", "propulsion", "nozzle", "compressible-flow", "thermodynamics"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/ayberkdt/Rocket-Propulsion-Lab"
+Repository = "https://github.com/ayberkdt/Rocket-Propulsion-Lab"
+Issues = "https://github.com/ayberkdt/Rocket-Propulsion-Lab/issues"
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+rocket-propulsion = "rocket_propulsion.api.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+rocket_propulsion = ["web/*.html", "web/*.css", "web/*.js", "thermochemistry/data/*.json"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+

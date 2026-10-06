@@ -1,0 +1,56 @@
+{
+  "definition": {
+    "name": "Orbital monopropellant trim",
+    "initial_mass_kg": 1000.0,
+    "protected_dry_mass_kg": 800.0,
+    "maximum_duration_s": 120.0,
+    "cant_efficiency": 1.0,
+    "target": {
+      "kind": "ideal_delta_v",
+      "value": 25.0
+    },
+    "tanks": [
+      {
+        "tank_id": "propellant",
+        "propellant_key": "hydrazine",
+        "role": "monopropellant",
+        "loaded_mass_kg": 100.0,
+        "reserve_mass_kg": 10.0
+      }
+    ]
+  },
+  "operating_point": {
+    "name": "980.665 N vacuum point",
+    "commanded_throttle": 1.0,
+    "realized_throttle": 1.0,
+    "active_engine_count": 1,
+    "ideal_thrust_n": 1000.0,
+    "delivered_thrust_n": 980.665,
+    "chamber_specific_impulse_s": 100.0,
+    "system_specific_impulse_s": 100.0,
+    "chamber_mass_flow_kg_s": 1.0,
+    "total_tank_flow_kg_s": 1.0,
+    "oxidizer_mass_flow_kg_s": 0.0,
+    "fuel_mass_flow_kg_s": 0.0,
+    "mixture_ratio": null,
+    "chamber_pressure_pa": 1000000.0,
+    "ambient_pressure_pa": 0.0,
+    "model_id": "example_constant_v1",
+    "source": "analytic example",
+    "warnings": [
+      "Preliminary constant-performance demonstration only."
+    ],
+    "streams": [
+      {
+        "stream_id": "main",
+        "tank_id": "propellant",
+        "propellant_key": "hydrazine",
+        "role": "monopropellant",
+        "destination": "chamber",
+        "mass_flow_kg_s": 1.0,
+        "tank_depleting": true,
+        "contributes_to_delivered_thrust": true
+      }
+    ]
+  }
+}

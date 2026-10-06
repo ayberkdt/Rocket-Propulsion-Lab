@@ -1,0 +1,50 @@
+{
+  "cases": [
+    {
+      "case_id": "sea-level",
+      "inputs": {
+        "ambient_pressure_pa": 101325.0,
+        "area_ratio": 25.0,
+        "chamber_pressure_pa": 5000000.0
+      },
+      "model": "off-design-nozzle",
+      "model_versions": {
+        "off-design-nozzle": "1.0"
+      },
+      "name": "Sea level",
+      "results": {
+        "specific_impulse_s": 287.0,
+        "thrust_n": 85000.0
+      },
+      "warnings": [
+        "Example values; recalculate after opening."
+      ]
+    },
+    {
+      "case_id": "vacuum",
+      "inputs": {
+        "ambient_pressure_pa": 0.0,
+        "area_ratio": 25.0,
+        "chamber_pressure_pa": 5000000.0
+      },
+      "model": "off-design-nozzle",
+      "model_versions": {
+        "off-design-nozzle": "1.0"
+      },
+      "name": "Vacuum",
+      "results": {
+        "specific_impulse_s": 340.0,
+        "thrust_n": 100000.0
+      },
+      "warnings": [
+        "Example values; recalculate after opening."
+      ]
+    }
+  ],
+  "dataset_versions": {
+    "thermochemistry": "NASA-Glenn-2002"
+  },
+  "name": "Two-case nozzle example",
+  "notes": "Portable schema demonstration.",
+  "schema_version": 2
+}

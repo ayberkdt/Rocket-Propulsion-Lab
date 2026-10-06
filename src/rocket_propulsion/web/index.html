@@ -1,0 +1,1227 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Sıkıştırılabilir akış ve termodinamik hesapları için yerel mühendislik aracı."
+    />
+    <title>Rocket Propulsion Lab</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#top">Ana içeriğe geç</a>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Rocket Propulsion Lab ana sayfa">
+        <span class="brand-mark" aria-hidden="true">R</span>
+        <span>
+          <strong>Rocket Propulsion Lab</strong>
+          <small>Compressible flow workbench</small>
+        </span>
+      </a>
+      <nav aria-label="Hesap modülleri">
+        <a href="#isentropic">İzentropik</a>
+        <a href="#thermal-properties">Termokimya</a>
+        <a href="#equilibrium">Denge</a>
+        <a href="#duct-flow">Fanno / Rayleigh</a>
+        <a href="#nozzle">Nozul</a>
+        <a href="#geometry">Geometri</a>
+        <a href="#losses">Kayıplar & ısıl</a>
+        <a href="#studies">Çalışmalar</a>
+        <a href="#rocket">Roket</a>
+        <a href="#burn">Burn</a>
+        <a href="#propellants">İticiler</a>
+      </nav>
+      <span class="status-pill"><i></i> Yerel hesap motoru</span>
+    </header>
+
+    <main id="top" tabindex="-1">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">MÜHENDİSLİK ÇALIŞMA ALANI · v0.9</p>
+          <h1>Akış durumunu gir.<br /><em>Bütün resmi gör.</em></h1>
+          <p class="hero-copy">
+            Mükemmel gaz varsayımıyla sıkıştırılabilir akış ve termodinamik
+            ilişkilerini tek bir doğrulanabilir çalışma alanında çöz.
+          </p>
+        </div>
+        <div class="hero-metric" aria-label="Varsayılan gaz özellikleri">
+          <span>DEFAULT FLUID</span>
+          <strong>Air</strong>
+          <dl>
+            <div><dt>γ</dt><dd>1.400</dd></div>
+            <div><dt>R</dt><dd>287.05 J/kg·K</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="module" id="isentropic" data-module="isentropic">
+        <div class="module-heading">
+          <div>
+            <span class="module-number">01</span>
+            <p class="eyebrow">COMPRESSIBLE AERODYNAMICS</p>
+            <h2>İzentropik akış</h2>
+          </div>
+          <p>
+            Bir özelliği seç, değerini gir; Mach sayısı, durma ve kritik durum
+            oranlarının tamamı aynı anda hesaplansın.
+          </p>
+        </div>
+
+        <div class="workbench">
+          <form class="control-panel" id="isentropic-form">
+            <div class="field-row two-columns">
+              <label>
+                <span>Girdi türü</span>
+                <select name="input_kind">
+                  <option value="mach">Mach sayısı, M</option>
+                  <option value="mach_angle_deg">Mach açısı, μ (°)</option>
+                  <option value="prandtl_meyer_deg">Prandtl–Meyer açısı, ν (°)</option>
+                  <option value="pressure_total_ratio">p / p₀</option>
+                  <option value="density_total_ratio">ρ / ρ₀</option>
+                  <option value="temperature_total_ratio">T / T₀</option>
+                  <option value="pressure_critical_ratio">p / p*</option>
+                  <option value="density_critical_ratio">ρ / ρ*</option>
+                  <option value="temperature_critical_ratio">T / T*</option>
+                  <option value="area_ratio_subsonic">A / A* — subsonik dal</option>
+                  <option value="area_ratio_supersonic">A / A* — süpersonik dal</option>
+                </select>
+              </label>
+              <label>
+                <span>Değer</span>
+                <input name="value" type="number" value="2" step="any" required />
+              </label>
+            </div>
+            <label>
+              <span>Özgül ısı oranı, γ</span>
+              <input name="gamma" type="number" value="1.4" min="1.000001" step="any" required />
+            </label>
+            <button type="submit">Durumu hesapla <b aria-hidden="true">→</b></button>
+            <p class="form-note">Açılar derece cinsindedir. A/A* için fiziksel dal açıkça seçilir.</p>
+            <p class="form-message" role="status" aria-live="polite"></p>
+          </form>
+
+          <div class="results-panel" aria-live="polite">
+            <div class="results-lead">
+              <span>ÇÖZÜLEN MACH SAYISI</span>
+              <strong data-key="mach">—</strong>
+            </div>
+            <div class="result-group">
+              <h3>Açılar</h3>
+              <dl>
+                <div><dt>Mach açısı, μ</dt><dd data-key="mach_angle_deg">—</dd></div>
+                <div><dt>Prandtl–Meyer, ν</dt><dd data-key="prandtl_meyer_deg">—</dd></div>
+              </dl>
+            </div>
+            <div class="result-group">
+              <h3>Durma durumu oranları</h3>
+              <dl>
+                <div><dt>p / p₀</dt><dd data-key="pressure_total_ratio">—</dd></div>
+                <div><dt>ρ / ρ₀</dt><dd data-key="density_total_ratio">—</dd></div>
+                <div><dt>T / T₀</dt><dd data-key="temperature_total_ratio">—</dd></div>
+              </dl>
+            </div>
+            <div class="result-group">
+              <h3>Kritik durum oranları</h3>
+              <dl>
+                <div><dt>p / p*</dt><dd data-key="pressure_critical_ratio">—</dd></div>
+                <div><dt>ρ / ρ*</dt><dd data-key="density_critical_ratio">—</dd></div>
+                <div><dt>T / T*</dt><dd data-key="temperature_critical_ratio">—</dd></div>
+                <div><dt>A / A*</dt><dd data-key="area_critical_ratio">—</dd></div>
+              </dl>
+            </div>
+          </div>
+        </div>
+        <details>
+          <summary>Model varsayımları ve temel bağıntı</summary>
+          <p>
+            Tek boyutlu, adyabatik, tersinir ve kalorik olarak mükemmel gaz.
+            Temel enerji bağıntısı: T/T₀ = [1 + (γ − 1)M²/2]⁻¹.
+          </p>
+        </details>
+        <div class="chart-grid chart-grid-wide" id="isentropic-charts">
+          <figure class="chart-figure">
+            <figcaption>Durma durumu oranları · γ = 1,4</figcaption>
+            <div class="chart-legend"><span class="legend-1">p/p₀</span><span class="legend-2">T/T₀</span><span class="legend-3">ρ/ρ₀</span></div>
+            <svg class="engineering-chart" id="isentropic-ratios-chart" role="img" aria-label="Mach sayısına göre izentropik basınç, sıcaklık ve yoğunluk oranları"></svg>
+          </figure>
+          <figure class="chart-figure">
+            <figcaption>Alan–Mach ilişkisi</figcaption>
+            <div class="chart-legend"><span class="legend-1">A/A*</span></div>
+            <svg class="engineering-chart" id="area-mach-chart" role="img" aria-label="Mach sayısına göre kritik alan oranı"></svg>
+          </figure>
+        </div>
+      </section>
+
+      <section class="module" id="shock" data-module="normal-shock">
+        <div class="module-heading">
+          <div>
+            <span class="module-number">02</span>
+            <p class="eyebrow">DISCONTINUOUS FLOW</p>
+            <h2>Normal şok</h2>
+          </div>
+          <p>
+            Süpersonik giriş durumundan Rankine–Hugoniot sıçramalarını ve toplam
+            basınç kaybını hesapla.
+          </p>
+        </div>
+        <div class="stacked-workbenches">
+        <div class="workbench compact">
+          <form class="control-panel" id="shock-form">
+            <label>
+              <span>Giriş Mach sayısı, M₁</span>
+              <input name="upstream_mach" type="number" value="2" min="1.000001" step="any" required />
+            </label>
+            <label>
+              <span>Özgül ısı oranı, γ</span>
+              <input name="gamma" type="number" value="1.4" min="1.000001" step="any" required />
+            </label>
+            <button type="submit">Şoku çöz <b aria-hidden="true">→</b></button>
+            <p class="form-message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="results-panel result-cards" aria-live="polite">
+            <article><span>M₂</span><strong data-key="downstream_mach">—</strong><small>Çıkış Mach</small></article>
+            <article><span>p₂ / p₁</span><strong data-key="pressure_ratio">—</strong><small>Statik basınç</small></article>
+            <article><span>ρ₂ / ρ₁</span><strong data-key="density_ratio">—</strong><small>Yoğunluk</small></article>
+            <article><span>T₂ / T₁</span><strong data-key="temperature_ratio">—</strong><small>Sıcaklık</small></article>
+            <article class="wide"><span>p₀₂ / p₀₁</span><strong data-key="stagnation_pressure_ratio">—</strong><small>Toplam basınç korunumu</small></article>
+          </div>
+        </div>
+        <div class="workbench compact" data-module="oblique-shock">
+          <form class="control-panel" id="oblique-shock-form">
+            <div class="field-row two-columns">
+              <label><span>Giriş Mach sayısı, M₁</span><input name="upstream_mach" type="number" value="2" min="1.000001" step="any" required /></label>
+              <label><span>Akış sapması, θ (°)</span><input name="turning_angle_deg" type="number" value="10" min="0.000001" step="any" required /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>Dal</span><select name="branch"><option value="weak">Zayıf şok</option><option value="strong">Güçlü şok</option></select></label>
+              <label><span>Özgül ısı oranı, γ</span><input name="gamma" type="number" value="1.4" min="1.000001" step="any" required /></label>
+            </div>
+            <button type="submit">Eğik şoku çöz <b aria-hidden="true">→</b></button>
+            <p class="form-note">İstenen θ ayrılma sınırını aşarsa bağlı şok çözümü reddedilir.</p>
+            <p class="form-message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="results-panel">
+            <div class="results-lead"><span>ŞOK AÇISI, β</span><strong><span data-key="wave_angle_deg">—</span>°</strong></div>
+            <div class="result-group"><dl>
+              <div><dt>M₂</dt><dd data-key="downstream_mach">—</dd></div>
+              <div><dt>θ maksimum (°)</dt><dd data-key="maximum_turning_angle_deg">—</dd></div>
+              <div><dt>M₁n</dt><dd data-key="upstream_normal_mach">—</dd></div>
+              <div><dt>M₂n</dt><dd data-key="downstream_normal_mach">—</dd></div>
+              <div><dt>p₂ / p₁</dt><dd data-key="pressure_ratio">—</dd></div>
+              <div><dt>p₀₂ / p₀₁</dt><dd data-key="stagnation_pressure_ratio">—</dd></div>
+            </dl></div>
+          </div>
+        </div>
+        </div>
+      </section>
+
+      <section class="module" id="thermo" data-module="ideal-gas">
+        <div class="module-heading">
+          <div>
+            <span class="module-number">03</span>
+            <p class="eyebrow">THERMODYNAMICS</p>
+            <h2>İdeal gaz durumu</h2>
+          </div>
+          <p>
+            Basınç, sıcaklık ve yoğunluktan ikisini gir; eksik durumu ve türetilmiş
+            kalorik özellikleri tamamla.
+          </p>
+        </div>
+        <div class="workbench">
+          <form class="control-panel" id="thermo-form">
+            <div class="field-row three-columns">
+              <label><span>Basınç, p (Pa)</span><input name="pressure_pa" type="number" value="101325" step="any" /></label>
+              <label><span>Sıcaklık, T (K)</span><input name="temperature_k" type="number" value="288.15" step="any" /></label>
+              <label><span>Yoğunluk, ρ (kg/m³)</span><input name="density_kg_m3" type="number" placeholder="hesaplansın" step="any" /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>Gaz sabiti, R (J/kg·K)</span><input name="gas_constant_j_kg_k" type="number" value="287.05" step="any" required /></label>
+              <label><span>Özgül ısı oranı, γ</span><input name="gamma" type="number" value="1.4" min="1.000001" step="any" required /></label>
+            </div>
+            <button type="submit">Durumu tamamla <b aria-hidden="true">→</b></button>
+            <p class="form-note">p, T ve ρ alanlarından yalnızca ikisini doldur.</p>
+            <p class="form-message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="results-panel thermo-results" aria-live="polite">
+            <div class="state-strip">
+              <div><span>p</span><strong data-key="pressure_pa">—</strong><small>Pa</small></div>
+              <div><span>T</span><strong data-key="temperature_k">—</strong><small>K</small></div>
+              <div><span>ρ</span><strong data-key="density_kg_m3">—</strong><small>kg/m³</small></div>
+            </div>
+            <div class="result-group">
+              <h3>Kalorik özellikler</h3>
+              <dl>
+                <div><dt>cₚ</dt><dd><span data-key="cp_j_kg_k">—</span> J/kg·K</dd></div>
+                <div><dt>cᵥ</dt><dd><span data-key="cv_j_kg_k">—</span> J/kg·K</dd></div>
+                <div><dt>h</dt><dd><span data-key="enthalpy_j_kg">—</span> J/kg</dd></div>
+                <div><dt>u</dt><dd><span data-key="internal_energy_j_kg">—</span> J/kg</dd></div>
+                <div><dt>Ses hızı, a</dt><dd><span data-key="speed_of_sound_m_s">—</span> m/s</dd></div>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="module" id="thermal-properties" data-module="thermal-properties">
+        <div class="module-heading">
+          <div>
+            <span class="module-number">04</span>
+            <p class="eyebrow">VARIABLE-PROPERTY THERMOCHEMISTRY</p>
+            <h2>Sıcaklığa bağlı gaz özellikleri</h2>
+          </div>
+          <p>
+            NASA Glenn katsayılarıyla bir gaz türünün cₚ, cᵥ, γ, entalpi ve
+            entropisini 200–6000 K boyunca hesapla; sabit özellik yaklaşımının
+            yüksek sıcaklıktaki sınırını gör.
+          </p>
+        </div>
+        <div class="workbench">
+          <form class="control-panel" id="thermal-properties-form">
+            <label>
+              <span>Gaz türü</span>
+              <select name="species">
+                <option value="H2O">H₂O · su buharı</option>
+                <option value="H2">H₂ · hidrojen</option>
+                <option value="O2">O₂ · oksijen</option>
+                <option value="N2">N₂ · azot</option>
+                <option value="CH4">CH₄ · metan</option>
+                <option value="CO2">CO₂ · karbondioksit</option>
+                <option value="CO">CO · karbonmonoksit</option>
+                <option value="OH">OH · hidroksil</option>
+                <option value="H">H · atomik hidrojen</option>
+                <option value="O">O · atomik oksijen</option>
+              </select>
+            </label>
+            <div class="field-row two-columns">
+              <label><span>Sıcaklık, T (K)</span><input name="temperature_k" type="number" value="3500" min="200" max="6000" step="any" required /></label>
+              <label><span>Basınç, p (Pa)</span><input name="pressure_pa" type="number" value="100000" min="0.000001" step="any" required /></label>
+            </div>
+            <input name="minimum_temperature_k" type="hidden" value="200" />
+            <input name="maximum_temperature_k" type="hidden" value="6000" />
+            <input name="point_count" type="hidden" value="101" />
+            <button type="submit">Özellikleri hesapla <b aria-hidden="true">→</b></button>
+            <p class="form-note">Kaynak: NASA/TP-2002-211556. Aralık dışında ekstrapolasyon yapılmaz.</p>
+            <p class="form-message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="results-panel">
+            <div class="results-lead"><span>ÖZGÜL ISI ORANI</span><strong data-key="gamma">—</strong></div>
+            <div class="result-group">
+              <h3>Termodinamik özellikler</h3>
+              <dl>
+                <div><dt>cₚ (J/kg·K)</dt><dd data-key="cp_j_kg_k">—</dd></div>
+                <div><dt>cᵥ (J/kg·K)</dt><dd data-key="cv_j_kg_k">—</dd></div>
+                <div><dt>R (J/kg·K)</dt><dd data-key="gas_constant_j_kg_k">—</dd></div>
+                <div><dt>M (kg/mol)</dt><dd data-key="molecular_mass_kg_mol">—</dd></div>
+                <div><dt>h (J/kg)</dt><dd data-key="enthalpy_j_kg">—</dd></div>
+                <div><dt>s° (J/kg·K)</dt><dd data-key="entropy_j_kg_k">—</dd></div>
+              </dl>
+            </div>
+          </div>
+        </div>
+        <details>
+          <summary>Model ve veri sınırı</summary>
+          <p>
+            Yedi cₚ terimi ile iki integrasyon sabiti kullanılan NASA Glenn
+            gösterimidir. Entalpi oluşum entalpisini içerir. Bu bölümde bileşim
+            donmuştur; aşağıdaki denge modülü ayrışmayı ayrıca çözer.
+          </p>
+        </details>
+        <div class="chart-grid">
+          <figure class="chart-figure"><figcaption>Özgül ısı</figcaption><div class="chart-legend"><span class="legend-1">cₚ(T)</span><span class="legend-2">cᵥ(T)</span><span class="legend-reference">298 K sabit cₚ</span></div><svg class="engineering-chart" id="thermal-cp-chart" role="img" aria-label="Sıcaklığa göre özgül ısılar"></svg></figure>
+          <figure class="chart-figure"><figcaption>Özgül ısı oranı</figcaption><div class="chart-legend"><span class="legend-1">γ(T)</span><span class="legend-reference">298 K sabit γ</span></div><svg class="engineering-chart" id="thermal-gamma-chart" role="img" aria-label="Sıcaklığa göre özgül ısı oranı"></svg></figure>
+          <figure class="chart-figure chart-span-two"><figcaption>Özgül entalpi</figcaption><div class="chart-legend"><span class="legend-3">NASA h(T)</span><span class="legend-reference">sabit cₚ yaklaşımı</span></div><svg class="engineering-chart" id="thermal-enthalpy-chart" role="img" aria-label="Sıcaklığa göre özgül entalpi"></svg></figure>
+        </div>
+      </section>
+
+      <section class="module" id="equilibrium" data-module="equilibrium-sweep">
+        <div class="module-heading">
+          <div>
+            <span class="module-number">05</span>
+            <p class="eyebrow">CHEMICAL EQUILIBRIUM · EXPERIMENTAL</p>
+            <h2>Yanma dengesi ve O/F taraması</h2>
+          </div>
+          <p>
+            Element dengeli yerel Gibbs çözücüsüyle adyabatik oda durumunu
+            bul; donmuş ve denge genişlemesinin c*, C<sub>F</sub> ve vakum
+            Isp üzerindeki etkisini karşılaştır.
+          </p>
+        </div>
+        <div class="workbench">
+          <form class="control-panel" id="equilibrium-sweep-form">
+            <label>
+              <span>İtici çifti</span>
+              <select name="propellant_pair" id="equilibrium-pair">
+                <option value="LOX_LH2">LOX / LH₂</option>
+                <option value="LOX_CH4">LOX / CH₄</option>
+                <option value="LOX_RP1" disabled>LOX / RP-1 · CEA gerekli</option>
+              </select>
+            </label>
+            <div class="field-row two-columns">
+              <label><span>Oda basıncı, p<sub>c</sub> (Pa)</span><input name="chamber_pressure_pa" type="number" value="5000000" min="1" step="any" required /></label>
+              <label><span>Alan oranı, A<sub>e</sub>/A*</span><input name="area_ratio" type="number" value="20" min="1.000001" step="any" required /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>Minimum O/F</span><input name="minimum_ratio" type="number" value="4" min="0.01" step="any" required /></label>
+              <label><span>Maksimum O/F</span><input name="maximum_ratio" type="number" value="8" min="0.01" step="any" required /></label>
+            </div>
+            <input name="provider" type="hidden" value="local" />
+            <input name="point_count" type="hidden" value="5" />
+            <button type="submit">Denge taramasını çalıştır <b aria-hidden="true">→</b></button>
+            <p class="form-note">Yerel sağlayıcı deneysel ve gaz reaktanları 298,15 K kabul eder. Nihai tasarımı NASA CEA ile doğrula.</p>
+            <p class="form-message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="results-panel">
+            <div class="results-lead"><span>EN YÜKSEK DENGE ISP O/F</span><strong data-key="peak_ratio">—</strong></div>
+            <div class="result-group">
+              <h3>Seçilen tepe noktası</h3>
+              <dl>
+                <div><dt>Alev sıcaklığı (K)</dt><dd data-key="peak_temperature_k">—</dd></div>
+                <div><dt>c* (m/s)</dt><dd data-key="peak_cstar_m_s">—</dd></div>
+                <div><dt>Donmuş Isp (s)</dt><dd data-key="peak_frozen_isp_s">—</dd></div>
+                <div><dt>Denge Isp (s)</dt><dd data-key="peak_equilibrium_isp_s">—</dd></div>
+                <div><dt>Element artığı</dt><dd data-key="peak_element_residual">—</dd></div>
+                <div><dt>Sağlayıcı</dt><dd data-key="provider_label">—</dd></div>
+              </dl>
+            </div>
+          </div>
+        </div>
+        <details>
+          <summary>Model sınırı ve CEA adaptörü</summary>
+          <p>
+            Yerel model gaz fazlı ve deneysel bir ön taramadır. Harici NASA CEA
+            yürütülebilir dosyası <code>RPLAB_CEA_EXECUTABLE</code> ile
+            yapılandırılabilir; dosya depoya gömülmez. CEA adaptörü girdi, ham
+            çıktı, sayısal tablo, uyarı ve önbellek izini birlikte saklar.
+          </p>
+        </details>
+        <div class="chart-grid">
+          <figure class="chart-figure"><figcaption>Adyabatik alev sıcaklığı</figcaption><div class="chart-legend"><span class="legend-1">T<sub>c</sub></span></div><svg class="engineering-chart" id="of-temperature-chart" role="img" aria-label="Oksitleyici yakıt oranına göre adyabatik alev sıcaklığı"></svg></figure>
+          <figure class="chart-figure"><figcaption>Karakteristik hız</figcaption><div class="chart-legend"><span class="legend-2">c*</span></div><svg class="engineering-chart" id="of-cstar-chart" role="img" aria-label="Oksitleyici yakıt oranına göre karakteristik hız"></svg></figure>
+          <figure class="chart-figure"><figcaption>Ortalama mol kütlesi</figcaption><div class="chart-legend"><span class="legend-1">M</span></div><svg class="engineering-chart" id="of-molecular-mass-chart" role="img" aria-label="Oksitleyici yakıt oranına göre ortalama mol kütlesi"></svg></figure>
+          <figure class="chart-figure"><figcaption>Özgül ısı oranı</figcaption><div class="chart-legend"><span class="legend-3">γ</span></div><svg class="engineering-chart" id="of-gamma-chart" role="img" aria-label="Oksitleyici yakıt oranına göre özgül ısı oranı"></svg></figure>
+          <figure class="chart-figure"><figcaption>Vakum özgül itki</figcaption><div class="chart-legend"><span class="legend-1">denge</span><span class="legend-reference">donmuş</span></div><svg class="engineering-chart" id="of-isp-chart" role="img" aria-label="Oksitleyici yakıt oranına göre donmuş ve denge vakum özgül itkisi"></svg></figure>
+          <figure class="chart-figure"><figcaption>İtki katsayısı</figcaption><div class="chart-legend"><span class="legend-1">denge C<sub>F</sub></span><span class="legend-reference">donmuş C<sub>F</sub></span></div><svg class="engineering-chart" id="of-cf-chart" role="img" aria-label="Oksitleyici yakıt oranına göre itki katsayısı"></svg></figure>
+        </div>
+      </section>
+
+      <section class="module" id="total-state" data-module="stagnation">
+        <div class="module-heading">
+          <div>
+            <span class="module-number">06</span>
+            <p class="eyebrow">THERMODYNAMIC CONNECTIONS</p>
+            <h2>Statik ↔ toplam durum</h2>
+          </div>
+          <p>
+            Bir akış istasyonundaki statik ölçümleri Mach sayısıyla birleştir;
+            durma basıncı, durma sıcaklığı, hız ve enerji durumunu çıkar.
+          </p>
+        </div>
+        <div class="stacked-workbenches">
+        <div class="workbench compact">
+          <form class="control-panel" id="stagnation-form">
+            <div class="field-row two-columns">
+              <label><span>Mach sayısı, M</span><input name="mach" type="number" value="2" step="any" required /></label>
+              <label><span>Statik basınç, p (Pa)</span><input name="static_pressure_pa" type="number" value="100000" step="any" required /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>Statik sıcaklık, T (K)</span><input name="static_temperature_k" type="number" value="300" step="any" required /></label>
+              <label><span>Özgül ısı oranı, γ</span><input name="gamma" type="number" value="1.4" step="any" required /></label>
+            </div>
+            <label><span>Gaz sabiti, R (J/kg·K)</span><input name="gas_constant_j_kg_k" type="number" value="287.05" step="any" required /></label>
+            <button type="submit">Toplam duruma bağla <b aria-hidden="true">→</b></button>
+            <p class="form-message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="results-panel result-cards" aria-live="polite">
+            <article><span>T₀</span><strong data-key="stagnation_temperature_k">—</strong><small>K</small></article>
+            <article><span>p₀</span><strong data-key="stagnation_pressure_pa">—</strong><small>Pa</small></article>
+            <article><span>V</span><strong data-key="velocity_m_s">—</strong><small>m/s</small></article>
+            <article><span>q</span><strong data-key="dynamic_pressure_pa">—</strong><small>Pa</small></article>
+            <article class="wide"><span>h₀</span><strong data-key="stagnation_enthalpy_j_kg">—</strong><small>J/kg · h₀ = h + V²/2</small></article>
+          </div>
+        </div>
+        <div class="workbench compact" data-module="thermo-process">
+          <form class="control-panel" id="process-form">
+            <div class="field-row two-columns">
+              <label><span>Giriş basıncı, p₁ (Pa)</span><input name="inlet_pressure_pa" type="number" value="100000" step="any" required /></label>
+              <label><span>Çıkış basıncı, p₂ (Pa)</span><input name="outlet_pressure_pa" type="number" value="400000" step="any" required /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>Giriş sıcaklığı, T₁ (K)</span><input name="inlet_temperature_k" type="number" value="300" step="any" required /></label>
+              <label><span>İzentropik verim, η</span><input name="efficiency" type="number" value="0.8" min="0.000001" max="1" step="any" required /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>γ</span><input name="gamma" type="number" value="1.4" step="any" required /></label>
+              <label><span>R (J/kg·K)</span><input name="gas_constant_j_kg_k" type="number" value="287.05" step="any" required /></label>
+            </div>
+            <button type="submit">Süreci çöz <b aria-hidden="true">→</b></button>
+            <p class="form-note">p₂ &gt; p₁ sıkıştırma; p₂ &lt; p₁ genleşme olarak çözülür.</p>
+            <p class="form-message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="results-panel">
+            <div class="results-lead"><span>SÜREÇ</span><strong data-key="process">—</strong></div>
+            <div class="result-group"><dl>
+              <div><dt>İdeal T₂ (K)</dt><dd data-key="ideal_outlet_temperature_k">—</dd></div>
+              <div><dt>Gerçek T₂ (K)</dt><dd data-key="actual_outlet_temperature_k">—</dd></div>
+              <div><dt>Özgül iş (J/kg)</dt><dd data-key="specific_work_j_kg">—</dd></div>
+              <div><dt>Entropi değişimi (J/kg·K)</dt><dd data-key="entropy_change_j_kg_k">—</dd></div>
+            </dl></div>
+          </div>
+        </div>
+        <div class="workbench compact" data-module="polytropic">
+          <form class="control-panel" id="polytropic-form">
+            <div class="field-row two-columns">
+              <label><span>Giriş basıncı, p₁ (Pa)</span><input name="inlet_pressure_pa" type="number" value="100000" step="any" required /></label>
+              <label><span>Çıkış basıncı, p₂ (Pa)</span><input name="outlet_pressure_pa" type="number" value="500000" step="any" required /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>Giriş sıcaklığı, T₁ (K)</span><input name="inlet_temperature_k" type="number" value="300" step="any" required /></label>
+              <label><span>Polytropik üs, n</span><input name="exponent" type="number" value="1.3" step="any" required /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>γ</span><input name="gamma" type="number" value="1.4" step="any" required /></label>
+              <label><span>R (J/kg·K)</span><input name="gas_constant_j_kg_k" type="number" value="287.05" step="any" required /></label>
+            </div>
+            <input name="point_count" type="hidden" value="61" />
+            <button type="submit">Polytropik yolu çöz <b aria-hidden="true">→</b></button>
+            <p class="form-note">Q − W<sub>gaz</sub> = ΔU işaret kuralı; n = γ tersinir adyabatiktir.</p>
+            <p class="form-message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="results-panel">
+            <div class="result-group"><dl>
+              <div><dt>T₂ (K)</dt><dd data-key="outlet_temperature_k">—</dd></div>
+              <div><dt>W<sub>gaz</sub> (J/kg)</dt><dd data-key="boundary_work_by_gas_j_kg">—</dd></div>
+              <div><dt>Q (J/kg)</dt><dd data-key="heat_into_gas_j_kg">—</dd></div>
+              <div><dt>Δs (J/kg·K)</dt><dd data-key="entropy_change_j_kg_k">—</dd></div>
+            </dl></div>
+            <div class="chart-grid compact-charts">
+              <figure class="chart-figure"><figcaption>P–v yolu</figcaption><svg class="engineering-chart" id="pv-chart" role="img" aria-label="Polytropik basınç özgül hacim diyagramı"></svg></figure>
+              <figure class="chart-figure"><figcaption>T–s yolu</figcaption><svg class="engineering-chart" id="ts-chart" role="img" aria-label="Polytropik sıcaklık entropi diyagramı"></svg></figure>
+            </div>
+          </div>
+        </div>
+        </div>
+      </section>
+
+      <section class="module" id="duct-flow" data-module="duct-flow">
+        <div class="module-heading">
+          <div>
+            <span class="module-number">07</span>
+            <p class="eyebrow">CONSTANT-AREA FLOW</p>
+            <h2>Fanno & Rayleigh</h2>
+          </div>
+          <p>
+            Sabit kesitli kanalda sürtünme veya ısı geçişinin sonik duruma göre
+            oluşturduğu akış oranlarını karşılaştır.
+          </p>
+        </div>
+        <div class="workbench compact">
+          <form class="control-panel" id="duct-flow-form">
+            <label>
+              <span>Akış modeli</span>
+              <select name="model">
+                <option value="fanno">Fanno — adyabatik + sürtünme</option>
+                <option value="rayleigh">Rayleigh — sürtünmesiz + ısı geçişi</option>
+              </select>
+            </label>
+            <div class="field-row two-columns">
+              <label><span>Mach sayısı, M</span><input name="mach" type="number" value="0.5" step="any" required /></label>
+              <label><span>Özgül ısı oranı, γ</span><input name="gamma" type="number" value="1.4" step="any" required /></label>
+            </div>
+            <button type="submit">Akış hattını çöz <b aria-hidden="true">→</b></button>
+            <p class="form-note">Yıldız (*) aynı kütle ve momentum akısındaki sonik referanstır.</p>
+            <p class="form-message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="results-panel">
+            <div class="result-group">
+              <h3>Sonik referans oranları</h3>
+              <dl>
+                <div><dt>T / T*</dt><dd data-key="temperature_critical_ratio">—</dd></div>
+                <div><dt>p / p*</dt><dd data-key="pressure_critical_ratio">—</dd></div>
+                <div><dt>ρ / ρ*</dt><dd data-key="density_critical_ratio">—</dd></div>
+                <div><dt>V / V*</dt><dd data-key="velocity_critical_ratio">—</dd></div>
+                <div><dt>p₀ / p₀*</dt><dd data-key="stagnation_pressure_critical_ratio">—</dd></div>
+                <div><dt>T₀ / T₀*</dt><dd data-key="stagnation_temperature_critical_ratio">—</dd></div>
+                <div><dt>4fL* / D</dt><dd data-key="friction_parameter_to_sonic">—</dd></div>
+                <div><dt>(s* − s) / R</dt><dd data-key="entropy_difference_over_r">—</dd></div>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="module" id="nozzle" data-module="nozzle">
+        <div class="module-heading">
+          <div>
+            <span class="module-number">08</span>
+            <p class="eyebrow">ROCKET GAS DYNAMICS</p>
+            <h2>İdeal C–D nozul</h2>
+          </div>
+          <p>
+            Oda toplam durumundan boğulmuş kütle debisini, çıkış istasyonunu,
+            basınç uyumunu, c*, C<sub>F</sub> ve özgül itkisini birlikte çöz.
+          </p>
+        </div>
+        <div class="workbench">
+          <form class="control-panel" id="nozzle-form">
+            <div class="field-row two-columns">
+              <label><span>Oda basıncı, p₀ (Pa)</span><input name="chamber_pressure_pa" type="number" value="7000000" step="any" required /></label>
+              <label><span>Oda sıcaklığı, T₀ (K)</span><input name="chamber_temperature_k" type="number" value="3500" step="any" required /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>Boğaz alanı, A* (m²)</span><input name="throat_area_m2" type="number" value="0.01" step="any" required /></label>
+              <label><span>Alan oranı, Aₑ/A*</span><input name="area_ratio" type="number" value="20" step="any" required /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>Ortam basıncı, pₐ (Pa)</span><input name="ambient_pressure_pa" type="number" value="101325" step="any" required /></label>
+              <label><span>γ</span><input name="gamma" type="number" value="1.22" step="any" required /></label>
+            </div>
+            <label><span>Yanma gazı R (J/kg·K)</span><input name="gas_constant_j_kg_k" type="number" value="355" step="any" required /></label>
+            <button type="submit">Nozulu çöz <b aria-hidden="true">→</b></button>
+            <p class="form-note">İdeal, tek boyutlu ve donmuş özellikli ön boyutlandırma modeli.</p>
+            <p class="form-message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="results-panel">
+            <div class="results-lead"><span>TOPLAM İTKİ</span><strong><span data-key="thrust_n">—</span> N</strong></div>
+            <div class="result-group">
+              <h3>Çıkış ve performans</h3>
+              <dl>
+                <div><dt>Mₑ</dt><dd data-key="exit_mach">—</dd></div>
+                <div><dt>ṁ (kg/s)</dt><dd data-key="mass_flow_kg_s">—</dd></div>
+                <div><dt>Vₑ (m/s)</dt><dd data-key="exit_velocity_m_s">—</dd></div>
+                <div><dt>pₑ (Pa)</dt><dd data-key="exit_pressure_pa">—</dd></div>
+                <div><dt>c* (m/s)</dt><dd data-key="characteristic_velocity_m_s">—</dd></div>
+                <div><dt>C<sub>F</sub></dt><dd data-key="thrust_coefficient">—</dd></div>
+                <div><dt>I<sub>sp</sub> (s)</dt><dd data-key="specific_impulse_s">—</dd></div>
+                <div><dt>Basınç rejimi</dt><dd data-key="pressure_regime">—</dd></div>
+              </dl>
+            </div>
+          </div>
+        </div>
+        <div class="submodule" data-module="nozzle-off-design">
+          <div class="submodule-heading">
+            <p class="eyebrow">BACK-PRESSURE MAP</p>
+            <h3>Tasarım dışı rejim, iç şok ve irtifa</h3>
+            <p>Geri basıncını dayat; boğulmamış akıştan iç normal şoka, tasarım noktasına ve eksik genişlemeye kadar fiziksel rejimi çöz.</p>
+          </div>
+          <div class="workbench">
+            <form class="control-panel" id="off-design-nozzle-form">
+              <div class="field-row two-columns">
+                <label><span>Oda basıncı, p₀ (Pa)</span><input name="chamber_pressure_pa" type="number" value="7000000" min="1" step="any" required /></label>
+                <label><span>Oda sıcaklığı, T₀ (K)</span><input name="chamber_temperature_k" type="number" value="3500" min="1" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Boğaz alanı, A* (m²)</span><input name="throat_area_m2" type="number" value="0.01" min="0.0000001" step="any" required /></label>
+                <label><span>Alan oranı, Aₑ/A*</span><input name="area_ratio" type="number" value="20" min="1" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Geri basıncı, p<sub>b</sub> (Pa)</span><input name="ambient_pressure_pa" type="number" value="101325" min="0" step="any" required /></label>
+                <label><span>Maksimum irtifa (m)</span><input name="maximum_altitude_m" type="number" value="50000" min="1" max="84852" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>γ</span><input name="gamma" type="number" value="1.22" min="1.000001" step="any" required /></label>
+                <label><span>R (J/kg·K)</span><input name="gas_constant_j_kg_k" type="number" value="355" min="0.000001" step="any" required /></label>
+              </div>
+              <input name="station_count" type="hidden" value="81" />
+              <input name="altitude_point_count" type="hidden" value="31" />
+              <input name="include_altitude_sweep" type="hidden" value="true" />
+              <button type="submit">Tasarım dışı durumu çöz <b aria-hidden="true">→</b></button>
+              <p class="form-note">Ayrılma yalnızca NASA SP-8041 Summerfield eşiğiyle taranır; viskoz akış ve yan yük çözülmez.</p>
+              <p class="form-message" role="status" aria-live="polite"></p>
+            </form>
+            <div class="results-panel">
+              <div class="results-lead"><span>AKIŞ REJİMİ</span><strong class="result-text" data-key="regime">—</strong></div>
+              <div class="result-group"><h3>Çıkış ve iç şok</h3><dl>
+                <div><dt>Mₑ</dt><dd data-key="exit_mach">—</dd></div>
+                <div><dt>pₑ (Pa)</dt><dd data-key="exit_pressure_pa">—</dd></div>
+                <div><dt>p₀,e (Pa)</dt><dd data-key="exit_total_pressure_pa">—</dd></div>
+                <div><dt>Isp (s)</dt><dd data-key="specific_impulse_s">—</dd></div>
+                <div><dt>Şok x/L</dt><dd data-key="shock_x_fraction">—</dd></div>
+                <div><dt>ṁ artığı</dt><dd data-key="mass_flow_relative_residual">—</dd></div>
+                <div><dt>Ayrılma taraması</dt><dd data-key="separation_status">—</dd></div>
+                <div><dt>pₑ/p<sub>a</sub></dt><dd data-key="exit_ambient_ratio">—</dd></div>
+              </dl></div>
+            </div>
+          </div>
+          <div class="model-warning" id="off-design-warning" role="status"></div>
+          <div class="chart-grid">
+            <figure class="chart-figure"><figcaption>Nozul boyunca Mach</figcaption><div class="chart-legend"><span class="legend-1">M</span><span class="legend-2">normal şok</span></div><svg class="engineering-chart" id="off-design-mach-chart" role="img" aria-label="Nozul boyunca Mach sayısı ve şok konumu"></svg></figure>
+            <figure class="chart-figure"><figcaption>Nozul boyunca basınç</figcaption><div class="chart-legend"><span class="legend-1">p/p₀</span><span class="legend-2">normal şok</span></div><svg class="engineering-chart" id="off-design-pressure-chart" role="img" aria-label="Nozul boyunca normalize basınç ve şok konumu"></svg></figure>
+            <figure class="chart-figure"><figcaption>İrtifaya göre itki</figcaption><div class="chart-legend"><span class="legend-1">F</span></div><svg class="engineering-chart" id="altitude-thrust-chart" role="img" aria-label="İrtifaya göre nozul itkisi"></svg></figure>
+            <figure class="chart-figure"><figcaption>İrtifaya göre özgül itki</figcaption><div class="chart-legend"><span class="legend-3">Isp</span></div><svg class="engineering-chart" id="altitude-isp-chart" role="img" aria-label="İrtifaya göre özgül itki"></svg></figure>
+            <figure class="chart-figure chart-span-two"><figcaption>Oda / ortam basınç oranı</figcaption><div class="chart-legend"><span class="legend-reference">p₀/pₐ</span></div><svg class="engineering-chart" id="altitude-pressure-ratio-chart" role="img" aria-label="İrtifaya göre oda ortam basınç oranı"></svg></figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="module" id="geometry" data-module="nozzle-geometry">
+        <div class="module-heading">
+          <div>
+            <span class="module-number">09</span>
+            <p class="eyebrow">PARAMETRIC GEOMETRY</p>
+            <h2>Nozul konturu & istasyonlar</h2>
+          </div>
+          <p>
+            Konik, ön Hermite, Rao/TOP veya karakteristikler yöntemi konturu üret;
+            model sadakatini, sınır artıklarını ve CAD uyumlu çıktıları birlikte izle.
+          </p>
+        </div>
+        <div class="workbench" data-module="nozzle-geometry">
+          <form class="control-panel" id="geometry-form">
+            <div class="field-row two-columns">
+              <label><span>Kontur</span><select name="contour"><option value="preliminary">Ön Hermite yaklaşımı</option><option value="rao">Rao / TOP yaklaşımı</option><option value="moc">MOC minimum uzunluk</option><option value="conical">Konik</option></select></label>
+              <label><span>Boğaz alanı, A* (m²)</span><input name="throat_area_m2" type="number" value="0.01" step="any" required /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>Çıkış alan oranı, Aₑ/A*</span><input name="area_ratio" type="number" value="25" step="any" required /></label>
+              <label><span>γ</span><input name="gamma" type="number" value="1.22" step="any" required /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>Konik yarı açı (°)</span><input name="half_angle_deg" type="number" value="15" step="any" required /></label>
+              <label><span>Oda yarıçapı / r*</span><input name="chamber_radius_ratio" type="number" value="2.5" step="any" required /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>Uzunluk fraksiyonu</span><input name="bell_length_fraction" type="number" value="0.8" min="0.5" max="1.2" step="any" required /></label>
+              <label><span>MOC karakteristik sayısı</span><input name="characteristic_count" type="number" value="20" min="5" max="80" step="1" required /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>Rao boğaz açısı (°)</span><input name="throat_angle_deg" type="number" value="30" min="15" max="40" step="any" required /></label>
+              <label><span>Rao çıkış açısı (°)</span><input name="exit_angle_deg" type="number" value="8" min="0" max="29" step="any" required /></label>
+            </div>
+            <input name="station_count" type="hidden" value="121" />
+            <input name="axisymmetric_correction" type="hidden" value="true" />
+            <input name="include_exports" type="hidden" value="false" />
+            <input name="include_comparison" type="hidden" value="true" />
+            <input name="angular_segments" type="hidden" value="32" />
+            <button type="submit">Geometriyi üret <b aria-hidden="true">→</b></button>
+            <p class="form-note">MOC, düzlemsel uyumluluk ağına birinci mertebe eksenel-simetrik alan eşlemesi uygular; artıklar sonuçlarda açıkça raporlanır.</p>
+            <p class="form-message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="results-panel">
+            <div class="result-group"><dl>
+              <div><dt>Boğaz yarıçapı (m)</dt><dd data-key="throat_radius_m">—</dd></div>
+              <div><dt>Çıkış yarıçapı (m)</dt><dd data-key="exit_radius_m">—</dd></div>
+              <div><dt>Yakınsayan uzunluk (m)</dt><dd data-key="converging_length_m">—</dd></div>
+              <div><dt>Iraksayan uzunluk (m)</dt><dd data-key="diverging_length_m">—</dd></div>
+              <div><dt>Model sadakati</dt><dd data-key="model_fidelity">—</dd></div>
+              <div><dt>Yüzey alanı (m²)</dt><dd data-key="surface_area_m2">—</dd></div>
+              <div><dt>Iraksama verimi</dt><dd data-key="estimated_divergence_efficiency">—</dd></div>
+              <div><dt>Duvar teğetlik artığı (°)</dt><dd data-key="wall_tangency_residual_deg">—</dd></div>
+            </dl></div>
+            <div class="export-actions" aria-label="Geometri dışa aktarma seçenekleri">
+              <button type="button" data-geometry-export="csv">CSV</button>
+              <button type="button" data-geometry-export="svg">SVG</button>
+              <button type="button" data-geometry-export="dxf">DXF</button>
+              <button type="button" data-geometry-export="stl">STL</button>
+            </div>
+            <div class="comparison-table-wrap">
+              <table class="comparison-table">
+                <caption>Ortak girdide kontur karşılaştırması</caption>
+                <thead><tr><th>Model</th><th>Ldiv (m)</th><th>Alan (m²)</th><th>ηdiv</th><th>Çıkış açısı</th></tr></thead>
+                <tbody id="geometry-comparison-body"></tbody>
+              </table>
+            </div>
+            <div class="chart-grid geometry-charts">
+              <figure class="chart-figure chart-span-two"><figcaption>Eksenel kontur</figcaption><svg class="engineering-chart contour-chart" id="nozzle-contour-chart" role="img" aria-label="Nozul üst ve alt duvar konturu"></svg></figure>
+              <figure class="chart-figure chart-span-two"><figcaption>MOC karakteristik ağı</figcaption><svg class="engineering-chart contour-chart" id="nozzle-characteristic-chart" role="img" aria-label="Nozul karakteristik çizgileri"></svg></figure>
+              <figure class="chart-figure"><figcaption>Mach dağılımı</figcaption><svg class="engineering-chart" id="nozzle-mach-chart" role="img" aria-label="Nozul ekseni boyunca Mach sayısı"></svg></figure>
+              <figure class="chart-figure"><figcaption>Statik / toplam oranlar</figcaption><div class="chart-legend"><span class="legend-1">p/p₀</span><span class="legend-2">T/T₀</span></div><svg class="engineering-chart" id="nozzle-state-chart" role="img" aria-label="Nozul ekseni boyunca basınç ve sıcaklık oranları"></svg></figure>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="module" id="losses" data-module="losses-thermal">
+        <div class="module-heading">
+          <div>
+            <span class="module-number">10</span>
+            <p class="eyebrow">REAL-PERFORMANCE BRIDGE</p>
+            <h2>Kayıplar & ısıl yükler</h2>
+          </div>
+          <p>
+            İdeal performanstan teslim edilen performansa izlenebilir kayıp bütçesi kur;
+            Bartz ısı akısını ve deneysel rejeneratif kanal dengesini ayrı kanıtlarla çöz.
+          </p>
+        </div>
+        <div class="stacked-workbenches">
+          <div class="workbench compact" data-module="loss-budget">
+            <form class="control-panel" id="loss-budget-form">
+              <div class="field-row two-columns">
+                <label><span>İdeal itki (N)</span><input name="ideal_thrust_n" type="number" value="100000" step="any" required /></label>
+                <label><span>İdeal Isp (s)</span><input name="ideal_specific_impulse_s" type="number" value="450" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Yanma verimi</span><input name="combustion_efficiency" type="number" value="0.97" step="any" required /></label>
+                <label><span>Deşarj katsayısı</span><input name="discharge_coefficient" type="number" value="0.98" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Sınır tabakası verimi</span><input name="boundary_layer_efficiency" type="number" value="0.985" step="any" required /></label>
+                <label><span>Iraksama verimi</span><input name="divergence_efficiency" type="number" value="0.98" step="any" required /></label>
+              </div>
+              <label><span>Her terim için bağıl 1σ belirsizlik</span><input name="relative_uncertainty" type="number" value="0.02" min="0" max="0.25" step="any" required /></label>
+              <fieldset class="toggle-grid"><legend>Etkin kayıplar</legend>
+                <label><input type="hidden" name="enable_combustion_loss" value="false" /><input type="checkbox" name="enable_combustion_loss" value="true" checked /> Yanma</label>
+                <label><input type="hidden" name="enable_discharge_loss" value="false" /><input type="checkbox" name="enable_discharge_loss" value="true" checked /> Deşarj</label>
+                <label><input type="hidden" name="enable_boundary_layer_loss" value="false" /><input type="checkbox" name="enable_boundary_layer_loss" value="true" checked /> Sınır tabakası</label>
+                <label><input type="hidden" name="enable_divergence_loss" value="false" /><input type="checkbox" name="enable_divergence_loss" value="true" checked /> Iraksama</label>
+              </fieldset>
+              <button type="submit">Kayıp bütçesini çöz <b aria-hidden="true">→</b></button>
+              <p class="form-message" role="status" aria-live="polite"></p>
+            </form>
+            <div class="results-panel">
+              <div class="result-cards">
+                <article><span>İdeal itki</span><strong data-key="ideal_thrust_n">—</strong><small>N</small></article>
+                <article><span>Teslim edilen itki</span><strong data-key="delivered_thrust_n">—</strong><small>N</small></article>
+                <article><span>Toplam verim</span><strong data-key="total_efficiency">—</strong><small>—</small></article>
+                <article><span>Teslim edilen Isp</span><strong data-key="delivered_specific_impulse_s">—</strong><small>s</small></article>
+                <article><span>İtki 1σ alt</span><strong id="loss-band-low">—</strong><small>N</small></article>
+                <article><span>İtki 1σ üst</span><strong id="loss-band-high">—</strong><small>N</small></article>
+              </div>
+              <div class="chart-grid compact-charts"><figure class="chart-figure chart-span-two"><figcaption>Terim bazında itki kaybı</figcaption><svg class="engineering-chart" id="loss-budget-chart" role="img" aria-label="Kayıp terimine göre itki kaybı"></svg></figure></div>
+            </div>
+          </div>
+
+          <div class="workbench compact" data-module="two-phase-band">
+            <form class="control-panel" id="two-phase-form">
+              <div class="field-row two-columns">
+                <label><span>İdeal itki (N)</span><input name="ideal_thrust_n" type="number" value="100000" step="any" required /></label>
+                <label><span>İdeal Isp (s)</span><input name="ideal_specific_impulse_s" type="number" value="450" step="any" required /></label>
+              </div>
+              <label><span>Yoğuşmuş faz kütle kesri</span><input name="condensed_mass_fraction" type="number" value="0.2" min="0" max="1" step="any" required /></label>
+              <div class="field-row two-columns">
+                <label><span>Parçacık bağlaşım alt sınırı</span><input name="minimum_particle_coupling_efficiency" type="number" value="0.6" min="0" max="1" step="any" required /></label>
+                <label><span>Parçacık bağlaşım üst sınırı</span><input name="maximum_particle_coupling_efficiency" type="number" value="0.9" min="0" max="1" step="any" required /></label>
+              </div>
+              <button type="submit">İki faz bandını hesapla <b aria-hidden="true">→</b></button>
+              <p class="form-note">Bu model parçacık çapı ve faz değişimini çözmez; kullanıcı tanımlı bir bağlaşım bandıdır.</p>
+              <p class="form-message" role="status" aria-live="polite"></p>
+            </form>
+            <div class="results-panel result-cards">
+              <article><span>İtki alt</span><strong id="two-phase-thrust-low">—</strong><small>N</small></article>
+              <article><span>İtki üst</span><strong id="two-phase-thrust-high">—</strong><small>N</small></article>
+              <article><span>Isp alt</span><strong id="two-phase-isp-low">—</strong><small>s</small></article>
+              <article><span>Isp üst</span><strong id="two-phase-isp-high">—</strong><small>s</small></article>
+            </div>
+          </div>
+
+          <div class="workbench" data-module="nozzle-thermal">
+            <form class="control-panel" id="nozzle-thermal-form">
+              <div class="field-row two-columns">
+                <label><span>Kontur</span><select name="contour"><option value="rao">Rao</option><option value="preliminary">Ön Hermite</option><option value="conical">Konik</option><option value="moc">MOC</option></select></label>
+                <label><span>Boğaz alanı (m²)</span><input name="throat_area_m2" type="number" value="0.01" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Alan oranı</span><input name="area_ratio" type="number" value="25" step="any" required /></label>
+                <label><span>γ</span><input name="gamma" type="number" value="1.22" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Oda basıncı (Pa)</span><input name="chamber_pressure_pa" type="number" value="5000000" step="any" required /></label>
+                <label><span>Oda sıcaklığı (K)</span><input name="chamber_temperature_k" type="number" value="3500" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Duvar sıcaklığı (K)</span><input name="wall_temperature_k" type="number" value="800" step="any" required /></label>
+                <label><span>c* (m/s)</span><input name="characteristic_velocity_m_s" type="number" value="1700" step="any" required /></label>
+              </div>
+              <details><summary>Gaz özellikleri ve soğutma kanalı</summary>
+                <div class="field-row two-columns">
+                  <label><span>μ (Pa·s)</span><input name="dynamic_viscosity_pa_s" type="number" value="0.00007" step="any" required /></label>
+                  <label><span>cp (J/kg·K)</span><input name="specific_heat_j_kg_k" type="number" value="3000" step="any" required /></label>
+                </div>
+                <div class="field-row two-columns">
+                  <label><span>Pr</span><input name="prandtl_number" type="number" value="0.7" step="any" required /></label>
+                  <label><span>Boğaz eğrilik yarıçapı (m)</span><input name="throat_radius_of_curvature_m" type="number" value="0.03" step="any" required /></label>
+                </div>
+                <div class="field-row two-columns">
+                  <label><span>Soğutucu debisi (kg/s)</span><input name="coolant_mass_flow_kg_s" type="number" value="5" step="any" required /></label>
+                  <label><span>Soğutucu cp (J/kg·K)</span><input name="coolant_specific_heat_j_kg_k" type="number" value="10000" step="any" required /></label>
+                </div>
+                <div class="field-row two-columns">
+                  <label><span>Soğutucu giriş T (K)</span><input name="coolant_inlet_temperature_k" type="number" value="100" step="any" required /></label>
+                  <label><span>Soğutucu sınır T (K)</span><input name="maximum_coolant_temperature_k" type="number" value="1000" step="any" required /></label>
+                </div>
+                <div class="field-row two-columns">
+                  <label><span>Yoğunluk (kg/m³)</span><input name="coolant_density_kg_m3" type="number" value="70" step="any" required /></label>
+                  <label><span>Soğutucu μ (Pa·s)</span><input name="coolant_dynamic_viscosity_pa_s" type="number" value="0.00001" step="any" required /></label>
+                </div>
+                <div class="field-row two-columns">
+                  <label><span>Kanal sayısı</span><input name="channel_count" type="number" value="100" step="1" required /></label>
+                  <label><span>Tek kanal alanı (m²)</span><input name="channel_flow_area_m2" type="number" value="0.00002" step="any" required /></label>
+                </div>
+                <div class="field-row two-columns">
+                  <label><span>Hidrolik çap (m)</span><input name="hydraulic_diameter_m" type="number" value="0.004" step="any" required /></label>
+                  <label><span>Kanal uzunluğu (m)</span><input name="channel_length_m" type="number" value="1" step="any" required /></label>
+                </div>
+                <label><span>Pürüzlülük (m)</span><input name="roughness_m" type="number" value="0.00001" min="0" step="any" required /></label>
+              </details>
+              <input name="include_cooling" type="hidden" value="true" />
+              <input name="station_count" type="hidden" value="121" />
+              <button type="submit">Isıl yükleri çöz <b aria-hidden="true">→</b></button>
+              <p class="form-note">Bartz korelasyonu kullanıcı tarafından girilen donmuş gaz özelliklerini kullanır. Kanal modeli tek fazlı ve deneyseldir.</p>
+              <p class="form-message" role="status" aria-live="polite"></p>
+            </form>
+            <div class="results-panel">
+              <div class="result-group"><dl>
+                <div><dt>Tepe ısı akısı (W/m²)</dt><dd data-key="peak_heat_flux_w_m2">—</dd></div>
+                <div><dt>Tepe konumu (m)</dt><dd data-key="peak_location_m">—</dd></div>
+                <div><dt>Toplam ısı yükü (W)</dt><dd data-key="total_heat_load_w">—</dd></div>
+                <div><dt>Soğutucu çıkış T (K)</dt><dd id="coolant-outlet-temperature">—</dd></div>
+                <div><dt>Soğutucu Δp (Pa)</dt><dd id="coolant-pressure-drop">—</dd></div>
+                <div><dt>Enerji artığı (W)</dt><dd id="coolant-energy-residual">—</dd></div>
+              </dl></div>
+              <p class="model-warning" id="thermal-warning">Korelasyon uyarıları burada gösterilir.</p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Gaz tarafı ısı akısı</figcaption><svg class="engineering-chart" id="heat-flux-chart" role="img" aria-label="Nozul boyunca gaz tarafı ısı akısı"></svg></figure>
+                <figure class="chart-figure"><figcaption>Adyabatik duvar sıcaklığı</figcaption><svg class="engineering-chart" id="adiabatic-wall-chart" role="img" aria-label="Nozul boyunca adyabatik duvar sıcaklığı"></svg></figure>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="module" id="rocket" data-module="rocket-equation">
+        <div class="module-heading">
+          <div>
+            <span class="module-number">11</span>
+            <p class="eyebrow">MISSION PERFORMANCE</p>
+            <h2>Tsiolkovski & itki</h2>
+          </div>
+          <p>
+            Kütle oranını ideal Δv’ye dönüştür veya hedef Δv’den gerekli son
+            kütleyi geri çöz. Motor itkisini ayrı momentum ve basınç terimleriyle izle.
+          </p>
+        </div>
+        <div class="stacked-workbenches">
+          <div class="workbench compact">
+            <form class="control-panel" id="rocket-form">
+              <div class="field-row two-columns">
+                <label><span>Başlangıç kütlesi, m₀ (kg)</span><input name="initial_mass_kg" type="number" value="10000" step="any" required /></label>
+                <label><span>Son kütle, mₓ (kg)</span><input name="final_mass_kg" type="number" value="4000" step="any" /></label>
+              </div>
+              <label><span>Hedef Δv (m/s) — ters çözüm için</span><input name="delta_v_m_s" type="number" placeholder="son kütle yerine doldur" step="any" /></label>
+              <div class="field-row two-columns">
+                <label><span>Isp (s)</span><input name="specific_impulse_s" type="number" value="320" step="any" /></label>
+                <label><span>veya vₑ,eff (m/s)</span><input name="effective_exhaust_velocity_m_s" type="number" placeholder="Isp yerine doldur" step="any" /></label>
+              </div>
+              <button type="submit">Roket denklemini çöz <b aria-hidden="true">→</b></button>
+              <p class="form-note">Son kütle veya hedef Δv alanlarından yalnızca birini doldur.</p>
+              <p class="form-message" role="status" aria-live="polite"></p>
+            </form>
+            <div class="results-panel result-cards">
+              <article><span>Δv</span><strong data-key="delta_v_m_s">—</strong><small>m/s</small></article>
+              <article><span>Kütle oranı</span><strong data-key="mass_ratio">—</strong><small>m₀ / mₓ</small></article>
+              <article><span>İtici kütlesi</span><strong data-key="propellant_mass_kg">—</strong><small>kg</small></article>
+              <article><span>İtici fraksiyonu</span><strong data-key="propellant_mass_fraction">—</strong><small>—</small></article>
+              <article class="wide"><span>Etkin egzoz hızı</span><strong data-key="effective_exhaust_velocity_m_s">—</strong><small>m/s</small></article>
+            </div>
+          </div>
+
+          <div class="workbench compact" data-module="thrust">
+            <form class="control-panel" id="thrust-form">
+              <div class="field-row two-columns">
+                <label><span>Kütle debisi, ṁ (kg/s)</span><input name="mass_flow_kg_s" type="number" value="10" step="any" required /></label>
+                <label><span>Çıkış hızı, Vₑ (m/s)</span><input name="exit_velocity_m_s" type="number" value="3000" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Çıkış alanı, Aₑ (m²)</span><input name="exit_area_m2" type="number" value="0.5" step="any" required /></label>
+                <label><span>Yanma süresi (s)</span><input name="burn_time_s" type="number" value="20" step="any" /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Çıkış basıncı, pₑ (Pa)</span><input name="exit_pressure_pa" type="number" value="50000" step="any" required /></label>
+                <label><span>Ortam basıncı, pₐ (Pa)</span><input name="ambient_pressure_pa" type="number" value="10000" step="any" required /></label>
+              </div>
+              <button type="submit">İtkiyi hesapla <b aria-hidden="true">→</b></button>
+              <p class="form-message" role="status" aria-live="polite"></p>
+            </form>
+            <div class="results-panel">
+              <div class="results-lead"><span>TOPLAM İTKİ</span><strong><span data-key="total_thrust_n">—</span> N</strong></div>
+              <div class="result-group"><dl>
+                <div><dt>Momentum itkisi</dt><dd data-key="momentum_thrust_n">—</dd></div>
+                <div><dt>Basınç itkisi</dt><dd data-key="pressure_thrust_n">—</dd></div>
+                <div><dt>Isp (s)</dt><dd data-key="specific_impulse_s">—</dd></div>
+                <div><dt>Toplam impuls (N·s)</dt><dd data-key="total_impulse_n_s">—</dd></div>
+              </dl></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="module" id="burn" data-module="burn">
+        <div class="module-heading">
+          <div>
+            <span class="module-number">12</span>
+            <p class="eyebrow">STANDALONE PROPULSION BURN</p>
+            <h2>Sonlu yanış analizi</h2>
+          </div>
+          <p>
+            Motor çalışma noktasını, throttle zaman geçmişini, ayrı
+            yakıt/oksitleyici tanklarını ve hedefi tanımla. Sabit L0 veya
+            parçalı doğrusal L1 burn; yörünge yazılımına ihtiyaç duymadan kapatılsın.
+          </p>
+        </div>
+        <div class="workbench burn-workbench">
+          <form class="control-panel" id="burn-form">
+            <div class="field-row two-columns">
+              <label><span>Başlangıç kütlesi (kg)</span><input name="initial_mass_kg" type="number" value="2400" min="0" step="any" required /></label>
+              <label><span>Korunan kuru kütle (kg)</span><input name="protected_dry_mass_kg" type="number" value="1400" min="0" step="any" required /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>Hedef</span><select name="target_kind"><option value="ideal_delta_v">İdeal Δv</option><option value="duration">Süre</option><option value="total_impulse">Toplam impuls</option><option value="propellant_mass">İtici kütlesi</option></select></label>
+              <label><span>Hedef değer</span><input name="target_value" type="number" value="420" min="0" step="any" required /></label>
+            </div>
+            <div class="field-row two-columns">
+              <label><span>Maksimum süre (s)</span><input name="maximum_duration_s" type="number" value="300" min="0" step="any" required /></label>
+              <label><span>Eksenel/cant verimi</span><input name="cant_efficiency" type="number" value="1" min="0" max="1" step="any" required /></label>
+            </div>
+            <details><summary>Throttle profili · L0 / L1</summary>
+              <label><span>Profil modu</span><select name="profile_mode"><option value="constant">L0 · sabit çalışma noktası</option><option value="piecewise">L1 · ramp + steady + ramp</option></select></label>
+              <div class="field-row three-columns">
+                <label><span>Ramp-up (s)</span><input name="ramp_up_s" type="number" value="2" min="0" step="any" /></label>
+                <label><span>Steady (s)</span><input name="steady_duration_s" type="number" value="40" min="0" step="any" /></label>
+                <label><span>Ramp-down (s)</span><input name="ramp_down_s" type="number" value="2" min="0" step="any" /></label>
+              </div>
+              <p class="form-note">L1 modunda itki ve bütün tank akışları throttle ile doğrusal ölçeklenir; sistem Isp sabit kalır.</p>
+            </details>
+            <details open><summary>Motor çalışma noktası</summary>
+              <div class="field-row two-columns">
+                <label><span>Teslim edilen itki (N)</span><input name="delivered_thrust_n" type="number" value="24000" min="0" step="any" required /></label>
+                <label><span>İdeal itki (N)</span><input name="ideal_thrust_n" type="number" value="25000" min="0" step="any" /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Sistem Isp (s)</span><input name="system_specific_impulse_s" type="number" value="328" min="0" step="any" required /></label>
+                <label><span>Oda/nozul Isp (s)</span><input name="chamber_specific_impulse_s" type="number" placeholder="sunucu çözsün" min="0" step="any" /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Toplam O/F</span><input name="oxidizer_fuel_ratio" type="number" value="3.4" min="0" step="any" required /></label>
+                <label><span>Dump debisi (kg/s)</span><input name="dump_mass_flow_kg_s" type="number" value="0" min="0" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Dump bileşeni</span><select name="dump_role"><option value="fuel">Yakıt</option><option value="oxidizer">Oksitleyici</option></select></label>
+                <label><span>Oda basıncı (Pa)</span><input name="chamber_pressure_pa" type="number" value="7000000" min="0" step="any" required /></label>
+              </div>
+            </details>
+            <details open><summary>Tank envanteri</summary>
+              <div class="field-row two-columns">
+                <label><span>Oksitleyici yükü (kg)</span><input name="oxidizer_loaded_mass_kg" type="number" value="760" min="0" step="any" required /></label>
+                <label><span>Oksitleyici rezervi (kg)</span><input name="oxidizer_reserve_mass_kg" type="number" value="20" min="0" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Yakıt yükü (kg)</span><input name="fuel_loaded_mass_kg" type="number" value="240" min="0" step="any" required /></label>
+                <label><span>Yakıt rezervi (kg)</span><input name="fuel_reserve_mass_kg" type="number" value="8" min="0" step="any" required /></label>
+              </div>
+            </details>
+            <button type="submit">Burn çözümünü çalıştır <b aria-hidden="true">→</b></button>
+            <p class="form-note">Sistem Isp toplam tank debisini kapsar. Yerçekimi, sürükleme, yönelim ve yörünge etkileri bu çözümde yoktur.</p>
+            <p class="form-message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="results-panel">
+            <div class="results-lead"><span>İDEAL TEK EKSENLİ Δv</span><strong><span data-key="ideal_delta_v_m_s">—</span> m/s</strong></div>
+            <div class="result-group"><h3>Burn özeti</h3><dl>
+              <div><dt>Süre (s)</dt><dd data-key="duration_s">—</dd></div>
+              <div><dt>Kesim nedeni</dt><dd data-key="cutoff_reason">—</dd></div>
+              <div><dt>Tüketilen itici (kg)</dt><dd data-key="consumed_propellant_kg">—</dd></div>
+              <div><dt>Son kütle (kg)</dt><dd data-key="final_mass_kg">—</dd></div>
+              <div><dt>Toplam impuls (N·s)</dt><dd data-key="delivered_total_impulse_n_s">—</dd></div>
+              <div><dt>Sistem eşdeğer Isp (s)</dt><dd data-key="system_equivalent_specific_impulse_s">—</dd></div>
+              <div><dt>Sadakat</dt><dd data-key="fidelity_level">—</dd></div>
+              <div><dt>Thrust centroid (s)</dt><dd data-key="thrust_centroid_time_s">—</dd></div>
+              <div><dt>Bağlayıcı sınır</dt><dd data-key="binding_constraint">—</dd></div>
+              <div><dt>Kütle kapanış hatası (kg)</dt><dd data-key="mass_closure_error_kg">—</dd></div>
+            </dl></div>
+            <div class="chart-grid compact-charts">
+              <figure class="chart-figure"><figcaption>Burn boyunca araç kütlesi</figcaption><svg class="engineering-chart" id="burn-mass-chart" role="img" aria-label="Burn süresince araç kütlesi"></svg></figure>
+              <figure class="chart-figure"><figcaption>Thrust zaman geçmişi</figcaption><svg class="engineering-chart" id="burn-thrust-chart" role="img" aria-label="Burn süresince teslim edilen itki"></svg></figure>
+            </div>
+            <div class="comparison-table-wrap">
+              <table class="comparison-table"><caption>Tank tüketimi</caption><thead><tr><th>Tank</th><th>Tüketim (kg)</th><th>Kalan (kg)</th></tr></thead><tbody id="burn-tank-body"></tbody></table>
+            </div>
+            <div class="export-actions">
+              <button type="button" id="burn-json" disabled>Burn JSON</button>
+              <button type="button" id="burn-report" disabled>HTML rapor</button>
+            </div>
+            <details class="sidera-export"><summary>Sidera hand-off</summary>
+              <p class="form-note" id="sidera-capability">Sidera yetenekleri kontrol ediliyor…</p>
+              <div class="field-row two-columns">
+                <label><span>Başlangıç zamanı (s)</span><input id="sidera-start" type="number" value="0" step="any" /></label>
+                <label><span>Çerçeve</span><select id="sidera-frame"><option value="inertial">Inertial</option><option value="ric">RIC</option><option value="vnb">VNB</option></select></label>
+              </div>
+              <label><span>Aktarım modu</span><select id="sidera-mode"><option value="exact">Exact · yalnız sabit L0</option><option value="equivalent_constant">Eşdeğer sabit · yaklaşık</option></select></label>
+              <p class="form-note">Yaklaşık aktarım yalnız süre, toplam impuls ve toplam iticiyi korur; kuvvet-zaman geçmişini ve yörünge yanıtını korumaz.</p>
+              <div class="field-row three-columns">
+                <label><span>Yön X</span><input id="sidera-x" type="number" value="1" step="any" /></label>
+                <label><span>Yön Y</span><input id="sidera-y" type="number" value="0" step="any" /></label>
+                <label><span>Yön Z</span><input id="sidera-z" type="number" value="0" step="any" /></label>
+              </div>
+              <button type="button" id="burn-sidera" disabled>Sidera planını indir</button>
+              <p class="form-message" id="sidera-message" role="status" aria-live="polite"></p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="module" id="propellants" data-module="propellants">
+        <div class="module-heading">
+          <div>
+            <span class="module-number">13</span>
+            <p class="eyebrow">PROPELLANT LIBRARY</p>
+            <h2>Yaygın itici aileleri</h2>
+          </div>
+          <p>
+            Sıvı–sıvı, katı ve hibrit sistemleri performans aralığı, depolama,
+            ateşleme, güçlü yönler ve sınırlamalar üzerinden ön elemeden geçir.
+          </p>
+        </div>
+        <form class="catalog-controls" id="propellant-form">
+          <label><span>Sistem türü</span><select name="category"><option value="all">Tüm aileler</option><option value="liquid">Sıvı–sıvı</option><option value="solid">Katı</option><option value="hybrid">Hibrit</option></select></label>
+          <button type="submit">Kataloğu filtrele <b aria-hidden="true">→</b></button>
+          <p class="form-message" role="status" aria-live="polite"></p>
+        </form>
+        <div class="catalog-grid" id="propellant-grid" aria-live="polite"></div>
+        <p class="catalog-disclaimer">
+          Gösterilen değerler ön tasarım aralıklarıdır; gerçek performans oda basıncı,
+          karışım oranı, genleşme ve donanım kayıplarına bağlıdır. Bu katalog üretim
+          veya tehlikeli madde kullanım talimatı içermez.
+        </p>
+      </section>
+
+      <section class="module" id="studies" data-module="studies">
+        <div class="module-heading">
+          <div>
+            <span class="module-number">14</span>
+            <p class="eyebrow">SYSTEM STUDIES</p>
+            <h2>Çalışma alanı & sistem analizi</h2>
+          </div>
+          <p>
+            Kademe dağılımını ve motor çevrimini çöz; sabit tohumlu belirsizlik
+            çalıştır; vakaları sürümlü <code>.rplab.json</code> dosyasında taşı.
+          </p>
+        </div>
+        <div class="stacked-workbenches">
+          <div class="workbench compact" data-module="staging">
+            <form class="control-panel" id="staging-form">
+              <div class="field-row two-columns">
+                <label><span>Hedef Δv (m/s)</span><input name="target_delta_v_m_s" type="number" value="9400" step="any" required /></label>
+                <label><span>Faydalı yük (kg)</span><input name="payload_mass_kg" type="number" value="1000" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>1. kademe Isp (s)</span><input name="stage1_specific_impulse_s" type="number" value="300" step="any" required /></label>
+                <label><span>1. kademe yapısal oran</span><input name="stage1_structural_fraction" type="number" value="0.1" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>2. kademe Isp (s)</span><input name="stage2_specific_impulse_s" type="number" value="450" step="any" required /></label>
+                <label><span>2. kademe yapısal oran</span><input name="stage2_structural_fraction" type="number" value="0.08" step="any" required /></label>
+              </div>
+              <input name="resolution" type="hidden" value="240" />
+              <button type="submit">Kademeleri optimize et <b aria-hidden="true">→</b></button>
+              <p class="form-note">Ayrık çözüm, iki kat ağ inceltmesiyle başlangıç kütlesi yakınsamasını raporlar.</p>
+              <p class="form-message" role="status" aria-live="polite"></p>
+            </form>
+            <div class="results-panel">
+              <div class="result-cards">
+                <article><span>Başlangıç kütlesi</span><strong data-key="initial_mass_kg">—</strong><small>kg</small></article>
+                <article><span>Faydalı yük oranı</span><strong data-key="payload_fraction">—</strong><small>—</small></article>
+                <article><span>Ulaşılan Δv</span><strong data-key="achieved_delta_v_m_s">—</strong><small>m/s</small></article>
+                <article><span>Ağ farkı</span><strong data-key="convergence_delta_initial_mass_relative">—</strong><small>bağıl</small></article>
+              </div>
+              <div class="chart-grid compact-charts"><figure class="chart-figure chart-span-two"><figcaption>Kademe Δv dağılımı</figcaption><svg class="engineering-chart" id="staging-chart" role="img" aria-label="Kademelere göre delta v dağılımı"></svg></figure></div>
+            </div>
+          </div>
+
+          <div class="workbench compact" data-module="engine-cycle">
+            <form class="control-panel" id="engine-cycle-form">
+              <label><span>Çevrim</span><select name="cycle"><option value="pressure-fed">Basınç beslemeli</option><option value="gas-generator" selected>Gas-generator</option><option value="staged-combustion">Staged combustion</option></select></label>
+              <div class="field-row two-columns">
+                <label><span>Oda basıncı (Pa)</span><input name="chamber_pressure_pa" type="number" value="10000000" step="any" required /></label>
+                <label><span>Oda debisi (kg/s)</span><input name="chamber_mass_flow_kg_s" type="number" value="100" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Eşdeğer yoğunluk (kg/m³)</span><input name="propellant_density_kg_m3" type="number" value="1000" step="any" required /></label>
+                <label><span>Pompa giriş basıncı (Pa)</span><input name="inlet_pressure_pa" type="number" value="300000" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Enjektör Δp / Pc</span><input name="injector_pressure_drop_fraction" type="number" value="0.2" step="any" required /></label>
+                <label><span>Pompa verimi</span><input name="pump_efficiency" type="number" value="0.7" step="any" required /></label>
+              </div>
+              <details><summary>Türbin termodinamiği</summary>
+                <div class="field-row two-columns">
+                  <label><span>Türbin verimi</span><input name="turbine_efficiency" type="number" value="0.6" step="any" required /></label>
+                  <label><span>Türbin giriş T (K)</span><input name="turbine_inlet_temperature_k" type="number" value="900" step="any" required /></label>
+                </div>
+                <div class="field-row two-columns">
+                  <label><span>Türbin cp (J/kg·K)</span><input name="turbine_specific_heat_j_kg_k" type="number" value="2500" step="any" required /></label>
+                  <label><span>Türbin γ</span><input name="turbine_gamma" type="number" value="1.25" step="any" required /></label>
+                </div>
+                <label><span>Türbin basınç oranı</span><input name="turbine_pressure_ratio" type="number" value="8" step="any" required /></label>
+              </details>
+              <button type="submit">Çevrim dengesini çöz <b aria-hidden="true">→</b></button>
+              <p class="form-message" role="status" aria-live="polite"></p>
+            </form>
+            <div class="results-panel result-cards">
+              <article><span>Pompa gücü</span><strong data-key="pump_power_w">—</strong><small>W</small></article>
+              <article><span>Türbin gücü</span><strong data-key="turbine_power_w">—</strong><small>W</small></article>
+              <article><span>Türbin debi oranı</span><strong data-key="turbine_flow_fraction">—</strong><small>—</small></article>
+              <article><span>Güç artığı</span><strong data-key="power_balance_residual_w">—</strong><small>W</small></article>
+            </div>
+          </div>
+
+          <div class="workbench compact" data-module="uncertainty">
+            <form class="control-panel" id="uncertainty-form">
+              <label><span>Örnekleme</span><select name="method"><option value="latin-hypercube">Latin hypercube</option><option value="monte-carlo">Monte Carlo</option></select></label>
+              <div class="field-row two-columns">
+                <label><span>Isp alt (s)</span><input name="minimum_specific_impulse_s" type="number" value="430" step="any" required /></label>
+                <label><span>Isp üst (s)</span><input name="maximum_specific_impulse_s" type="number" value="460" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Kütle oranı alt</span><input name="minimum_mass_ratio" type="number" value="3" step="any" required /></label>
+                <label><span>Kütle oranı üst</span><input name="maximum_mass_ratio" type="number" value="4" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Örnek sayısı</span><input name="sample_count" type="number" value="200" min="2" max="100000" step="1" required /></label>
+                <label><span>Tohum</span><input name="seed" type="number" value="42" step="1" required /></label>
+              </div>
+              <button type="submit">Belirsizliği yay <b aria-hidden="true">→</b></button>
+              <p class="form-message" role="status" aria-live="polite"></p>
+            </form>
+            <div class="results-panel">
+              <div class="result-group"><dl>
+                <div><dt>Ortalama Δv (m/s)</dt><dd data-key="output_mean">—</dd></div>
+                <div><dt>Standart sapma (m/s)</dt><dd data-key="output_standard_deviation">—</dd></div>
+                <div><dt>P05 (m/s)</dt><dd id="uncertainty-p05">—</dd></div>
+                <div><dt>P95 (m/s)</dt><dd id="uncertainty-p95">—</dd></div>
+              </dl></div>
+              <div class="chart-grid compact-charts"><figure class="chart-figure chart-span-two"><figcaption>Örneklenen Δv</figcaption><svg class="engineering-chart" id="uncertainty-chart" role="img" aria-label="Belirsizlik örneklerine göre delta v"></svg></figure></div>
+            </div>
+          </div>
+
+          <div class="workspace-panel">
+            <div><p class="eyebrow">VERSIONED WORKSPACE</p><h3>.rplab.json</h3><p>Son sistem analizlerini vaka olarak paketle; JSON veya yazdırılabilir HTML raporu indir.</p></div>
+            <div class="workspace-actions">
+              <button type="button" id="workspace-save">Çalışmayı indir</button>
+              <button type="button" id="workspace-report">HTML raporu indir</button>
+              <label class="file-action">Çalışma aç<input type="file" id="workspace-open" accept=".json,.rplab.json,application/json" /></label>
+              <button type="button" id="workspace-duplicate">İlk vakayı çoğalt</button>
+            </div>
+            <p class="form-message" id="workspace-message" role="status" aria-live="polite">Henüz çalışma oluşturulmadı.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="coming-next" aria-labelledby="next-title">
+        <div><p class="eyebrow">NEXT ITERATION</p><h2 id="next-title">Sıradaki hesap katmanları</h2></div>
+        <ul>
+          <li><span>14</span> CEA harici doğrulama matrisi</li>
+          <li><span>15</span> Değişken özellikli tasarım dışı nozül</li>
+          <li><span>16</span> Erişilebilirlik ve küçük ekran denetimi</li>
+          <li><span>17</span> Windows kararlı paket</li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>
+      <span>Rocket Propulsion Lab</span>
+      <span>SI units · Perfect-gas foundation · Local-first</span>
+    </footer>
+  </body>
+</html>
+

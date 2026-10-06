@@ -1,0 +1,79 @@
+{
+  "definition": {
+    "name": "Monopropellant ramp-steady-ramp demonstration",
+    "initial_mass_kg": 100.0,
+    "protected_dry_mass_kg": 80.0,
+    "maximum_duration_s": 20.0,
+    "cant_efficiency": 1.0,
+    "target": {
+      "kind": "duration",
+      "value": 7.0
+    },
+    "tanks": [
+      {
+        "tank_id": "propellant",
+        "propellant_key": "hydrazine",
+        "role": "monopropellant",
+        "loaded_mass_kg": 20.0,
+        "reserve_mass_kg": 0.0
+      }
+    ]
+  },
+  "operating_point": {
+    "name": "980.665 N rated vacuum point",
+    "commanded_throttle": 1.0,
+    "realized_throttle": 1.0,
+    "active_engine_count": 1,
+    "ideal_thrust_n": 1000.0,
+    "delivered_thrust_n": 980.665,
+    "chamber_specific_impulse_s": 100.0,
+    "system_specific_impulse_s": 100.0,
+    "chamber_mass_flow_kg_s": 1.0,
+    "total_tank_flow_kg_s": 1.0,
+    "oxidizer_mass_flow_kg_s": 0.0,
+    "fuel_mass_flow_kg_s": 0.0,
+    "mixture_ratio": null,
+    "chamber_pressure_pa": 1000000.0,
+    "ambient_pressure_pa": 0.0,
+    "model_id": "example_profiled_v1",
+    "source": "analytic example",
+    "warnings": [
+      "Preliminary proportional-throttle demonstration only."
+    ],
+    "streams": [
+      {
+        "stream_id": "main",
+        "tank_id": "propellant",
+        "propellant_key": "hydrazine",
+        "role": "monopropellant",
+        "destination": "chamber",
+        "mass_flow_kg_s": 1.0,
+        "tank_depleting": true,
+        "contributes_to_delivered_thrust": true
+      }
+    ]
+  },
+  "schedule": {
+    "name": "two-second ramps",
+    "segments": [
+      {
+        "duration_s": 2.0,
+        "start_throttle": 0.0,
+        "end_throttle": 1.0,
+        "phase": "ramp-up"
+      },
+      {
+        "duration_s": 3.0,
+        "start_throttle": 1.0,
+        "end_throttle": 1.0,
+        "phase": "steady"
+      },
+      {
+        "duration_s": 2.0,
+        "start_throttle": 1.0,
+        "end_throttle": 0.0,
+        "phase": "ramp-down"
+      }
+    ]
+  }
+}
