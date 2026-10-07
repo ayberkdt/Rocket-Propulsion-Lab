@@ -31,6 +31,9 @@
 - `TRAJECTORY_OPTIMIZATION.md` covers the throttle-commanded engine, smooth
   monotone throttle curves, impulsive equivalents of finite burns and the
   verified variational-equation recipe with saltation at burn events.
+- `LUNARIS_INTEGRATION.md` connects timelines to the Lunaris lunar-orbit
+  propagator: exact-mass impulsive equivalents, finite burns inside Lunaris,
+  segmentation markers and the end-to-end verification.
 - `PROPULSION_TIMELINE.md` defines multi-burn schedules, jettison events,
   concurrent-burn summation and verified timeline documents.
 - `ELECTRIC_PROPULSION.md` defines the power-limited electric thruster model:

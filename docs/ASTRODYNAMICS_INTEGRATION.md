@@ -26,6 +26,7 @@ astrodynamics package. All quantities are SI.
 | Several burns, coasts and stage/fairing jettison on one clock | `timeline.py` | `PropulsionTimeline` | [Timeline](PROPULSION_TIMELINE.md) |
 | Throttle as an optimization control, smooth Isp(u) | `throttleable.py` | `ThrottleableEngineModel`, `MonotoneCubicCurve` | [Optimization](TRAJECTORY_OPTIMIZATION.md) |
 | Impulsive equivalent (Δv, t*) of a finite burn | `burn_metrics.py` | `free_space_burn_metrics` | [Optimization](TRAJECTORY_OPTIMIZATION.md#3-impulsive-equivalent-of-a-finite-burn) |
+| Lunar orbit propagation in Lunaris (impulsive or finite burns) | `integrations/lunaris.py` | `lunaris_impulsive_equivalents`, `LunarisFiniteBurnDynamics` | [Lunaris](LUNARIS_INTEGRATION.md) |
 | Saltation for sensitivities at burn events | `propagator.py` | `time_event_jump` | [Optimization](TRAJECTORY_OPTIMIZATION.md#4-variational-equations-across-burn-discontinuities) |
 | Monte Carlo realizations with probabilities | `ensemble.py`, `scenarios.py` | hierarchical ensemble | [Ensemble](HIERARCHICAL_PROPULSION_ENSEMBLE.md) |
 
@@ -135,7 +136,9 @@ change can never pass silently into an orbit product.
 
 ## 7. Robustness guarantees
 
-- **Fail-closed inputs:** every public boundary of these modules validates its
+- **Fail-closed inputs:** every public boundary of these modules, including
+  the regulated feed system, dynamic feed line, Sidera and Lunaris adapters,
+  validates its
   inputs through `core/validation.py`. `None`, text, `bool`, containers, NaN
   and infinity raise `DomainError` or `InputError` naming the field, never a
   bare `TypeError`. A seeded fuzz test (`tests/test_burn_input_robustness.py`)
@@ -166,7 +169,7 @@ change can never pass silently into an orbit product.
   to the consumer; `vehicle_geometry.py` provides the forces, torques and mass
   properties those models need.
 - Performance maps interpolate supplied evidence; no thruster or engine data
-  are bundled.
+  are bundled. Choose `interpolation="cubic_hermite"` for C¹ maps.
 - Ambient pressure enters as `p_a A_e` with a fixed exit area; nozzle flow
   separation at high back-pressure is not modelled in the bridge (see the
   off-design nozzle screen in `compressible/off_design_nozzle.py`).

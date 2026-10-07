@@ -243,6 +243,22 @@
   `strings`, `name_value_pairs`, `real_matrix`) and the content hash into
   `serialization.canonical_sha256`; hash values are unchanged.
 
+### Lunaris adapter, C1 surfaces, balanced allocation, wider validation
+
+- Added `integrations/lunaris.py`: `lunaris_impulsive_equivalents`,
+  `to_lunaris_maneuver_plan`, `lunaris_segmentation_plan`/`_times`,
+  `LunarisFiniteBurnDynamics`, `velocity_direction`. Verified end-to-end with
+  the real Lunaris propagator (test skipped when Lunaris is absent).
+- `RectilinearPerformanceSurface(interpolation="cubic_hermite")`: C1
+  tensor-product cubic Hermite with PCHIP nodal derivatives and analytic
+  gradients; multilinear hashes unchanged.
+- `ThrusterLayout.allocate(balance_weight=...)`: exact minimum-effort
+  allocation; KKT optimality certified in tests.
+- `core.validation.coerce_fields`; regulated feed system, dynamic feed line
+  and Sidera adapters now fail closed (a fuzzer found 273 bare errors in the
+  feed models; none remain).
+- Shared `interpolation.pchip_slopes`.
+
 ## 0.9.0 — engineering preview
 
 - Added variable-property thermochemistry, external CEA adaptation, and an

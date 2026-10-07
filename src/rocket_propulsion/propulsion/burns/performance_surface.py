@@ -13,16 +13,18 @@ import json
 from bisect import bisect_left, bisect_right
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from itertools import product
+from itertools import combinations, product
 from math import isfinite, prod
 from types import MappingProxyType
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import json_text, real, real_tuple, records, strings, text
 
+from .interpolation import pchip_slopes
 from .serialization import canonical_sha256
 
 PERFORMANCE_SURFACE_SCHEMA = "rocket_propulsion_performance_surface_v1"
+INTERPOLATION_MODES = ("multilinear", "cubic_hermite")
 PERFORMANCE_SURFACE_REFERENCE_IDS = (
     "NASA-20000031654",
     "NASA-STD-7009B",
@@ -259,7 +261,11 @@ class RectilinearPerformanceSurface:
     source_sha256: str
     reference_ids: tuple[str, ...] = PERFORMANCE_SURFACE_REFERENCE_IDS
     schema: str = PERFORMANCE_SURFACE_SCHEMA
+    interpolation: str = "multilinear"
     _point_index: Mapping[tuple[float, ...], PerformanceScalePoint] = field(
+        init=False, repr=False, compare=False
+    )
+    _hermite: Mapping[tuple[int, ...], Mapping[tuple[int, ...], tuple[float, float]]] = field(
         init=False, repr=False, compare=False
     )
 
@@ -308,12 +314,62 @@ class RectilinearPerformanceSurface:
                 "Performance surface must contain the complete Cartesian grid "
                 f"(missing={missing}, extra={extra})."
             )
+        if self.interpolation not in INTERPOLATION_MODES:
+            raise DomainError(f"Surface interpolation must be one of {INTERPOLATION_MODES}.")
         # Built once: evaluation is called at every propagator stage.
         object.__setattr__(
             self,
             "_point_index",
             MappingProxyType({point.coordinates: point for point in self.points}),
         )
+        object.__setattr__(
+            self,
+            "_hermite",
+            self._hermite_derivatives() if self.interpolation == "cubic_hermite" else {},
+        )
+
+    def _hermite_derivatives(
+        self,
+    ) -> Mapping[tuple[int, ...], Mapping[tuple[int, ...], tuple[float, float]]]:
+        """Nodal values and mixed partials for tensor-product cubic Hermite.
+
+        ``D[S]`` is the mixed partial over the axes in ``S`` (a sorted tuple).
+        It is built by applying the PCHIP slope operator along the largest
+        axis of ``S`` to ``D[S minus that axis]``, one grid line at a time.
+        """
+
+        dimension = len(self.axes)
+        shape = [len(axis.values) for axis in self.axes]
+        base: dict[tuple[int, ...], tuple[float, float]] = {}
+        for index in product(*(range(size) for size in shape)):
+            coordinate = tuple(self.axes[a].values[i] for a, i in enumerate(index))
+            point = self._point_index[coordinate]
+            base[index] = (point.force_scale, point.mass_flow_scale)
+        derivatives: dict[tuple[int, ...], Mapping[tuple[int, ...], tuple[float, float]]] = {
+            (): MappingProxyType(base)
+        }
+        subsets = sorted(
+            (subset for size in range(1, dimension + 1) for subset in combinations(range(dimension), size)),
+            key=len,
+        )
+        for subset in subsets:
+            axis_index = subset[-1]
+            source = derivatives[subset[:-1]]
+            values = self.axes[axis_index].values
+            result: dict[tuple[int, ...], tuple[float, float]] = {}
+            others = [range(size) for a, size in enumerate(shape) if a != axis_index]
+            for fixed in product(*others):
+                line = []
+                for i in range(shape[axis_index]):
+                    index = list(fixed)
+                    index.insert(axis_index, i)
+                    line.append(tuple(index))
+                force = pchip_slopes(values, tuple(source[item][0] for item in line))
+                flow = pchip_slopes(values, tuple(source[item][1] for item in line))
+                for position, item in enumerate(line):
+                    result[item] = (force[position], flow[position])
+            derivatives[subset] = MappingProxyType(result)
+        return MappingProxyType(derivatives)
 
     @property
     def surface_hash(self) -> str:
@@ -353,6 +409,9 @@ class RectilinearPerformanceSurface:
             ],
             "reference_ids": list(self.reference_ids),
         }
+        if self.interpolation != "multilinear":
+            # Present only when used, so multilinear surface identities are unchanged.
+            payload["interpolation"] = self.interpolation
         if include_hash:
             payload["surface_hash"] = canonical_sha256(payload)
         return payload
@@ -396,6 +455,7 @@ class RectilinearPerformanceSurface:
                 source_id=payload["source_id"],
                 source_sha256=payload["source_sha256"],
                 reference_ids=payload["reference_ids"],
+                interpolation=payload.get("interpolation", "multilinear"),
                 axes=tuple(
                     PerformanceAxis(
                         name=item["name"],
@@ -472,7 +532,8 @@ class RectilinearPerformanceSurface:
         """Return one non-stopping kink event per interior axis coordinate.
 
         Domain endpoints are excluded; they are covered by the stopping
-        :meth:`validity_surfaces`.
+        :meth:`validity_surfaces`.  A ``cubic_hermite`` surface is C1, so it
+        has no derivative kinks and returns no surfaces.
 
         References
         ----------
@@ -480,6 +541,8 @@ class RectilinearPerformanceSurface:
         https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetectorsProvider.html
         """
 
+        if self.interpolation == "cubic_hermite":
+            return ()
         return tuple(
             PerformanceGridLineSurface(
                 f"performance:{axis.name}:grid:{index}",
@@ -541,6 +604,19 @@ class RectilinearPerformanceSurface:
             fraction = (value - axis.values[lower]) / width
             brackets.append((lower, upper, fraction, width))
 
+        if self.interpolation == "cubic_hermite":
+            force_scale, flow_scale, force_gradient, flow_gradient = self._evaluate_hermite(
+                brackets
+            )
+            if force_scale <= 0.0 or flow_scale <= 0.0:
+                raise DomainError(
+                    "Cubic surface produced a non-positive scale inside the grid; "
+                    "use multilinear interpolation for these data."
+                )
+            return self._evaluation(
+                normalized, brackets, boundary_axes,
+                force_scale, flow_scale, force_gradient, flow_gradient,
+            )
         point_by_coordinate = self._point_index
         force_scale = 0.0
         flow_scale = 0.0
@@ -571,6 +647,62 @@ class RectilinearPerformanceSurface:
                 force_gradient[derivative_axis] += derivative_weight * point.force_scale
                 flow_gradient[derivative_axis] += derivative_weight * point.mass_flow_scale
 
+        return self._evaluation(
+            normalized, brackets, boundary_axes,
+            force_scale, flow_scale, force_gradient, flow_gradient,
+        )
+
+    def _evaluate_hermite(
+        self, brackets: list[tuple[int, int, float, float]]
+    ) -> tuple[float, float, list[float], list[float]]:
+        dimension = len(self.axes)
+        force = 0.0
+        flow = 0.0
+        force_gradient = [0.0] * dimension
+        flow_gradient = [0.0] * dimension
+        basis_cache = []
+        for _, _, t, width in brackets:
+            t2, t3 = t * t, t * t * t
+            # (value basis, its d/dx) for [corner 0 value, corner 1 value,
+            # corner 0 slope, corner 1 slope]
+            basis_cache.append(
+                (
+                    (2 * t3 - 3 * t2 + 1, (6 * t2 - 6 * t) / width),
+                    (-2 * t3 + 3 * t2, (-6 * t2 + 6 * t) / width),
+                    ((t3 - 2 * t2 + t) * width, 3 * t2 - 4 * t + 1),
+                    ((t3 - t2) * width, 3 * t2 - 2 * t),
+                )
+            )
+        for subset, table in self._hermite.items():
+            members = set(subset)
+            for corner in product((0, 1), repeat=dimension):
+                index = tuple(brackets[a][corner[a]] for a in range(dimension))
+                d_force, d_flow = table[index]
+                values = []
+                slopes = []
+                for a in range(dimension):
+                    value, slope = basis_cache[a][corner[a] + (2 if a in members else 0)]
+                    values.append(value)
+                    slopes.append(slope)
+                weight = prod(values)
+                force += weight * d_force
+                flow += weight * d_flow
+                for j in range(dimension):
+                    partial = slopes[j] * prod(values[a] for a in range(dimension) if a != j)
+                    force_gradient[j] += partial * d_force
+                    flow_gradient[j] += partial * d_flow
+        return force, flow, force_gradient, flow_gradient
+
+    def _evaluation(
+        self,
+        normalized: dict[str, float],
+        brackets: list[tuple[int, int, float, float]],
+        boundary_axes: list[str],
+        force_scale: float,
+        flow_scale: float,
+        force_gradient: list[float],
+        flow_gradient: list[float],
+    ) -> PerformanceSurfaceEvaluation:
         return PerformanceSurfaceEvaluation(
             conditions=tuple((axis.name, normalized[axis.name]) for axis in self.axes),
             force_scale=force_scale,

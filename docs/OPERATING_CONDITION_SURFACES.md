@@ -69,6 +69,26 @@ gradient-based optimizer see an unannounced Jacobian discontinuity. Exactly on
 an interior coordinate the evaluation returns the upper cell's gradient (the
 right-hand limit along that axis).
 
+### Smooth (C¹) option
+
+`RectilinearPerformanceSurface(..., interpolation="cubic_hermite")` uses
+tensor-product cubic Hermite interpolation instead. Nodal first derivatives
+come from the shape-preserving PCHIP slope operator along each axis. Mixed
+derivatives come from applying the same operator to those slopes. Adjacent
+cells share nodal values and derivatives, so the surface and its gradient are
+continuous everywhere (C¹):
+
+- bilinear (and, per cell, multilinear) data are reproduced exactly;
+- along every grid line the interpolant is monotone where the data are;
+- between grid lines monotonicity is not guaranteed, and a non-positive
+  interpolated scale fails closed;
+- no extrapolation;
+- `grid_line_surfaces()` returns nothing, since there are no gradient kinks.
+
+The cost is \(4^N\) terms per evaluation (16 in 2-D, 64 in 3-D). The
+interpolation mode is part of the hashed content only when it is not the
+default, so existing multilinear surface hashes are unchanged.
+
 Evaluation cost does not depend on the grid size: the node index is built once
 at construction and the bracketing cell is found by bisection, so one query
 costs \(O(2^N + \sum_j \log n_j)\).

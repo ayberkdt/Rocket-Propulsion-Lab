@@ -1,0 +1,96 @@
+# Lunaris integration
+
+[Lunaris](https://github.com/ayberkdt/lunaris) is a lunar-orbit propagation
+framework. It propagates a 6- or 7-element state (mass at `y[6]`) and supports
+impulsive maneuvers: `ImpulsiveManeuver(t_burn_s, dv_mps, frame, isp_s)` in a
+strictly time-ordered `ManeuverPlan`, with frames `inertial` and `ric` and the
+ideal-rocket mass update \(m\,e^{-|\Delta v|/(g_0 I_{sp})}\). It accepts any
+dynamics object that provides `build_rhs()`.
+
+`rocket_propulsion.integrations.lunaris` connects Rocket Propulsion Lab
+timelines to Lunaris **without modifying Lunaris**. Lunaris is an optional
+import; without it, the impulsive equivalents are still produced as data. The
+adapter was written against Lunaris `0.1.0rc3.dev0` (`lunaris.core.propagation`).
+
+## Path 1 — exact-mass impulsive equivalents
+
+```python
+from rocket_propulsion.integrations import (
+    lunaris_impulsive_equivalents, to_lunaris_maneuver_plan,
+)
+
+impulses = lunaris_impulsive_equivalents(
+    timeline,
+    initial_mass_kg=1000.0,
+    directions={"lower": ((0.0, -1.0, 0.0), "ric"), "raise": ((0.0, 1.0, 0.0), "ric")},
+)
+plan = to_lunaris_maneuver_plan(impulses)   # lunaris ManeuverPlan
+```
+
+For each burn, taken in time order and starting from the previous burn's final
+mass:
+
+- \(\Delta v\) is the burn's free-space velocity change (Gauss–Legendre, with
+  an error estimate);
+- the impulse is placed at the acceleration-weighted centroid \(t^\ast\);
+- \(I_{sp}=c_\mathrm{eff}/g_0\) with \(c_\mathrm{eff}=\Delta v/\ln(m_0/m_f)\).
+  Lunaris' mass law then reproduces the finite burn's final mass **exactly**
+  (both sides use \(g_0 = 9.80665\) m/s²).
+
+What is approximated: the burn's time distribution, i.e. the finite-duration /
+gravity loss. Each `LunarisImpulsiveEquivalent` reports
+`finite_burn_duration_s`, so the size of that approximation is visible.
+
+## Path 2 — finite burns inside Lunaris
+
+```python
+from rocket_propulsion.integrations import (
+    LunarisFiniteBurnDynamics, lunaris_segmentation_plan, velocity_direction,
+)
+
+dynamics = LunarisFiniteBurnDynamics(lunaris_dynamics, timeline, velocity_direction)
+result = lunaris.core.propagation.propagate(
+    dynamics, y0_with_mass, cfg, time_cfg=time_cfg,
+    maneuver_plan=lunaris_segmentation_plan(timeline),
+)
+```
+
+- The wrapper adds the timeline's thrust acceleration and mass rate to the
+  wrapped right-hand side. It overrides both `build_rhs` and Lunaris' trusted
+  `_build_solver_rhs`; without the latter, Lunaris would bypass the
+  propulsion. All other attributes (`grav`, `flags`, …) are delegated.
+- `lunaris_segmentation_plan` places zero-Δv impulses (no `isp_s`, so no mass
+  change) at every burn discontinuity. Lunaris restarts integration at
+  maneuver times, so each segment is smooth.
+- Each segment builds a fresh right-hand side. Its first evaluation takes the
+  right-hand limit at a discontinuity; later evaluations on a boundary take
+  the left-hand limit.
+- `direction_law(burn_id, t, y)` returns the inertial thrust direction
+  (`velocity_direction` = prograde).
+
+Fail-closed rules: Lunaris carries no tank states, so bridges must be
+mass-only (no stream bindings or reserve constraints; `protected_dry_mass_kg`
+still works). Performance surfaces, ambient pressure and jettison events have
+no Lunaris counterpart and are refused, and 6-element states are rejected
+while a burn is evaluated.
+
+## Verification
+
+`tests/test_lunaris_integration.py`:
+
+- impulsive equivalents reproduce the finite burn's \(\Delta v\) and, through
+  Lunaris' mass law, its final mass to 1e-14 relative;
+- the finite-burn wrapper, integrated with Lunaris-style segmentation in free
+  space, reproduces the rocket equation to 1e-10;
+- **end-to-end with the real Lunaris propagator** (skipped when Lunaris is not
+  installed): a two-burn sequence around a point-mass Moon, propagated once as
+  finite burns and once as impulses. The two paths agree on final mass, and
+  their semi-major-axis changes agree within 0.1 % of the change.
+
+## Not covered
+
+- Lunaris' GPU / batch backends (the wrapper targets the CPU `propagate`).
+- Tank-level inventory inside Lunaris (use the propagator bridge directly in a
+  propagator that carries extra states).
+- Burn targeting: computing impulses or finite burns that reach a target orbit
+  is the mission layer's job.

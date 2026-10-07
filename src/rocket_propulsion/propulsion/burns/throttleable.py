@@ -38,6 +38,7 @@ from rocket_propulsion.core.validation import (
 )
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
+from .interpolation import pchip_slopes
 from .propagator import (
     AdditionalStateConstraint,
     BurnEventKind,
@@ -55,35 +56,6 @@ _THROTTLE_TOLERANCE = 1e-12
 
 
 
-def _pchip_slopes(x: tuple[float, ...], y: tuple[float, ...]) -> tuple[float, ...]:
-    """Fritsch-Carlson / Fritsch-Butland monotone slopes (as in Moler's pchip)."""
-
-    count = len(x)
-    widths = [b - a for a, b in pairwise(x)]
-    secants = [(y[i + 1] - y[i]) / widths[i] for i in range(count - 1)]
-    if count == 2:
-        return (secants[0], secants[0])
-    slopes = [0.0] * count
-    for i in range(1, count - 1):
-        left, right = secants[i - 1], secants[i]
-        if left * right <= 0.0:
-            slopes[i] = 0.0
-        else:
-            w1 = 2.0 * widths[i] + widths[i - 1]
-            w2 = widths[i] + 2.0 * widths[i - 1]
-            slopes[i] = (w1 + w2) / (w1 / left + w2 / right)
-
-    def end_slope(h0: float, h1: float, d0: float, d1: float) -> float:
-        slope = ((2.0 * h0 + h1) * d0 - h0 * d1) / (h0 + h1)
-        if slope * d0 <= 0.0:
-            return 0.0
-        if d0 * d1 <= 0.0 and abs(slope) > abs(3.0 * d0):
-            return 3.0 * d0
-        return slope
-
-    slopes[0] = end_slope(widths[0], widths[1], secants[0], secants[1])
-    slopes[-1] = end_slope(widths[-1], widths[-2], secants[-1], secants[-2])
-    return tuple(slopes)
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,7 +85,7 @@ class MonotoneCubicCurve:
             raise DomainError("A curve needs at least two nodes and matching x/y lengths.")
         if any(b <= a for a, b in pairwise(self.x)):
             raise DomainError("Curve abscissae must be strictly increasing.")
-        object.__setattr__(self, "_slopes", _pchip_slopes(self.x, self.y))
+        object.__setattr__(self, "_slopes", pchip_slopes(self.x, self.y))
 
     def evaluate(self, value: float) -> tuple[float, float]:
         """Return ``(y(value), dy/dvalue)``; values outside the nodes are refused."""

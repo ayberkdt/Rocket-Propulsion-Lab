@@ -382,6 +382,7 @@ class ThrusterLayout:
         torque_length_scale_m: float = 1.0,
         maximum_thrust_n: float | Mapping[str, float] | None = None,
         tolerance: float = 1e-9,
+        balance_weight: float = 0.0,
     ) -> ThrustAllocation:
         """Find non-negative thrusts minimizing the force/torque mismatch.
 
@@ -390,8 +391,12 @@ class ThrusterLayout:
         upper bounds), where ``A`` is :meth:`influence_matrix` and ``W``
         divides torque rows by ``torque_length_scale_m`` so newtons and
         newton-metres are weighed consistently.  If several allocations meet
-        the demand exactly, one of them is returned; no thrust-balancing
-        preference is applied.
+        the demand exactly and ``balance_weight`` is zero, one of them is
+        returned.  A positive ``balance_weight`` (lambda, dimensionless:
+        weighted residual per newton of thrust) solves the strictly convex
+        problem ``min ||W (A T - b)||^2 + lambda^2 ||T||^2`` instead: the
+        unique minimum-effort allocation, at the cost of a residual of order
+        ``lambda^2``.
 
         References
         ----------
@@ -422,11 +427,18 @@ class ThrusterLayout:
             raise DomainError("Maximum thrust must be greater than zero.")
         matrix = self.influence_matrix(center_of_mass_m)
         weights = (1.0, 1.0, 1.0, 1.0 / length, 1.0 / length, 1.0 / length)
+        balance = real(balance_weight, "Balance weight")
+        if balance < 0.0:
+            raise DomainError("Balance weight must be non-negative.")
+        count = len(self.mounts)
         columns = [
             [weights[row] * matrix[row][column] for row in range(6)]
-            for column in range(len(self.mounts))
+            + ([balance if other == column else 0.0 for other in range(count)] if balance else [])
+            for column in range(count)
         ]
         target = [weights[row] * value for row, value in enumerate((*desired_force, *desired_torque))]
+        if balance:
+            target += [0.0] * count
         demand_scale = max(1.0, sqrt(sum(value * value for value in target)))
         thrusts, iterations = _bvls(
             columns,

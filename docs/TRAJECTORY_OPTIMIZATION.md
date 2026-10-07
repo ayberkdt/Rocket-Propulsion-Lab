@@ -50,10 +50,11 @@ The tests check node reproduction, exact reproduction of linear data,
 monotonicity on random monotone data (2 000 samples per curve), slope
 continuity at every knot, and the derivative against finite differences.
 
-The N-D `RectilinearPerformanceSurface` remains multilinear (C⁰) and exposes
-its kinks as restart roots (`grid_line_surfaces`). For a 1-D throttle
-dependence, the smooth curve above is the better choice when gradients are
-used.
+The N-D `RectilinearPerformanceSurface` is multilinear (C⁰, with its kinks
+exposed as restart roots) by default. With `interpolation="cubic_hermite"` it
+becomes C¹ with the same PCHIP nodal derivatives (see
+[`OPERATING_CONDITION_SURFACES.md`](OPERATING_CONDITION_SURFACES.md)), which
+is the choice for gradient-based optimization over operating conditions.
 
 ## 3. Impulsive equivalent of a finite burn
 

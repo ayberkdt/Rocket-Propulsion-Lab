@@ -305,6 +305,77 @@ class ThrustAllocationTests(unittest.TestCase):
         self.assertLess(torque_norm(torque_first), torque_norm(force_first))
 
 
+class BalancedAllocationTests(unittest.TestCase):
+    def aft_four(self) -> ThrusterLayout:
+        return ThrusterLayout(
+            tuple(
+                ThrusterMount(name, position, (0.0, 0.0, 1.0))
+                for name, position in (
+                    ("T1", (0.4, 0.0, -1.2)),
+                    ("T2", (-0.4, 0.0, -1.2)),
+                    ("T3", (0.0, 0.4, -1.2)),
+                    ("T4", (0.0, -0.4, -1.2)),
+                )
+            )
+        )
+
+    def test_balance_weight_gives_the_closed_form_symmetric_split(self) -> None:
+        layout = self.aft_four()
+        for weight in (1e-3, 0.1, 0.5):
+            result = layout.allocate(force_n=(0.0, 0.0, 60.0), torque_n_m=(0.0, 0.0, 0.0),
+                                     center_of_mass_m=(0.0, 0.0, 0.0), balance_weight=weight)
+            expected = 60.0 / (4.0 + weight**2)
+            for _, value in result.thrusts_n:
+                self.assertAlmostEqual(value, expected, places=9)
+        unbalanced = layout.allocate(force_n=(0.0, 0.0, 60.0), torque_n_m=(0.0, 0.0, 0.0),
+                                     center_of_mass_m=(0.0, 0.0, 0.0))
+        self.assertTrue(unbalanced.exact)
+        with self.assertRaises(DomainError):
+            layout.allocate(force_n=(0, 0, 1), torque_n_m=(0, 0, 0), center_of_mass_m=(0, 0, 0),
+                            balance_weight=-1.0)
+
+    def test_kkt_conditions_certify_optimality_on_random_bounded_problems(self) -> None:
+        generator = random.Random(55)
+        for _ in range(25):
+            count = generator.randint(2, 8)
+            layout = ThrusterLayout(
+                tuple(
+                    ThrusterMount(
+                        f"T{i}",
+                        tuple(generator.uniform(-1, 1) for _ in range(3)),
+                        tuple(generator.uniform(-1, 1) for _ in range(3)),
+                    )
+                    for i in range(count)
+                )
+            )
+            limits = {f"T{i}": generator.uniform(0.5, 4.0) for i in range(count)}
+            weight = generator.choice((0.0, 0.05, 0.3))
+            length = generator.choice((1.0, 0.5))
+            force = tuple(generator.uniform(-5, 5) for _ in range(3))
+            torque = tuple(generator.uniform(-2, 2) for _ in range(3))
+            result = layout.allocate(force_n=force, torque_n_m=torque,
+                                     center_of_mass_m=(0.0, 0.0, 0.0), maximum_thrust_n=limits,
+                                     torque_length_scale_m=length, balance_weight=weight)
+            matrix = layout.influence_matrix((0.0, 0.0, 0.0))
+            row_weights = (1.0, 1.0, 1.0, 1 / length, 1 / length, 1 / length)
+            thrusts = dict(result.thrusts_n)
+            values = [thrusts[name] for name in layout.thruster_ids]
+            residual = [
+                row_weights[r] * (sum(matrix[r][j] * values[j] for j in range(count))
+                                  - (*force, *torque)[r])
+                for r in range(6)
+            ]
+            for j, name in enumerate(layout.thruster_ids):
+                gradient = sum(row_weights[r] * matrix[r][j] * residual[r] for r in range(6))
+                gradient += weight**2 * values[j]
+                if values[j] <= 1e-12:
+                    self.assertGreaterEqual(gradient, -1e-8)
+                elif values[j] >= limits[name] - 1e-12:
+                    self.assertLessEqual(gradient, 1e-8)
+                else:
+                    self.assertAlmostEqual(gradient, 0.0, places=8)
+
+
 class PropellantMassModelTests(unittest.TestCase):
     def setUp(self) -> None:
         self.model = PropellantMassModel(

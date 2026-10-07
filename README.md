@@ -43,13 +43,14 @@ core never imports an astrodynamics package.
 | Capability | What a propagator gets |
 |---|---|
 | **Transient burn bridge** | Thrust and vehicle/tank mass derivatives from a hash-verified thrust/flow history. Explicit left/right limits at discontinuities. Start, boundary, stop, dry-mass and reserve roots. O(log n) lookup. |
-| **Operating-condition maps** | N-D performance surfaces over pressure, throttle, mixture ratio or power. Analytic gradients, no extrapolation, stopping domain roots and restart roots at gradient kinks. |
+| **Operating-condition maps** | N-D performance surfaces over pressure, throttle, mixture ratio or power, multilinear or C¹ cubic Hermite. Analytic gradients, no extrapolation, stopping domain roots and restart roots at gradient kinks. |
+| **Lunaris adapter** | Lunar-orbit propagation in [Lunaris](https://github.com/ayberkdt/lunaris): exact-mass impulsive equivalents or finite burns inside Lunaris' propagator, verified end-to-end against the real Lunaris code. |
 | **Ambient back-pressure** | `F = F_vac − p_a·A_e` with `∂a/∂p_a` for ascent and landing, plus a net-thrust margin root. |
 | **Pressure-fed liquid stages** | Pressurant bottle, regulator, thermal ullage and feed-line ODEs, plus an inertance/compliance line model with composed Jacobians. |
 | **Power-limited electric propulsion** | Hash-verified throttle tables, maximum-thrust or maximum-Isp throttle paths with hysteresis, a fixed-efficiency continuous law, and power-switching roots with deterministic mode targets. |
 | **Navigation uncertainty** | Driver priors linearized from hot-fire calibration, the Gates execution-error covariance, and Gauss-Markov thrust process noise. |
 | **Vehicle geometry** | Thruster force/torque influence matrix, cosine loss, and centre of mass and inertia versus tank mass with analytic derivatives. |
-| **Thrust allocation** | Bounded least squares (0 ≤ T ≤ T_max, Lawson–Hanson / Stark–Parker), dependency-free, checked against brute-force optimality. |
+| **Thrust allocation** | Bounded least squares (0 ≤ T ≤ T_max, Lawson–Hanson / Stark–Parker) with an optional minimum-effort balance term, dependency-free, checked by brute force and KKT certificates. |
 | **Optimization-ready engine** | Throttle as a control with ∂a/∂u, smooth monotone (PCHIP) throttle characteristics, deep-throttle gap enforced. |
 | **Impulsive equivalents** | Free-space Δv, effective exhaust velocity and impulse placement time t* of any tabulated burn (Gauss–Legendre with error estimate). |
 | **Verified sensitivities** | Variational equations with saltation at burn events reproduce finite differences of whole propagations; `time_event_jump` supplies the jump. |
@@ -172,7 +173,7 @@ src/rocket_propulsion/
 ├── compressible/     Isentropic, shock, duct and nozzle flow
 ├── core/             Validation (strict input coercion), errors, units, solvers
 ├── geometry/         Nozzle contours, MOC and CAD export
-├── integrations/     Optional, fail-closed Sidera hand-off adapters
+├── integrations/     Optional, fail-closed Sidera and Lunaris adapters
 ├── propulsion/       Performance, losses, cycles, staging, propellants
 │   └── burns/        Finite burns and the propagation interface:
 │       ├── propagator.py          transient burn bridge (events, partials, ambient pressure)
@@ -204,7 +205,7 @@ units, validity limits and references in their docstrings.
 | Topic | Documents |
 |---|---|
 | Start here | [User guide](docs/USER_GUIDE.md) · [API](docs/API.md) · [Architecture](docs/ARCHITECTURE.md) |
-| Astrodynamics interface | [Integration guide](docs/ASTRODYNAMICS_INTEGRATION.md) · [Propagator bridge](docs/PROPAGATOR_PROPULSION_BRIDGE.md) · [Operating surfaces](docs/OPERATING_CONDITION_SURFACES.md) · [Electric propulsion](docs/ELECTRIC_PROPULSION.md) · [Execution errors](docs/EXECUTION_ERRORS.md) · [Vehicle geometry](docs/VEHICLE_GEOMETRY.md) · [Timelines](docs/PROPULSION_TIMELINE.md) · [Optimization & sensitivities](docs/TRAJECTORY_OPTIMIZATION.md) |
+| Astrodynamics interface | [Integration guide](docs/ASTRODYNAMICS_INTEGRATION.md) · [Propagator bridge](docs/PROPAGATOR_PROPULSION_BRIDGE.md) · [Operating surfaces](docs/OPERATING_CONDITION_SURFACES.md) · [Electric propulsion](docs/ELECTRIC_PROPULSION.md) · [Execution errors](docs/EXECUTION_ERRORS.md) · [Vehicle geometry](docs/VEHICLE_GEOMETRY.md) · [Timelines](docs/PROPULSION_TIMELINE.md) · [Optimization & sensitivities](docs/TRAJECTORY_OPTIMIZATION.md) · [Lunaris](docs/LUNARIS_INTEGRATION.md) |
 | Feed systems | [Regulated feed](docs/REGULATED_FEED_DYNAMICS.md) · [Dynamic feed line](docs/DYNAMIC_FEED_LINE.md) · [Blowdown](docs/BLOWDOWN_MODEL.md) |
 | Uncertainty | [Propulsion uncertainty](docs/PROPULSION_UNCERTAINTY.md) · [Scenarios](docs/PROPULSION_SCENARIOS.md) · [Hierarchical ensemble](docs/HIERARCHICAL_PROPULSION_ENSEMBLE.md) · [Hot-fire calibration](docs/HOT_FIRE_CALIBRATION.md) · [Model discrepancy](docs/MODEL_DISCREPANCY_TRANSFER.md) |
 | Exchange contracts | [Tabulated burn](docs/TABULATED_BURN_CONTRACT.md) · [Sidera plan](docs/SIDERA_BURN_INTEGRATION_PLAN.md) · [Sidera ensemble hand-off](docs/SIDERA_ENSEMBLE_HANDOFF.md) |
@@ -233,6 +234,8 @@ The test suite includes:
 - variational-equation integrations (with saltation) checked against finite
   differences of whole propagations;
 - a regression test for every finding of a systematic code review;
+- an end-to-end Lunaris propagation (when Lunaris is installed) comparing
+  finite and impulsive paths;
 - an automated gate that every public propulsion-transient type and function
   cites its references.
 

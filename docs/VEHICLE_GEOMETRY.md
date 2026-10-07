@@ -55,8 +55,20 @@ the feasible split. When the demand is not achievable within the limits, the
 result is the best bounded approximation: `exact` is false and
 `thrusters_at_maximum` shows which limits bind.
 
-When several allocations meet the demand exactly, one of them is returned and
-no thrust-balancing preference is applied. The tests compare results with the
+When several allocations meet the demand exactly, one of them is returned. A
+positive `balance_weight` \(\lambda\) instead solves the strictly convex
+problem
+
+\[
+  \min_{0\le T\le T_\max}\ \lVert W(AT-b)\rVert^2+\lambda^2\lVert T\rVert^2 ,
+\]
+
+the unique minimum-effort allocation. It spreads thrust over equivalent
+thrusters, at the cost of a residual of order \(\lambda^2\). It is solved
+exactly by the same bounded solver with \(\lambda I\) appended to the
+matrix. The tests check the closed-form symmetric split
+\(T_i = 60/(4+\lambda^2)\) and certify optimality on random bounded,
+weighted problems through the KKT conditions. The tests compare results with the
 exact optimum found by enumerating every lower/upper/free assignment of the
 thrusters, on random layouts with random limits.
 
@@ -96,8 +108,7 @@ checked against an independent parallel-axis sum.
 
 - Propellant is a point mass at a fixed centroid: no slosh, no centroid travel
   as a tank empties, no bladder/diaphragm mechanics.
-- Minimum impulse bits, pulse quantization and a balancing preference among
-  equally exact allocations are not modelled.
+- Minimum impulse bits and pulse quantization are not modelled.
 - Gimbal dynamics and plume impingement are not modelled.
 
 ## References

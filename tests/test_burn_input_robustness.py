@@ -228,6 +228,15 @@ class FuzzTests(unittest.TestCase):
                 "allocate force": lambda v=value: layout.allocate(
                     force_n=v, torque_n_m=(0, 0, 0), center_of_mass_m=(0, 0, 0)
                 ),
+                "allocate balance": lambda v=value: layout.allocate(
+                    force_n=(0, 0, 1), torque_n_m=(0, 0, 0), center_of_mass_m=(0, 0, 0),
+                    balance_weight=v,
+                ),
+                "surface interpolation": lambda v=value: RectilinearPerformanceSurface(
+                    axes=(PerformanceAxis("p", "Pa", (0.0, 1.0)),),
+                    points=(PerformanceScalePoint((0.0,), 1, 1), PerformanceScalePoint((1.0,), 1, 1)),
+                    source_id="s", source_sha256="c" * 64, interpolation=v,
+                ),
                 "allocate max": lambda v=value: layout.allocate(
                     force_n=(0, 0, 1), torque_n_m=(0, 0, 0), center_of_mass_m=(0, 0, 0),
                     maximum_thrust_n=v,
