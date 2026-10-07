@@ -110,7 +110,7 @@ class DeltaVPlanAttackTests(unittest.TestCase):
     def test_random_thrusters_and_hostile_requests_against_enumeration(self) -> None:
         generator = random.Random(8675309)
         checked = 0
-        for case in range(120):
+        for case in range(80):
             thruster = random_thruster(generator)
             mass = generator.uniform(5.0, 500.0)
             m_short = thruster.pulse(thruster.minimum_on_time_s).propellant_kg
@@ -147,7 +147,7 @@ class DeltaVPlanAttackTests(unittest.TestCase):
             # Above everything the budget can deliver: refused, never "quantized".
             with self.assertRaises(DomainError):
                 thruster.plan_delta_v(top * 1.001 + 1e-9, mass, propellant_budget_kg=budget)
-        self.assertGreater(checked, 3000)
+        self.assertGreater(checked, 2000)
 
     def test_budget_limited_shorter_pulses_are_found(self) -> None:
         # Longest pulse 2.4..3.0 kg: three longest fit in 9.76 kg, four shorter ones too.

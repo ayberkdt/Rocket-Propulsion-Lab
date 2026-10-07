@@ -98,7 +98,11 @@ class MonotoneCubicCurve:
                 f"Curve argument {value} lies outside [{self.x[0]}, {self.x[-1]}]; "
                 "extrapolation refused."
             )
-        value = min(max(value, self.x[0]), self.x[-1])
+        return self._evaluate_checked(min(max(value, self.x[0]), self.x[-1]))
+
+    def _evaluate_checked(self, value: float) -> tuple[float, float]:
+        """Evaluate a float already validated and clamped to the nodes."""
+
         index = min(max(bisect_right(self.x, value) - 1, 0), len(self.x) - 2)
         x0, x1 = self.x[index], self.x[index + 1]
         y0, y1 = self.y[index], self.y[index + 1]

@@ -254,16 +254,24 @@ class PulseModeThruster:
                 f"On-time {on_time} s exceeds the longest permitted pulse "
                 f"{self.longest_on_time_s} s."
             )
+        on_time = min(max(on_time, self.minimum_on_time_s), self.longest_on_time_s)
+        return PulseBit(on_time, *self._raw(on_time))
+
+    def _raw(self, on_time: float) -> tuple[float, float, float, float]:
+        """Impulse, propellant and slopes at a validated on-time (no checks)."""
+
         last = self.on_times_s[-1]
         if on_time <= last:
-            impulse, impulse_slope = self._impulse.evaluate(on_time)
-            mass, mass_slope = self._propellant.evaluate(on_time)
-        else:
-            extra = on_time - last
-            impulse = self.impulse_bits_n_s[-1] + self.steady_thrust_n * extra
-            mass = self.propellant_per_pulse_kg[-1] + self.steady_mass_flow_kg_s * extra
-            impulse_slope, mass_slope = self.steady_thrust_n, self.steady_mass_flow_kg_s
-        return PulseBit(on_time, impulse, mass, impulse_slope, mass_slope)
+            impulse, impulse_slope = self._impulse._evaluate_checked(on_time)
+            mass, mass_slope = self._propellant._evaluate_checked(on_time)
+            return impulse, mass, impulse_slope, mass_slope
+        extra = on_time - last
+        return (
+            self.impulse_bits_n_s[-1] + self.steady_thrust_n * extra,
+            self.propellant_per_pulse_kg[-1] + self.steady_mass_flow_kg_s * extra,
+            self.steady_thrust_n,
+            self.steady_mass_flow_kg_s,
+        )
 
     def on_time_for_impulse(self, impulse_n_s: float) -> float:
         """Invert the impulse-bit curve (bisection on a monotone function).
@@ -399,24 +407,31 @@ class PulseModeThruster:
             raise DomainError("The propellant budget is below one minimum pulse.")
         at_longest = min(most, floor(budget / longest_mass * (1.0 + 1e-12)))
 
+        raw = self._raw
+
         def delta_v(count: int, on_time: float) -> float:
-            bit = self.pulse(on_time)
-            used = min(count * bit.propellant_kg, budget)
-            return bit.exhaust_velocity_m_s * -log1p(-used / mass)
+            impulse, propellant, _, _ = raw(on_time)
+            used = min(count * propellant, budget)
+            return impulse / propellant * -log1p(-used / mass)
+
+        widths: dict[int, float] = {}
 
         def widest(count: int) -> float:
             if count <= at_longest:
                 return longest
+            if count in widths:
+                return widths[count]
             share = budget / count
             low, high = shortest, longest
             for _ in range(200):
                 middle = 0.5 * (low + high)
                 if middle in (low, high):
                     break
-                if self.pulse(middle).propellant_kg <= share:
+                if raw(middle)[1] <= share:
                     low = middle
                 else:
                     high = middle
+            widths[count] = low
             return low
 
         def low_end(count: int) -> float:

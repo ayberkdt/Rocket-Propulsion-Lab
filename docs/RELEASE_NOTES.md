@@ -284,6 +284,34 @@
   rocket equation.
 - Registered NTRS 20070032005 (*The Minimum Impulse Thruster*).
 
+### Adversarial test suites, traceable constants and the defects they exposed
+
+- Added `test_adversarial_epochs.py`, `test_adversarial_lunaris.py`,
+  `test_adversarial_pulse_mode.py`, `test_adversarial_json_readers.py` and
+  `test_constants_and_references.py`, with independent oracles and mutation
+  checks; see `docs/ADVERSARIAL_TESTING.md`.
+- Fixed: one-sided limits lost at large absolute epochs
+  (`epoch_time_tolerance`, `TabulatedBurnArtifact.snap_to_boundary`, bridge
+  `boundary_tolerance_s`); Lunaris boundary tolerance now matches the bridge.
+- Fixed: Lunaris dry-mass cut uses the bridge clamp margin
+  (`INVENTORY_LIMIT_TOLERANCE`) and treats a cut at the stop as the stop;
+  bias-overlapping and reordered burns are validated identically on the
+  impulsive and finite paths; `segmentation_plan(start_s, end_s)` for partial
+  propagation windows.
+- Fixed: cancellation in ln(m0/mf) for small burns (`log1p`) in pulse plans,
+  burn metrics, both constant/profiled integrators and execution-error
+  sensitivities.
+- Pulse mode: `plan_delta_v` requires `propellant_budget_kg` and searches
+  budget-limited shorter-pulse trains; the pulse limit applies to the returned
+  plan; forged plans are refused; a 1e-9 relative tolerance contract.
+- All 14 document readers go through `core.validation.read_json_document`:
+  non-text input, oversized integers, NaN/Infinity, deep nesting and broken
+  documents fail closed with `InputError`.
+- `core.constants` registers every physical constant with its source; the
+  U.S. Standard Atmosphere 1976 now uses its own R* = 8.31432 J/(mol K)
+  (removes a ~3e-5 pressure jump at layer bases) and documents geopotential
+  altitude.
+
 ## 0.9.0 — engineering preview
 
 - Added variable-property thermochemistry, external CEA adaptation, and an
