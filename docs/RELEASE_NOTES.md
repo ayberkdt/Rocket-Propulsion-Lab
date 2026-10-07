@@ -219,6 +219,30 @@
   RK4 timeline against the rocket equation, and bounded allocation against
   brute-force optimality.
 
+### Optimization inputs, verified sensitivities and review fixes
+
+- Added `ThrottleableEngineModel` (throttle as a control, deep-throttle gap
+  refused, stream split, ambient pressure, partials with respect to throttle,
+  mass, direction, pressure and drivers, verified document) and
+  `MonotoneCubicCurve` (PCHIP: C1, no overshoot, no extrapolation).
+- Added `free_space_burn_metrics` / `gauss_legendre`: free-space delta-v,
+  effective exhaust velocity and acceleration-weighted impulsive-equivalent
+  time with a quadrature error estimate.
+- Added `PropagatorPropulsionBridge.time_event_jump` for the saltation update.
+  `tests/test_burn_variational.py` matches integrated sensitivities to finite
+  differences of whole propagations for all bridge drivers and for the
+  electric power chain rule.
+- Code-review fixes, each with a regression test: non-string identifiers now
+  fail closed; nested hash failures keep their diagnosis when a bridge is
+  reopened; artifact, surface, throttle-table and prior readers no longer
+  coerce text to numbers; timeline event ids cannot collide; the timeline
+  validates the timing driver once even for inactive burns; the quadrature
+  error estimate can no longer be a fake zero; `net_thrust_margin_n`
+  semantics are documented.
+- Consolidated duplicated validation into `core.validation` (`records`,
+  `strings`, `name_value_pairs`, `real_matrix`) and the content hash into
+  `serialization.canonical_sha256`; hash values are unchanged.
+
 ## 0.9.0 — engineering preview
 
 - Added variable-property thermochemistry, external CEA adaptation, and an

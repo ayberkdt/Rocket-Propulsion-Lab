@@ -27,7 +27,14 @@ from dataclasses import dataclass
 from math import sqrt
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
-from rocket_propulsion.core.validation import real, real_mapping, real_tuple, text, vector3
+from rocket_propulsion.core.validation import (
+    real,
+    real_mapping,
+    real_matrix,
+    records,
+    text,
+    vector3,
+)
 
 Vector = tuple[float, float, float]
 Matrix3 = tuple[Vector, Vector, Vector]
@@ -296,11 +303,7 @@ class ThrusterLayout:
     mounts: tuple[ThrusterMount, ...]
 
     def __post_init__(self) -> None:
-        if isinstance(self.mounts, (str, bytes)) or not hasattr(self.mounts, "__iter__"):
-            raise DomainError("Thruster mounts must be a sequence.")
-        object.__setattr__(self, "mounts", tuple(self.mounts))
-        if any(not isinstance(mount, ThrusterMount) for mount in self.mounts):
-            raise DomainError("Thruster mounts must be ThrusterMount records.")
+        object.__setattr__(self, "mounts", records(self.mounts, ThrusterMount, "Thruster mounts"))
         if not self.mounts:
             raise DomainError("A thruster layout requires at least one thruster.")
         identifiers = [mount.thruster_id for mount in self.mounts]
@@ -543,10 +546,7 @@ class PropellantMassModel:
         object.__setattr__(
             self, "dry_center_of_mass_m", _vector(self.dry_center_of_mass_m, "Dry centre of mass")
         )
-        raw = self.dry_inertia_kg_m2
-        if isinstance(raw, (str, bytes)) or not hasattr(raw, "__iter__"):
-            raise DomainError("Dry inertia must be a 3x3 matrix.")
-        inertia = tuple(real_tuple(row, "Dry inertia") for row in raw)
+        inertia = real_matrix(self.dry_inertia_kg_m2, "Dry inertia")
         if len(inertia) != 3 or any(len(row) != 3 for row in inertia):
             raise DomainError("Dry inertia must be a 3x3 matrix.")
         object.__setattr__(self, "dry_inertia_kg_m2", inertia)
@@ -560,11 +560,9 @@ class PropellantMassModel:
             for i in range(3)
         ):
             raise DomainError("Dry inertia diagonal violates the triangle inequality.")
-        if isinstance(self.stations, (str, bytes)) or not hasattr(self.stations, "__iter__"):
-            raise DomainError("Propellant stations must be a sequence.")
-        object.__setattr__(self, "stations", tuple(self.stations))
-        if any(not isinstance(station, PropellantStation) for station in self.stations):
-            raise DomainError("Propellant stations must be PropellantStation records.")
+        object.__setattr__(
+            self, "stations", records(self.stations, PropellantStation, "Propellant stations")
+        )
         names = [station.state_name for station in self.stations]
         if len(names) != len(set(names)):
             raise DomainError("Each tank state may have only one propellant station.")

@@ -26,9 +26,11 @@ from rocket_propulsion.propulsion.burns import (
     FirstOrderGaussMarkov,
     GatesExecutionErrorModel,
     MassJettison,
+    MonotoneCubicCurve,
     PerformanceAxis,
     PerformanceScalePoint,
     PowerLimitedPropulsionModel,
+    PowerSwitchSurface,
     PropagatorPropulsionBridge,
     PropellantMassModel,
     PropellantStation,
@@ -39,10 +41,13 @@ from rocket_propulsion.propulsion.burns import (
     StreamStateBinding,
     TabulatedBurnArtifact,
     TabulatedBurnSegment,
+    ThrottleableEngineModel,
     ThrusterLayout,
     ThrusterMount,
     delta_v_log_sensitivities,
+    free_space_burn_metrics,
 )
+from rocket_propulsion.propulsion.burns.serialization import canonical_sha256
 
 ACCEPTED = (DomainError, InputError)
 BAD_VALUES = (
@@ -197,6 +202,7 @@ class FuzzTests(unittest.TestCase):
             (PropellantStation("o", (0, 0, 1)),),
         )
         timeline = PropulsionTimeline(burns=(ScheduledBurn("b", simple_bridge(), 0.0),))
+        throttle_engine = ThrottleableEngineModel(100.0, 0.1, 0.4, 1.0, (("o", 1.0),))
         for value in BAD_VALUES:
             calls = {
                 "select_level": lambda v=value: model.select_level(v),
@@ -238,6 +244,28 @@ class FuzzTests(unittest.TestCase):
                     additional_states={"o": 1.0, "f": 1.0}, stopped_burns=v,
                 ),
                 "jettison": lambda v=value: MassJettison("j", 1.0, v),
+                "throttle": lambda v=value: throttle_engine.evaluate(
+                    throttle=v, vehicle_mass_kg=100.0, direction=(1, 0, 0),
+                    additional_states={"o": 1.0},
+                ),
+                "throttle states": lambda v=value: throttle_engine.evaluate(
+                    throttle=0.7, vehicle_mass_kg=100.0, direction=(1, 0, 0), additional_states=v,
+                ),
+                "throttle fractions": lambda v=value: ThrottleableEngineModel(
+                    100.0, 0.1, 0.4, 1.0, v
+                ),
+                "throttle json": lambda v=value: ThrottleableEngineModel.from_json(v),
+                "curve": lambda v=value: MonotoneCubicCurve((0.0, 1.0), (0.0, v)),
+                "curve evaluate": lambda v=value: MonotoneCubicCurve((0.0, 1.0), (0.0, 1.0))
+                .evaluate(v),
+                "metrics mass": lambda v=value: free_space_burn_metrics(simple_artifact(), v),
+                "metrics points": lambda v=value: free_space_burn_metrics(
+                    simple_artifact(), 100.0, quadrature_points=v
+                ),
+                "event jump": lambda v=value: simple_bridge().time_event_jump(
+                    relative_time_s=v, vehicle_mass_kg=10.0, direction=(1, 0, 0),
+                    additional_states={"o": 1.0, "f": 1.0}, ambient_pressure_pa=0.0,
+                ),
                 "scheduled": lambda v=value: ScheduledBurn("b", simple_bridge(), v),
                 "table dict": lambda v=value: ElectricThrottleTable.from_dict(v),
                 "artifact dict": lambda v=value: TabulatedBurnArtifact.from_dict(v),
@@ -286,6 +314,82 @@ class CanonicalNumberTests(unittest.TestCase):
                 level_index=True, available_power_w=1500.0, vehicle_mass_kg=10.0,
                 direction=(0, 0, 1), additional_states={"xenon_mass_kg": 5.0},
             )
+
+
+class ReviewRegressionTests(unittest.TestCase):
+    """One test per finding of the code review of the propagation interface."""
+
+    def test_non_string_identifiers_fail_closed(self) -> None:
+        with self.assertRaises(DomainError):
+            PropagatorPropulsionBridge(
+                simple_artifact(),
+                stream_bindings=(StreamStateBinding("ox", "o"), StreamStateBinding("fu", "f")),
+                model_id=None,  # type: ignore[arg-type]
+            )
+        with self.assertRaises(DomainError):
+            PowerSwitchSurface(None, 1.0, "increasing", 0, 1)  # type: ignore[arg-type]
+        with self.assertRaises(DomainError):
+            PowerSwitchSurface("a", 1.0, ["x"], 0, 1)  # type: ignore[arg-type]
+        with self.assertRaises(DomainError):
+            RectilinearPerformanceSurface(
+                axes=(PerformanceAxis("p", "Pa", (0.0, 1.0)),),
+                points=(PerformanceScalePoint((0.0,), 1, 1), PerformanceScalePoint((1.0,), 1, 1)),
+                source_id="s",
+                source_sha256="c" * 64,
+                reference_ids=5,  # type: ignore[arg-type]
+            )
+
+    def test_nested_tamper_diagnosis_survives_bridge_reopen(self) -> None:
+        document = simple_bridge().to_dict()
+        document["artifact"]["segments"][0]["end_axial_thrust_n"] = 91.0
+        with self.assertRaises(InputError) as caught:
+            PropagatorPropulsionBridge.from_dict(document)
+        self.assertIn("hash does not match", str(caught.exception))
+
+    def test_readers_do_not_coerce_text_to_numbers(self) -> None:
+        prior = PropulsionParameterPrior.from_standard_deviations(
+            {"thrust_scale": 0.01}, source="s", rationale="r"
+        )
+        payload = prior.to_dict(include_hash=False)
+        payload["mean"] = ["1.0"]
+        payload["prior_hash"] = canonical_sha256(payload)
+        with self.assertRaises(InputError):
+            PropulsionParameterPrior.from_dict(payload)
+        artifact = simple_artifact().to_dict(include_hash=False)
+        artifact["segments"][0]["start_time_s"] = "0.0"
+        artifact["artifact_hash"] = canonical_sha256(artifact)
+        with self.assertRaises(InputError):
+            TabulatedBurnArtifact.from_dict(artifact)
+
+    def test_timeline_event_namespaces_cannot_collide(self) -> None:
+        with self.assertRaises(DomainError):
+            ScheduledBurn("jettison", simple_bridge(), 0.0)
+        with self.assertRaises(DomainError):
+            MassJettison("a/b", 1.0, 1.0)
+
+    def test_timeline_validates_timing_driver_even_when_burn_looks_inactive(self) -> None:
+        timeline = PropulsionTimeline(burns=(ScheduledBurn("b", simple_bridge(), 0.0),))
+        with self.assertRaises(DomainError):
+            timeline.evaluate(
+                time_s=100.0, vehicle_mass_kg=10.0, directions={},
+                additional_states={"o": 1.0, "f": 1.0},
+                parameter_overrides={"b": {"ignition_time_bias_s": 1e9}},
+            )
+
+    def test_burn_metrics_error_estimate_is_never_a_fake_zero(self) -> None:
+        with self.assertRaises(DomainError):
+            free_space_burn_metrics(simple_artifact(), 100.0, quadrature_points=101)
+        metrics = free_space_burn_metrics(simple_artifact(), 100.0, quadrature_points=100)
+        self.assertEqual(metrics.quadrature_points, 200)
+
+    def test_net_thrust_margin_is_none_only_when_not_firing(self) -> None:
+        bridge = simple_bridge()
+        common = {"vehicle_mass_kg": 50.0, "direction": (1.0, 0.0, 0.0),
+                  "additional_states": {"o": 5.0, "f": 2.0}, "ambient_pressure_pa": 1000.0}
+        self.assertIsNone(bridge.evaluate(relative_time_s=5.0, **common).net_thrust_margin_n)
+        self.assertAlmostEqual(
+            bridge.evaluate(relative_time_s=1.0, **common).net_thrust_margin_n, 90.0 - 1.0
+        )
 
 
 def random_artifact(generator: random.Random) -> TabulatedBurnArtifact:

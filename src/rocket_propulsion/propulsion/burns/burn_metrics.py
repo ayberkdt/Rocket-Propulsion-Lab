@@ -138,8 +138,10 @@ def free_space_burn_metrics(
         return delta_v, moment
 
     points = integer(quadrature_points, "Quadrature points")
+    if not 1 <= points <= 100:
+        raise DomainError("Quadrature points must be between 1 and 100 (refined at 2n).")
     delta_v, _ = integrate(points)
-    refined, refined_moment = integrate(min(200, 2 * points))
+    refined, refined_moment = integrate(2 * points)
     final_mass = initial_mass_kg - consumed
     ratio = log(initial_mass_kg / final_mass)
     return FreeSpaceBurnMetrics(
@@ -149,6 +151,6 @@ def free_space_burn_metrics(
         delta_v_m_s=refined,
         impulsive_equivalent_time_s=(refined_moment / refined if refined > 0.0 else 0.0),
         effective_exhaust_velocity_m_s=(refined / ratio if ratio > 0.0 else None),
-        quadrature_points=min(200, 2 * points),
+        quadrature_points=2 * points,
         delta_v_error_estimate_m_s=abs(refined - delta_v),
     )

@@ -84,6 +84,50 @@ def real_mapping(value: object, label: str) -> dict[str, float]:
     return result
 
 
+def records(value: object, kind: type | tuple[type, ...], label: str) -> tuple:
+    """Return a tuple of records of ``kind`` from any non-string iterable."""
+
+    if isinstance(value, (str, bytes, Mapping)) or not hasattr(value, "__iter__"):
+        raise DomainError(f"{label} must be a sequence.", field=label)
+    items = tuple(value)  # type: ignore[call-overload]
+    if any(not isinstance(item, kind) for item in items):
+        raise DomainError(f"{label} contains a record of the wrong type.", field=label)
+    return items
+
+
+def strings(value: object, label: str, *, allow_blank: bool = False) -> tuple[str, ...]:
+    """Return a tuple of strings (non-blank unless ``allow_blank``)."""
+
+    if isinstance(value, (str, bytes, Mapping)) or not hasattr(value, "__iter__"):
+        raise DomainError(f"{label} must be a sequence of strings.", field=label)
+    items = tuple(value)  # type: ignore[call-overload]
+    for item in items:
+        if not isinstance(item, str) or (not allow_blank and not item.strip()):
+            raise DomainError(f"{label} must contain only non-empty strings.", field=label)
+    return items
+
+
+def name_value_pairs(value: object, label: str) -> tuple[tuple[str, float], ...]:
+    """Return ``((name, float), ...)`` from a sequence of two-item pairs."""
+
+    if isinstance(value, (str, bytes, Mapping)) or not hasattr(value, "__iter__"):
+        raise DomainError(f"{label} must be a sequence of (name, value) pairs.", field=label)
+    result: list[tuple[str, float]] = []
+    for item in value:  # type: ignore[union-attr]
+        if isinstance(item, (str, bytes)) or not hasattr(item, "__len__") or len(item) != 2:
+            raise DomainError(f"{label} must be a sequence of (name, value) pairs.", field=label)
+        result.append((text(item[0], f"{label} name"), real(item[1], label)))
+    return tuple(result)
+
+
+def real_matrix(value: object, label: str) -> tuple[tuple[float, ...], ...]:
+    """Return a tuple-of-tuples of finite floats (rows may be any sequence)."""
+
+    if isinstance(value, (str, bytes, Mapping)) or not hasattr(value, "__iter__"):
+        raise DomainError(f"{label} must be a matrix.", field=label)
+    return tuple(real_tuple(row, label) for row in value)  # type: ignore[union-attr]
+
+
 def json_text(value: object, label: str) -> str:
     """Return ``value`` if it is a string suitable for ``json.loads``."""
 

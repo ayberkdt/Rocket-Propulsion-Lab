@@ -137,6 +137,10 @@ acceptance gates, and the first three sprints are specified in
   propagation interface (fuzz- and property-tested), reopenable documents for
   bridges, electric models and timelines, multi-burn timelines with jettison,
   and bounded-variable thrust allocation
+- Implemented: throttle-commanded engine model with smooth (PCHIP) throttle
+  characteristics, free-space burn metrics and impulsive-equivalent time,
+  saltation support (`time_event_jump`) with an end-to-end variational test,
+  and fixes plus regression tests for every finding of a code review
 - Remaining: native Sidera wrapper for the propagation bridge, public HTTP
   API/UI surfaces for the isolated transient core,
   higher-order distributed water-hammer/priming models, regulator hysteresis,

@@ -37,6 +37,12 @@ def canonical_json_bytes(value: Any) -> bytes:
     ).encode("utf-8")
 
 
+def canonical_sha256(value: Any) -> str:
+    """Return the SHA-256 hex digest of :func:`canonical_json_bytes`."""
+
+    return hashlib.sha256(canonical_json_bytes(value)).hexdigest()
+
+
 def _sha256(value: Any) -> str:
     return hashlib.sha256(canonical_json_bytes(value)).hexdigest()
 

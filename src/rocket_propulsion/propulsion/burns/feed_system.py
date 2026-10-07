@@ -9,8 +9,6 @@ state model, not as a replacement for validated nodal or water-hammer tools.
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
@@ -18,6 +16,8 @@ from math import isfinite, sqrt
 from typing import TYPE_CHECKING
 
 from rocket_propulsion.core.errors import DomainError
+
+from .serialization import canonical_sha256
 
 if TYPE_CHECKING:
     from .propagator import PropagatorPropulsionBridge, PropulsionDynamicsEvaluation
@@ -39,18 +39,6 @@ def _positive(value: float, label: str) -> None:
 def _nonnegative(value: float, label: str) -> None:
     if not isfinite(value) or value < 0.0:
         raise DomainError(f"{label} must be finite and non-negative.")
-
-
-def _canonical_hash(payload: object) -> str:
-    return hashlib.sha256(
-        json.dumps(
-            payload,
-            allow_nan=False,
-            ensure_ascii=False,
-            separators=(",", ":"),
-            sort_keys=True,
-        ).encode("utf-8")
-    ).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -416,7 +404,7 @@ class RegulatedFeedSystem:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        return _canonical_hash(self.manifest(include_hash=False))
+        return canonical_sha256(self.manifest(include_hash=False))
 
     def manifest(self, *, include_hash: bool = True) -> dict[str, object]:
         """Return the deterministic integration manifest.
@@ -470,7 +458,7 @@ class RegulatedFeedSystem:
             "reference_ids": list(FEED_SYSTEM_REFERENCE_IDS),
         }
         if include_hash:
-            payload["model_hash"] = _canonical_hash(payload)
+            payload["model_hash"] = canonical_sha256(payload)
         return payload
 
     def initial_state(

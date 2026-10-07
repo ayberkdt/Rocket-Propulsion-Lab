@@ -50,6 +50,9 @@ core never imports an astrodynamics package.
 | **Navigation uncertainty** | Driver priors linearized from hot-fire calibration, the Gates execution-error covariance, and Gauss-Markov thrust process noise. |
 | **Vehicle geometry** | Thruster force/torque influence matrix, cosine loss, and centre of mass and inertia versus tank mass with analytic derivatives. |
 | **Thrust allocation** | Bounded least squares (0 ≤ T ≤ T_max, Lawson–Hanson / Stark–Parker), dependency-free, checked against brute-force optimality. |
+| **Optimization-ready engine** | Throttle as a control with ∂a/∂u, smooth monotone (PCHIP) throttle characteristics, deep-throttle gap enforced. |
+| **Impulsive equivalents** | Free-space Δv, effective exhaust velocity and impulse placement time t* of any tabulated burn (Gauss–Legendre with error estimate). |
+| **Verified sensitivities** | Variational equations with saltation at burn events reproduce finite differences of whole propagations; `time_event_jump` supplies the jump. |
 | **Multi-burn timelines** | Several bridges on one clock with overlap checks, stage/fairing jettison events, summed concurrent burns and one verified document. |
 | **Robust by construction** | Fail-closed input validation at every boundary (fuzz-tested), canonical numbers for stable hashes, and reopenable model documents for bridges, electric models and timelines. |
 | **Partials** | Acceleration and mass-rate partials with respect to mass, direction, ambient pressure, available power, operating conditions and bounded estimator drivers, all checked against finite differences. |
@@ -180,6 +183,8 @@ src/rocket_propulsion/
 │       ├── execution_errors.py    priors, Gates errors, Gauss-Markov noise
 │       ├── vehicle_geometry.py    thruster force/torque, allocation, mass properties
 │       ├── timeline.py            multi-burn schedules and mass jettison
+│       ├── throttleable.py        throttle-commanded engine, monotone cubic curves
+│       ├── burn_metrics.py        free-space delta-v and impulsive-equivalent time
 │       ├── tabulated.py           hash-verified thrust/flow exchange artifact
 │       └── ...                    sizing, profiles, blowdown, calibration, ensembles
 ├── studies/          Workspaces, comparison, sampling and reports
@@ -199,7 +204,7 @@ units, validity limits and references in their docstrings.
 | Topic | Documents |
 |---|---|
 | Start here | [User guide](docs/USER_GUIDE.md) · [API](docs/API.md) · [Architecture](docs/ARCHITECTURE.md) |
-| Astrodynamics interface | [Integration guide](docs/ASTRODYNAMICS_INTEGRATION.md) · [Propagator bridge](docs/PROPAGATOR_PROPULSION_BRIDGE.md) · [Operating surfaces](docs/OPERATING_CONDITION_SURFACES.md) · [Electric propulsion](docs/ELECTRIC_PROPULSION.md) · [Execution errors](docs/EXECUTION_ERRORS.md) · [Vehicle geometry](docs/VEHICLE_GEOMETRY.md) · [Timelines](docs/PROPULSION_TIMELINE.md) |
+| Astrodynamics interface | [Integration guide](docs/ASTRODYNAMICS_INTEGRATION.md) · [Propagator bridge](docs/PROPAGATOR_PROPULSION_BRIDGE.md) · [Operating surfaces](docs/OPERATING_CONDITION_SURFACES.md) · [Electric propulsion](docs/ELECTRIC_PROPULSION.md) · [Execution errors](docs/EXECUTION_ERRORS.md) · [Vehicle geometry](docs/VEHICLE_GEOMETRY.md) · [Timelines](docs/PROPULSION_TIMELINE.md) · [Optimization & sensitivities](docs/TRAJECTORY_OPTIMIZATION.md) |
 | Feed systems | [Regulated feed](docs/REGULATED_FEED_DYNAMICS.md) · [Dynamic feed line](docs/DYNAMIC_FEED_LINE.md) · [Blowdown](docs/BLOWDOWN_MODEL.md) |
 | Uncertainty | [Propulsion uncertainty](docs/PROPULSION_UNCERTAINTY.md) · [Scenarios](docs/PROPULSION_SCENARIOS.md) · [Hierarchical ensemble](docs/HIERARCHICAL_PROPULSION_ENSEMBLE.md) · [Hot-fire calibration](docs/HOT_FIRE_CALIBRATION.md) · [Model discrepancy](docs/MODEL_DISCREPANCY_TRANSFER.md) |
 | Exchange contracts | [Tabulated burn](docs/TABULATED_BURN_CONTRACT.md) · [Sidera plan](docs/SIDERA_BURN_INTEGRATION_PLAN.md) · [Sidera ensemble hand-off](docs/SIDERA_ENSEMBLE_HANDOFF.md) |
@@ -225,6 +230,9 @@ The test suite includes:
 - seeded property tests over random profiles, throttle tables, geometries and
   allocation problems (bounded optimality against brute-force enumeration);
 - tamper tests on every persisted document;
+- variational-equation integrations (with saltation) checked against finite
+  differences of whole propagations;
+- a regression test for every finding of a systematic code review;
 - an automated gate that every public propulsion-transient type and function
   cites its references.
 

@@ -15,29 +15,24 @@ inventory root (passed back as ``stopped_burns``).
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import real, real_mapping, text
+from rocket_propulsion.core.validation import real, real_mapping, records, text
 
 from .propagator import (
     BurnEventSurface,
     PropagatorPropulsionBridge,
     PropulsionDynamicsEvaluation,
 )
+from .serialization import canonical_sha256
 
 PROPULSION_TIMELINE_SCHEMA = "rocket_propulsion_propulsion_timeline_v1"
 
 
-def _canonical_hash(payload: object) -> str:
-    encoded = json.dumps(
-        payload, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,8 +55,10 @@ class ScheduledBurn:
 
     def __post_init__(self) -> None:
         text(self.burn_id, "Burn identifier")
-        if "/" in self.burn_id:
-            raise DomainError("Burn identifiers must not contain '/'.")
+        if "/" in self.burn_id or self.burn_id == "jettison":
+            raise DomainError(
+                "Burn identifiers must not contain '/' or be 'jettison' (reserved event namespace)."
+            )
         if not isinstance(self.bridge, PropagatorPropulsionBridge):
             raise DomainError("A scheduled burn requires a PropagatorPropulsionBridge.")
         object.__setattr__(
@@ -91,6 +88,8 @@ class MassJettison:
 
     def __post_init__(self) -> None:
         text(self.event_id, "Jettison event identifier")
+        if "/" in self.event_id:
+            raise DomainError("Jettison identifiers must not contain '/'.")
         text(self.label, "Jettison label")
         object.__setattr__(self, "time_s", real(self.time_s, "Jettison time"))
         object.__setattr__(self, "mass_kg", real(self.mass_kg, "Jettison mass"))
@@ -184,13 +183,9 @@ class PropulsionTimeline:
         if not isinstance(self.allow_overlapping_burns, bool):
             raise DomainError("allow_overlapping_burns must be a boolean.")
         for field_name, kind in (("burns", ScheduledBurn), ("jettisons", MassJettison)):
-            value = getattr(self, field_name)
-            if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
-                raise DomainError(f"Timeline {field_name} must be a sequence.")
-            items = tuple(value)
-            if any(not isinstance(item, kind) for item in items):
-                raise DomainError(f"Timeline {field_name} have the wrong record type.")
-            object.__setattr__(self, field_name, items)
+            object.__setattr__(
+                self, field_name, records(getattr(self, field_name), kind, f"Timeline {field_name}")
+            )
         if not self.burns:
             raise DomainError("A propulsion timeline requires at least one burn.")
         identifiers = [burn.burn_id for burn in self.burns] + [
@@ -370,9 +365,19 @@ class PropulsionTimeline:
             if burn.burn_id in stopped_burns:
                 continue
             relative = time_s - burn.ignition_time_s
-            bias = burn.bridge.resolved_parameters(
-                overrides_by_burn.get(burn.burn_id)
-            )["ignition_time_bias_s"]
+            burn_overrides = real_mapping(
+                overrides_by_burn.get(burn.burn_id), f"Parameter overrides for {burn.burn_id!r}"
+            )
+            # Only the timing driver decides activity; full validation happens
+            # once, inside the bridge evaluation below.
+            timing = next(
+                parameter
+                for parameter in burn.bridge.parameters
+                if parameter.name == "ignition_time_bias_s"
+            )
+            bias = timing.validate(
+                burn_overrides.get("ignition_time_bias_s", timing.reference_value)
+            )
             effective = relative - bias
             if effective < -1e-12 or effective > burn.bridge.artifact.duration_s + 1e-12:
                 continue
@@ -384,7 +389,7 @@ class PropulsionTimeline:
                 direction=directions[burn.burn_id],
                 additional_states=states,
                 operating_conditions=conditions_by_burn.get(burn.burn_id),
-                parameter_overrides=overrides_by_burn.get(burn.burn_id),
+                parameter_overrides=burn_overrides,
                 side=side,
                 apply_inventory_limits=apply_inventory_limits,
                 ambient_pressure_pa=(
@@ -443,14 +448,14 @@ class PropulsionTimeline:
             ],
         }
         if include_hash:
-            payload["timeline_hash"] = _canonical_hash(payload)
+            payload["timeline_hash"] = canonical_sha256(payload)
         return payload
 
     @property
     def timeline_hash(self) -> str:
         """Content identity of the schedule, jettisons and every bridge."""
 
-        return _canonical_hash(self.manifest(include_hash=False))
+        return canonical_sha256(self.manifest(include_hash=False))
 
     def to_dict(self) -> dict[str, object]:
         """Return the complete document including every bridge document."""

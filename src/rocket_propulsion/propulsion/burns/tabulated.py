@@ -21,7 +21,14 @@ from math import isfinite
 from typing import Any
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import json_text, real, text
+from rocket_propulsion.core.validation import (
+    json_text,
+    name_value_pairs,
+    real,
+    records,
+    strings,
+    text,
+)
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
 from .models import ProfiledBurnResult
@@ -54,14 +61,7 @@ def _nonnegative(value: float, label: str) -> None:
 
 
 def _normalized_pairs(value: object, label: str) -> tuple[tuple[str, float], ...]:
-    if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
-        raise DomainError(f"{label} must be a sequence of (identifier, flow) pairs.")
-    pairs: list[tuple[str, float]] = []
-    for item in value:  # type: ignore[union-attr]
-        if isinstance(item, (str, bytes)) or not hasattr(item, "__len__") or len(item) != 2:
-            raise DomainError(f"{label} must be a sequence of (identifier, flow) pairs.")
-        pairs.append((text(item[0], f"{label} identifier"), real(item[1], label)))
-    return tuple(pairs)
+    return name_value_pairs(value, label)
 
 
 def _flow_pairs(value: tuple[tuple[str, float], ...], label: str) -> None:
@@ -272,11 +272,9 @@ class TabulatedBurnArtifact:
     def __post_init__(self) -> None:
         if self.schema != "rocket_propulsion_tabulated_burn_v1":
             raise DomainError("Unsupported tabulated burn schema.")
-        if isinstance(self.segments, (str, bytes)) or not hasattr(self.segments, "__iter__"):
-            raise DomainError("Tabulated burn segments must be a sequence of segments.")
-        object.__setattr__(self, "segments", tuple(self.segments))
-        if any(not isinstance(item, TabulatedBurnSegment) for item in self.segments):
-            raise DomainError("Tabulated burn segments must be TabulatedBurnSegment records.")
+        object.__setattr__(
+            self, "segments", records(self.segments, TabulatedBurnSegment, "Tabulated segments")
+        )
         try:
             object.__setattr__(self, "interpolation", InterpolationPolicy(self.interpolation))
         except ValueError as error:
@@ -284,12 +282,9 @@ class TabulatedBurnArtifact:
         text(self.source_id, "Tabulated burn source identifier")
         text(self.source_sha256, "Tabulated burn source hash")
         for name in ("reference_ids", "warnings"):
-            value = getattr(self, name)
-            if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
-                raise DomainError(f"Tabulated burn {name} must be a sequence of strings.")
-            object.__setattr__(self, name, tuple(value))
-            if any(not isinstance(item, str) for item in getattr(self, name)):
-                raise DomainError(f"Tabulated burn {name} must contain only strings.")
+            object.__setattr__(
+                self, name, strings(getattr(self, name), f"Tabulated burn {name}", allow_blank=True)
+            )
         if not self.segments:
             raise DomainError("A tabulated burn requires at least one segment.")
         if abs(self.segments[0].start_time_s) > 1e-12:
@@ -486,34 +481,28 @@ class TabulatedBurnArtifact:
             raise InputError("Tabulated burn artifact root must be an object.")
         try:
             artifact = cls(
-                schema=str(payload["schema"]),
-                source_id=str(payload["source_id"]),
-                source_sha256=str(payload["source_sha256"]),
+                schema=payload["schema"],
+                source_id=payload["source_id"],
+                source_sha256=payload["source_sha256"],
                 interpolation=InterpolationPolicy(payload["interpolation"]),
-                reference_ids=tuple(str(item) for item in payload.get("reference_ids", ())),
+                reference_ids=payload.get("reference_ids", ()),
                 segments=tuple(
                     TabulatedBurnSegment(
-                        start_time_s=float(item["start_time_s"]),
-                        end_time_s=float(item["end_time_s"]),
-                        start_delivered_thrust_n=float(item["start_delivered_thrust_n"]),
-                        end_delivered_thrust_n=float(item["end_delivered_thrust_n"]),
-                        start_axial_thrust_n=float(item["start_axial_thrust_n"]),
-                        end_axial_thrust_n=float(item["end_axial_thrust_n"]),
-                        start_total_mass_flow_kg_s=float(item["start_total_mass_flow_kg_s"]),
-                        end_total_mass_flow_kg_s=float(item["end_total_mass_flow_kg_s"]),
-                        start_stream_mass_flows_kg_s=tuple(
-                            (str(pair[0]), float(pair[1]))
-                            for pair in item["start_stream_mass_flows_kg_s"]
-                        ),
-                        end_stream_mass_flows_kg_s=tuple(
-                            (str(pair[0]), float(pair[1]))
-                            for pair in item["end_stream_mass_flows_kg_s"]
-                        ),
-                        phase=str(item["phase"]),
+                        start_time_s=item["start_time_s"],
+                        end_time_s=item["end_time_s"],
+                        start_delivered_thrust_n=item["start_delivered_thrust_n"],
+                        end_delivered_thrust_n=item["end_delivered_thrust_n"],
+                        start_axial_thrust_n=item["start_axial_thrust_n"],
+                        end_axial_thrust_n=item["end_axial_thrust_n"],
+                        start_total_mass_flow_kg_s=item["start_total_mass_flow_kg_s"],
+                        end_total_mass_flow_kg_s=item["end_total_mass_flow_kg_s"],
+                        start_stream_mass_flows_kg_s=item["start_stream_mass_flows_kg_s"],
+                        end_stream_mass_flows_kg_s=item["end_stream_mass_flows_kg_s"],
+                        phase=item["phase"],
                     )
                     for item in payload["segments"]
                 ),
-                warnings=tuple(str(item) for item in payload.get("warnings", ())),
+                warnings=payload.get("warnings", ()),
             )
         except (KeyError, TypeError, ValueError, IndexError) as error:
             raise InputError("Malformed tabulated burn artifact.") from error

@@ -9,7 +9,6 @@ mass derivatives plus the event surfaces that make discontinuities explicit.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -18,13 +17,14 @@ from math import isfinite, sqrt
 from types import MappingProxyType
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import real, real_mapping, text, vector3
+from rocket_propulsion.core.validation import real, real_mapping, records, text, vector3
 
 from .performance_surface import (
     PerformanceGridLineSurface,
     PerformanceValiditySurface,
     RectilinearPerformanceSurface,
 )
+from .serialization import canonical_sha256
 from .tabulated import InterpolationPolicy, TabulatedBurnArtifact, TabulatedBurnSegment
 
 PROPAGATOR_BRIDGE_SCHEMA = "rocket_propulsion_propagator_bridge_v1"
@@ -317,15 +317,6 @@ def _validated_states(additional_states: Mapping[str, float] | None) -> dict[str
     return real_mapping(additional_states, "Additional states")
 
 
-def _canonical_hash(payload: object) -> str:
-    encoded = json.dumps(
-        payload,
-        allow_nan=False,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -392,8 +383,6 @@ class PropagatorPropulsionBridge:
     def __post_init__(self) -> None:
         if self.schema != PROPAGATOR_BRIDGE_SCHEMA:
             raise DomainError("Unsupported propagator bridge schema.")
-        if not self.model_id.strip():
-            raise DomainError("Propagator bridge model identifier must not be empty.")
         if not isinstance(self.artifact, TabulatedBurnArtifact):
             raise DomainError("Propagator bridge requires a TabulatedBurnArtifact.")
         if self.performance_surface is not None and not isinstance(
@@ -405,12 +394,9 @@ class PropagatorPropulsionBridge:
             ("state_constraints", AdditionalStateConstraint),
             ("parameters", EstimableParameter),
         ):
-            value = getattr(self, field_name)
-            if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
-                raise DomainError(f"Propagator bridge {field_name} must be a sequence.")
-            object.__setattr__(self, field_name, tuple(value))
-            if any(not isinstance(item, kind) for item in getattr(self, field_name)):
-                raise DomainError(f"Propagator bridge {field_name} have the wrong record type.")
+            object.__setattr__(
+                self, field_name, records(getattr(self, field_name), kind, f"Bridge {field_name}")
+            )
         for field_name in ("protected_dry_mass_kg", "nozzle_exit_area_m2"):
             if getattr(self, field_name) is not None:
                 object.__setattr__(
@@ -496,7 +482,7 @@ class PropagatorPropulsionBridge:
     def model_hash(self) -> str:
         """Content identity binding source artifact and propagation semantics."""
 
-        return _canonical_hash(self.manifest(include_hash=False))
+        return canonical_sha256(self.manifest(include_hash=False))
 
     def manifest(self, *, include_hash: bool = True) -> dict[str, object]:
         """Return a deterministic, integration-reviewable model manifest."""
@@ -560,7 +546,7 @@ class PropagatorPropulsionBridge:
                 "vacuum_axial_thrust_minus_ambient_pressure_times_exit_area"
             )
         if include_hash:
-            payload["model_hash"] = _canonical_hash(payload)
+            payload["model_hash"] = canonical_sha256(payload)
         return payload
 
     def to_dict(self) -> dict[str, object]:
@@ -637,6 +623,8 @@ class PropagatorPropulsionBridge:
                 model_id=payload["model_id"],
                 schema=payload["schema"],
             )
+        except InputError:
+            raise
         except (KeyError, TypeError, ValueError, AttributeError) as error:
             raise InputError("Malformed propagator bridge document.") from error
         if payload.get("model_hash") != bridge.model_hash:
@@ -894,8 +882,10 @@ class PropagatorPropulsionBridge:
         With ``nozzle_exit_area_m2`` set, the artifact's axial thrust is the
         *vacuum* thrust and ``ambient_pressure_pa`` is required while firing:
         ``F = F_vac - p_a A_e``, ``dF/dp_a = -A_e``.  The net thrust is not
-        clamped; ``net_thrust_margin_n`` is the root a consumer registers to
-        stop the burn before the net force reverses.
+        clamped; ``net_thrust_margin_n`` is the root a consumer monitors to
+        stop the burn before the net force reverses.  It is defined only while
+        the burn is firing (``None`` otherwise), so the consumer enables that
+        root between the burn's start and stop events.
 
         References
         ----------

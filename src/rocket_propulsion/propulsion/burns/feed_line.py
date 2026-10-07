@@ -8,8 +8,6 @@ terms required by a numerical force-model implementation.
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
@@ -19,6 +17,7 @@ from typing import TYPE_CHECKING
 from rocket_propulsion.core.errors import DomainError
 
 from .feed_system import RegulatedFeedEvaluation, RegulatedFeedState, RegulatedFeedSystem
+from .serialization import canonical_sha256
 
 if TYPE_CHECKING:
     from .propagator import PropagatorPropulsionBridge, PropulsionDynamicsEvaluation
@@ -41,15 +40,6 @@ def _nonnegative(value: float, label: str) -> None:
         raise DomainError(f"{label} must be finite and non-negative.")
 
 
-def _canonical_hash(payload: object) -> str:
-    encoded = json.dumps(
-        payload,
-        allow_nan=False,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -293,7 +283,7 @@ class DynamicFeedLine:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        return _canonical_hash(self.manifest(include_hash=False))
+        return canonical_sha256(self.manifest(include_hash=False))
 
     def manifest(self, *, include_hash: bool = True) -> dict[str, object]:
         """Return a deterministic, unit-explicit model manifest.
@@ -321,7 +311,7 @@ class DynamicFeedLine:
             "reference_ids": list(DYNAMIC_FEED_LINE_REFERENCE_IDS),
         }
         if include_hash:
-            payload["model_hash"] = _canonical_hash(payload)
+            payload["model_hash"] = canonical_sha256(payload)
         return payload
 
     def evaluate(

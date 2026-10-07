@@ -21,7 +21,6 @@ is a hard engine limit, not something to interpolate.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from bisect import bisect_right
 from collections.abc import Mapping
@@ -29,7 +28,14 @@ from dataclasses import dataclass, field
 from itertools import pairwise
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import real, real_mapping, real_tuple, text
+from rocket_propulsion.core.validation import (
+    name_value_pairs,
+    real,
+    real_mapping,
+    real_tuple,
+    records,
+    text,
+)
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
 from .propagator import (
@@ -40,17 +46,13 @@ from .propagator import (
     PropellantMassClosure,
     _normalized_with_norm,
 )
+from .serialization import canonical_sha256
 
 THROTTLEABLE_ENGINE_SCHEMA = "rocket_propulsion_throttleable_engine_v1"
 THROTTLEABLE_REFERENCE_IDS = ("NASA-20040000363", "OREKIT-13.1.5-PROPULSION-MODEL")
 _THROTTLE_TOLERANCE = 1e-12
 
 
-def _canonical_hash(payload: object) -> str:
-    encoded = json.dumps(
-        payload, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 def _pchip_slopes(x: tuple[float, ...], y: tuple[float, ...]) -> tuple[float, ...]:
@@ -175,6 +177,10 @@ class ThrottleablePartials:
 class ThrottleableEvaluation:
     """Force, drains and partials for one throttle command.
 
+    ``net_thrust_margin_n`` (net thrust with ambient back-pressure) is defined
+    only while the engine fires and has a nozzle exit area; it is ``None``
+    otherwise, so a consumer monitors it only while firing.
+
     References
     ----------
     NASA-20040000363: https://ntrs.nasa.gov/citations/20040000363
@@ -239,19 +245,9 @@ class ThrottleableEngineModel:
             raise DomainError("Rated thrust and mass flow must be greater than zero.")
         if not 0.0 < self.minimum_throttle <= self.maximum_throttle:
             raise DomainError("Throttle limits must satisfy 0 < minimum <= maximum.")
-        if isinstance(self.stream_fractions, (str, bytes)) or not hasattr(
-            self.stream_fractions, "__iter__"
-        ):
-            raise DomainError("Stream fractions must be a sequence of (state, fraction) pairs.")
-        fractions: list[tuple[str, float]] = []
-        for item in self.stream_fractions:
-            if isinstance(item, (str, bytes)) or not hasattr(item, "__len__") or len(item) != 2:
-                raise DomainError("Stream fractions must be (state, fraction) pairs.")
-            name = text(item[0], "Stream state name")
-            fraction = real(item[1], f"Stream fraction {name!r}")
-            if fraction < 0.0:
-                raise DomainError("Stream fractions must be non-negative.")
-            fractions.append((name, fraction))
+        fractions = list(name_value_pairs(self.stream_fractions, "Stream fractions"))
+        if any(fraction < 0.0 for _, fraction in fractions):
+            raise DomainError("Stream fractions must be non-negative.")
         if not fractions or len({name for name, _ in fractions}) != len(fractions):
             raise DomainError("Stream fractions need unique, non-empty state names.")
         if abs(sum(fraction for _, fraction in fractions) - 1.0) > 1e-12:
@@ -278,12 +274,7 @@ class ThrottleableEngineModel:
                 object.__setattr__(self, name, value)
         for name, kind in (("state_constraints", AdditionalStateConstraint),
                            ("parameters", EstimableParameter)):
-            value = getattr(self, name)
-            if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
-                raise DomainError(f"{name} must be a sequence.")
-            object.__setattr__(self, name, tuple(value))
-            if any(not isinstance(item, kind) for item in getattr(self, name)):
-                raise DomainError(f"{name} have the wrong record type.")
+            object.__setattr__(self, name, records(getattr(self, name), kind, name))
         states = {name for name, _ in self.stream_fractions}
         if any(constraint.state_name not in states for constraint in self.state_constraints):
             raise DomainError("State constraints must refer to a drained tank state.")
@@ -565,14 +556,14 @@ class ThrottleableEngineModel:
             "reference_ids": list(THROTTLEABLE_REFERENCE_IDS),
         }
         if include_hash:
-            payload["model_hash"] = _canonical_hash(payload)
+            payload["model_hash"] = canonical_sha256(payload)
         return payload
 
     @property
     def model_hash(self) -> str:
         """Content identity of the engine model."""
 
-        return _canonical_hash(self.manifest(include_hash=False))
+        return canonical_sha256(self.manifest(include_hash=False))
 
     def to_json(self, *, indent: int | None = 2) -> str:
         """Serialize the complete model document."""

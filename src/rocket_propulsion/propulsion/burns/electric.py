@@ -41,7 +41,6 @@ evaluation reports any ``power_deficit_w`` instead.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -49,7 +48,15 @@ from itertools import pairwise
 from math import isfinite
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import integer, json_text, real, real_mapping, text
+from rocket_propulsion.core.validation import (
+    integer,
+    json_text,
+    real,
+    real_mapping,
+    records,
+    strings,
+    text,
+)
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
 from .propagator import (
@@ -60,6 +67,7 @@ from .propagator import (
     _normalized_with_norm,
     _validated_states,
 )
+from .serialization import canonical_sha256
 
 ELECTRIC_THROTTLE_TABLE_SCHEMA = "rocket_propulsion_electric_throttle_table_v1"
 POWER_LIMITED_PROPULSION_SCHEMA = "rocket_propulsion_power_limited_propulsion_v1"
@@ -67,19 +75,11 @@ ELECTRIC_PROPULSION_REFERENCE_IDS = (
     "NASA-20090004685",
     "OREKIT-13.1.5-PROPULSION-MODEL",
 )
+
 OFF_LEVEL = -1
 _POWER_TOLERANCE_W = 1e-9
 
 
-def _canonical_hash(payload: object) -> str:
-    encoded = json.dumps(
-        payload,
-        allow_nan=False,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 def _positive(value: float, label: str) -> float:
@@ -96,26 +96,14 @@ def _nonnegative(value: float, label: str) -> float:
     return number
 
 
+def _strings_blank(value: object, label: str) -> tuple[str, ...]:
+    return strings(value, label, allow_blank=True)
+
+
 def _set(instance: object, name: str, value: object) -> None:
     object.__setattr__(instance, name, value)
 
 
-def _record_tuple(value: object, kind: type, label: str) -> tuple:
-    if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
-        raise DomainError(f"{label} must be a sequence.")
-    items = tuple(value)  # type: ignore[call-overload]
-    if any(not isinstance(item, kind) for item in items):
-        raise DomainError(f"{label} has the wrong record type.")
-    return items
-
-
-def _string_tuple(value: object, label: str) -> tuple[str, ...]:
-    if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
-        raise DomainError(f"{label} must be a sequence of strings.")
-    items = tuple(value)  # type: ignore[call-overload]
-    if any(not isinstance(item, str) for item in items):
-        raise DomainError(f"{label} must contain only strings.")
-    return items
 
 
 def _sha256_hex(value: str, label: str) -> None:
@@ -190,8 +178,8 @@ class ElectricThrottleTable:
     def __post_init__(self) -> None:
         if self.schema != ELECTRIC_THROTTLE_TABLE_SCHEMA:
             raise DomainError("Unsupported electric throttle-table schema.")
-        _set(self, "levels", _record_tuple(self.levels, ElectricThrottleLevel, "Throttle levels"))
-        _set(self, "reference_ids", _string_tuple(self.reference_ids, "Throttle-table references"))
+        _set(self, "levels", records(self.levels, ElectricThrottleLevel, "Throttle levels"))
+        _set(self, "reference_ids", _strings_blank(self.reference_ids, "Throttle-table references"))
         text(self.source_id, "Throttle-table source identifier")
         if not self.levels:
             raise DomainError("An electric throttle table requires at least one level.")
@@ -218,7 +206,7 @@ class ElectricThrottleTable:
     def table_hash(self) -> str:
         """Return content identity of levels and provenance."""
 
-        return _canonical_hash(self.to_dict(include_hash=False))
+        return canonical_sha256(self.to_dict(include_hash=False))
 
     def to_dict(self, *, include_hash: bool = True) -> dict[str, object]:
         """Return deterministic JSON-compatible table content."""
@@ -239,7 +227,7 @@ class ElectricThrottleTable:
             ],
         }
         if include_hash:
-            payload["table_hash"] = _canonical_hash(payload)
+            payload["table_hash"] = canonical_sha256(payload)
         return payload
 
     def to_json(self, *, indent: int | None = 2) -> str:
@@ -260,16 +248,16 @@ class ElectricThrottleTable:
             if not isinstance(levels_payload, list):
                 raise TypeError
             table = cls(
-                schema=str(payload["schema"]),
-                source_id=str(payload["source_id"]),
-                source_sha256=str(payload["source_sha256"]),
-                reference_ids=tuple(str(item) for item in payload["reference_ids"]),
+                schema=payload["schema"],
+                source_id=payload["source_id"],
+                source_sha256=payload["source_sha256"],
+                reference_ids=payload["reference_ids"],
                 levels=tuple(
                     ElectricThrottleLevel(
-                        level_id=str(item["level_id"]),
-                        input_power_w=float(item["input_power_w"]),
-                        thrust_n=float(item["thrust_n"]),
-                        mass_flow_kg_s=float(item["mass_flow_kg_s"]),
+                        level_id=item["level_id"],
+                        input_power_w=item["input_power_w"],
+                        thrust_n=item["thrust_n"],
+                        mass_flow_kg_s=item["mass_flow_kg_s"],
                     )
                     for item in levels_payload
                 ),
@@ -337,9 +325,9 @@ class PowerSwitchSurface:
     to_level: int
 
     def __post_init__(self) -> None:
-        if not self.event_id.strip():
-            raise DomainError("Power-switch event identifier must not be empty.")
         text(self.event_id, "Power-switch event identifier")
+        if not isinstance(self.crossing, str):
+            raise DomainError("Power-switch crossing must be a string.")
         _set(self, "threshold_w", real(self.threshold_w, "Power-switch threshold"))
         _set(self, "from_level", integer(self.from_level, "Power-switch from_level"))
         _set(self, "to_level", integer(self.to_level, "Power-switch to_level"))
@@ -384,7 +372,7 @@ class DiscreteThrottlePath:
     def __post_init__(self) -> None:
         if not isinstance(self.table, ElectricThrottleTable):
             raise DomainError("Throttle path requires an ElectricThrottleTable.")
-        _set(self, "level_ids", _string_tuple(self.level_ids, "Throttle-path level identifiers"))
+        _set(self, "level_ids", _strings_blank(self.level_ids, "Throttle-path level identifiers"))
         text(self.path_id, "Throttle path identifier")
         if not self.level_ids:
             raise DomainError("A throttle path requires at least one level.")
@@ -777,7 +765,7 @@ class PowerLimitedPropulsionModel:
         _set(self, "power_margin_w", _nonnegative(self.power_margin_w, "Power margin"))
         _set(self, "duty_cycle", real(self.duty_cycle, "Duty cycle"))
         _set(
-            self, "parameters", _record_tuple(self.parameters, EstimableParameter, "Parameters")
+            self, "parameters", records(self.parameters, EstimableParameter, "Parameters")
         )
         if not 0.0 < self.duty_cycle <= 1.0:
             raise DomainError("Duty cycle must be in (0, 1].")
@@ -913,7 +901,7 @@ class PowerLimitedPropulsionModel:
             "reference_ids": list(ELECTRIC_PROPULSION_REFERENCE_IDS),
         }
         if include_hash:
-            payload["model_hash"] = _canonical_hash(payload)
+            payload["model_hash"] = canonical_sha256(payload)
         return payload
 
     def to_dict(self) -> dict[str, object]:
@@ -1017,7 +1005,7 @@ class PowerLimitedPropulsionModel:
     def model_hash(self) -> str:
         """Content identity of the throttle law, limits and semantics."""
 
-        return _canonical_hash(self.manifest(include_hash=False))
+        return canonical_sha256(self.manifest(include_hash=False))
 
     def mass_closure(
         self,

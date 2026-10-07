@@ -24,8 +24,6 @@ input; this module only supplies the propulsion-owned terms.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import random
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -33,11 +31,21 @@ from itertools import pairwise
 from math import exp, isfinite, log, sqrt
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import real, real_tuple, text, vector3
+from rocket_propulsion.core.validation import (
+    real,
+    real_matrix,
+    real_tuple,
+    records,
+    strings,
+    text,
+    vector3,
+)
 
 from .calibration import CalibrationScope
 from .multivariate_calibration import HotFireMultivariateCalibration
 from .propagator import EstimableParameter
+from .serialization import canonical_sha256
+from .vehicle_geometry import _cross
 
 PROPULSION_PRIOR_SCHEMA = "rocket_propulsion_parameter_prior_v1"
 EXECUTION_ERROR_REFERENCE_IDS = ("NASA-20180003657", "JCGM-100-2008")
@@ -46,11 +54,6 @@ _SYMMETRY_TOLERANCE = 1e-12
 Matrix = tuple[tuple[float, ...], ...]
 
 
-def _canonical_hash(payload: object) -> str:
-    encoded = json.dumps(
-        payload, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 def _cholesky(matrix: Matrix) -> Matrix | None:
@@ -104,20 +107,11 @@ class PropulsionParameterPrior:
         if self.schema != PROPULSION_PRIOR_SCHEMA:
             raise DomainError("Unsupported propulsion-prior schema.")
         for field_name in ("parameter_names", "reference_ids"):
-            value = getattr(self, field_name)
-            if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
-                raise DomainError(f"Prior {field_name} must be a sequence of strings.")
             object.__setattr__(
-                self, field_name, tuple(text(item, f"Prior {field_name}") for item in value)
+                self, field_name, strings(getattr(self, field_name), f"Prior {field_name}")
             )
         object.__setattr__(self, "mean", real_tuple(self.mean, "Prior mean"))
-        if isinstance(self.covariance, (str, bytes)) or not hasattr(self.covariance, "__iter__"):
-            raise DomainError("Prior covariance must be a matrix.")
-        object.__setattr__(
-            self,
-            "covariance",
-            tuple(real_tuple(row, "Prior covariance") for row in self.covariance),
-        )
+        object.__setattr__(self, "covariance", real_matrix(self.covariance, "Prior covariance"))
         if not isinstance(self.source, str) or not isinstance(self.rationale, str):
             raise DomainError("Prior source and rationale must be strings.")
         size = len(self.parameter_names)
@@ -367,10 +361,7 @@ class PropulsionParameterPrior:
         NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
         """
 
-        if isinstance(parameters, (str, bytes)) or not hasattr(parameters, "__iter__"):
-            raise DomainError("Bridge parameters must be a sequence.")
-        if any(not isinstance(item, EstimableParameter) for item in parameters):
-            raise DomainError("Bridge parameters must be EstimableParameter records.")
+        parameters = records(parameters, EstimableParameter, "Bridge parameters")
         drivers = {parameter.name: parameter for parameter in parameters}
         warnings: list[str] = []
         for name, value, sigma in zip(
@@ -391,7 +382,7 @@ class PropulsionParameterPrior:
     def prior_hash(self) -> str:
         """Return content identity of names, moments and provenance."""
 
-        return _canonical_hash(self.to_dict(include_hash=False))
+        return canonical_sha256(self.to_dict(include_hash=False))
 
     def to_dict(self, *, include_hash: bool = True) -> dict[str, object]:
         """Return deterministic JSON-compatible prior content."""
@@ -406,7 +397,7 @@ class PropulsionParameterPrior:
             "reference_ids": list(self.reference_ids),
         }
         if include_hash:
-            payload["prior_hash"] = _canonical_hash(payload)
+            payload["prior_hash"] = canonical_sha256(payload)
         return payload
 
     @classmethod
@@ -417,15 +408,13 @@ class PropulsionParameterPrior:
             raise InputError("Parameter-prior artifact root must be an object.")
         try:
             prior = cls(
-                parameter_names=tuple(str(item) for item in payload["parameter_names"]),
-                mean=tuple(float(item) for item in payload["mean"]),
-                covariance=tuple(
-                    tuple(float(value) for value in row) for row in payload["covariance"]
-                ),
-                source=str(payload["source"]),
-                rationale=str(payload["rationale"]),
-                reference_ids=tuple(str(item) for item in payload["reference_ids"]),
-                schema=str(payload["schema"]),
+                parameter_names=payload["parameter_names"],
+                mean=payload["mean"],
+                covariance=payload["covariance"],
+                source=payload["source"],
+                rationale=payload["rationale"],
+                reference_ids=payload["reference_ids"],
+                schema=payload["schema"],
             )
         except (KeyError, TypeError, ValueError, DomainError) as error:
             raise InputError("Malformed parameter-prior artifact.") from error
@@ -614,15 +603,6 @@ class GatesExecutionErrorModel:
             delta_v[i] + a * unit[i] + b * first[i] + c * second[i] for i in range(3)
         )  # type: ignore[return-value]
 
-
-def _cross(
-    a: tuple[float, ...], b: tuple[float, ...]
-) -> tuple[float, float, float]:
-    return (
-        a[1] * b[2] - a[2] * b[1],
-        a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0],
-    )
 
 
 @dataclass(frozen=True, slots=True)

@@ -98,6 +98,12 @@ each crossing.
 
 ## Estimation and variational equations
 
+For parameter sensitivities across the profile's time events use
+`time_event_jump(...)`, which returns the left-minus-right propulsion
+derivatives for the saltation update; see
+[`TRAJECTORY_OPTIMIZATION.md`](TRAJECTORY_OPTIMIZATION.md).
+
+
 Three named, bounded drivers are provided:
 
 | Driver | Meaning | Default |

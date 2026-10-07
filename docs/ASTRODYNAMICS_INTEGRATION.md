@@ -24,6 +24,9 @@ astrodynamics package. All quantities are SI.
 | Torque, cosine loss, CoM/inertia drift for 6-DOF | `vehicle_geometry.py` | `ThrusterLayout`, `PropellantMassModel` | [Geometry](VEHICLE_GEOMETRY.md) |
 | Bounded (0 ≤ T ≤ T_max) thruster allocation for a force/torque demand | `vehicle_geometry.py` | `ThrusterLayout.allocate` | [Geometry](VEHICLE_GEOMETRY.md#thrust-allocation) |
 | Several burns, coasts and stage/fairing jettison on one clock | `timeline.py` | `PropulsionTimeline` | [Timeline](PROPULSION_TIMELINE.md) |
+| Throttle as an optimization control, smooth Isp(u) | `throttleable.py` | `ThrottleableEngineModel`, `MonotoneCubicCurve` | [Optimization](TRAJECTORY_OPTIMIZATION.md) |
+| Impulsive equivalent (Δv, t*) of a finite burn | `burn_metrics.py` | `free_space_burn_metrics` | [Optimization](TRAJECTORY_OPTIMIZATION.md#3-impulsive-equivalent-of-a-finite-burn) |
+| Saltation for sensitivities at burn events | `propagator.py` | `time_event_jump` | [Optimization](TRAJECTORY_OPTIMIZATION.md#4-variational-equations-across-burn-discontinuities) |
 | Monte Carlo realizations with probabilities | `ensemble.py`, `scenarios.py` | hierarchical ensemble | [Ensemble](HIERARCHICAL_PROPULSION_ENSEMBLE.md) |
 
 All public types are importable from `rocket_propulsion.propulsion.burns`.
@@ -110,6 +113,13 @@ and bounded, so an estimator cannot reorder them silently. Use
 `PropulsionParameterPrior` for their a-priori covariance and
 `prior.check_against(bridge.parameters)` before a filter run.
 
+Sensitivities across events: profile time events move with
+`ignition_time_bias_s`, so the sensitivity matrix needs the saltation update
+`S+ = S- + (f- - f+) dtau/dp` at each one. `bridge.time_event_jump(...)`
+returns the propulsion part of `f- - f+`. `tests/test_burn_variational.py`
+integrates the full recipe and matches finite differences of whole
+propagations to six digits.
+
 Partials are local. Where a quantity is non-smooth (a time boundary for the
 ignition bias, a grid line of a performance map, a throttle level change), the
 bridge reports it (`nonsmooth_parameters`) or exposes a root instead of
@@ -137,6 +147,11 @@ change can never pass silently into an orbit product.
   `PowerLimitedPropulsionModel` and `PropulsionTimeline` serialize to complete
   JSON documents. Reopening re-verifies every nested hash. Ship the document
   with a trajectory product so the exact propulsion model can be reproduced.
+- **Code review:** a systematic review of the whole interface found ten
+  issues. Each is fixed and has a regression test (`ReviewRegressionTests`),
+  for example readers that coerced `"1.0"` to a number, event-id namespace
+  collisions in timelines, and a quadrature error estimate that could be a
+  fake zero.
 - **Property tests:** random multi-segment profiles, throttle tables and
   geometries are checked for continuity, drain closure, linearity, RK4
   propellant and mass closure, monotone throttle paths and bounded-allocation

@@ -137,6 +137,10 @@ or modifying Sidera:
 - `ThrusterLayout.allocate` (in `vehicle_geometry.py`) solves bounded thrust
   allocation, 0 <= T <= T_max, with an active-set bounded least-squares method.
 
+- `throttleable.py` models a throttle-commanded engine for optimization with
+  smooth monotone throttle curves; `burn_metrics.py` gives free-space delta-v
+  and impulsive-equivalent time. See `docs/TRAJECTORY_OPTIMIZATION.md`.
+
 Every public input of these modules is validated by
 `rocket_propulsion.core.validation`; bridges, electric models and timelines
 serialize to reopenable, hash-verified documents.

@@ -9,7 +9,6 @@ never performed.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from bisect import bisect_left, bisect_right
 from collections.abc import Mapping
@@ -19,7 +18,9 @@ from math import isfinite, prod
 from types import MappingProxyType
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import json_text, real, real_tuple, text
+from rocket_propulsion.core.validation import json_text, real, real_tuple, records, strings, text
+
+from .serialization import canonical_sha256
 
 PERFORMANCE_SURFACE_SCHEMA = "rocket_propulsion_performance_surface_v1"
 PERFORMANCE_SURFACE_REFERENCE_IDS = (
@@ -27,17 +28,6 @@ PERFORMANCE_SURFACE_REFERENCE_IDS = (
     "NASA-STD-7009B",
     "NASA-20040000363",
 )
-
-
-def _canonical_hash(payload: object) -> str:
-    encoded = json.dumps(
-        payload,
-        allow_nan=False,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -277,19 +267,16 @@ class RectilinearPerformanceSurface:
         if self.schema != PERFORMANCE_SURFACE_SCHEMA:
             raise DomainError("Unsupported performance-surface schema.")
         for name, kind in (("axes", PerformanceAxis), ("points", PerformanceScalePoint)):
-            value = getattr(self, name)
-            if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
-                raise DomainError(f"Performance-surface {name} must be a sequence.")
-            object.__setattr__(self, name, tuple(value))
-            if any(not isinstance(item, kind) for item in getattr(self, name)):
-                raise DomainError(f"Performance-surface {name} have the wrong record type.")
+            object.__setattr__(
+                self, name, records(getattr(self, name), kind, f"Performance-surface {name}")
+            )
         text(self.source_id, "Performance-surface source identifier")
         text(self.source_sha256, "Performance-surface source hash")
-        if isinstance(self.reference_ids, (str, bytes)):
-            raise DomainError("Performance-surface references must be a sequence.")
-        object.__setattr__(self, "reference_ids", tuple(self.reference_ids))
-        if any(not isinstance(item, str) for item in self.reference_ids):
-            raise DomainError("Performance-surface references must be strings.")
+        object.__setattr__(
+            self,
+            "reference_ids",
+            strings(self.reference_ids, "Performance-surface references", allow_blank=True),
+        )
         if not self.axes:
             raise DomainError("A performance surface requires at least one axis.")
         names = [axis.name for axis in self.axes]
@@ -337,7 +324,7 @@ class RectilinearPerformanceSurface:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        return _canonical_hash(self.to_dict(include_hash=False))
+        return canonical_sha256(self.to_dict(include_hash=False))
 
     def to_dict(self, *, include_hash: bool = True) -> dict[str, object]:
         """Return deterministic JSON-compatible surface content.
@@ -367,7 +354,7 @@ class RectilinearPerformanceSurface:
             "reference_ids": list(self.reference_ids),
         }
         if include_hash:
-            payload["surface_hash"] = _canonical_hash(payload)
+            payload["surface_hash"] = canonical_sha256(payload)
         return payload
 
     def to_json(self, *, indent: int | None = 2) -> str:
@@ -405,23 +392,23 @@ class RectilinearPerformanceSurface:
             if not isinstance(axes_payload, list) or not isinstance(points_payload, list):
                 raise TypeError
             surface = cls(
-                schema=str(payload["schema"]),
-                source_id=str(payload["source_id"]),
-                source_sha256=str(payload["source_sha256"]),
-                reference_ids=tuple(str(item) for item in payload["reference_ids"]),
+                schema=payload["schema"],
+                source_id=payload["source_id"],
+                source_sha256=payload["source_sha256"],
+                reference_ids=payload["reference_ids"],
                 axes=tuple(
                     PerformanceAxis(
-                        name=str(item["name"]),
-                        unit=str(item["unit"]),
-                        values=tuple(float(value) for value in item["values"]),
+                        name=item["name"],
+                        unit=item["unit"],
+                        values=item["values"],
                     )
                     for item in axes_payload
                 ),
                 points=tuple(
                     PerformanceScalePoint(
-                        coordinates=tuple(float(value) for value in item["coordinates"]),
-                        force_scale=float(item["force_scale"]),
-                        mass_flow_scale=float(item["mass_flow_scale"]),
+                        coordinates=item["coordinates"],
+                        force_scale=item["force_scale"],
+                        mass_flow_scale=item["mass_flow_scale"],
                     )
                     for item in points_payload
                 ),
