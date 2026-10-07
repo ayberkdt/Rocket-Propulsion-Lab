@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import isfinite
 
+from .constants import CELSIUS_OFFSET_K
 from .errors import InputError
 
 
@@ -48,7 +49,7 @@ _UNITS = (
     UnitDefinition("bar", "pressure", 100_000.0, display_precision=6),
     UnitDefinition("psi", "pressure", 6_894.757293168, display_precision=6),
     UnitDefinition("K", "temperature", 1.0, display_precision=4),
-    UnitDefinition("degC", "temperature", 1.0, 273.15, display_precision=4),
+    UnitDefinition("degC", "temperature", 1.0, CELSIUS_OFFSET_K, display_precision=4),
     UnitDefinition("degF", "temperature", 5.0 / 9.0, 255.3722222222222, 4),
     UnitDefinition("m", "length", 1.0, display_precision=6),
     UnitDefinition("mm", "length", 0.001, display_precision=4),

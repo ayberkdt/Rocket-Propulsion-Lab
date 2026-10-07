@@ -130,3 +130,26 @@ protected dry mass would truncate; use the finite-burn path for it.
   propagator that carries extra states).
 - Burn targeting: computing impulses or finite burns that reach a target orbit
   is the mission layer's job.
+
+## References
+
+- Ideal rocket equation \(\Delta v = c\ln(m_0/m_f)\), used for the exact-mass
+  impulse (\(I_{sp}=c_\mathrm{eff}/g_0\)) and the rocket-equation oracles:
+  NASA Glenn, *Ideal Rocket Equation*,
+  <https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/>.
+- \(g_0 = 9.80665\) m/s² (exact, conventional): BIPM SI Brochure, 9th ed.,
+  2019, <https://www.bipm.org/en/publications/si-brochure>; registered in
+  `rocket_propulsion.core.constants`.
+- Gauss–Legendre quadrature for \(\Delta v\) and \(t^\ast\): NIST DLMF §3.5(v),
+  <https://dlmf.nist.gov/3.5#v>.
+- Event and discontinuity handling (restart at each discontinuity, left/right
+  limits): Orekit 13.1.5 `EventDetector` API,
+  <https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html>.
+- Dry-mass cut time: piecewise-linear flow gives a piecewise-quadratic mass;
+  the root \(\tau = 2c/(q_0+\sqrt{q_0^2+4ac})\) is the cancellation-free form
+  of the quadratic formula (D. Goldberg, *What Every Computer Scientist Should
+  Know About Floating-Point Arithmetic*, ACM Computing Surveys 23(1), 1991,
+  §1.4; bibliographic citation).
+- Lunaris maneuver and event contracts: Lunaris source,
+  `lunaris.core.propagation` (version `0.1.0rc3.dev0`),
+  <https://github.com/ayberkdt/lunaris>.

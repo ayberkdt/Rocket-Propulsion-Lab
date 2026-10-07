@@ -121,7 +121,7 @@ def workspace_from_json(text: str) -> Workspace:
 
     try:
         raw = json.loads(text)
-    except (TypeError, json.JSONDecodeError) as error:
+    except (TypeError, ValueError, RecursionError) as error:
         raise InputError("Workspace is not valid JSON.", code="invalid_workspace_json") from error
     if not isinstance(raw, dict):
         raise InputError("Workspace root must be a JSON object.")

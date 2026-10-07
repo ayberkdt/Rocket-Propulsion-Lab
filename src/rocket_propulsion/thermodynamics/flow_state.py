@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from math import isfinite, log, sqrt
 
+from rocket_propulsion.core.constants import AIR_SPECIFIC_GAS_CONSTANT_J_KG_K
 from rocket_propulsion.core.errors import DomainError
 
 
@@ -50,7 +51,7 @@ def calculate_stagnation_state(
     static_pressure_pa: float,
     static_temperature_k: float,
     gamma: float = 1.4,
-    gas_constant_j_kg_k: float = 287.05,
+    gas_constant_j_kg_k: float = AIR_SPECIFIC_GAS_CONSTANT_J_KG_K,
 ) -> StagnationState:
     """Connect a static perfect-gas flow state to its stagnation state.
 
@@ -100,7 +101,7 @@ def calculate_isentropic_process(
     inlet_temperature_k: float,
     efficiency: float = 1.0,
     gamma: float = 1.4,
-    gas_constant_j_kg_k: float = 287.05,
+    gas_constant_j_kg_k: float = AIR_SPECIFIC_GAS_CONSTANT_J_KG_K,
 ) -> IsentropicProcessResult:
     """Calculate ideal and efficiency-corrected compression or expansion.
 

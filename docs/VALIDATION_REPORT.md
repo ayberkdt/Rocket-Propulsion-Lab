@@ -46,3 +46,13 @@ LOX/LH2, LOX/RP-1, and LOX/CH4. The adapter deliberately requires a
 user-supplied CEA installation, so that gate cannot be replaced by self-generated
 local-solver values.
 
+## References
+
+The evidence rows above cite their sources by name; full entries and URLs are
+in [`REFERENCES.md`](REFERENCES.md). The principal ones: NASA Glenn
+coefficients, NASA/TP-2002-211556, <https://ntrs.nasa.gov/citations/20020085330>;
+NASA RP-1311 (CEA), <https://ntrs.nasa.gov/citations/19950013764>; NASA SP-8041
+(nozzle separation), <https://ntrs.nasa.gov/citations/19710021390>; NIST/SEMATECH
+e-Handbook §7.4.4, <https://www.itl.nist.gov/div898/handbook/prc/section4/prc44.htm>. Physical constants and their defining
+sources are registered in `rocket_propulsion.core.constants` and listed under
+*Physical constants* there.

@@ -38,6 +38,53 @@ relations. These primary NASA resources anchor terminology and screening values:
   heat-transfer use in preliminary liquid-engine design:
   <https://ntrs.nasa.gov/citations/19710019929>
 
+## Physical constants
+
+Registered with value, unit and source in `rocket_propulsion.core.constants`;
+`tests/test_constants_and_references.py` refuses bare copies elsewhere.
+
+- BIPM, **The International System of Units (SI Brochure)**, 9th ed., 2019 —
+  exact \(N_A\) and \(k\) (so \(R = N_A k = 8.314\,462\,618\ldots\) J/(mol K)),
+  the Celsius offset 273.15 K and the conventional
+  \(g_n = 9.80665\) m/s²: <https://www.bipm.org/en/publications/si-brochure>
+- NOAA/NASA/USAF, **U.S. Standard Atmosphere, 1976**, NOAA-S/T 76-1562 /
+  NASA-TM-X-74335 — defining constants \(R^\ast = 8.31432\) J/(mol K),
+  \(M_0 = 28.9644\) kg/kmol, \(P_0 = 101\,325\) Pa, \(T_0 = 288.15\) K and the
+  layer table below 84.852 km: <https://ntrs.nasa.gov/citations/19770009539>
+
+## Uncertainty and calibration references
+
+- JCGM 100:2008, **Evaluation of Measurement Data — Guide to the Expression of
+  Uncertainty in Measurement** — propagation of correlated uncertainty and
+  covariance reporting:
+  <https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf>
+- NIST TN 1297, **Guidelines for Evaluating and Expressing the Uncertainty of
+  NIST Measurement Results**, 1994 — Type A/Type B uncertainty:
+  <https://www.nist.gov/pml/nist-technical-note-1297>
+- NIST/SEMATECH e-Handbook §7.4.4, **Variance Components** — one-way
+  random-effects models:
+  <https://www.itl.nist.gov/div898/handbook/prc/section4/prc44.htm>
+- NIST Dataplot, **Consensus Mean** — heteroscedastic random effects and
+  Mandel–Paule estimation:
+  <https://www.itl.nist.gov/div898/software/dataplot/refman1/auxillar/consmean.htm>
+- NASA CR-184099 — transient engine simulation covering steady balance,
+  throttle transients, starts and shutdowns (cited by the Sidera plan):
+  <https://ntrs.nasa.gov/citations/19910011919>
+
+## Numerical methods
+
+- NIST DLMF §3.5(v), **Gauss quadrature** (Gauss–Legendre nodes and weights):
+  <https://dlmf.nist.gov/3.5#v>
+- F. N. Fritsch and R. E. Carlson, **Monotone Piecewise Cubic Interpolation**,
+  SIAM J. Numer. Anal. 17(2), 1980; F. N. Fritsch and J. Butland, SIAM J. Sci.
+  Stat. Comput. 5(2), 1984 — PCHIP slopes (bibliographic citations).
+- C. L. Lawson and R. J. Hanson, **Solving Least Squares Problems**, 1974;
+  P. B. Stark and R. L. Parker, **Bounded-Variable Least-Squares**, Comput.
+  Stat. 10, 1995 — bounded thrust allocation (bibliographic citations).
+- D. Goldberg, **What Every Computer Scientist Should Know About
+  Floating-Point Arithmetic**, ACM Computing Surveys 23(1), 1991 — the
+  cancellation-free quadratic root (bibliographic citation).
+
 ## Finite-burn, transient, and blowdown references
 
 - NASA SP-8112, **Pressurization Systems for Liquid Rockets** — pressure-fed

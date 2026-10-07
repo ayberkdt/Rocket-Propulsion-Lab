@@ -229,6 +229,26 @@ class TabulatedBurnSegment:
         }
 
 
+def epoch_time_tolerance(*times_s: float) -> float:
+    """Rounding tolerance for a time formed from absolute epochs of this size.
+
+    ``16 eps max(1, |t_i|)`` with machine epsilon ``eps = 2^-52``: a time
+    built by adding or subtracting a few epochs of magnitude ``|t|`` is exact
+    to a few units in the last place, i.e. well within 16 ``eps |t|``
+    (3.6e-8 s at 1e7 s, 3.6e-15 s near zero).
+
+    References
+    ----------
+    D. Goldberg, What Every Computer Scientist Should Know About
+    Floating-Point Arithmetic, ACM Computing Surveys 23(1), 1991.
+    """
+
+    scale = 1.0
+    for value in times_s:
+        scale = max(scale, abs(real(value, "Epoch")))
+    return 16.0 * 2.220446049250313e-16 * scale
+
+
 def _segment_start(segment: TabulatedBurnSegment) -> float:
     return segment.start_time_s
 
@@ -414,6 +434,51 @@ class TabulatedBurnArtifact:
             return index - 1
         return index
 
+    @property
+    def shortest_segment_s(self) -> float:
+        """Duration of the shortest segment."""
+
+        return min(segment.duration_s for segment in self.segments)
+
+    def snap_to_boundary(self, time_s: float, tolerance_s: float | None = None) -> float:
+        """Return the nearest boundary (zero or a segment end) within tolerance, else ``time_s``.
+
+        A consumer that forms relative time as ``t - t_ignition`` at a large
+        epoch carries the rounding of ``t`` (a few units in the last place of
+        ``t``, ~2e-9 s at 1e7 s), far above :attr:`boundary_tolerance_s`.
+        Snapping with an epoch-scaled tolerance (:func:`epoch_time_tolerance`)
+        lets the requested left/right limit be taken at the boundary the
+        consumer meant.  The tolerance must stay below half the shortest
+        segment so the nearest boundary is unambiguous.
+
+        References
+        ----------
+        D. Goldberg, What Every Computer Scientist Should Know About
+        Floating-Point Arithmetic, ACM Computing Surveys 23(1), 1991.
+        Orekit EventDetector 13.1.5 API:
+        https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+        """
+
+        time_s = real(time_s, "Tabulated burn time")
+        tolerance = self.boundary_tolerance_s
+        if tolerance_s is not None:
+            requested = real(tolerance_s, "Boundary tolerance")
+            if requested < 0.0:
+                raise DomainError("Boundary tolerance must be non-negative.")
+            if requested >= 0.5 * self.shortest_segment_s:
+                raise DomainError(
+                    "Boundary tolerance must be below half the shortest segment duration."
+                )
+            tolerance = max(tolerance, requested)
+        if abs(time_s) <= tolerance:
+            return 0.0
+        index = bisect_left(self.segments, time_s - tolerance, key=_segment_end)
+        if index < len(self.segments):
+            end = self.segments[index].end_time_s
+            if abs(end - time_s) <= tolerance:
+                return end
+        return time_s
+
     def is_boundary_time(self, time_s: float) -> bool:
         """Return whether ``time_s`` lies on zero or any segment end, in O(log n)."""
 
@@ -517,7 +582,7 @@ class TabulatedBurnArtifact:
     def from_json(cls, text: str) -> TabulatedBurnArtifact:
         try:
             payload = json.loads(json_text(text, "Tabulated burn artifact"))
-        except json.JSONDecodeError as error:
+        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
             raise InputError("Tabulated burn artifact is not valid JSON.") from error
         return cls.from_dict(payload)
 

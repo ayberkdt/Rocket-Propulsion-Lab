@@ -341,7 +341,7 @@ def burn_result_from_json(text: str) -> Any:
 
     try:
         payload = json.loads(text)
-    except json.JSONDecodeError as error:
+    except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
         raise InputError("Burn artifact is not valid JSON.") from error
     return burn_result_from_dict(payload)
 

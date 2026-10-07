@@ -41,7 +41,7 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from itertools import pairwise
-from math import ceil, log
+from math import ceil, floor, log
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import integer, real, real_tuple, strings, text
@@ -205,6 +205,26 @@ class PulseModeThruster:
     def minimum_impulse_bit_n_s(self) -> float:
         return self.impulse_bits_n_s[0]
 
+    @property
+    def exhaust_velocity_bound_m_s(self) -> float:
+        """Upper bound of ``I(t)/m(t)`` over every permitted width.
+
+        PCHIP is monotone between monotone nodes, so on ``[t_k, t_k+1]``
+        ``I <= I_k+1`` and ``m >= m_k``; beyond the last node the ratio moves
+        monotonically from ``I_N/m_N`` towards ``F/mdot``.
+
+        References
+        ----------
+        F. N. Fritsch and R. E. Carlson, SIAM J. Numer. Anal. 17(2), 1980.
+        """
+
+        impulses, masses = self.impulse_bits_n_s, self.propellant_per_pulse_kg
+        bound = max(impulses[k + 1] / masses[k] for k in range(len(masses) - 1))
+        bound = max(bound, impulses[-1] / masses[-1])
+        if self.longest_on_time_s > self.on_times_s[-1]:
+            bound = max(bound, self.steady_thrust_n / self.steady_mass_flow_kg_s)
+        return bound
+
     def pulse(self, on_time_s: float) -> PulseBit:
         """Return impulse, propellant and their on-time derivatives for one pulse.
 
@@ -293,83 +313,159 @@ class PulseModeThruster:
         longest = self.pulse(self.longest_on_time_s)
         minimum = self.pulse(self.minimum_on_time_s)
         if request == 0.0:
-            return self._plan("impulse", 0.0, 0, None, None)
+            return self._plan("impulse", 0.0, 0, None, None, limit)
         count = max(1, ceil(request / longest.impulse_n_s - 1e-12))
-        if count > limit:
-            raise DomainError(f"The request needs {count} pulses, above the limit {limit}.")
         if request / count >= minimum.impulse_n_s * (1.0 - 1e-12):
             on_time = self.on_time_for_impulse(min(request / count, longest.impulse_n_s))
-            return self._plan("impulse", request, count, self.pulse(on_time), None)
+            return self._plan("impulse", request, count, self.pulse(on_time), None, limit)
         # The request lies in the gap between (count - 1) longest pulses and
         # count minimum impulse bits; no integer train meets it exactly.
         below = (count - 1) * longest.impulse_n_s
         above = count * minimum.impulse_n_s
         if policy == "no_overshoot" or request - below < above - request:
-            return self._plan("impulse", request, count - 1, longest if count > 1 else None, None)
-        return self._plan("impulse", request, count, minimum, None)
+            return self._plan(
+                "impulse", request, count - 1, longest if count > 1 else None, None, limit
+            )
+        return self._plan("impulse", request, count, minimum, None, limit)
 
     def plan_delta_v(
         self,
         delta_v_m_s: float,
         initial_mass_kg: float,
         *,
+        propellant_budget_kg: float,
         quantization: str = "nearest",
         maximum_pulses: int | None = None,
+        maximum_search_pulses: int = 100_000,
     ) -> PulsePlan:
         """Return the fewest equal pulses whose free-space Δv meets a request.
 
+        Every pulse train must fit in ``propellant_budget_kg``, which must be
+        below ``initial_mass_kg`` (the dry structure is not propellant).  For
+        ``n`` pulses the feasible widths are ``[t_min, t_max(n)]`` with
+        ``t_max(n) = min(t_longest, m^-1(budget / n))``, and the achievable Δv
+        is the interval ``[Δv_n(t_min), Δv_n(t_max(n))]`` (``Δv_n`` increases
+        with the width).  The lower ends increase with ``n``; up to the count
+        the budget allows at the longest width the upper ends do too, so that
+        part is bisected, and the budget-limited counts beyond it are scanned
+        (at most ``maximum_search_pulses``).  A request inside some interval
+        is met exactly with the smallest such ``n``; otherwise it is quantized
+        to the nearest achievable train (or the largest one not above it with
+        ``no_overshoot``).  A request above everything the budget can deliver
+        fails closed.
+
         References
         ----------
-        NASA-SP-125: https://ntrs.nasa.gov/citations/19710019929
+        NASA Glenn, Ideal Rocket Equation:
+        https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
         NASA-20070032005: https://ntrs.nasa.gov/citations/20070032005
         """
 
         request = real(delta_v_m_s, "Requested delta-v")
         mass = real(initial_mass_kg, "Initial mass")
+        budget = real(propellant_budget_kg, "Propellant budget")
         if request < 0.0 or mass <= 0.0:
             raise DomainError("Delta-v must be non-negative and initial mass positive.")
+        if not 0.0 < budget < mass:
+            raise DomainError("The propellant budget must be positive and below the initial mass.")
         limit = self._pulse_limit(maximum_pulses)
+        scan_cap = integer(maximum_search_pulses, "Maximum search pulses")
+        if scan_cap < 1:
+            raise DomainError("Maximum search pulses must be at least one.")
         policy = _policy(quantization)
         if request == 0.0:
-            return self._plan("delta_v", 0.0, 0, None, mass)
-        shortest, longest = self.minimum_on_time_s, self.longest_on_time_s
-        longest_bit = self.pulse(longest)
-        affordable = ceil(mass / longest_bit.propellant_kg) - 1
-
-        def reach(count: int, on_time: float) -> float:
-            bit = self.pulse(on_time)
-            if count * bit.propellant_kg >= mass:
-                return float("inf")
-            return bit.exhaust_velocity_m_s * log(mass / (mass - count * bit.propellant_kg))
-
-        # Smallest count whose longest pulse reaches the request.  Δv_n grows
-        # at least linearly in n (Δv_n >= n I / m0), so the first-order count
-        # is an upper bound, and Δv_n is increasing in n: bisect on n.
-        upper = max(1, min(ceil(request * mass / longest_bit.impulse_n_s), affordable))
-        if reach(upper, longest) < request:
-            raise DomainError("The request cannot be met with the available mass.")
-        lower = 0
-        while upper - lower > 1:
-            middle = (lower + upper) // 2
-            if reach(middle, longest) >= request:
-                upper = middle
-            else:
-                lower = middle
-        count = upper
-        if count > limit:
-            raise DomainError(f"The request needs {count} pulses, above the limit {limit}.")
-        if reach(count, shortest) <= request:
-            on_time = _bisect(lambda t: reach(count, t) - request, shortest, longest)
-            return self._plan("delta_v", request, count, self.pulse(on_time), mass)
-        # The request lies in the gap between (count - 1) longest pulses and
-        # count minimum impulse bits; no integer train meets it exactly.
-        below = reach(count - 1, longest) if count > 1 else 0.0
-        above = reach(count, shortest)
-        if policy == "no_overshoot" or request - below < above - request:
-            return self._plan(
-                "delta_v", request, count - 1, longest_bit if count > 1 else None, mass
+            return self._plan("delta_v", 0.0, 0, None, mass, limit)
+        if request > self.exhaust_velocity_bound_m_s * log(mass / (mass - budget)):
+            raise DomainError(
+                "The request exceeds the delta-v the propellant budget can deliver."
             )
-        return self._plan("delta_v", request, count, self.pulse(shortest), mass)
+        shortest, longest = self.minimum_on_time_s, self.longest_on_time_s
+        shortest_mass = self.pulse(shortest).propellant_kg
+        longest_mass = self.pulse(longest).propellant_kg
+        most = floor(budget / shortest_mass * (1.0 + 1e-12))
+        if most < 1:
+            raise DomainError("The propellant budget is below one minimum pulse.")
+        at_longest = min(most, floor(budget / longest_mass * (1.0 + 1e-12)))
+
+        def delta_v(count: int, on_time: float) -> float:
+            bit = self.pulse(on_time)
+            used = min(count * bit.propellant_kg, budget)
+            return bit.exhaust_velocity_m_s * log(mass / (mass - used))
+
+        def widest(count: int) -> float:
+            if count <= at_longest:
+                return longest
+            share = budget / count
+            low, high = shortest, longest
+            for _ in range(200):
+                middle = 0.5 * (low + high)
+                if middle in (low, high):
+                    break
+                if self.pulse(middle).propellant_kg <= share:
+                    low = middle
+                else:
+                    high = middle
+            return low
+
+        def low_end(count: int) -> float:
+            return delta_v(count, shortest)
+
+        def high_end(count: int) -> float:
+            return delta_v(count, widest(count))
+
+        exact = None
+        below: tuple[float, int, float] = (0.0, 0, shortest)  # (Δv, count, width)
+        above: tuple[float, int] | None = None                 # (Δv, count) at t_min
+        if at_longest >= 1 and high_end(at_longest) >= request:
+            # Monotone part: smallest count whose longest pulse reaches the request.
+            lower, upper = 0, at_longest
+            while upper - lower > 1:
+                middle = (lower + upper) // 2
+                if high_end(middle) >= request:
+                    upper = middle
+                else:
+                    lower = middle
+            if low_end(upper) <= request:
+                exact = upper
+            else:
+                if upper > 1:
+                    below = (high_end(upper - 1), upper - 1, longest)
+                above = (low_end(upper), upper)
+        else:
+            if at_longest >= 1:
+                below = (high_end(at_longest), at_longest, longest)
+            count = at_longest + 1
+            scanned = 0
+            while count <= most:
+                scanned += 1
+                if scanned > scan_cap:
+                    raise DomainError(
+                        "The budget-limited pulse search exceeded maximum_search_pulses."
+                    )
+                if low_end(count) > request:
+                    above = (low_end(count), count)
+                    break
+                top = high_end(count)
+                if top >= request:
+                    exact = count
+                    break
+                if top > below[0]:
+                    below = (top, count, widest(count))
+                count += 1
+            if exact is None and above is None:
+                raise DomainError(
+                    "The request exceeds the delta-v the propellant budget can deliver."
+                )
+        if exact is not None:
+            top = widest(exact)
+            on_time = _bisect(lambda t: delta_v(exact, t) - request, shortest, top)
+            return self._plan("delta_v", request, exact, self.pulse(on_time), mass, limit)
+        if above is None or policy == "no_overshoot" or request - below[0] < above[0] - request:
+            return self._plan(
+                "delta_v", request, below[1],
+                self.pulse(below[2]) if below[1] else None, mass, limit,
+            )
+        return self._plan("delta_v", request, above[1], self.pulse(shortest), mass, limit)
 
     def pulse_train_artifact(
         self, plan: PulsePlan, period_s: float, *, phase: str = "pulse"
@@ -390,9 +486,13 @@ class PulseModeThruster:
 
         if not isinstance(plan, PulsePlan):
             raise DomainError("A PulsePlan is required.")
-        if plan.pulse_count < 1 or plan.pulse is None:
+        count = integer(plan.pulse_count, "Pulse count")
+        if count < 1 or not isinstance(plan.pulse, PulseBit):
             raise DomainError("A pulse train needs at least one pulse.")
-        if plan.pulse_count > 100_000:
+        # Only a pulse this thruster actually produces may be stamped with its hash.
+        if plan.pulse != self.pulse(plan.pulse.on_time_s):
+            raise DomainError("The plan's pulse was not produced by this thruster model.")
+        if count > 100_000:
             raise DomainError("Pulse trains above 100000 pulses are not tabulated.")
         period = real(period_s, "Pulse period")
         on_time = plan.pulse.on_time_s
@@ -402,13 +502,13 @@ class PulseModeThruster:
         thrust = plan.pulse.impulse_n_s / on_time
         flow = plan.pulse.propellant_kg / on_time
         segments: list[TabulatedBurnSegment] = []
-        for index in range(plan.pulse_count):
+        for index in range(count):
             start = index * period
             segments.append(
                 TabulatedBurnSegment(start, start + on_time, thrust, thrust, thrust, thrust,
                                      flow, flow, phase=phase)
             )
-            if index + 1 < plan.pulse_count:
+            if index + 1 < count:
                 segments.append(
                     TabulatedBurnSegment(start + on_time, (index + 1) * period,
                                          0.0, 0.0, 0.0, 0.0, 0.0, 0.0, phase="off")
@@ -416,7 +516,7 @@ class PulseModeThruster:
         source = canonical_sha256(
             {
                 "model_hash": self.model_hash,
-                "pulse_count": plan.pulse_count,
+                "pulse_count": count,
                 "on_time_s": on_time,
                 "period_s": period,
             }
@@ -439,8 +539,10 @@ class PulseModeThruster:
 
     def _plan(
         self, target: str, request: float, count: int, bit: PulseBit | None,
-        initial_mass: float | None,
+        initial_mass: float | None, limit: int,
     ) -> PulsePlan:
+        if count > limit:
+            raise DomainError(f"The plan needs {count} pulses, above the limit {limit}.")
         impulse = 0.0 if bit is None else count * bit.impulse_n_s
         propellant = 0.0 if bit is None else count * bit.propellant_kg
         if target == "impulse":
@@ -536,7 +638,8 @@ class PulseModeThruster:
             raise InputError("Pulse-mode JSON must be text.")
         try:
             payload = json.loads(text_value)
-        except json.JSONDecodeError as error:
+        except (ValueError, RecursionError) as error:
+            # JSONDecodeError, oversized integer literals and deep nesting.
             raise InputError("Pulse-mode JSON is malformed.") from error
         return cls.from_dict(payload)
 

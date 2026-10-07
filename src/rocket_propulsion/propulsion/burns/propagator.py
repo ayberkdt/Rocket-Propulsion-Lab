@@ -639,7 +639,7 @@ class PropagatorPropulsionBridge:
             raise InputError("Propagator bridge document must be JSON text.")
         try:
             payload = json.loads(text)
-        except json.JSONDecodeError as error:
+        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
             raise InputError("Propagator bridge document is not valid JSON.") from error
         return cls.from_dict(payload)
 
@@ -860,6 +860,7 @@ class PropagatorPropulsionBridge:
         side: str = "right",
         apply_inventory_limits: bool = True,
         ambient_pressure_pa: float | None = None,
+        boundary_tolerance_s: float | None = None,
     ) -> PropulsionDynamicsEvaluation:
         """Evaluate force, drains, event-safe activity, and analytic partials.
 
@@ -886,6 +887,14 @@ class PropagatorPropulsionBridge:
         stop the burn before the net force reverses.  It is defined only while
         the burn is firing (``None`` otherwise), so the consumer enables that
         root between the burn's start and stop events.
+
+        ``boundary_tolerance_s`` widens the window within which the effective
+        time is snapped to a profile boundary (start, segment end, stop)
+        before ``side`` is applied.  A consumer forming ``relative_time_s`` from
+        large absolute epochs should pass
+        ``epoch_time_tolerance(t, t_ignition)``; otherwise the rounding of
+        ``t`` can put a requested left limit just past the stop and return
+        zero thrust.  :class:`PropulsionTimeline` does this itself.
 
         References
         ----------
@@ -932,7 +941,9 @@ class PropagatorPropulsionBridge:
         thrust_scale = parameter_values["thrust_scale"]
         flow_scale = parameter_values["mass_flow_scale"]
         time_bias = parameter_values["ignition_time_bias_s"]
-        effective_time = relative_time_s - time_bias
+        effective_time = self.artifact.snap_to_boundary(
+            relative_time_s - time_bias, boundary_tolerance_s
+        )
         segment, at_boundary = self._segment_at(effective_time, side)
 
         inhibited: list[str] = []

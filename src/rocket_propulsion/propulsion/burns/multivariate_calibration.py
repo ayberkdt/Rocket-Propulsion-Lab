@@ -446,7 +446,7 @@ class HotFireMultivariateCalibration:
 
         try:
             payload = json.loads(text)
-        except (TypeError, json.JSONDecodeError) as error:
+        except (TypeError, ValueError, RecursionError) as error:
             raise InputError("Hot-fire multivariate calibration is not valid JSON.") from error
         return cls.from_dict(payload)
 

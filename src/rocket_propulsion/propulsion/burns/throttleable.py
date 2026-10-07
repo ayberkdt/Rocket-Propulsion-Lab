@@ -590,6 +590,6 @@ class ThrottleableEngineModel:
             raise InputError("Throttleable engine document must be JSON text.")
         try:
             payload = json.loads(text_value)
-        except json.JSONDecodeError as error:
+        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
             raise InputError("Throttleable engine document is not valid JSON.") from error
         return cls.from_dict(payload)

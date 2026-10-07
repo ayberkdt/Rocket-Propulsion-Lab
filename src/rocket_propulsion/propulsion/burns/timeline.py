@@ -29,6 +29,7 @@ from .propagator import (
     PropulsionDynamicsEvaluation,
 )
 from .serialization import canonical_sha256
+from .tabulated import epoch_time_tolerance
 
 PROPULSION_TIMELINE_SCHEMA = "rocket_propulsion_propulsion_timeline_v1"
 
@@ -379,7 +380,13 @@ class PropulsionTimeline:
                 burn_overrides.get("ignition_time_bias_s", timing.reference_value)
             )
             effective = relative - bias
-            if effective < -1e-12 or effective > burn.bridge.artifact.duration_s + 1e-12:
+            # ``time_s - ignition`` carries the rounding of the absolute epochs,
+            # so activity and boundary snapping use an epoch-scaled tolerance.
+            tolerance = max(
+                epoch_time_tolerance(time_s, burn.ignition_time_s, bias),
+                burn.bridge.artifact.boundary_tolerance_s,
+            )
+            if effective < -tolerance or effective > burn.bridge.artifact.duration_s + tolerance:
                 continue
             if burn.burn_id not in directions:
                 raise DomainError(f"Burn {burn.burn_id!r} is active but has no direction.")
@@ -395,6 +402,7 @@ class PropulsionTimeline:
                 ambient_pressure_pa=(
                     ambient_pressure_pa if burn.bridge.nozzle_exit_area_m2 is not None else None
                 ),
+                boundary_tolerance_s=tolerance,
             )
             evaluations.append((burn.burn_id, value))
             if not value.active:
@@ -517,6 +525,6 @@ class PropulsionTimeline:
             raise InputError("Propulsion timeline document must be JSON text.")
         try:
             payload = json.loads(text_value)
-        except json.JSONDecodeError as error:
+        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
             raise InputError("Propulsion timeline document is not valid JSON.") from error
         return cls.from_dict(payload)

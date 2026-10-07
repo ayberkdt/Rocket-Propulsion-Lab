@@ -538,7 +538,7 @@ def hierarchical_ensemble_from_json(text: str) -> HierarchicalPropulsionEnsemble
 
     try:
         payload = json.loads(text)
-    except json.JSONDecodeError as error:
+    except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
         raise InputError("Hierarchical ensemble is not valid JSON.") from error
     return hierarchical_ensemble_from_dict(payload)
 

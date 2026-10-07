@@ -85,3 +85,16 @@ interstage jettison between the burns. The velocity matches
 masses close exactly. Further tests cover touching burns (left and right
 limits select the correct burn), summed concurrent burns, per-burn ambient
 pressure forwarding, stopped burns and tamper detection.
+
+## References
+
+- Concurrent forces and drains add linearly (Newton's second law with summed
+  thrust; mass rate is the sum of propellant flows): NASA Glenn, *Rocket
+  Thrust Equation*,
+  <https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/>.
+- The jettison oracle in the tests (rocket equation across burns with a
+  discrete mass drop): NASA Glenn, *Ideal Rocket Equation*,
+  <https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/>.
+- Event roots and restart semantics: Orekit 13.1.5 `EventDetectorsProvider`
+  API,
+  <https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetectorsProvider.html>.

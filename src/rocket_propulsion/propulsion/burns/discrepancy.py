@@ -305,7 +305,7 @@ class ScaleDiscrepancyCalibration:
 
         try:
             payload = json.loads(text)
-        except (TypeError, json.JSONDecodeError) as error:
+        except (TypeError, ValueError, RecursionError) as error:
             raise InputError("Discrepancy calibration is not valid JSON.") from error
         return cls.from_dict(payload)
 

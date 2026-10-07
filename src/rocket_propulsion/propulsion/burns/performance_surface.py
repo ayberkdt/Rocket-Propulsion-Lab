@@ -491,7 +491,7 @@ class RectilinearPerformanceSurface:
 
         try:
             payload = json.loads(json_text(text, "Performance-surface artifact"))
-        except json.JSONDecodeError as error:
+        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
             raise InputError("Performance-surface artifact is not valid JSON.") from error
         if not isinstance(payload, dict):
             raise InputError("Performance-surface artifact root must be an object.")

@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from math import isfinite, log
 
+from rocket_propulsion.core.constants import AIR_SPECIFIC_GAS_CONSTANT_J_KG_K
 from rocket_propulsion.core.errors import DomainError
 
 
@@ -44,7 +45,7 @@ def calculate_polytropic_process(
     inlet_temperature_k: float,
     exponent: float,
     gamma: float = 1.4,
-    gas_constant_j_kg_k: float = 287.05,
+    gas_constant_j_kg_k: float = AIR_SPECIFIC_GAS_CONSTANT_J_KG_K,
     point_count: int = 61,
 ) -> PolytropicResult:
     """Calculate a quasistatic closed-system ideal-gas polytropic process.

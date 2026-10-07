@@ -42,7 +42,8 @@ rocket equation holds exactly:
 
 \(\Delta v_n\) increases strictly with `t` and with `n`.
 
-- `plan_impulse(I)` and `plan_delta_v(Δv, m0)` return the **fewest** equal
+- `plan_impulse(I)` and `plan_delta_v(Δv, m0, propellant_budget_kg=...)`
+  return the **fewest** equal
   pulses that meet the request. The pulse count comes from bisection on `n`,
   and the on-time from bisection on `t`.
 - A request is met exactly when some `n` brackets it between `n` minimum
@@ -52,8 +53,13 @@ rocket equation holds exactly:
   delivered`.
   - `quantization="nearest"` picks the side with the smaller residual.
   - `quantization="no_overshoot"` never delivers more than requested.
-- Requests that the pulse limit or the available mass cannot meet fail
-  closed.
+- `plan_delta_v` needs a propellant budget below the initial mass: the dry
+  structure is not propellant. For `n` pulses the feasible widths are
+  `[t_min, t_max(n)]` with `t_max(n) = min(t_longest, m⁻¹(budget/n))`. Beyond
+  the count the budget allows at the longest width, shorter pulses can still
+  fit, and those budget-limited counts are scanned as well.
+- Requests above everything the budget can deliver, or above the pulse limit
+  (applied to the returned plan), fail closed.
 
 The tests compare plans with brute-force enumeration: no integer train with
 equal pulses gets closer to the request, and exact plans use the minimum

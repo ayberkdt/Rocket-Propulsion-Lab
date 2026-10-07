@@ -138,3 +138,15 @@ The weighted execution wrapper is specified in
 The current production Sidera adapter remains unchanged and continues to
 accept only exact constant burns or an explicitly requested equivalent-constant
 reduction.
+
+## References
+
+- First-order engine response \(\tau\,dr/dt + r = u(t)\) and transient
+  start/shutdown histories: NASA, *Transient Mathematical Modeling for Liquid
+  Rocket Engine Systems*, <https://ntrs.nasa.gov/citations/20040000363>, and
+  NASA TM-107318, <https://ntrs.nasa.gov/citations/19970010379>.
+- Thrust, flow and specific-impulse definitions (\(I_{sp}=F/(\dot m g_0)\)):
+  NASA Glenn, *Specific Impulse*,
+  <https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/>.
+- Propagator force/mass-rate contract: Orekit 13.1.5 `PropulsionModel` API,
+  <https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html>.

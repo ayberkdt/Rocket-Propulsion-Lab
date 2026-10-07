@@ -24,13 +24,13 @@ print(f"MIB {thruster.minimum_impulse_bit_n_s * 1e3:.1f} mN*s, "
 
 mass = 12.0
 for request in (0.0002, 0.0004, 0.05, 1.0):
-    plan = thruster.plan_delta_v(request, mass)
+    plan = thruster.plan_delta_v(request, mass, propellant_budget_kg=2.0)
     width = "-" if plan.pulse is None else f"{plan.pulse.on_time_s * 1e3:.2f} ms"
     print(f"dv {request:8.4f} m/s -> {plan.pulse_count:3d} pulses of {width:>9}, "
           f"delivered {plan.delivered:.6f} m/s, residual {plan.residual:+.2e}, "
           f"quantized={plan.quantized}")
 
-plan = thruster.plan_delta_v(0.05, mass)
+plan = thruster.plan_delta_v(0.05, mass, propellant_budget_kg=2.0)
 artifact = thruster.pulse_train_artifact(plan, period_s=plan.pulse.on_time_s + 0.05)
 metrics = free_space_burn_metrics(artifact, mass)
 print(f"pulse-train artifact: {len(artifact.segments)} segments, "

@@ -331,7 +331,7 @@ class SideraEnsembleHandoff:
 
         try:
             payload = json.loads(text)
-        except json.JSONDecodeError as error:
+        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
             raise InputError("Sidera ensemble hand-off is not valid JSON.") from error
         return cls.from_dict(payload)
 

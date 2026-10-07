@@ -173,3 +173,19 @@ change can never pass silently into an orbit product.
 - Ambient pressure enters as `p_a A_e` with a fixed exit area; nozzle flow
   separation at high back-pressure is not modelled in the bridge (see the
   off-design nozzle screen in `compressible/off_design_nozzle.py`).
+
+## References
+
+- Force, mass-derivative, parameter-driver and event contract: Orekit 13.1.5
+  `PropulsionModel` API,
+  <https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html>,
+  and `EventDetector` API,
+  <https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html>.
+- Thrust with back-pressure \(F = F_\mathrm{vac} - p_a A_e\): NASA Glenn,
+  *Rocket Thrust Equation*,
+  <https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/>.
+- Priors, process noise and execution errors for filters: NASA/TP-2018-219822,
+  *Navigation Filter Best Practices*,
+  <https://ntrs.nasa.gov/citations/20180003657>.
+- Maneuver metadata interchange: CCSDS 502.0-B-3, *Orbit Data Messages*,
+  <https://ccsds.org/Pubs/502x0b3e1.pdf>.

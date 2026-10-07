@@ -274,7 +274,7 @@ class ElectricThrottleTable:
 
         try:
             payload = json.loads(json_text(text, "Electric throttle-table artifact"))
-        except json.JSONDecodeError as error:
+        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
             raise InputError("Electric throttle-table artifact is not valid JSON.") from error
         if not isinstance(payload, dict):
             raise InputError("Electric throttle-table artifact root must be an object.")
@@ -997,7 +997,7 @@ class PowerLimitedPropulsionModel:
 
         try:
             payload = json.loads(json_text(text, "Power-limited model document"))
-        except json.JSONDecodeError as error:
+        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
             raise InputError("Power-limited model document is not valid JSON.") from error
         return cls.from_dict(payload)
 

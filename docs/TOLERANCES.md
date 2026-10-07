@@ -21,3 +21,10 @@ Tests use the stricter of the tabulated value and the physical invariant. A
 tolerance is never interpreted as permission to extrapolate a model outside its
 declared validity range.
 
+## References
+
+Each tolerance row inherits its source from the model it checks; the
+sources are listed in [`REFERENCES.md`](REFERENCES.md). In particular:
+NASA Glenn coefficients, NASA/TP-2002-211556,
+<https://ntrs.nasa.gov/citations/20020085330>; U.S. Standard Atmosphere
+1976, <https://ntrs.nasa.gov/citations/19770009539>.

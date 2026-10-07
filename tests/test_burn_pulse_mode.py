@@ -136,7 +136,7 @@ class DeltaVPlanTests(unittest.TestCase):
         thruster = synthetic_thruster()
         mass = 12.0
         for request in (0.004, 0.05, 0.7, 3.0):
-            plan = thruster.plan_delta_v(request, mass)
+            plan = thruster.plan_delta_v(request, mass, propellant_budget_kg=2.0)
             self.assertFalse(plan.quantized, request)
             self.assertAlmostEqual(plan.delivered, request, delta=1e-12 * max(1.0, request))
             expected = thruster.train_delta_v_m_s(plan.pulse_count, plan.pulse.on_time_s, mass)
@@ -159,26 +159,27 @@ class DeltaVPlanTests(unittest.TestCase):
     def test_small_delta_v_is_quantized_and_mass_limits_fail_closed(self) -> None:
         thruster = synthetic_thruster()
         mib_dv = thruster.train_delta_v_m_s(1, 0.010, 12.0)
-        plan = thruster.plan_delta_v(0.3 * mib_dv, 12.0)
+        plan = thruster.plan_delta_v(0.3 * mib_dv, 12.0, propellant_budget_kg=2.0)
         self.assertEqual(plan.pulse_count, 0)
         self.assertTrue(plan.quantized)
-        plan = thruster.plan_delta_v(0.7 * mib_dv, 12.0)
+        plan = thruster.plan_delta_v(0.7 * mib_dv, 12.0, propellant_budget_kg=2.0)
         self.assertEqual(plan.pulse_count, 1)
         self.assertAlmostEqual(plan.delivered, mib_dv, places=15)
         self.assertEqual(
-            thruster.plan_delta_v(0.7 * mib_dv, 12.0, quantization="no_overshoot").pulse_count, 0
+            thruster.plan_delta_v(0.7 * mib_dv, 12.0, propellant_budget_kg=2.0,
+                                  quantization="no_overshoot").pulse_count, 0
         )
         with self.assertRaises(DomainError):
-            thruster.plan_delta_v(1e6, 12.0)
+            thruster.plan_delta_v(1e6, 12.0, propellant_budget_kg=2.0)
         with self.assertRaises(DomainError):
-            thruster.plan_delta_v(3.0, 12.0, maximum_pulses=5)
+            thruster.plan_delta_v(3.0, 12.0, propellant_budget_kg=2.0, maximum_pulses=5)
 
     def test_pulse_train_runs_through_the_bridge_and_lunaris_wrapper(self) -> None:
         from rocket_propulsion.integrations import LunarisFiniteBurnDynamics
         from tests.test_lunaris_integration import _FreeSpaceDynamics, integrate_like_lunaris
 
         thruster = synthetic_thruster()
-        plan = thruster.plan_delta_v(0.05, 12.0)
+        plan = thruster.plan_delta_v(0.05, 12.0, propellant_budget_kg=2.0)
         artifact = thruster.pulse_train_artifact(plan, period_s=plan.pulse.on_time_s + 0.05)
         bridge = PropagatorPropulsionBridge(artifact, require_complete_stream_binding=False)
         timeline = PropulsionTimeline(burns=(ScheduledBurn("trim", bridge, 5.0),))
@@ -229,8 +230,9 @@ class PulsePersistenceAndValidationTests(unittest.TestCase):
                 lambda v=value: thruster.plan_impulse(v),
                 lambda v=value: thruster.plan_impulse(0.1, quantization=v),
                 lambda v=value: thruster.plan_impulse(0.1, maximum_pulses=v),
-                lambda v=value: thruster.plan_delta_v(v, 10.0),
-                lambda v=value: thruster.plan_delta_v(0.1, v),
+                lambda v=value: thruster.plan_delta_v(v, 10.0, propellant_budget_kg=1.0),
+                lambda v=value: thruster.plan_delta_v(0.1, 10.0, propellant_budget_kg=v),
+                lambda v=value: thruster.plan_delta_v(0.1, v, propellant_budget_kg=1.0),
                 lambda v=value: thruster.pulse_train_artifact(plan, v),
                 lambda v=value: thruster.pulse_train_artifact(v, 1.0),
                 lambda v=value: thruster.on_time_for_impulse(v),

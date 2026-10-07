@@ -5,13 +5,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import exp, isfinite, sqrt
 
+from rocket_propulsion.core.constants import (
+    STANDARD_GRAVITY_M_S2,
+    USSA1976_GAS_CONSTANT_J_MOL_K,
+    USSA1976_MOLAR_MASS_KG_MOL,
+    USSA1976_SEA_LEVEL_PRESSURE_PA,
+    USSA1976_SEA_LEVEL_TEMPERATURE_K,
+)
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.metadata import WarningMessage
 from rocket_propulsion.core.numerics import solve_bisect_monotonic
 
 from .isentropic import calculate_isentropic, mach_from_isentropic
 from .normal_shock import calculate_normal_shock
-from .nozzle import STANDARD_GRAVITY_M_S2, calculate_ideal_nozzle
+from .nozzle import calculate_ideal_nozzle
 
 
 @dataclass(frozen=True, slots=True)
@@ -630,8 +637,15 @@ def calculate_off_design_nozzle(
     )
 
 
+# U.S. Standard Atmosphere 1976 layers below 84.852 km geopotential altitude:
+# (base geopotential altitude H_b [m'], base temperature T_b [K], base
+# pressure P_b [Pa], molecular-scale temperature gradient L_b [K/m']).  H_b,
+# T_b and L_b are the defining values of the 1976 model; P_b are the base
+# pressures that its hydrostatic equations give from 101325 Pa with R* and
+# M0, as tabulated in the 1976 report.  Source:
+# https://ntrs.nasa.gov/citations/19770009539
 _ATMOSPHERE_LAYERS = (
-    (0.0, 288.15, 101_325.0, -0.0065),
+    (0.0, USSA1976_SEA_LEVEL_TEMPERATURE_K, USSA1976_SEA_LEVEL_PRESSURE_PA, -0.0065),
     (11_000.0, 216.65, 22_632.06, 0.0),
     (20_000.0, 216.65, 5_474.889, 0.0010),
     (32_000.0, 228.65, 868.0187, 0.0028),
@@ -642,13 +656,29 @@ _ATMOSPHERE_LAYERS = (
 
 
 def standard_atmosphere_pressure_pa(altitude_m: float) -> float:
-    """Return 1976 standard-atmosphere pressure through 84.852 km."""
+    """Return U.S. Standard Atmosphere 1976 pressure at a geopotential altitude.
+
+    ``altitude_m`` is the *geopotential* altitude H (m'), 0 to 84 852 m', the
+    range of the 1976 model's seven linear temperature layers.  Within a layer
+
+        P = P_b (T_b / (T_b + L_b (H - H_b)))^(g0 M0 / (R* L_b))   (L_b != 0)
+        P = P_b exp(-g0 M0 (H - H_b) / (R* T_b))                  (L_b == 0)
+
+    with the model's own defining constants g0, M0 and R* = 8.31432 J/(mol K).
+    Using a different R* (for example the 2019 SI value) makes the pressure
+    jump by ~3e-5 at every layer base.
+
+    References
+    ----------
+    U.S. Standard Atmosphere, 1976, NOAA-S/T 76-1562 / NASA-TM-X-74335:
+    https://ntrs.nasa.gov/citations/19770009539
+    """
 
     if not isfinite(altitude_m) or not 0.0 <= altitude_m <= 84_852.0:
         raise DomainError("Altitude must be between 0 and 84,852 m.", field="altitude_m")
-    gravity = 9.80665
-    molar_mass = 0.0289644
-    universal_gas_constant = 8.3144598
+    gravity = STANDARD_GRAVITY_M_S2
+    molar_mass = USSA1976_MOLAR_MASS_KG_MOL
+    universal_gas_constant = USSA1976_GAS_CONSTANT_J_MOL_K
     layer = _ATMOSPHERE_LAYERS[0]
     for candidate in _ATMOSPHERE_LAYERS:
         if candidate[0] <= altitude_m:
