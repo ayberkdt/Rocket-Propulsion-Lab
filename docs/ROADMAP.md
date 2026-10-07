@@ -127,6 +127,12 @@ acceptance gates, and the first three sprints are specified in
   propulsion with hash-verified throttle tables, maximum-thrust/maximum-Isp
   throttle paths, up-switch hysteresis, a fixed-efficiency continuous law,
   deterministic power-switching roots and analytic power/direction partials
+- Implemented in the isolated propulsion core: ambient back-pressure thrust in
+  the propagation bridge (`F = F_vac - p_a A_e`, analytic partial, net-thrust
+  margin root), navigation-facing driver priors linearized from hot-fire
+  calibration, the Gates execution-error model, first-order Gauss-Markov
+  thrust noise, and body-frame thruster force/torque with propellant-dependent
+  centre of mass and inertia
 - Remaining: native Sidera wrapper for the propagation bridge, public HTTP
   API/UI surfaces for the isolated transient core,
   higher-order distributed water-hammer/priming models, regulator hysteresis,

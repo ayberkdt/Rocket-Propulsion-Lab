@@ -770,6 +770,7 @@ def evaluate_coupled_feed_propulsion(
     parameter_overrides: Mapping[str, float] | None = None,
     initial_mass_flow_kg_s: float = 0.0,
     apply_inventory_limits: bool = True,
+    ambient_pressure_pa: float | None = None,
     relative_tolerance: float = 1e-10,
     relaxation: float = 0.5,
     maximum_iterations: int = 100,
@@ -828,6 +829,7 @@ def evaluate_coupled_feed_propulsion(
             operating_conditions=active_conditions,
             parameter_overrides=parameter_overrides,
             apply_inventory_limits=apply_inventory_limits,
+            ambient_pressure_pa=ambient_pressure_pa,
         )
         demanded_flow = -propulsion.mass_derivative_kg_s
         residual = demanded_flow - flow

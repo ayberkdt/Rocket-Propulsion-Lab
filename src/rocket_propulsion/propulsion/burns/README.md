@@ -122,6 +122,17 @@ or modifying Sidera:
   deterministic power-switching roots, and analytic mass/direction/power
   partials. Available power stays the consumer's model. See
   `docs/ELECTRIC_PROPULSION.md`.
+- `execution_errors.py` supplies navigation-facing second-moment models:
+  hash-verified driver priors (optionally linearized from a paired hot-fire
+  calibration), the Gates impulsive execution-error covariance and
+  first-order Gauss-Markov thrust process noise. See `docs/EXECUTION_ERRORS.md`.
+- `vehicle_geometry.py` gives body-frame thruster force/torque, a 6xN
+  influence matrix, cosine efficiency, and centre of mass/inertia as functions
+  of the propagated tank masses with analytic derivatives. See
+  `docs/VEHICLE_GEOMETRY.md`.
+
+Start with `docs/ASTRODYNAMICS_INTEGRATION.md` when wiring any of these into an
+orbit propagator.
 
 The exchange artifact intentionally has no epoch, direction, frame, position,
 velocity, central body, or orbital result. A future Sidera adapter will combine

@@ -152,6 +152,31 @@ evaluation drains the tank with line flow, drives compliant storage with the
 difference between line and engine flow, and inserts the engine demand
 gradient into the line-state Jacobian. See `DYNAMIC_FEED_LINE.md`.
 
+## Ambient pressure
+
+For ascent and landing, set `nozzle_exit_area_m2` to the axial-projected total
+exit area. The artifact's axial force is then the *vacuum* thrust and every
+active evaluation needs `ambient_pressure_pa`:
+
+\[
+  F = s_F\,s_F(\mathbf x)\,F_\mathrm{vac}(\tau) - p_a A_e,\qquad
+  \frac{\partial\mathbf a}{\partial p_a}=-\frac{A_e}{m}\hat u .
+\]
+
+Mass flow is unchanged. The estimator drivers and performance surface scale
+only the vacuum part. The atmosphere model belongs to the consumer, which
+chains \(\partial p_a/\partial h\) through `acceleration_wrt_ambient_pressure`.
+
+The net thrust is not clamped. `net_thrust_margin_n` (equal to the net thrust)
+is the root a consumer registers to stop the burn before the net force
+reverses. A performance surface may not also carry an `ambient_pressure_pa`
+axis; construction refuses that double counting. The manifest records the exit
+area only when it is set, so vacuum-only bridge hashes are unchanged.
+
+Nozzle flow separation at high back-pressure is not modelled here; use the
+off-design screen in `compressible/off_design_nozzle.py` to bound the
+applicable altitude range.
+
 ## Mass closure diagnostic
 
 `mass_closure(vehicle_mass_kg=..., additional_states=..., non_propellant_mass_kg=...)`

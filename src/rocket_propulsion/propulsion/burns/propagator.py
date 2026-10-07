@@ -27,6 +27,7 @@ from .performance_surface import (
 from .tabulated import InterpolationPolicy, TabulatedBurnArtifact, TabulatedBurnSegment
 
 PROPAGATOR_BRIDGE_SCHEMA = "rocket_propulsion_propagator_bridge_v1"
+AMBIENT_PRESSURE_CONDITION = "ambient_pressure_pa"
 PROPAGATOR_BRIDGE_REFERENCE_IDS = (
     "OREKIT-13.1.5-PROPULSION-MODEL",
     "NASA-20040000363",
@@ -232,6 +233,7 @@ class PropulsionPartials:
         tuple[float, float, float],
         tuple[float, float, float],
     ] = ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0))
+    acceleration_wrt_ambient_pressure: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -260,6 +262,9 @@ class PropulsionDynamicsEvaluation:
     operating_conditions: tuple[tuple[str, float], ...] = ()
     performance_force_scale: float = 1.0
     performance_mass_flow_scale: float = 1.0
+    ambient_pressure_pa: float | None = None
+    pressure_thrust_loss_n: float = 0.0
+    net_thrust_margin_n: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -342,6 +347,10 @@ class PropagatorPropulsionBridge:
     force and propellant bookkeeping without fabricating an Isp constraint;
     upstream calibrated realizations should normally leave both at one.
 
+    ``nozzle_exit_area_m2`` (optional) is the axial-projected total exit area.
+    When set, the artifact force is interpreted as vacuum thrust and the
+    ambient-pressure term ``p_a A_e`` is subtracted at evaluation time.
+
     ``ignition_time_bias_s`` shifts the entire profile and all date events by
     the same amount.  Its derivative is analytic inside linear segments and is
     marked non-smooth at every declared boundary.
@@ -362,6 +371,7 @@ class PropagatorPropulsionBridge:
     protected_dry_mass_kg: float | None = None
     require_complete_stream_binding: bool = True
     parameters: tuple[EstimableParameter, ...] = ()
+    nozzle_exit_area_m2: float | None = None
     model_id: str = "tabulated-propulsion-dynamics"
     schema: str = PROPAGATOR_BRIDGE_SCHEMA
 
@@ -376,6 +386,16 @@ class PropagatorPropulsionBridge:
             not isfinite(self.protected_dry_mass_kg) or self.protected_dry_mass_kg <= 0.0
         ):
             raise DomainError("Protected dry mass must be finite and greater than zero.")
+        if self.nozzle_exit_area_m2 is not None:
+            if not isfinite(self.nozzle_exit_area_m2) or self.nozzle_exit_area_m2 <= 0.0:
+                raise DomainError("Nozzle exit area must be finite and greater than zero.")
+            if self.performance_surface is not None and any(
+                axis.name == AMBIENT_PRESSURE_CONDITION for axis in self.performance_surface.axes
+            ):
+                raise DomainError(
+                    "Ambient pressure is applied through the nozzle exit area; it must not "
+                    "also be a performance-surface axis."
+                )
 
         binding_ids = [binding.stream_id for binding in self.stream_bindings]
         if len(binding_ids) != len(set(binding_ids)):
@@ -494,6 +514,12 @@ class PropagatorPropulsionBridge:
             ],
             "reference_ids": list(PROPAGATOR_BRIDGE_REFERENCE_IDS),
         }
+        if self.nozzle_exit_area_m2 is not None:
+            # Present only when used, so vacuum-only bridge identities are unchanged.
+            payload["nozzle_exit_area_m2"] = self.nozzle_exit_area_m2
+            payload["force_semantics"] = (
+                "vacuum_axial_thrust_minus_ambient_pressure_times_exit_area"
+            )
         if include_hash:
             payload["model_hash"] = _canonical_hash(payload)
         return payload
@@ -666,6 +692,7 @@ class PropagatorPropulsionBridge:
         parameter_overrides: Mapping[str, float] | None = None,
         side: str = "right",
         apply_inventory_limits: bool = True,
+        ambient_pressure_pa: float | None = None,
     ) -> PropulsionDynamicsEvaluation:
         """Evaluate force, drains, event-safe activity, and analytic partials.
 
@@ -684,6 +711,12 @@ class PropagatorPropulsionBridge:
         reserve :meth:`event_surfaces`, locates their roots and then switches
         the burn off itself should pass ``False``.  Time-domain behaviour is
         unchanged: the profile is still never extrapolated.
+
+        With ``nozzle_exit_area_m2`` set, the artifact's axial thrust is the
+        *vacuum* thrust and ``ambient_pressure_pa`` is required while firing:
+        ``F = F_vac - p_a A_e``, ``dF/dp_a = -A_e``.  The net thrust is not
+        clamped; ``net_thrust_margin_n`` is the root a consumer registers to
+        stop the burn before the net force reverses.
 
         References
         ----------
@@ -711,6 +744,13 @@ class PropagatorPropulsionBridge:
             raise DomainError(
                 "Operating conditions were supplied but this bridge has no performance surface."
             )
+        if ambient_pressure_pa is not None:
+            if self.nozzle_exit_area_m2 is None:
+                raise DomainError(
+                    "Ambient pressure was supplied but this bridge has no nozzle exit area."
+                )
+            if not isfinite(ambient_pressure_pa) or ambient_pressure_pa < 0.0:
+                raise DomainError("Ambient pressure must be finite and non-negative.")
 
         parameter_values = self.resolved_parameters(parameter_overrides)
         thrust_scale = parameter_values["thrust_scale"]
@@ -780,7 +820,18 @@ class PropagatorPropulsionBridge:
         base_thrust = float(sample["axial_thrust_n"])
         base_flow = float(sample["total_mass_flow_kg_s"])
         stream_flows = dict(sample["stream_mass_flows_kg_s"])
-        thrust = base_thrust * thrust_scale * surface_force_scale
+        vacuum_thrust = base_thrust * thrust_scale * surface_force_scale
+        pressure_loss = 0.0
+        if self.nozzle_exit_area_m2 is not None:
+            if ambient_pressure_pa is None:
+                raise DomainError(
+                    "This bridge has a nozzle exit area; ambient pressure is required "
+                    "while the burn is active."
+                )
+            pressure_loss = ambient_pressure_pa * self.nozzle_exit_area_m2
+        # Kept on the linear branch even when negative: a consumer stops the burn
+        # at the net_thrust_margin_n root instead of seeing a clamp inside a step.
+        thrust = vacuum_thrust - pressure_loss
         total_flow = base_flow * flow_scale * surface_flow_scale
         force = tuple(thrust * value for value in unit_direction)
         # da/dd = (|F|/m)(I - u u^T)/|d| for the supplied, unnormalized d.
@@ -935,11 +986,22 @@ class PropagatorPropulsionBridge:
                     )
                     for row in range(3)
                 ),  # type: ignore[arg-type]
+                acceleration_wrt_ambient_pressure=(
+                    (0.0, 0.0, 0.0)
+                    if self.nozzle_exit_area_m2 is None
+                    else tuple(
+                        -self.nozzle_exit_area_m2 * value / vehicle_mass_kg
+                        for value in unit_direction
+                    )
+                ),  # type: ignore[arg-type]
             ),
             operating_conditions=(
                 () if surface_evaluation is None else surface_evaluation.conditions
             ),
             performance_force_scale=surface_force_scale,
             performance_mass_flow_scale=surface_flow_scale,
+            ambient_pressure_pa=ambient_pressure_pa,
+            pressure_thrust_loss_n=pressure_loss,
+            net_thrust_margin_n=(None if self.nozzle_exit_area_m2 is None else thrust),
         )
 

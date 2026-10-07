@@ -22,6 +22,7 @@ from rocket_propulsion.propulsion.burns import (
     electric,
     ensemble,
     ensemble_serialization,
+    execution_errors,
     feed_line,
     feed_system,
     multivariate_calibration,
@@ -34,6 +35,7 @@ from rocket_propulsion.propulsion.burns import (
     simulate_pressure_fed_blowdown,
     tabulated,
     uncertainty,
+    vehicle_geometry,
 )
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
@@ -83,6 +85,7 @@ class BurnReferenceTests(unittest.TestCase):
             calibration,
             discrepancy,
             electric,
+            execution_errors,
             multivariate_calibration,
             performance_surface,
             uncertainty,
@@ -92,6 +95,7 @@ class BurnReferenceTests(unittest.TestCase):
             feed_line,
             feed_system,
             propagator,
+            vehicle_geometry,
         )
         missing: list[str] = []
         for module in modules:

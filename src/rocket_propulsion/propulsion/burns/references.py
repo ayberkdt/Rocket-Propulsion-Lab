@@ -273,6 +273,15 @@ NASA_NEXT_IPS_SUMMARY = EngineeringReference(
     "Electric-thruster throttle tables: input power, thrust, specific impulse and efficiency.",
 )
 
+NASA_NAVIGATION_FILTER_BEST_PRACTICES = EngineeringReference(
+    "NASA-20180003657",
+    "Navigation Filter Best Practices (NASA/TP-2018-219822)",
+    "NASA",
+    2018,
+    "https://ntrs.nasa.gov/citations/20180003657",
+    "Prior/consider covariance, Gauss-Markov process noise and maneuver execution errors.",
+)
+
 OREKIT_PROPULSION_MODEL = EngineeringReference(
     "OREKIT-13.1.5-PROPULSION-MODEL",
     "Orekit 13.1.5 PropulsionModel API",
@@ -297,6 +306,7 @@ BURN_REFERENCES: tuple[EngineeringReference, ...] = (
     NASA_GRC_MASS_FLOW_CHOKING,
     NASA_MULTIPLE_VALIDATION_CALIBRATION,
     NASA_NODAL_FEED_PRESSURIZATION,
+    NASA_NAVIGATION_FILTER_BEST_PRACTICES,
     NASA_NESC_TRANSIENT_PRESSURE,
     NASA_NEXT_IPS_SUMMARY,
     NASA_SP_125,

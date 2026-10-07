@@ -108,6 +108,24 @@ relations. These primary NASA resources anchor terminology and screening values:
   Events** — screening and design treatment for transient pressure and water
   hammer: <https://ntrs.nasa.gov/citations/20220006583>
 
+## Propagation-interface references
+
+- NASA, **NASA's Evolutionary Xenon Thruster (NEXT) Ion Propulsion System
+  Information Summary** — electric-thruster throttle tables (input power,
+  thrust, specific impulse, efficiency):
+  <https://ntrs.nasa.gov/citations/20090004685>
+- NASA/TP-2018-219822, **Navigation Filter Best Practices** — prior/consider
+  covariance, Gauss-Markov process noise and maneuver execution errors:
+  <https://ntrs.nasa.gov/citations/20180003657>
+- Orekit 13.1.5 **PropulsionModel / EventDetector** API — the propagation-time
+  force, mass-derivative, parameter-driver and event contract the bridge
+  follows: <https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html>
+- C. R. Gates, **A Simplified Model of Midcourse Maneuver Execution Errors**,
+  JPL Technical Report 32-504, 1963 — original four-parameter execution-error
+  model (bibliographic citation; no verified public URL recorded).
+- B. Wie, **Space Vehicle Dynamics and Control**, 2nd ed., AIAA, 2008 —
+  thruster torque and rigid-body mass properties (bibliographic citation).
+
 Stable identifiers and scopes are defined in
 `rocket_propulsion.propulsion.burns.references`. The transient public API is
 tested for `References` sections; tabulated artifacts store reference IDs in

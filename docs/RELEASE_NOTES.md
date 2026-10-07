@@ -169,6 +169,30 @@
   equation and the energy-to-propellant identity; and
   `examples/electric_propulsion.py`.
 
+### Navigation uncertainty, ambient pressure and vehicle geometry
+
+- `PropagatorPropulsionBridge` accepts `nozzle_exit_area_m2`; evaluations then
+  take `ambient_pressure_pa` and return `F = F_vac - p_a A_e`,
+  `acceleration_wrt_ambient_pressure`, `pressure_thrust_loss_n` and the
+  `net_thrust_margin_n` root. Double counting with a surface axis named
+  `ambient_pressure_pa` is refused; vacuum-only manifests are unchanged. Both
+  feed couplings forward the pressure.
+- Added `execution_errors.py`: `PropulsionParameterPrior` (hash-verified,
+  PSD-checked, from sigmas or linearized from a paired hot-fire calibration),
+  `GatesExecutionErrorModel` (covariance, sampling, proportional magnitude
+  from a prior via `delta_v_log_sensitivities`) and `FirstOrderGaussMarkov`.
+- Added `vehicle_geometry.py`: `ThrusterLayout` (resultant force/torque,
+  6xN influence matrix, `d tau/d c`, cosine efficiency) and
+  `PropellantMassModel` (centre of mass and inertia versus tank masses with
+  analytic derivatives).
+- Registered NTRS 20180003657 (Navigation Filter Best Practices).
+- New documentation: astrodynamics integration guide, execution errors,
+  vehicle geometry; rewritten top-level README.
+- New tests verify the calibration mapping against a nonlinear Monte Carlo,
+  Gates sampling against its covariance, Gauss-Markov autocorrelation, all
+  new partials against finite differences, and inertia against an independent
+  parallel-axis sum.
+
 ## 0.9.0 — engineering preview
 
 - Added variable-property thermochemistry, external CEA adaptation, and an
