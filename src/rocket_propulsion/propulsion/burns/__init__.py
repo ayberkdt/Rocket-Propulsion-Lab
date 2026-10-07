@@ -12,6 +12,11 @@ from .blowdown import (
     PressurePerformanceTable,
     simulate_pressure_fed_blowdown,
 )
+from .burn_metrics import (
+    FreeSpaceBurnMetrics,
+    free_space_burn_metrics,
+    gauss_legendre,
+)
 from .calibration import (
     HOT_FIRE_CALIBRATION_REFERENCE_IDS,
     CalibrationScope,
@@ -170,6 +175,7 @@ from .propagator import (
     EstimableParameter,
     PropagatorPropulsionBridge,
     PropellantMassClosure,
+    PropulsionDerivativeJump,
     PropulsionDynamicsEvaluation,
     PropulsionPartials,
     StreamStateBinding,
@@ -243,6 +249,13 @@ from .tabulated import (
     scale_tabulated_artifact,
     tabulated_artifact_from_csv,
     tabulated_artifact_from_profiled_burn,
+)
+from .throttleable import (
+    THROTTLEABLE_ENGINE_SCHEMA,
+    MonotoneCubicCurve,
+    ThrottleableEngineModel,
+    ThrottleableEvaluation,
+    ThrottleablePartials,
 )
 from .timeline import (
     PROPULSION_TIMELINE_SCHEMA,
@@ -330,6 +343,7 @@ __all__ = [
     "PROPULSION_PRIOR_SCHEMA",
     "PROPULSION_TIMELINE_SCHEMA",
     "SCENARIO_REFERENCE_IDS",
+    "THROTTLEABLE_ENGINE_SCHEMA",
     "UNCERTAINTY_REFERENCE_IDS",
     "AdditionalStateConstraint",
     "BlowdownIntegrationEvidence",
@@ -393,6 +407,7 @@ __all__ = [
     "FixedEfficiencyThrottle",
     "FlowDestination",
     "ForceTorque",
+    "FreeSpaceBurnMetrics",
     "GatesExecutionErrorModel",
     "HierarchicalMetricStatistics",
     "HierarchicalPropulsionEnsemble",
@@ -409,6 +424,7 @@ __all__ = [
     "MandelPauleEvidence",
     "MassJettison",
     "MassPropertiesEvaluation",
+    "MonotoneCubicCurve",
     "PerformanceAxis",
     "PerformanceGridLineSurface",
     "PerformanceScalePoint",
@@ -429,6 +445,7 @@ __all__ = [
     "PropellantMassModel",
     "PropellantRole",
     "PropellantStation",
+    "PropulsionDerivativeJump",
     "PropulsionDynamicsEvaluation",
     "PropulsionMetricStatistics",
     "PropulsionParameterPrior",
@@ -464,6 +481,9 @@ __all__ = [
     "TankDefinition",
     "ThrottleSchedule",
     "ThrottleSegment",
+    "ThrottleableEngineModel",
+    "ThrottleableEvaluation",
+    "ThrottleablePartials",
     "ThrustAllocation",
     "ThrusterLayout",
     "ThrusterMount",
@@ -489,6 +509,8 @@ __all__ = [
     "delta_v_log_sensitivities",
     "evaluate_coupled_feed_propulsion",
     "evaluate_dynamic_feed_propulsion",
+    "free_space_burn_metrics",
+    "gauss_legendre",
     "hierarchical_ensemble_from_dict",
     "hierarchical_ensemble_from_json",
     "hierarchical_ensemble_hash",

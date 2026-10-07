@@ -15,6 +15,7 @@ from rocket_propulsion.propulsion.burns import (
     PressurePerformanceSample,
     PressurePerformanceTable,
     blowdown,
+    burn_metrics,
     burn_reference,
     calibration,
     cluster,
@@ -34,6 +35,7 @@ from rocket_propulsion.propulsion.burns import (
     sequence,
     simulate_pressure_fed_blowdown,
     tabulated,
+    throttleable,
     timeline,
     uncertainty,
     vehicle_geometry,
@@ -78,6 +80,7 @@ class BurnReferenceTests(unittest.TestCase):
     def test_public_transient_types_and_functions_carry_references(self) -> None:
         modules = (
             references,
+            burn_metrics,
             response,
             sequence,
             cluster,
@@ -96,6 +99,7 @@ class BurnReferenceTests(unittest.TestCase):
             feed_line,
             feed_system,
             propagator,
+            throttleable,
             timeline,
             vehicle_geometry,
         )

@@ -329,6 +329,28 @@ def _canonical_hash(payload: object) -> str:
 
 
 @dataclass(frozen=True, slots=True)
+class PropulsionDerivativeJump:
+    """Left-minus-right propulsion derivatives at one time event.
+
+    For a consumer integrating sensitivities ``S = dy/dp``, an event whose
+    time ``tau`` depends on a parameter requires the saltation update
+    ``S+ = S- + (f- - f+) dtau/dp``.  Profile time events move one-for-one
+    with ``ignition_time_bias_s`` (``dtau/db = 1``) and not with the scale
+    drivers, so the propulsion part of ``f- - f+`` is exactly this jump.
+
+    References
+    ----------
+    NASA-20180003657 (Navigation Filter Best Practices):
+    https://ntrs.nasa.gov/citations/20180003657
+    """
+
+    relative_time_s: float
+    acceleration_m_s2: tuple[float, float, float]
+    mass_derivative_kg_s: float
+    additional_state_derivatives: tuple[tuple[str, float], ...]
+
+
+@dataclass(frozen=True, slots=True)
 class PropagatorPropulsionBridge:
     """Immutable tabulated propulsion model for numerical orbit propagation.
 
@@ -752,6 +774,52 @@ class PropagatorPropulsionBridge:
             tracked_propellant_kg=tracked,
             residual_kg=residual,
             relative_residual=residual / vehicle_mass_kg,
+        )
+
+    def time_event_jump(
+        self,
+        *,
+        relative_time_s: float,
+        vehicle_mass_kg: float,
+        direction: tuple[float, float, float],
+        additional_states: Mapping[str, float] | None = None,
+        operating_conditions: Mapping[str, float] | None = None,
+        parameter_overrides: Mapping[str, float] | None = None,
+        ambient_pressure_pa: float | None = None,
+    ) -> PropulsionDerivativeJump:
+        """Return ``f(left) - f(right)`` for the saltation update at a time event.
+
+        Inventory limits are not applied, so the jump is the profile's own
+        discontinuity.  See :class:`PropulsionDerivativeJump`.
+
+        References
+        ----------
+        NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
+        """
+
+        common = {
+            "relative_time_s": relative_time_s,
+            "vehicle_mass_kg": vehicle_mass_kg,
+            "direction": direction,
+            "additional_states": additional_states,
+            "operating_conditions": operating_conditions,
+            "parameter_overrides": parameter_overrides,
+            "ambient_pressure_pa": ambient_pressure_pa,
+            "apply_inventory_limits": False,
+        }
+        left = self.evaluate(side="left", **common)  # type: ignore[arg-type]
+        right = self.evaluate(side="right", **common)  # type: ignore[arg-type]
+        right_states = dict(right.additional_state_derivatives)
+        return PropulsionDerivativeJump(
+            relative_time_s=left.relative_time_s,
+            acceleration_m_s2=tuple(
+                a - b for a, b in zip(left.acceleration_m_s2, right.acceleration_m_s2, strict=True)
+            ),  # type: ignore[arg-type]
+            mass_derivative_kg_s=left.mass_derivative_kg_s - right.mass_derivative_kg_s,
+            additional_state_derivatives=tuple(
+                (name, rate - right_states.get(name, 0.0))
+                for name, rate in left.additional_state_derivatives
+            ),
         )
 
     def operating_condition_grid_surfaces(self) -> tuple[PerformanceGridLineSurface, ...]:
