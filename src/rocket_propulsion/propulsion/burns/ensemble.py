@@ -24,8 +24,7 @@ from statistics import fmean
 from rocket_propulsion.core.errors import DomainError
 
 from .scenarios import PropulsionScenarioEnsemble
-from .serialization import canonical_json_bytes
-from .tabulated import TabulatedBurnArtifact, TabulatedBurnSegment
+from .tabulated import TabulatedBurnArtifact, scale_tabulated_artifact
 from .uncertainty import (
     UNCERTAINTY_REFERENCE_IDS,
     CorrelationModel,
@@ -51,6 +50,26 @@ _ALLOWED_SCALE_NAMES = {
     "time_scale",
     "axial_efficiency_scale",
 }
+_SCALE_COMPONENT_SEPARATOR = "::"
+
+
+def _target_scale_name(parameter_name: str) -> str:
+    return parameter_name.split(_SCALE_COMPONENT_SEPARATOR, 1)[0]
+
+
+def _validate_scale_component_name(parameter: UncertainParameter) -> None:
+    if _SCALE_COMPONENT_SEPARATOR not in parameter.name:
+        return
+    _target, qualifier = parameter.name.split(_SCALE_COMPONENT_SEPARATOR, 1)
+    declared_class, separator, component_id = qualifier.partition(":")
+    if (
+        not separator
+        or not component_id.strip()
+        or declared_class != parameter.uncertainty_class.value
+    ):
+        raise DomainError(
+            "Qualified scale names must encode their uncertainty class and component ID."
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,12 +109,13 @@ class ScenarioConditionalUncertainty:
         names = tuple(parameter.name for parameter in self.parameters)
         if len(names) != len(set(names)):
             raise DomainError("Conditional uncertainty parameter names must be unique.")
-        unknown = set(names) - _ALLOWED_SCALE_NAMES
+        unknown = {name for name in names if _target_scale_name(name) not in _ALLOWED_SCALE_NAMES}
         if unknown:
             raise DomainError(
                 f"Unsupported conditional artifact scales: {', '.join(sorted(unknown))}."
             )
         for parameter in self.parameters:
+            _validate_scale_component_name(parameter)
             if abs(parameter.nominal - 1.0) > 1e-12:
                 raise DomainError("Conditional artifact scale nominals must equal one.")
             if parameter.lower <= 0.0:
@@ -257,26 +277,26 @@ def _draws(
 
 
 def _scale_values(draw: UncertaintyDraw) -> dict[str, float]:
-    return {
+    values = {
         "thrust_scale": 1.0,
         "specific_impulse_scale": 1.0,
         "time_scale": 1.0,
         "axial_efficiency_scale": 1.0,
-    } | draw.as_dict()
+    }
+    for component_name, value in draw.values:
+        values[_target_scale_name(component_name)] *= value
+    return values
 
 
 def _validate_axial_scale(
     artifact: TabulatedBurnArtifact, definition: ScenarioConditionalUncertainty
 ) -> None:
-    parameter = next(
-        (
-            item
-            for item in definition.parameters
-            if item.name == "axial_efficiency_scale"
-        ),
-        None,
+    parameters = tuple(
+        item
+        for item in definition.parameters
+        if _target_scale_name(item.name) == "axial_efficiency_scale"
     )
-    if parameter is None:
+    if not parameters:
         return
     maximum_ratio = max(
         (
@@ -290,16 +310,13 @@ def _validate_axial_scale(
         ),
         default=0.0,
     )
-    if maximum_ratio * parameter.upper > 1.0 + 1e-12:
+    maximum_scale = 1.0
+    for parameter in parameters:
+        maximum_scale *= parameter.upper
+    if maximum_ratio * maximum_scale > 1.0 + 1e-12:
         raise DomainError(
             "Axial-efficiency uncertainty can make axial thrust exceed delivered thrust."
         )
-
-
-def _scaled_streams(
-    streams: tuple[tuple[str, float], ...], factor: float
-) -> tuple[tuple[str, float], ...]:
-    return tuple((tank_id, flow * factor) for tank_id, flow in streams)
 
 
 def _perturb_artifact(
@@ -312,67 +329,27 @@ def _perturb_artifact(
     method: str,
 ) -> TabulatedBurnArtifact:
     values = _scale_values(draw)
-    thrust_scale = values["thrust_scale"]
-    isp_scale = values["specific_impulse_scale"]
-    time_scale = values["time_scale"]
-    axial_scale = values["axial_efficiency_scale"]
-    flow_scale = thrust_scale / isp_scale
-    segments = tuple(
-        TabulatedBurnSegment(
-            start_time_s=segment.start_time_s * time_scale,
-            end_time_s=segment.end_time_s * time_scale,
-            start_delivered_thrust_n=segment.start_delivered_thrust_n * thrust_scale,
-            end_delivered_thrust_n=segment.end_delivered_thrust_n * thrust_scale,
-            start_axial_thrust_n=(
-                segment.start_axial_thrust_n * thrust_scale * axial_scale
-            ),
-            end_axial_thrust_n=(
-                segment.end_axial_thrust_n * thrust_scale * axial_scale
-            ),
-            start_total_mass_flow_kg_s=segment.start_total_mass_flow_kg_s * flow_scale,
-            end_total_mass_flow_kg_s=segment.end_total_mass_flow_kg_s * flow_scale,
-            start_stream_mass_flows_kg_s=_scaled_streams(
-                segment.start_stream_mass_flows_kg_s, flow_scale
-            ),
-            end_stream_mass_flows_kg_s=_scaled_streams(
-                segment.end_stream_mass_flows_kg_s, flow_scale
-            ),
-            phase=segment.phase,
-        )
-        for segment in artifact.segments
-    )
-    source_hash = hashlib.sha256(
-        canonical_json_bytes(
-            {
-                "base_artifact_hash": artifact.artifact_hash,
-                "scenario_id": scenario_id,
-                "conditional_definition": definition,
-                "conditional_index": draw.index,
-                "inputs": draw.values,
-                "primary_seed": primary_seed,
-                "method": method,
-            }
-        )
-    ).hexdigest()
-    return TabulatedBurnArtifact(
-        segments=segments,
+    return scale_tabulated_artifact(
+        artifact,
+        values,
         source_id=f"conditional:{scenario_id}:{draw.index}",
-        source_sha256=source_hash,
-        interpolation=artifact.interpolation,
-        reference_ids=tuple(
-            dict.fromkeys(artifact.reference_ids + HIERARCHICAL_ENSEMBLE_REFERENCE_IDS)
-        ),
-        warnings=artifact.warnings
-        + (
+        provenance={
+            "scenario_id": scenario_id,
+            "conditional_definition": definition,
+            "conditional_index": draw.index,
+            "inputs": draw.values,
+            "primary_seed": primary_seed,
+            "method": method,
+        },
+        reference_ids=tuple(dict.fromkeys(HIERARCHICAL_ENSEMBLE_REFERENCE_IDS)),
+        warnings=(
             "Artifact contains a conditional continuous uncertainty realization.",
             "Scenario probability is stored outside the artifact and must be applied once.",
         ),
     )
 
 
-def _weighted_percentile(
-    values: tuple[tuple[float, float], ...], probability: float
-) -> float:
+def _weighted_percentile(values: tuple[tuple[float, float], ...], probability: float) -> float:
     cumulative = 0.0
     for value, weight in sorted(values):
         cumulative += weight
@@ -403,35 +380,25 @@ def _variance_decomposition(
     realizations: tuple[ConditionalPropulsionRealization, ...],
     getter: Callable[[TabulatedBurnArtifact], float],
 ) -> HierarchicalVarianceDecomposition:
-    total_mean = sum(
-        getter(item.artifact) * item.joint_probability
-        for item in realizations
-    )
+    total_mean = sum(getter(item.artifact) * item.joint_probability for item in realizations)
     total_variance = sum(
-        item.joint_probability
-        * (getter(item.artifact) - total_mean) ** 2
-        for item in realizations
+        item.joint_probability * (getter(item.artifact) - total_mean) ** 2 for item in realizations
     )
     scenario_ids = tuple(dict.fromkeys(item.scenario_id for item in realizations))
     within_variance = 0.0
     between_variance = 0.0
     for scenario_id in scenario_ids:
-        selected = tuple(
-            item for item in realizations if item.scenario_id == scenario_id
-        )
+        selected = tuple(item for item in realizations if item.scenario_id == scenario_id)
         scenario_probability = sum(item.joint_probability for item in selected)
-        conditional_mean = sum(
-            getter(item.artifact) * item.joint_probability
-            for item in selected
-        ) / scenario_probability
+        conditional_mean = (
+            sum(getter(item.artifact) * item.joint_probability for item in selected)
+            / scenario_probability
+        )
         within_variance += sum(
-            item.joint_probability
-            * (getter(item.artifact) - conditional_mean) ** 2
+            item.joint_probability * (getter(item.artifact) - conditional_mean) ** 2
             for item in selected
         )
-        between_variance += scenario_probability * (
-            conditional_mean - total_mean
-        ) ** 2
+        between_variance += scenario_probability * (conditional_mean - total_mean) ** 2
     closure_error = abs(total_variance - within_variance - between_variance)
     if total_variance > 0.0:
         within_fraction = within_variance / total_variance
@@ -465,9 +432,7 @@ def _impulses_for_draws(
     base_impulse_n_s: float, draws: tuple[UncertaintyDraw, ...]
 ) -> tuple[float, ...]:
     return tuple(
-        base_impulse_n_s
-        * _scale_values(draw)["thrust_scale"]
-        * _scale_values(draw)["time_scale"]
+        base_impulse_n_s * _scale_values(draw)["thrust_scale"] * _scale_values(draw)["time_scale"]
         for draw in draws
     )
 
@@ -515,9 +480,7 @@ def build_hierarchical_propulsion_ensemble(
         _validate_axial_scale(scenario.artifact, definition)
         primary_seed = _derived_seed(seed, scenario.scenario_id, "primary")
         audit_seed = _derived_seed(seed, scenario.scenario_id, "audit")
-        primary_draws = _draws(
-            definition, seed=primary_seed, method=normalized_method
-        )
+        primary_draws = _draws(definition, seed=primary_seed, method=normalized_method)
         audit_draws = _draws(definition, seed=audit_seed, method=normalized_method)
         conditional_probability = 1.0 / len(primary_draws)
         for draw in primary_draws:
@@ -559,8 +522,7 @@ def build_hierarchical_propulsion_ensemble(
                 impulse_mean_relative_difference=mean_difference,
                 impulse_standard_deviation_relative_difference=deviation_difference,
                 requested_tolerance=replicate_tolerance,
-                converged=max(mean_difference, deviation_difference)
-                <= replicate_tolerance,
+                converged=max(mean_difference, deviation_difference) <= replicate_tolerance,
             )
         )
 
@@ -576,16 +538,12 @@ def build_hierarchical_propulsion_ensemble(
         "thrust_centroid_time_s": lambda artifact: artifact.thrust_centroid_time_s,
     }
     weighted_values = {
-        metric: tuple(
-            (getter(item.artifact), item.joint_probability) for item in realizations
-        )
+        metric: tuple((getter(item.artifact), item.joint_probability) for item in realizations)
         for metric, getter in metric_getters.items()
     }
     contributions: list[ScenarioMetricContribution] = []
     for scenario in scenarios.realizations:
-        selected = tuple(
-            item for item in realizations if item.scenario_id == scenario.scenario_id
-        )
+        selected = tuple(item for item in realizations if item.scenario_id == scenario.scenario_id)
         for metric, getter in metric_getters.items():
             conditional_mean = fmean(getter(item.artifact) for item in selected)
             contributions.append(
@@ -594,9 +552,7 @@ def build_hierarchical_propulsion_ensemble(
                     metric=metric,
                     scenario_probability=scenario.probability,
                     conditional_expected_value=conditional_mean,
-                    joint_expected_value_contribution=(
-                        scenario.probability * conditional_mean
-                    ),
+                    joint_expected_value_contribution=(scenario.probability * conditional_mean),
                 )
             )
     warnings = [
@@ -615,8 +571,7 @@ def build_hierarchical_propulsion_ensemble(
         definitions=definitions,
         realizations=tuple(realizations),
         statistics=tuple(
-            _weighted_statistics(metric, values)
-            for metric, values in weighted_values.items()
+            _weighted_statistics(metric, values) for metric, values in weighted_values.items()
         ),
         variance_decomposition=tuple(
             _variance_decomposition(metric, tuple(realizations), getter)

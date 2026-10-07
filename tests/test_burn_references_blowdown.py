@@ -18,9 +18,14 @@ from rocket_propulsion.propulsion.burns import (
     burn_reference,
     calibration,
     cluster,
+    discrepancy,
     ensemble,
     ensemble_serialization,
+    feed_line,
+    feed_system,
     multivariate_calibration,
+    performance_surface,
+    propagator,
     references,
     response,
     scenarios,
@@ -42,16 +47,25 @@ class BurnReferenceTests(unittest.TestCase):
         for reference in BURN_REFERENCES:
             self.assertIn(
                 reference.organization,
-                {"NASA", "NASA Glenn Research Center", "CCSDS", "NIST", "JCGM"},
+                {
+                    "NASA",
+                    "NASA Glenn Research Center",
+                    "CCSDS",
+                    "NIST",
+                    "JCGM",
+                    "Orekit Project",
+                },
             )
             self.assertTrue(
                 reference.url.startswith("https://ntrs.nasa.gov/")
                 or reference.url.startswith("https://www1.grc.nasa.gov/")
+                or reference.url.startswith("https://www.grc.nasa.gov/")
                 or reference.url.startswith("https://standards.nasa.gov/")
                 or reference.url.startswith("https://ccsds.org/")
                 or reference.url.startswith("https://www.nist.gov/")
                 or reference.url.startswith("https://www.itl.nist.gov/")
                 or reference.url.startswith("https://www.bipm.org/")
+                or reference.url.startswith("https://www.orekit.org/")
             )
             self.assertEqual(burn_reference(reference.reference_id), reference)
         with self.assertRaises(InputError):
@@ -66,11 +80,16 @@ class BurnReferenceTests(unittest.TestCase):
             tabulated,
             blowdown,
             calibration,
+            discrepancy,
             multivariate_calibration,
+            performance_surface,
             uncertainty,
             scenarios,
             ensemble,
             ensemble_serialization,
+            feed_line,
+            feed_system,
+            propagator,
         )
         missing: list[str] = []
         for module in modules:

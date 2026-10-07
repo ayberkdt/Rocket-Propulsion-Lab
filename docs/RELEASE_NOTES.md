@@ -89,6 +89,44 @@
   fits and ordered Gaussian-copula correlation now come from the same campaign.
 - Added explicit correlation clipping/shrinkage evidence and the semantically
   recomputed `rocket_propulsion_hot_fire_multivariate_calibration_v1` schema.
+- Added model-form and qualification-to-flight discrepancy calibration from
+  independent validation ratios, including consensus correction, predictive
+  epistemic variance and a semantically recomputed v1 artifact.
+- Added qualified scale components so aleatory hot-fire and epistemic
+  discrepancy factors can act on the same thrust/Isp/time channel without
+  losing classification. Evidence reuse and uncorrelated shared evidence now
+  fail closed.
+- Centralized deterministic and sampled artifact scaling so thrust, Isp, time,
+  axial force, total tank drain and named stream-flow identities use one path.
+- Added `rocket_propulsion_propagator_bridge_v1`: a framework-neutral transient
+  force model returning acceleration, total and named tank mass derivatives,
+  exact event surfaces, bounded estimation drivers, and analytic Jacobians.
+- Added dry-mass/tank-reserve inhibition and explicit left/right evaluation at
+  every profile discontinuity; no force or flow is extrapolated outside a burn.
+- Added hash-verified N-dimensional operating-condition performance surfaces
+  for supply pressure, ambient pressure, throttle, mixture ratio, power or
+  other named coordinates, with a complete-grid gate and no extrapolation.
+- Coupled surface force/flow scales into the propagator bridge and added exact
+  condition Jacobians plus lower/upper validation-domain event surfaces.
+- Added `rocket_propulsion_regulated_feed_system_v1`: finite pressurant bottle,
+  growing thermal ullage, choked/unchoked regulator, valve lag, wall heat
+  transfer, propellant inventory and quadratic feed-line loss ODEs.
+- Added positive-safe feed cutoff roots, conservation/energy evidence, analytic
+  inlet-pressure derivatives and a fail-closed iterative engine/feed closure.
+- Added implicit coupled Jacobians through the pressure↔mass-flow algebraic
+  loop, including an exposed singularity denominator for estimator safety.
+- Added `rocket_propulsion_dynamic_feed_line_v1`, a propagated two-state
+  inertance/compliance liquid-line model with quadratic damping, compliant
+  storage-mass closure, reverse-flow/pressure/flow roots, modal diagnostics,
+  deterministic model identity and analytic local Jacobians.
+- Composed the dynamic line with regulated pressurization, bounded
+  pressure-dependent engine performance and the propagator bridge. Engine
+  demand enters the manifold-pressure ODE, line flow drains the tank, and
+  analytic feed-state/line-state/acceleration derivatives are returned without
+  a hidden algebraic loop.
+- Added central-finite-difference checks of the fully composed dynamic-line
+  Jacobian, inactive-engine relaxation behavior, double-resistance refusal,
+  reference/docstring audit coverage, documentation and a runnable example.
 
 ## 0.9.0 — engineering preview
 

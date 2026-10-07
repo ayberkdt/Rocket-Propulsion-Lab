@@ -40,6 +40,14 @@ variability. `EPISTEMIC` represents incomplete knowledge that may be reduced by
 additional analysis or test data. The result reports their counts separately;
 it does not collapse the distinction into one label.
 
+Qualified scale-component names allow several evidence layers to act on the
+same physical quantity without losing that classification. For example,
+`thrust_scale::aleatory:hot-fire` and
+`thrust_scale::epistemic:model-form:validation-residual` are sampled separately
+and multiplied into one physical thrust scale. The construction and evidence
+reuse rules are in
+[`MODEL_DISCREPANCY_TRANSFER.md`](MODEL_DISCREPANCY_TRANSFER.md).
+
 ## Supported distributions
 
 - bounded uniform;
@@ -157,8 +165,8 @@ Pointing, attitude-estimation and maneuver-epoch uncertainties must still be
 composed in Sidera because their consequences depend on trajectory state and
 frame.
 
-Future higher-fidelity additions should include model-form discrepancy,
-operating-condition regression, multivariate REML or Bayesian calibration when
+Future higher-fidelity additions should include operating-condition regression,
+multivariate REML or Bayesian calibration when
 data volume justifies it, Sobol/global sensitivity, and sequential sample-size
 convergence studies.
 

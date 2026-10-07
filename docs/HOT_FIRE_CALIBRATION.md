@@ -177,13 +177,17 @@ both hash changes and derived-result tampering. See
 ## Credibility boundary
 
 This is a variance-component calibration, not a complete Bayesian engine
-digital twin. It does not yet model sampling uncertainty of variance components
-as a distribution, model-form discrepancy, time drift, censoring, outliers,
+digital twin. Sampling uncertainty of variance components is not itself a
+distribution, and the fit does not model time drift, censoring, outliers,
 autocorrelation, operating-condition response surfaces, nonlinear/tail
-dependence beyond a Gaussian copula, manufacturing sub-hierarchies, or
-qualification-to-flight transfer. The paired method also assumes measurement
-errors from different runs are independent after each run's declared covariance
-is applied.
+dependence beyond a Gaussian copula, or manufacturing sub-hierarchies. The
+paired method also assumes measurement errors from different runs are
+independent after each run's declared covariance is applied.
+
+Model-form and qualification-to-flight effects must not be hidden inside these
+aleatory variances. The implemented independent evidence and layered-composition
+workflow is documented in
+[`MODEL_DISCREPANCY_TRANSFER.md`](MODEL_DISCREPANCY_TRANSFER.md).
 
 These omissions are reported in warnings and must not be hidden by interpreting
 the fitted residual distribution as total uncertainty. NASA/SP-2009-569 and

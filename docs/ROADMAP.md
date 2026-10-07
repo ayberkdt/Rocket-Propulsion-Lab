@@ -104,9 +104,32 @@ acceptance gates, and the first three sprints are specified in
   calibration with complete measurement covariance, within/between-engine
   cross-covariance, recorded positive-definite regularization, ensemble-ready
   copulas and semantically revalidated v1 persistence
-- Remaining: public HTTP API/UI surfaces for the isolated transient core,
-  feed-line/regulator/thermal pressurant fidelity, model-form and
-  operating-condition calibration, Sidera-side trajectory/pointing/epoch dispersion and broader
+- Implemented in the isolated propulsion core: model-form and
+  qualification-to-flight random-effects discrepancy calibration, predictive
+  epistemic variance, application-domain/evidence-reuse gates, qualified
+  multi-component scales, and deterministic-correction/ensemble composition
+- Implemented in the isolated propulsion core: a propagation-ready transient
+  force model with simultaneous axial acceleration, total/tank mass drains,
+  explicit left/right discontinuities, start/boundary/stop/reserve event
+  surfaces, bounded estimation drivers and analytic local Jacobians
+- Implemented in the isolated propulsion core: complete rectilinear
+  operating-condition performance maps with N-D multilinear interpolation,
+  analytic condition Jacobians, hash-verified persistence, validation-domain
+  event surfaces and exact propagator-bridge composition
+- Implemented in the isolated propulsion core: six-state regulated pressurant
+  and feed dynamics with bottle/ullage energy balances, choked regulator flow,
+  valve lag, liquid line loss, protective events, converged feed/performance
+  closure and implicit coupled Jacobians
+- Implemented in the isolated propulsion core: a two-state dynamic liquid-line
+  surrogate with hydraulic inertance/compliance, quadratic damping, explicit
+  stored-mass closure, pressure/flow events and engine/feed-composed Jacobians
+- Remaining: native Sidera wrapper for the propagation bridge, public HTTP
+  API/UI surfaces for the isolated transient core,
+  higher-order distributed water-hammer/priming models, regulator hysteresis,
+  ullage stratification,
+  calibrated uncertainty and
+  discrepancy fields over the operating-condition surface, Sidera-side
+  trajectory/pointing/epoch dispersion and broader
   validation grids
 - Keep trajectory integration, maneuver frames, guidance and orbital results in
   Sidera

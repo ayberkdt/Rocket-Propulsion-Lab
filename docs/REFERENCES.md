@@ -63,6 +63,13 @@ relations. These primary NASA resources anchor terminology and screening values:
 - NASA-STD-7009B, **Standard for Models and Simulations** — model credibility,
   validation, sensitivity and uncertainty-qualification requirements:
   <https://standards.nasa.gov/standard/NASA/NASA-STD-7009>
+- NASA-HDBK-7009, **NASA Handbook for Models and Simulations** — implementation
+  guidance for validation evidence, uncertainty characterization and intended
+  use assessment: <https://ntrs.nasa.gov/citations/20140002378>
+- NASA, **Calibration of Predictor Models Using Multiple Validation
+  Experiments** — multiple validation cases, referent uncertainty and
+  model-form uncertainty in predictor calibration:
+  <https://ntrs.nasa.gov/citations/20150006032>
 - NASA/SP-2011-3421, **Probabilistic Risk Assessment Procedures Guide for NASA
   Managers and Practitioners** — uncertainty characterization, Monte Carlo/LHS
   propagation and sensitivity context:
@@ -77,6 +84,29 @@ relations. These primary NASA resources anchor terminology and screening values:
 - NASA, **Common Cause Failure Modeling in Space Launch Vehicles** — dependent
   failures that defeat redundancy and limitations in applicable aerospace
   failure data: <https://ntrs.nasa.gov/citations/20160007073>
+- Orekit 13.1.5, **PropulsionModel API** — the public maneuver-propulsion
+  boundary for acceleration, mass derivatives, parameter drivers and model
+  event detectors:
+  <https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html>
+- NASA, **Parametric Model of an Aerospike Rocket Engine** — trajectory-facing
+  engine performance tables parameterized by mixture ratio, power level,
+  thrust-vectoring level and altitude:
+  <https://ntrs.nasa.gov/citations/20000031654>
+- NASA SP-8080, **Liquid Rocket Pressure Regulators and Valves** — regulator,
+  relief/check valve and pressure-system design criteria:
+  <https://ntrs.nasa.gov/citations/19740002611>
+- NASA, **Nodal Modeling of Liquid Propellant Feed and Pressurization System**
+  — mass, energy, equation-of-state and branch-flow formulation for coupled
+  feed networks: <https://ntrs.nasa.gov/citations/20240003493>
+- NASA Glenn, **Mass Flow Choking** — ideal-gas compressible restriction flow
+  and sonic maximum-flow relation:
+  <https://www.grc.nasa.gov/www/k-12/BGP/mflchk.html>
+- NASA, **Liquid Rocket Propellant Feedline Dynamics** — liquid-feed system
+  dynamic modes and trajectory-relevant feedline modeling context:
+  <https://ntrs.nasa.gov/citations/19740028545>
+- NASA NESC Technical Bulletin 22-03, **Treatment of Transient Pressure
+  Events** — screening and design treatment for transient pressure and water
+  hammer: <https://ntrs.nasa.gov/citations/20220006583>
 
 Stable identifiers and scopes are defined in
 `rocket_propulsion.propulsion.burns.references`. The transient public API is

@@ -24,6 +24,14 @@ from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
 from .models import ProfiledBurnResult
 from .profiles import resolved_schedule_intervals
+from .serialization import canonical_json_bytes
+
+_ARTIFACT_SCALE_NAMES = {
+    "thrust_scale",
+    "specific_impulse_scale",
+    "time_scale",
+    "axial_efficiency_scale",
+}
 
 
 class InterpolationPolicy(str, Enum):
@@ -139,9 +147,7 @@ class TabulatedBurnSegment:
 
     @property
     def axial_impulse_n_s(self) -> float:
-        return self._integral(
-            self.start_axial_thrust_n, self.end_axial_thrust_n, self.duration_s
-        )
+        return self._integral(self.start_axial_thrust_n, self.end_axial_thrust_n, self.duration_s)
 
     @property
     def propellant_mass_kg(self) -> float:
@@ -153,13 +159,10 @@ class TabulatedBurnSegment:
 
     @property
     def delivered_thrust_first_moment_n_s2(self) -> float:
-        return (
-            self.start_time_s * self.delivered_impulse_n_s
-            + self._local_first_moment(
-                self.start_delivered_thrust_n,
-                self.end_delivered_thrust_n,
-                self.duration_s,
-            )
+        return self.start_time_s * self.delivered_impulse_n_s + self._local_first_moment(
+            self.start_delivered_thrust_n,
+            self.end_delivered_thrust_n,
+            self.duration_s,
         )
 
     def state_at(self, time_s: float) -> dict[str, Any]:
@@ -180,16 +183,16 @@ class TabulatedBurnSegment:
             "delivered_thrust_n": interpolate(
                 self.start_delivered_thrust_n, self.end_delivered_thrust_n
             ),
-            "axial_thrust_n": interpolate(
-                self.start_axial_thrust_n, self.end_axial_thrust_n
-            ),
+            "axial_thrust_n": interpolate(self.start_axial_thrust_n, self.end_axial_thrust_n),
             "total_mass_flow_kg_s": interpolate(
                 self.start_total_mass_flow_kg_s, self.end_total_mass_flow_kg_s
             ),
             "stream_mass_flows_kg_s": tuple(
                 (
                     identifier,
-                    interpolate(start_streams.get(identifier, 0.0), end_streams.get(identifier, 0.0)),
+                    interpolate(
+                        start_streams.get(identifier, 0.0), end_streams.get(identifier, 0.0)
+                    ),
                 )
                 for identifier in identifiers
             ),
@@ -291,11 +294,7 @@ class TabulatedBurnArtifact:
     def thrust_centroid_time_s(self) -> float:
         impulse = self.delivered_total_impulse_n_s
         return (
-            sum(
-                segment.delivered_thrust_first_moment_n_s2
-                for segment in self.segments
-            )
-            / impulse
+            sum(segment.delivered_thrust_first_moment_n_s2 for segment in self.segments) / impulse
             if impulse > 0.0
             else 0.0
         )
@@ -362,9 +361,7 @@ class TabulatedBurnArtifact:
                 "axial_total_impulse_n_s": self.axial_total_impulse_n_s,
                 "consumed_propellant_kg": self.consumed_propellant_kg,
                 "thrust_centroid_time_s": self.thrust_centroid_time_s,
-                "system_equivalent_specific_impulse_s": (
-                    self.system_equivalent_specific_impulse_s
-                ),
+                "system_equivalent_specific_impulse_s": (self.system_equivalent_specific_impulse_s),
             },
             "warnings": list(self.warnings),
         }
@@ -391,9 +388,7 @@ class TabulatedBurnArtifact:
                 source_id=str(payload["source_id"]),
                 source_sha256=str(payload["source_sha256"]),
                 interpolation=InterpolationPolicy(payload["interpolation"]),
-                reference_ids=tuple(
-                    str(item) for item in payload.get("reference_ids", ())
-                ),
+                reference_ids=tuple(str(item) for item in payload.get("reference_ids", ())),
                 segments=tuple(
                     TabulatedBurnSegment(
                         start_time_s=float(item["start_time_s"]),
@@ -436,6 +431,104 @@ class TabulatedBurnArtifact:
         return cls.from_dict(payload)
 
 
+def scale_tabulated_artifact(
+    artifact: TabulatedBurnArtifact,
+    scales: dict[str, float],
+    *,
+    source_id: str,
+    provenance: Any,
+    reference_ids: tuple[str, ...] = (),
+    warnings: tuple[str, ...] = (),
+) -> TabulatedBurnArtifact:
+    """Apply physically coupled positive scales to a propulsion artifact.
+
+    Delivered thrust scales with ``thrust_scale``; tank and named stream flows
+    scale with ``thrust_scale / specific_impulse_scale``; time scales every
+    segment boundary; and axial efficiency affects axial force without changing
+    delivered thrust or tank drain. The resulting source hash binds the base
+    artifact, normalized scales, and caller-supplied provenance.
+
+    References
+    ----------
+    NASA rocket thrust equation:
+    https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
+    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    """
+
+    unknown = set(scales) - _ARTIFACT_SCALE_NAMES
+    if unknown:
+        raise DomainError(f"Unsupported artifact scales: {', '.join(sorted(unknown))}.")
+    normalized = {name: 1.0 for name in _ARTIFACT_SCALE_NAMES}
+    for name, value in scales.items():
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError) as error:
+            raise DomainError(f"Artifact scale {name!r} must be numeric.") from error
+        if not isfinite(numeric) or numeric <= 0.0:
+            raise DomainError(f"Artifact scale {name!r} must be positive and finite.")
+        normalized[name] = numeric
+    if not source_id.strip():
+        raise DomainError("Scaled artifact source identifier must not be empty.")
+    thrust_scale = normalized["thrust_scale"]
+    isp_scale = normalized["specific_impulse_scale"]
+    time_scale = normalized["time_scale"]
+    axial_scale = normalized["axial_efficiency_scale"]
+    maximum_axial_ratio = max(
+        (
+            axial / delivered
+            for segment in artifact.segments
+            for axial, delivered in (
+                (segment.start_axial_thrust_n, segment.start_delivered_thrust_n),
+                (segment.end_axial_thrust_n, segment.end_delivered_thrust_n),
+            )
+            if delivered > 0.0
+        ),
+        default=0.0,
+    )
+    if maximum_axial_ratio * axial_scale > 1.0 + 1e-12:
+        raise DomainError("Artifact scale can make axial thrust exceed delivered thrust.")
+    flow_scale = thrust_scale / isp_scale
+
+    def scaled_streams(
+        streams: tuple[tuple[str, float], ...],
+    ) -> tuple[tuple[str, float], ...]:
+        return tuple((tank_id, flow * flow_scale) for tank_id, flow in streams)
+
+    segments = tuple(
+        TabulatedBurnSegment(
+            start_time_s=segment.start_time_s * time_scale,
+            end_time_s=segment.end_time_s * time_scale,
+            start_delivered_thrust_n=segment.start_delivered_thrust_n * thrust_scale,
+            end_delivered_thrust_n=segment.end_delivered_thrust_n * thrust_scale,
+            start_axial_thrust_n=(segment.start_axial_thrust_n * thrust_scale * axial_scale),
+            end_axial_thrust_n=(segment.end_axial_thrust_n * thrust_scale * axial_scale),
+            start_total_mass_flow_kg_s=(segment.start_total_mass_flow_kg_s * flow_scale),
+            end_total_mass_flow_kg_s=(segment.end_total_mass_flow_kg_s * flow_scale),
+            start_stream_mass_flows_kg_s=scaled_streams(segment.start_stream_mass_flows_kg_s),
+            end_stream_mass_flows_kg_s=scaled_streams(segment.end_stream_mass_flows_kg_s),
+            phase=segment.phase,
+        )
+        for segment in artifact.segments
+    )
+    source_sha256 = hashlib.sha256(
+        canonical_json_bytes(
+            {
+                "base_artifact_hash": artifact.artifact_hash,
+                "scales": normalized,
+                "provenance": provenance,
+            }
+        )
+    ).hexdigest()
+    return TabulatedBurnArtifact(
+        segments=segments,
+        source_id=source_id,
+        source_sha256=source_sha256,
+        interpolation=artifact.interpolation,
+        reference_ids=tuple(dict.fromkeys(artifact.reference_ids + reference_ids)),
+        warnings=artifact.warnings + warnings,
+    )
+
+
 def tabulated_artifact_from_profiled_burn(result: ProfiledBurnResult) -> TabulatedBurnArtifact:
     """Convert an analytic L1 result without flattening discontinuities.
 
@@ -449,14 +542,10 @@ def tabulated_artifact_from_profiled_burn(result: ProfiledBurnResult) -> Tabulat
     tank_rates: dict[str, float] = {}
     for stream in result.operating_point.streams:
         if stream.tank_depleting:
-            tank_rates[stream.tank_id] = (
-                tank_rates.get(stream.tank_id, 0.0) + stream.mass_flow_kg_s
-            )
+            tank_rates[stream.tank_id] = tank_rates.get(stream.tank_id, 0.0) + stream.mass_flow_kg_s
 
     def flows(throttle: float) -> tuple[tuple[str, float], ...]:
-        return tuple(
-            (tank_id, rate * throttle) for tank_id, rate in sorted(tank_rates.items())
-        )
+        return tuple((tank_id, rate * throttle) for tank_id, rate in sorted(tank_rates.items()))
 
     point = result.operating_point
     cant = result.definition.cant_efficiency
@@ -529,9 +618,7 @@ def tabulated_artifact_from_csv(
         raise InputError(
             "Imported trace requires time_s, delivered_thrust_n, and total_mass_flow_kg_s columns."
         )
-    stream_columns = sorted(
-        name for name in reader.fieldnames if name.startswith("stream:")
-    )
+    stream_columns = sorted(name for name in reader.fieldnames if name.startswith("stream:"))
     points: list[dict[str, Any]] = []
     try:
         for row in reader:

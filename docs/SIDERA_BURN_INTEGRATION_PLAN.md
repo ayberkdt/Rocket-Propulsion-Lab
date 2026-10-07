@@ -74,6 +74,10 @@ The first executable vertical slice is now present:
   artifact that binds each realization to start time, frame and direction,
   explicitly selects axial thrust and total tank drain, and fails capability
   negotiation until Sidera exposes exact tabulated/weighted support.
+- paired hot-fire covariance plus independent model-form and
+  qualification-to-flight discrepancy layers; qualified scale components keep
+  aleatory and epistemic inputs separate while producing the same complete
+  weighted artifacts for future Sidera propagation.
 
 Still open before the broader B1 evidence target is complete: expanded
 reference fixtures/property grids. The B2 analytic and exchange foundation is
@@ -865,9 +869,25 @@ block the standalone release train.
   engine-out/common-cause loss, ignition delay, early cutoff, response change
   and thrust/Isp degradation, with exhaustive probability checks and a complete
   artifact for every outcome;
-- still open: regulated feed, line/thermal pressurant dynamics, bipropellant
-  tank-pair depletion, conditional scenario/UQ composition, Sidera-side
-  pointing/epoch dispersion, external qualification-data closure and HTTP/UI.
+- implemented: scenario-conditional continuous ensembles, persistence,
+  hot-fire calibration, model/flight discrepancy separation and weighted
+  Sidera hand-off artifacts;
+- implemented: a framework-neutral propagation bridge returning axial force,
+  total and named tank-state drains, exact start/boundary/stop/inventory event
+  surfaces, bounded estimation drivers and analytic local Jacobians;
+- implemented: hash-verified multidimensional operating-condition maps with
+  independent force/flow response, analytic condition partials and explicit
+  lower/upper validation-domain event roots;
+- implemented: a six-state regulated feed provider and converged algebraic
+  coupling to the pressure-dependent bridge, including positive-safe cutoff
+  roots and implicit state/flow/acceleration derivatives;
+- implemented: a two-state dynamic liquid feed line with inertance,
+  compliance, nonlinear damping, stored-mass closure, positive-safe roots and
+  engine/feed-composed analytic Jacobians;
+- still open: higher-order distributed line/priming physics, regulator
+  hysteresis, ullage stratification, bipropellant tank-pair depletion, the
+  native Sidera wrapper around the bridge, Sidera-side pointing/epoch
+  dispersion, external qualification-data closure and HTTP/UI.
 
 **Deliver**
 
@@ -899,12 +919,22 @@ block the standalone release train.
 
 **Dependency**
 
-- a released/public Sidera tabulated thrust plus independent mass-flow
-  contract, or an equivalent capability accepted by the Sidera project.
+- the isolated `rocket_propulsion_propagator_bridge_v1` producer is now
+  implemented and verified;
+- Sidera still needs a released/public force-model wrapper able to consume its
+  tabulated thrust, independent total/tank mass-flow, events and Jacobians.
 
 **Deliver**
 
 - capability-negotiated adapter for the new Sidera contract;
+- native mapping of bridge event surfaces and named parameter partials;
+- named mapping of propagated pressure/thermal/power states into performance
+  conditions and composition of their analytic Jacobian columns;
+- registration of feed-system additional states and their simultaneous ODE
+  derivatives in the native Sidera numerical propagator;
+- registration of dynamic line-flow/manifold-pressure states, replacement of
+  the static injector-pressure root, and mapping of the composed two-state
+  Jacobian;
 - end-to-end trajectory example using a Rocket Propulsion Lab profile;
 - constant/native versus constant/tabulated and transient comparisons;
 - CCSDS OPM comparison for constant burns;

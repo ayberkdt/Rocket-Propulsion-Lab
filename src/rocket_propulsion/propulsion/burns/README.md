@@ -94,6 +94,28 @@ or modifying Sidera:
   correlation regularization, emits population/same-engine Gaussian-copula
   models, and persists a semantically revalidated
   `rocket_propulsion_hot_fire_multivariate_calibration_v1` document.
+- `discrepancy.py` calibrates independent model-form and
+  qualification-to-flight ratios as epistemic predictive factors. Its layered
+  plan preserves aleatory/epistemic names, refuses evidence reuse, applies all
+  consensus corrections once, and feeds the existing hierarchical ensemble.
+  See `docs/MODEL_DISCREPANCY_TRANSFER.md`.
+- `propagator.py` turns a verified tabulated artifact into simultaneous axial
+  acceleration, vehicle/tank mass derivatives, event roots and analytic
+  estimator Jacobians. It keeps attitude, frames, epochs and orbit integration
+  outside the propulsion core. See `docs/PROPAGATOR_PROPULSION_BRIDGE.md`.
+- `performance_surface.py` supplies complete, non-extrapolating N-dimensional
+  operating maps with analytic force/flow gradients and validity event roots.
+  The propagator bridge composes these scales without losing tank-flow closure.
+  See `docs/OPERATING_CONDITION_SURFACES.md`.
+- `feed_system.py` propagates liquid inventory, bottle/ullage pressurant mass
+  and temperature, plus regulator opening. It closes inlet pressure against
+  pressure-dependent engine demand and returns implicit coupled Jacobians.
+  See `docs/REGULATED_FEED_DYNAMICS.md`.
+- `feed_line.py` replaces the static line-loss closure with propagated liquid
+  flow and engine-manifold pressure states. It supplies inertance/compliance
+  dynamics, nonlinear damping, positive-safe pressure/flow roots, explicit
+  storage-mass closure, and engine-composed analytic Jacobians. See
+  `docs/DYNAMIC_FEED_LINE.md`.
 
 The exchange artifact intentionally has no epoch, direction, frame, position,
 velocity, central body, or orbital result. A future Sidera adapter will combine

@@ -48,6 +48,51 @@ NASA_SP_8112 = EngineeringReference(
     "Blowdown-system architecture, ullage expansion, pressure decay, and design limits.",
 )
 
+NASA_SP_8080 = EngineeringReference(
+    "NASA-SP-8080",
+    "Liquid Rocket Pressure Regulators, Relief Valves, Check Valves, Burst Disks, and Explosive Valves",
+    "NASA",
+    1973,
+    "https://ntrs.nasa.gov/citations/19740002611",
+    "Pressure-regulator and valve design criteria for liquid rocket pressurization systems.",
+)
+
+NASA_NODAL_FEED_PRESSURIZATION = EngineeringReference(
+    "NASA-20240003493",
+    "Nodal Modeling of Liquid Propellant Feed and Pressurization System",
+    "NASA",
+    2024,
+    "https://ntrs.nasa.gov/citations/20240003493",
+    "Mass, energy, equation-of-state, and branch-flow modeling of coupled feed and pressurization networks.",
+)
+
+NASA_LIQUID_FEEDLINE_DYNAMICS = EngineeringReference(
+    "NASA-19740028545",
+    "Liquid Rocket Propellant Feedline Dynamics",
+    "NASA",
+    1973,
+    "https://ntrs.nasa.gov/citations/19740028545",
+    "Analytical and experimental pressure/flow dynamics of compliant liquid-rocket feed lines.",
+)
+
+NASA_NESC_TRANSIENT_PRESSURE = EngineeringReference(
+    "NASA-20220006583",
+    "NESC Technical Bulletin 22-03: Treatment of Transient Pressure Events in Space Flight Pressurized Systems",
+    "NASA",
+    2022,
+    "https://ntrs.nasa.gov/citations/20220006583",
+    "Valve-actuation, priming, discharge, vibration, and flow-disturbance pressure transients.",
+)
+
+NASA_GRC_MASS_FLOW_CHOKING = EngineeringReference(
+    "NASA-GRC-MASS-FLOW-CHOKING",
+    "Mass Flow Choking",
+    "NASA Glenn Research Center",
+    2021,
+    "https://www.grc.nasa.gov/www/k-12/BGP/mflchk.html",
+    "Compressible mass-flow function and sonic choking limit for an ideal-gas restriction.",
+)
+
 NASA_CR_131400 = EngineeringReference(
     "NASA-CR-131400",
     "Reliability Model of a Monopropellant Auxiliary Propulsion System",
@@ -120,6 +165,15 @@ NASA_STD_7009B = EngineeringReference(
     "Model credibility, verification, validation, uncertainty qualification, and use assessment.",
 )
 
+NASA_HDBK_7009 = EngineeringReference(
+    "NASA-HDBK-7009",
+    "NASA Handbook for Models and Simulations: An Implementation Guide for NASA-STD-7009",
+    "NASA",
+    2013,
+    "https://ntrs.nasa.gov/citations/20140002378",
+    "Validation evidence, model discrepancy, uncertainty characterization, and use assessment.",
+)
+
 NASA_SP_2011_3421 = EngineeringReference(
     "NASA-SP-2011-3421",
     "Probabilistic Risk Assessment Procedures Guide for NASA Managers and Practitioners",
@@ -136,6 +190,24 @@ NASA_SP_2009_569 = EngineeringReference(
     2009,
     "https://ntrs.nasa.gov/citations/20090023159",
     "Separation and treatment of data, parameter uncertainty, and model knowledge.",
+)
+
+NASA_MULTIPLE_VALIDATION_CALIBRATION = EngineeringReference(
+    "NASA-20150006032",
+    "Calibration of Predictor Models Using Multiple Validation Experiments",
+    "NASA",
+    2015,
+    "https://ntrs.nasa.gov/citations/20150006032",
+    "Calibration from multiple validation experiments and separation of measurement and model-form uncertainty.",
+)
+
+NASA_AEROSPIKE_PARAMETRIC_MODEL = EngineeringReference(
+    "NASA-20000031654",
+    "Parametric Model of an Aerospike Rocket Engine",
+    "NASA",
+    2000,
+    "https://ntrs.nasa.gov/citations/20000031654",
+    "Trajectory-coupled engine performance tables over mixture ratio, power level, vectoring, and altitude.",
 )
 
 NASA_LIQUID_ENGINE_RELIABILITY = EngineeringReference(
@@ -192,6 +264,15 @@ JCGM_100_2008 = EngineeringReference(
     "Propagation of correlated measurement uncertainty and covariance reporting.",
 )
 
+OREKIT_PROPULSION_MODEL = EngineeringReference(
+    "OREKIT-13.1.5-PROPULSION-MODEL",
+    "Orekit 13.1.5 PropulsionModel API",
+    "Orekit Project",
+    2026,
+    "https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html",
+    "Propagation-time acceleration, mass derivative, parameter-driver, and event-detector contract.",
+)
+
 
 BURN_REFERENCES: tuple[EngineeringReference, ...] = (
     CCSDS_502_0_B_3,
@@ -200,11 +281,19 @@ BURN_REFERENCES: tuple[EngineeringReference, ...] = (
     NASA_CR_131400,
     NASA_CR_140800,
     NASA_COMMON_CAUSE_FAILURE,
+    NASA_AEROSPIKE_PARAMETRIC_MODEL,
     NASA_LIQUID_ENGINE_RELIABILITY,
+    NASA_LIQUID_FEEDLINE_DYNAMICS,
+    NASA_HDBK_7009,
+    NASA_GRC_MASS_FLOW_CHOKING,
+    NASA_MULTIPLE_VALIDATION_CALIBRATION,
+    NASA_NODAL_FEED_PRESSURIZATION,
+    NASA_NESC_TRANSIENT_PRESSURE,
     NASA_SP_125,
     NASA_SP_2009_569,
     NASA_SP_2011_3421,
     NASA_SP_8112,
+    NASA_SP_8080,
     NASA_STD_7009B,
     NASA_THRUST_EQUATION,
     NASA_TM_107318,
@@ -212,6 +301,7 @@ BURN_REFERENCES: tuple[EngineeringReference, ...] = (
     NIST_CONSENSUS_MEAN,
     NIST_TN_1297,
     NIST_VARIANCE_COMPONENTS,
+    OREKIT_PROPULSION_MODEL,
 )
 
 

@@ -39,6 +39,11 @@ Conditional scales may be derived from repeated test data using the implemented
 [`HOT_FIRE_CALIBRATION.md`](HOT_FIRE_CALIBRATION.md) workflow. Apply the
 calibrated consensus correction to the deterministic base first; the returned
 residual parameter remains centered at one and is sampled conditionally here.
+Independent model-form and qualification-to-flight evidence can then be added
+through the layered workflow in
+[`MODEL_DISCREPANCY_TRANSFER.md`](MODEL_DISCREPANCY_TRANSFER.md). Component
+names retain their aleatory/epistemic source while identical physical prefixes
+are multiplied into one artifact scale.
 
 ## Conditional artifact scales
 
@@ -51,6 +56,12 @@ The first implementation supports positive, bounded scales:
 - `axial_efficiency_scale`: changes axial thrust without changing delivered
   thrust.
 
+Each name may be unqualified, for backward compatibility, or use
+`physical_scale::class:component`. Multiple qualified components may target the
+same scale; their sampled values are multiplied. Their complete names must
+remain unique and the correlation order covers components, not only physical
+targets.
+
 For a draw with thrust scale `k_F` and system-Isp scale `k_I`, total and named
 tank flows scale by `k_F / k_I`. This preserves
 `Isp_system = F_delivered / (g0 * mdot_tank)`. Time scaling acts on the entire
@@ -60,7 +71,9 @@ axial thrust exceed delivered thrust.
 
 The model is deliberately scale-based. It does not claim that these four
 variables reproduce feed-system dynamics, combustion instability, thermal
-soakback, regulator hysteresis, or test-to-flight model discrepancy.
+soakback, or regulator hysteresis. Constant in-domain model/flight discrepancy
+can be represented by the implemented evidence layer, but a scale is not a
+substitute for a state-dependent discrepancy surface.
 
 ## Evidence and reproducibility
 
