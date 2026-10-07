@@ -48,12 +48,22 @@ from rocket_propulsion.integrations import (
     LunarisFiniteBurnDynamics, lunaris_segmentation_plan, velocity_direction,
 )
 
-dynamics = LunarisFiniteBurnDynamics(lunaris_dynamics, timeline, velocity_direction)
+dynamics = LunarisFiniteBurnDynamics(
+    lunaris_dynamics, timeline, velocity_direction,
+    parameter_overrides={"raise": {"ignition_time_bias_s": 2.0}},  # optional
+    initial_mass_kg=1000.0,           # required when a bridge has protected_dry_mass_kg
+)
 result = lunaris.core.propagation.propagate(
     dynamics, y0_with_mass, cfg, time_cfg=time_cfg,
-    maneuver_plan=lunaris_segmentation_plan(timeline),
+    maneuver_plan=dynamics.segmentation_plan(),
 )
 ```
+
+Build the segmentation plan from the wrapper (or pass the same
+`parameter_overrides` and `initial_mass_kg` to `lunaris_segmentation_plan`).
+A plan built from nominal times while a burn is biased would leave its
+discontinuities inside integration steps; a test shows the resulting loss of
+accuracy.
 
 - The wrapper adds the timeline's thrust acceleration and mass rate to the
   wrapped right-hand side. It overrides both `build_rhs` and Lunaris' trusted
@@ -67,12 +77,30 @@ result = lunaris.core.propagation.propagate(
   the left-hand limit.
 - `direction_law(burn_id, t, y)` returns the inertial thrust direction
   (`velocity_direction` = prograde).
+- **Ignition bias.** Every time event of a burn is shifted by its resolved
+  `ignition_time_bias_s`. A bias that makes two burns overlap is refused.
+- **Exact dry-mass cut.** Lunaris event functions only see `y[:6]`, so a
+  mass-threshold event cannot be located by Lunaris. For a mass-only burn the
+  mass flow is a function of time alone, so with `initial_mass_kg` the time at
+  which the vehicle reaches `protected_dry_mass_kg` is solved exactly
+  (piecewise-quadratic mass, stable quadratic root) and becomes a segment
+  boundary; the burn is off from that time on (`lunaris_burn_windows` reports
+  it). The bridge's internal clamp is then switched off by default
+  (`apply_inventory_limits=None`), because a clamp evaluated inside
+  Runge–Kutta stages next to the cut biases the final mass; a test shows that
+  bias.
+- **Mass consistency.** With `initial_mass_kg`, every segment's first
+  evaluation compares `y[6]` with the mass predicted from the timeline
+  (`predicted_mass_kg`, relative tolerance `mass_tolerance=1e-9`) and fails
+  closed on a mismatch: a different start mass or another mass-changing
+  maneuver would make the precomputed cut wrong.
 
 Fail-closed rules: Lunaris carries no tank states, so bridges must be
 mass-only (no stream bindings or reserve constraints; `protected_dry_mass_kg`
-still works). Performance surfaces, ambient pressure and jettison events have
-no Lunaris counterpart and are refused, and 6-element states are rejected
-while a burn is evaluated.
+still works, with `initial_mass_kg`). Performance surfaces, ambient pressure
+and jettison events have no Lunaris counterpart and are refused, and
+6-element states are rejected. Impulsive equivalents refuse a burn that its
+protected dry mass would truncate; use the finite-burn path for it.
 
 ## Verification
 
@@ -86,6 +114,14 @@ while a burn is evaluated.
   installed): a two-burn sequence around a point-mass Moon, propagated once as
   finite burns and once as impulses. The two paths agree on final mass, and
   their semi-major-axis changes agree within 0.1 % of the change.
+- bias-shifted segmentation reproduces the unbiased free-space result to
+  1e-10, while nominal segmentation of a biased burn is measurably worse;
+- the dry-mass cut time matches closed forms inside a ramp and in the steady
+  phase (1e-12 s); the finite burn ends exactly at the dry mass with the
+  rocket-equation velocity (1e-10);
+- **end-to-end with the real Lunaris propagator**: a biased 600 s burn cut by
+  its dry mass after 250 s matches an explicitly truncated 250 s burn
+  (position to 1 mm, velocity to 1 µm/s), and a wrong start mass is refused.
 
 ## Not covered
 

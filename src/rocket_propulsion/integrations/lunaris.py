@@ -156,6 +156,13 @@ def lunaris_impulsive_equivalents(
         )
         if metrics.effective_exhaust_velocity_m_s is None or metrics.delta_v_m_s <= 0.0:
             raise DomainError(f"Burn {burn.burn_id!r} produces no delta-v.")
+        dry = bridge.protected_dry_mass_kg
+        if dry is not None and metrics.final_mass_kg < dry * (1.0 - 1e-12):
+            raise DomainError(
+                f"Burn {burn.burn_id!r} would cut off at its protected dry mass "
+                f"({dry!r} kg) before the end of its profile; a truncated burn has no "
+                "impulsive equivalent here. Use LunarisFiniteBurnDynamics instead."
+            )
         ignition = burn.ignition_time_s + drivers["ignition_time_bias_s"]
         results.append(
             LunarisImpulsiveEquivalent(
@@ -192,8 +199,172 @@ def to_lunaris_maneuver_plan(equivalents: tuple[LunarisImpulsiveEquivalent, ...]
     return plans.ManeuverPlan(tuple(item.to_lunaris() for item in equivalents))
 
 
-def lunaris_segmentation_times(timeline: PropulsionTimeline) -> tuple[float, ...]:
-    """Return every nominal burn discontinuity time, strictly increasing.
+@dataclass(frozen=True, slots=True)
+class LunarisBurnWindow:
+    """Effective firing window of one burn, as the finite-burn wrapper sees it.
+
+    ``ignition_time_s`` includes the resolved ``ignition_time_bias_s`` driver.
+    ``depletion_time_s`` is the exact time at which the vehicle reaches the
+    burn's ``protected_dry_mass_kg`` (``None`` when it never does or when the
+    burn has no protected dry mass); the burn is off from that time on.
+    ``mass_at_ignition_kg`` is ``None`` when no initial mass was given.
+
+    References
+    ----------
+    NASA-SP-125: https://ntrs.nasa.gov/citations/19710019929
+    """
+
+    burn_id: str
+    ignition_time_s: float
+    cutoff_time_s: float
+    mass_at_ignition_kg: float | None
+    depletion_time_s: float | None
+    time_events_s: tuple[float, ...]
+
+
+def _consumed_by(bridge: Any, mass_flow_scale: float, relative_time_s: float) -> float:
+    """Propellant used from ignition to ``relative_time_s`` (piecewise-linear flow)."""
+
+    used = 0.0
+    for segment in bridge.artifact.segments:
+        if relative_time_s <= segment.start_time_s:
+            break
+        duration = segment.duration_s
+        tau = min(relative_time_s, segment.end_time_s) - segment.start_time_s
+        q0 = segment.start_total_mass_flow_kg_s
+        q1 = segment.end_total_mass_flow_kg_s
+        used += q0 * tau + 0.5 * (q1 - q0) * tau * tau / duration
+    return used * mass_flow_scale
+
+
+def _time_to_consume(bridge: Any, mass_flow_scale: float, amount_kg: float) -> float | None:
+    """Return the relative time at which ``amount_kg`` has been consumed, or ``None``."""
+
+    remaining = amount_kg
+    if remaining <= 0.0:
+        return 0.0
+    for segment in bridge.artifact.segments:
+        duration = segment.duration_s
+        q0 = segment.start_total_mass_flow_kg_s * mass_flow_scale
+        q1 = segment.end_total_mass_flow_kg_s * mass_flow_scale
+        available = 0.5 * (q0 + q1) * duration
+        if available < remaining:
+            remaining -= available
+            continue
+        # Solve q0 tau + (q1 - q0) tau^2 / (2 d) = remaining with the stable root.
+        a = 0.5 * (q1 - q0) / duration
+        root = sqrt(max(q0 * q0 + 4.0 * a * remaining, 0.0))
+        denominator = q0 + root
+        tau = duration if denominator <= 0.0 else 2.0 * remaining / denominator
+        return segment.start_time_s + min(max(tau, 0.0), duration)
+    return None
+
+
+def lunaris_burn_windows(
+    timeline: PropulsionTimeline,
+    *,
+    parameter_overrides: Mapping[str, Mapping[str, float]] | None = None,
+    initial_mass_kg: float | None = None,
+) -> tuple[LunarisBurnWindow, ...]:
+    """Return every burn's effective window: bias-shifted events and dry-mass cut.
+
+    For a mass-only burn without operating-condition surfaces the mass flow is
+    a function of time alone, so with a known ``initial_mass_kg`` the time at
+    which the vehicle reaches a burn's ``protected_dry_mass_kg`` is computed
+    exactly (piecewise-quadratic mass, stable quadratic root).  Lunaris event
+    functions only see the first six state elements, so this is how a
+    dry-mass cut becomes an exact segment boundary.  Bridges with a protected
+    dry mass therefore need ``initial_mass_kg``; overlapping timelines are
+    refused because a cut of one burn changes the other's mass history.
+
+    References
+    ----------
+    NASA-SP-125: https://ntrs.nasa.gov/citations/19710019929
+    Orekit EventDetector 13.1.5 API:
+    https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+    """
+
+    if not isinstance(timeline, PropulsionTimeline):
+        raise DomainError("A PropulsionTimeline is required.")
+    if parameter_overrides is not None and not isinstance(parameter_overrides, Mapping):
+        raise DomainError("Parameter overrides must map burn ids to driver values.")
+    overrides = dict(parameter_overrides or {})
+    unknown = set(overrides) - {burn.burn_id for burn in timeline.burns}
+    if unknown:
+        raise DomainError("Parameter overrides for unknown burns: " + ", ".join(sorted(unknown)))
+    mass: float | None = None
+    if initial_mass_kg is not None:
+        mass = real(initial_mass_kg, "Initial mass")
+        if mass <= 0.0:
+            raise DomainError("Initial mass must be greater than zero.")
+    protected = any(burn.bridge.protected_dry_mass_kg is not None for burn in timeline.burns)
+    if protected and mass is None:
+        raise DomainError(
+            "A burn has protected_dry_mass_kg: pass initial_mass_kg so the dry-mass cut "
+            "becomes an exact Lunaris segment boundary."
+        )
+    if protected and timeline.allow_overlapping_burns:
+        raise DomainError("Dry-mass cuts cannot be precomputed for overlapping burns.")
+    resolved = []
+    for burn in timeline.burns:
+        drivers = burn.bridge.resolved_parameters(overrides.get(burn.burn_id))
+        resolved.append((burn.ignition_time_s + drivers["ignition_time_bias_s"], burn, drivers))
+    resolved.sort(key=lambda item: item[0])
+    windows: list[LunarisBurnWindow] = []
+    previous_cutoff = None
+    for ignition, burn, drivers in resolved:
+        bridge = burn.bridge
+        if (
+            not timeline.allow_overlapping_burns
+            and previous_cutoff is not None
+            and ignition < previous_cutoff - _BOUNDARY_TOLERANCE_S
+        ):
+            raise DomainError(
+                f"Burn {burn.burn_id!r} starts before the previous burn ends once the "
+                "ignition-time biases are applied."
+            )
+        flow_scale = drivers["mass_flow_scale"]
+        depletion = None
+        cutoff_relative = bridge.artifact.duration_s
+        if mass is not None and bridge.protected_dry_mass_kg is not None:
+            reached = _time_to_consume(bridge, flow_scale, mass - bridge.protected_dry_mass_kg)
+            if reached is not None and reached < bridge.artifact.duration_s:
+                depletion = ignition + reached
+                cutoff_relative = reached
+        events = tuple(
+            ignition + surface.relative_time_s
+            for surface in bridge.event_surfaces()
+            if surface.relative_time_s is not None
+            and surface.relative_time_s <= cutoff_relative + _BOUNDARY_TOLERANCE_S
+        ) + ((depletion,) if depletion is not None else ())
+        windows.append(
+            LunarisBurnWindow(
+                burn_id=burn.burn_id,
+                ignition_time_s=ignition,
+                cutoff_time_s=ignition + cutoff_relative,
+                mass_at_ignition_kg=mass,
+                depletion_time_s=depletion,
+                time_events_s=tuple(sorted(events)),
+            )
+        )
+        if mass is not None:
+            mass -= _consumed_by(bridge, flow_scale, cutoff_relative)
+        previous_cutoff = ignition + cutoff_relative
+    return tuple(windows)
+
+
+def lunaris_segmentation_times(
+    timeline: PropulsionTimeline,
+    *,
+    parameter_overrides: Mapping[str, Mapping[str, float]] | None = None,
+    initial_mass_kg: float | None = None,
+) -> tuple[float, ...]:
+    """Return every burn discontinuity time, strictly increasing.
+
+    Times include each burn's resolved ``ignition_time_bias_s`` and, with
+    ``initial_mass_kg``, the exact dry-mass cut times (see
+    :func:`lunaris_burn_windows`).  Pass the same ``parameter_overrides`` as
+    to :class:`LunarisFiniteBurnDynamics`, or use its ``segmentation_plan()``.
 
     References
     ----------
@@ -201,17 +372,33 @@ def lunaris_segmentation_times(timeline: PropulsionTimeline) -> tuple[float, ...
     https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
     """
 
-    if not isinstance(timeline, PropulsionTimeline):
-        raise DomainError("A PropulsionTimeline is required.")
-    times = sorted({event.time_s for event in timeline.events() if event.time_s is not None})
+    windows = lunaris_burn_windows(
+        timeline, parameter_overrides=parameter_overrides, initial_mass_kg=initial_mass_kg
+    )
+    return _merged_times(value for window in windows for value in window.time_events_s)
+
+
+def _merged_times(values: Iterator[float] | Any) -> tuple[float, ...]:
     merged: list[float] = []
-    for value in times:
+    for value in sorted(values):
         if not merged or value - merged[-1] > _BOUNDARY_TOLERANCE_S:
             merged.append(value)
     return tuple(merged)
 
 
-def lunaris_segmentation_plan(timeline: PropulsionTimeline) -> Any:
+def _segmentation_plan(times: tuple[float, ...]) -> Any:
+    plans = _lunaris_plans()
+    return plans.ManeuverPlan(
+        tuple(plans.ImpulsiveManeuver(t_burn_s=value, dv_mps=(0.0, 0.0, 0.0)) for value in times)
+    )
+
+
+def lunaris_segmentation_plan(
+    timeline: PropulsionTimeline,
+    *,
+    parameter_overrides: Mapping[str, Mapping[str, float]] | None = None,
+    initial_mass_kg: float | None = None,
+) -> Any:
     """Return a Lunaris ``ManeuverPlan`` of zero-delta-v markers at discontinuities.
 
     Lunaris restarts integration at every maneuver time; zero impulses with no
@@ -224,11 +411,9 @@ def lunaris_segmentation_plan(timeline: PropulsionTimeline) -> Any:
     https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
     """
 
-    plans = _lunaris_plans()
-    return plans.ManeuverPlan(
-        tuple(
-            plans.ImpulsiveManeuver(t_burn_s=value, dv_mps=(0.0, 0.0, 0.0))
-            for value in lunaris_segmentation_times(timeline)
+    return _segmentation_plan(
+        lunaris_segmentation_times(
+            timeline, parameter_overrides=parameter_overrides, initial_mass_kg=initial_mass_kg
         )
     )
 
@@ -278,13 +463,28 @@ class LunarisFiniteBurnDynamics:
     Each Lunaris segment builds a fresh right-hand side.  The first time it is
     evaluated is the segment start, where a discontinuity takes its right-hand
     limit; any later evaluation exactly on a burn boundary is the segment end
-    and takes its left-hand limit.  Use :func:`lunaris_segmentation_plan` so
-    every discontinuity is a segment boundary.
+    and takes its left-hand limit.  Propagate with :meth:`segmentation_plan`,
+    which uses the same overrides and initial mass, so every discontinuity
+    (bias-shifted profile events and exact dry-mass cuts) is a segment
+    boundary.
+
+    ``apply_inventory_limits=None`` (default) turns the bridge's internal
+    dry-mass clamp off when ``initial_mass_kg`` is given, because the cut is
+    then applied exactly at its precomputed time; a clamp evaluated inside
+    Runge-Kutta stages next to the cut would bias the final mass.  Without
+    ``initial_mass_kg`` the clamp stays on.
+
+    With ``initial_mass_kg`` the wrapper also checks, at the start of every
+    segment, that the state mass equals the mass predicted from the timeline
+    (relative tolerance ``mass_tolerance``).  A mismatch means the propagation
+    was started with a different mass or another maneuver changed the mass,
+    and the precomputed dry-mass cut would be wrong, so it fails closed.
 
     References
     ----------
     Orekit PropulsionModel 13.1.5 API:
     https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+    NASA-SP-125: https://ntrs.nasa.gov/citations/19710019929
     """
 
     def __init__(
@@ -294,7 +494,9 @@ class LunarisFiniteBurnDynamics:
         direction_law: Callable[[str, float, Any], tuple[float, float, float]] = velocity_direction,
         *,
         parameter_overrides: Mapping[str, Mapping[str, float]] | None = None,
-        apply_inventory_limits: bool = True,
+        apply_inventory_limits: bool | None = None,
+        initial_mass_kg: float | None = None,
+        mass_tolerance: float = 1e-9,
     ) -> None:
         if not isinstance(timeline, PropulsionTimeline):
             raise DomainError("A PropulsionTimeline is required.")
@@ -302,6 +504,8 @@ class LunarisFiniteBurnDynamics:
             raise DomainError("direction_law must be callable(burn_id, t, y).")
         if not hasattr(base_dynamics, "build_rhs"):
             raise DomainError("Base dynamics must provide build_rhs().")
+        if apply_inventory_limits is not None and not isinstance(apply_inventory_limits, bool):
+            raise DomainError("apply_inventory_limits must be a boolean or None.")
         for burn in timeline.burns:
             bridge = burn.bridge
             if bridge.stream_bindings or bridge.state_constraints:
@@ -317,18 +521,81 @@ class LunarisFiniteBurnDynamics:
                 )
         if timeline.jettisons:
             raise DomainError("Apply jettisons to the Lunaris state between segments.")
+        tolerance = real(mass_tolerance, "Mass tolerance")
+        if not 0.0 < tolerance < 1.0:
+            raise DomainError("Mass tolerance must be in (0, 1).")
+        windows = lunaris_burn_windows(
+            timeline, parameter_overrides=parameter_overrides, initial_mass_kg=initial_mass_kg
+        )
         self._base = base_dynamics
         self._timeline = timeline
         self._law = direction_law
         self._overrides = parameter_overrides
-        self._limits = apply_inventory_limits
+        # With a known initial mass the dry-mass cut is an exact boundary, and
+        # the bridge's internal clamp would only bias the integrator's stages.
+        self._limits = (
+            initial_mass_kg is None if apply_inventory_limits is None else apply_inventory_limits
+        )
         self._ids = tuple(burn.burn_id for burn in timeline.burns)
-        self._boundaries = lunaris_segmentation_times(timeline)
+        self._windows = windows
+        self._boundaries = _merged_times(
+            value for window in windows for value in window.time_events_s
+        )
+        self._initial_mass = None if initial_mass_kg is None else real(initial_mass_kg, "Mass")
+        self._mass_tolerance = tolerance
+        self._burns = {burn.burn_id: burn for burn in timeline.burns}
 
     def __getattr__(self, name: str) -> Any:
-        if name.startswith("__"):
+        if name.startswith("__") or name == "_base":
             raise AttributeError(name)
         return getattr(self._base, name)
+
+    @property
+    def burn_windows(self) -> tuple[LunarisBurnWindow, ...]:
+        """Effective burn windows used by this wrapper."""
+
+        return self._windows
+
+    @property
+    def segmentation_times(self) -> tuple[float, ...]:
+        """Every discontinuity time of this wrapper, strictly increasing."""
+
+        return self._boundaries
+
+    def segmentation_plan(self) -> Any:
+        """Lunaris ``ManeuverPlan`` of zero-delta-v markers at :attr:`segmentation_times`."""
+
+        return _segmentation_plan(self._boundaries)
+
+    def predicted_mass_kg(self, time_s: float) -> float:
+        """Vehicle mass implied by the timeline at ``time_s`` (needs ``initial_mass_kg``)."""
+
+        if self._initial_mass is None:
+            raise DomainError("Predicted mass needs initial_mass_kg.")
+        time_s = real(time_s, "Time")
+        mass = self._initial_mass
+        for window in self._windows:
+            if time_s <= window.ignition_time_s:
+                break
+            burn = self._burns[window.burn_id]
+            drivers = burn.bridge.resolved_parameters(
+                (self._overrides or {}).get(window.burn_id)
+            )
+            relative = min(time_s, window.cutoff_time_s) - window.ignition_time_s
+            mass -= _consumed_by(burn.bridge, drivers["mass_flow_scale"], relative)
+        return mass
+
+    def _stopped(self, time_s: float, side: str) -> frozenset[str]:
+        stopped = set()
+        for window in self._windows:
+            cut = window.depletion_time_s
+            if cut is None:
+                continue
+            if time_s > cut + _BOUNDARY_TOLERANCE_S or (
+                abs(time_s - cut) <= _BOUNDARY_TOLERANCE_S and side == "right"
+            ):
+                stopped.add(window.burn_id)
+        return frozenset(stopped)
 
     def _wrap(self, base_rhs: Callable[[float, Any], Any]) -> Callable[[float, Any], Any]:
         first_time: list[float] = []
@@ -336,12 +603,20 @@ class LunarisFiniteBurnDynamics:
         timeline = self._timeline
 
         def rhs(t: float, y: Any) -> Any:
-            out = base_rhs(t, y)
             if len(y) != 7:
                 raise DomainError("Finite burns need the 7-element Lunaris state (mass at y[6]).")
+            out = base_rhs(t, y)
             time_s = float(t)
             if not first_time:
                 first_time.append(time_s)
+                if self._initial_mass is not None:
+                    expected = self.predicted_mass_kg(time_s)
+                    if abs(float(y[6]) - expected) > self._mass_tolerance * self._initial_mass:
+                        raise DomainError(
+                            f"State mass {float(y[6])!r} kg at t={time_s!r} s differs from the "
+                            f"timeline prediction {expected!r} kg; the dry-mass cut would be "
+                            "wrong. Start from initial_mass_kg and add no other mass changes."
+                        )
             on_boundary = any(abs(time_s - value) <= _BOUNDARY_TOLERANCE_S for value in boundaries)
             side = (
                 "left"
@@ -354,6 +629,7 @@ class LunarisFiniteBurnDynamics:
                 directions=_LazyDirections(self._law, self._ids, time_s, y),
                 parameter_overrides=self._overrides,
                 side=side,
+                stopped_burns=self._stopped(time_s, side),
                 apply_inventory_limits=self._limits,
             )
             out[3] += value.acceleration_m_s2[0]

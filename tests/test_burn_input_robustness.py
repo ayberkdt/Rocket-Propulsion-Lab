@@ -402,8 +402,13 @@ class FeedAndAdapterFuzzTests(unittest.TestCase):
     def test_lunaris_adapter(self) -> None:
         from rocket_propulsion.integrations import (
             LunarisFiniteBurnDynamics,
+            lunaris_burn_windows,
             lunaris_impulsive_equivalents,
         )
+
+        class _Rhs:
+            def build_rhs(self):
+                return lambda t, y: [0.0] * 7
 
         bridge = PropagatorPropulsionBridge(simple_artifact(), require_complete_stream_binding=False)
         timeline = PropulsionTimeline(burns=(ScheduledBurn("b", bridge, 0.0),))
@@ -434,6 +439,29 @@ class FeedAndAdapterFuzzTests(unittest.TestCase):
             )
             self.assert_fails_closed(
                 "finite timeline", lambda v=value: LunarisFiniteBurnDynamics(object(), v)
+            )
+            self.assert_fails_closed(
+                "window mass", lambda v=value: lunaris_burn_windows(timeline, initial_mass_kg=v)
+            )
+            self.assert_fails_closed(
+                "window overrides",
+                lambda v=value: lunaris_burn_windows(timeline, parameter_overrides=v),
+            )
+            self.assert_fails_closed(
+                "window driver",
+                lambda v=value: lunaris_burn_windows(
+                    timeline, parameter_overrides={"b": {"ignition_time_bias_s": v}}
+                ),
+            )
+            self.assert_fails_closed(
+                "finite mass tolerance",
+                lambda v=value: LunarisFiniteBurnDynamics(
+                    _Rhs(), timeline, initial_mass_kg=10.0, mass_tolerance=v
+                ),
+            )
+            self.assert_fails_closed(
+                "finite limits",
+                lambda v=value: LunarisFiniteBurnDynamics(_Rhs(), timeline, apply_inventory_limits=v),
             )
 
 

@@ -259,6 +259,20 @@
   feed models; none remain).
 - Shared `interpolation.pchip_slopes`.
 
+### Lunaris finite burns: ignition bias and exact dry-mass cuts
+
+- Fixed: `LunarisFiniteBurnDynamics` and `lunaris_segmentation_plan` used
+  nominal burn times even when `ignition_time_bias_s` was overridden, so the
+  biased discontinuities fell inside integration steps. Segmentation now uses
+  the resolved bias; the wrapper exposes `segmentation_times` and
+  `segmentation_plan()` so the plan always matches the dynamics.
+- Added `lunaris_burn_windows` / `LunarisBurnWindow`: exact dry-mass cut times
+  for mass-only burns become segment boundaries (Lunaris events cannot see
+  mass). The wrapper checks the state mass against the timeline prediction at
+  every segment start and fails closed on a mismatch.
+- Impulsive equivalents now refuse burns their protected dry mass would
+  truncate.
+
 ## 0.9.0 — engineering preview
 
 - Added variable-property thermochemistry, external CEA adaptation, and an

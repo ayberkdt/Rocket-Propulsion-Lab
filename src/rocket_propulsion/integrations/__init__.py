@@ -2,8 +2,10 @@
 
 from .contracts import SideraCapabilities
 from .lunaris import (
+    LunarisBurnWindow,
     LunarisFiniteBurnDynamics,
     LunarisImpulsiveEquivalent,
+    lunaris_burn_windows,
     lunaris_impulsive_equivalents,
     lunaris_segmentation_plan,
     lunaris_segmentation_times,
@@ -29,6 +31,7 @@ from .sidera_ensemble import (
 __all__ = [
     "SIDERA_ENSEMBLE_HANDOFF_SCHEMA",
     "SIDERA_ENSEMBLE_REQUIRED_CAPABILITIES",
+    "LunarisBurnWindow",
     "LunarisFiniteBurnDynamics",
     "LunarisImpulsiveEquivalent",
     "SideraCapabilities",
@@ -37,6 +40,7 @@ __all__ = [
     "export_sidera_artifact",
     "export_sidera_ensemble_handoff",
     "inspect_sidera_capabilities",
+    "lunaris_burn_windows",
     "lunaris_impulsive_equivalents",
     "lunaris_segmentation_plan",
     "lunaris_segmentation_times",
