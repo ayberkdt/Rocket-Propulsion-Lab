@@ -457,6 +457,7 @@ def evaluate_dynamic_feed_propulsion(
     other_operating_conditions: Mapping[str, float] | None = None,
     additional_states: Mapping[str, float] | None = None,
     parameter_overrides: Mapping[str, float] | None = None,
+    apply_inventory_limits: bool = True,
 ) -> DynamicFeedPropulsionEvaluation:
     """Evaluate pressurant, inertial line, and engine without an algebraic loop.
 
@@ -495,6 +496,7 @@ def evaluate_dynamic_feed_propulsion(
         additional_states=additional_states,
         operating_conditions=conditions,
         parameter_overrides=parameter_overrides,
+        apply_inventory_limits=apply_inventory_limits,
     )
     engine_flow = -propulsion.mass_derivative_kg_s
     feed_evaluation = regulated_feed.evaluate(regulated_state, max(0.0, line_state.mass_flow_kg_s))

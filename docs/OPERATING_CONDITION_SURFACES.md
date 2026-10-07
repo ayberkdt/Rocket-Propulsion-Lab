@@ -60,8 +60,18 @@ state-transition matrices and orbit determination; the propagator does not
 need to finite-difference a table lookup.
 
 At grid-cell boundaries the interpolated value is continuous, but the gradient
-need not be. Consumers should treat a knot crossing as a derivative-regime
-change when high-order sensitivity continuity is required.
+along the crossed axis jumps. `grid_line_surfaces()` (and the bridge's
+`operating_condition_grid_surfaces()`) returns one non-stopping root
+\(g = x_j - x_{j,k}\) for every interior coordinate \(x_{j,k}\). A
+variable-step integrator should land on each crossing and restart, exactly as
+it does at profile segment boundaries; otherwise its error estimate and any
+gradient-based optimizer see an unannounced Jacobian discontinuity. Exactly on
+an interior coordinate the evaluation returns the upper cell's gradient (the
+right-hand limit along that axis).
+
+Evaluation cost does not depend on the grid size: the node index is built once
+at construction and the bracketing cell is found by bisection, so one query
+costs \(O(2^N + \sum_j \log n_j)\).
 
 ## Validation domain and events
 

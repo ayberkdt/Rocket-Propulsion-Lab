@@ -128,6 +128,30 @@
   Jacobian, inactive-engine relaxation behavior, double-resistance refusal,
   reference/docstring audit coverage, documentation and a runnable example.
 
+### Propagator bridge hardening
+
+- Segment lookup in `TabulatedBurnArtifact` and `PropagatorPropulsionBridge`
+  is now a bisection (`segment_index_at`, `is_boundary_time`) instead of a
+  linear scan, and the performance surface builds its node index once instead
+  of on every call. Measured on one machine: 2000-segment profile 427 -> 44
+  us per evaluation; with a 20^3 surface 1104 -> 91 us. Left-side queries
+  within boundary tolerance no longer raise when the previous segment ends a
+  round-off earlier.
+- Added `PerformanceGridLineSurface`, `grid_line_surfaces()` and
+  `operating_condition_grid_surfaces()`: non-stopping roots at every interior
+  grid coordinate, where the multilinear gradient jumps.
+- Added `PropulsionPartials.acceleration_wrt_direction`, the 3x3 Jacobian with
+  respect to the supplied direction vector.
+- Added `PropagatorPropulsionBridge.mass_closure()` and `PropellantMassClosure`.
+- Added `evaluate(..., apply_inventory_limits=False)` (also forwarded by both
+  feed couplings) for consumers that locate dry-mass and reserve roots
+  themselves; the default internal clamp biases RK root location.
+- Added `tests/test_burn_propagator_integration.py`: an event-aware RK4 loop
+  that checks the rocket equation, mass and tank closure, a closed-form steady
+  position, the analytic reserve cut time, ignition-bias invariance, the
+  direction Jacobian, the grid-line events and lookup equivalence with the
+  previous linear scan.
+
 ## 0.9.0 — engineering preview
 
 - Added variable-property thermochemistry, external CEA adaptation, and an

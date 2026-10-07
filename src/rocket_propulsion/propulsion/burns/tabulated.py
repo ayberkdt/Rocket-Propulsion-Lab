@@ -13,6 +13,7 @@ import csv
 import hashlib
 import io
 import json
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from enum import Enum
 from itertools import pairwise
@@ -200,6 +201,14 @@ class TabulatedBurnSegment:
         }
 
 
+def _segment_start(segment: TabulatedBurnSegment) -> float:
+    return segment.start_time_s
+
+
+def _segment_end(segment: TabulatedBurnSegment) -> float:
+    return segment.end_time_s
+
+
 def _canonical_json_bytes(value: Any) -> bytes:
     return json.dumps(
         value,
@@ -319,13 +328,57 @@ class TabulatedBurnArtifact:
             raise DomainError("Tabulated boundary side must be 'left' or 'right'.")
         if not isfinite(time_s) or not 0.0 <= time_s <= self.duration_s:
             raise DomainError("Tabulated burn time lies outside the artifact.")
-        tolerance = max(1e-12, self.duration_s * 1e-12)
-        for index, segment in enumerate(self.segments):
-            if segment.start_time_s <= time_s < segment.end_time_s:
-                if side == "left" and index > 0 and abs(time_s - segment.start_time_s) <= tolerance:
-                    return self.segments[index - 1].state_at(time_s)
-                return segment.state_at(time_s)
-        return self.segments[-1].state_at(self.duration_s)
+        segment = self.segments[self.segment_index_at(time_s, side=side)]
+        return segment.state_at(min(max(time_s, segment.start_time_s), segment.end_time_s))
+
+    @property
+    def boundary_tolerance_s(self) -> float:
+        """Absolute time tolerance used to recognise a segment boundary."""
+
+        return max(1e-12, self.duration_s * 1e-12)
+
+    def segment_index_at(self, time_s: float, *, side: str = "right") -> int:
+        """Return the index of the segment that owns ``time_s`` in O(log n).
+
+        The owning segment satisfies ``start <= t < end``.  With ``side="left"``
+        a time within :attr:`boundary_tolerance_s` of an interior segment start
+        belongs to the preceding segment, so jumps keep their left limit.  A
+        time at or beyond the final end belongs to the last segment.  Times
+        before zero map to the first segment; callers decide whether such a
+        time is inside the firing interval.  Construction allows contiguity
+        gaps of at most 1e-12 s; a time inside such a gap maps to the segment
+        before it.
+
+        References
+        ----------
+        NASA-TM-107318: https://ntrs.nasa.gov/citations/19970010379
+        """
+
+        if side not in {"left", "right"}:
+            raise DomainError("Tabulated boundary side must be 'left' or 'right'.")
+        segments = self.segments
+        index = max(0, bisect_right(segments, time_s, key=_segment_start) - 1)
+        # Within the 1e-12 s contiguity tolerance a previous segment can still
+        # contain the time; the earliest containing segment owns it.
+        while index > 0 and time_s < segments[index - 1].end_time_s:
+            index -= 1
+        if (
+            side == "left"
+            and index > 0
+            and time_s < segments[index].end_time_s
+            and abs(time_s - segments[index].start_time_s) <= self.boundary_tolerance_s
+        ):
+            return index - 1
+        return index
+
+    def is_boundary_time(self, time_s: float) -> bool:
+        """Return whether ``time_s`` lies on zero or any segment end, in O(log n)."""
+
+        tolerance = self.boundary_tolerance_s
+        if abs(time_s) <= tolerance:
+            return True
+        index = bisect_left(self.segments, time_s - tolerance, key=_segment_end)
+        return index < len(self.segments) and self.segments[index].end_time_s <= time_s + tolerance
 
     def to_dict(self, *, include_hash: bool = True) -> dict[str, Any]:
         """Return a deterministic JSON-compatible artifact."""
