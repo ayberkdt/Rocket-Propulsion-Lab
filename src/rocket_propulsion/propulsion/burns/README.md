@@ -141,6 +141,8 @@ or modifying Sidera:
   smooth monotone throttle curves; `burn_metrics.py` gives free-space delta-v
   and impulsive-equivalent time. See `docs/TRAJECTORY_OPTIMIZATION.md`.
 
+- `pulse_mode.py` models pulse-mode thrusters (impulse bits, minimum impulse
+  bit, Δv quantization, pulse-train artifacts). See `docs/PULSE_MODE.md`.
 - `interpolation.py` holds the shared PCHIP slope kernel used by the
   throttle curves and the C1 cubic Hermite performance surfaces.
 - The Lunaris adapter lives in `rocket_propulsion.integrations.lunaris`; see

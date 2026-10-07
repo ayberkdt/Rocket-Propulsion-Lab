@@ -273,6 +273,17 @@
 - Impulsive equivalents now refuse burns their protected dry mass would
   truncate.
 
+### Pulse-mode thrusters
+
+- Added `PulseModeThruster` (`pulse_mode.py`): measured impulse-bit and
+  propellant-per-pulse tables (PCHIP, exact derivatives), minimum impulse bit,
+  `plan_impulse` / `plan_delta_v` with the fewest equal pulses and an explicit
+  quantization residual (`nearest` or `no_overshoot`), and
+  `pulse_train_artifact` for the propagator bridge, timelines and Lunaris.
+  Plans are checked against brute-force enumeration and the exact
+  rocket equation.
+- Registered NTRS 20070032005 (*The Minimum Impulse Thruster*).
+
 ## 0.9.0 — engineering preview
 
 - Added variable-property thermochemistry, external CEA adaptation, and an

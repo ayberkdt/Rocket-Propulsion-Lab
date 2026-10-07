@@ -33,7 +33,11 @@
   verified variational-equation recipe with saltation at burn events.
 - `LUNARIS_INTEGRATION.md` connects timelines to the Lunaris lunar-orbit
   propagator: exact-mass impulsive equivalents, finite burns inside Lunaris,
-  segmentation markers and the end-to-end verification.
+  bias-shifted segmentation, exact dry-mass cuts and the end-to-end
+  verification.
+- `PULSE_MODE.md` defines pulse-mode thrusters: measured impulse bits, the
+  minimum impulse bit, fewest-pulse plans with reported quantization and
+  pulse-train artifacts.
 - `PROPULSION_TIMELINE.md` defines multi-burn schedules, jettison events,
   concurrent-burn summation and verified timeline documents.
 - `ELECTRIC_PROPULSION.md` defines the power-limited electric thruster model:

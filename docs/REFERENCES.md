@@ -114,6 +114,11 @@ relations. These primary NASA resources anchor terminology and screening values:
   Information Summary** — electric-thruster throttle tables (input power,
   thrust, specific impulse, efficiency):
   <https://ntrs.nasa.gov/citations/20090004685>
+- J. M. Parker and M. J. Wilson, **The Minimum Impulse Thruster**, 2005 —
+  minimum impulse bit set by valve response and electrical pulse width
+  (record located through the NTRS search index; the full text could not be
+  opened from the development environment):
+  <https://ntrs.nasa.gov/citations/20070032005>
 - NASA/TP-2018-219822, **Navigation Filter Best Practices** — prior/consider
   covariance, Gauss-Markov process noise and maneuver execution errors:
   <https://ntrs.nasa.gov/citations/20180003657>

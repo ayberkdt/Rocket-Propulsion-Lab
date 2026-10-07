@@ -282,6 +282,15 @@ NASA_NAVIGATION_FILTER_BEST_PRACTICES = EngineeringReference(
     "Prior/consider covariance, Gauss-Markov process noise and maneuver execution errors.",
 )
 
+NASA_MINIMUM_IMPULSE_THRUSTER = EngineeringReference(
+    "NASA-20070032005",
+    "The Minimum Impulse Thruster (J. M. Parker and M. J. Wilson)",
+    "NASA",
+    2005,
+    "https://ntrs.nasa.gov/citations/20070032005",
+    "Pulse-mode thrusters: minimum impulse bit set by valve response and electrical pulse width.",
+)
+
 OREKIT_PROPULSION_MODEL = EngineeringReference(
     "OREKIT-13.1.5-PROPULSION-MODEL",
     "Orekit 13.1.5 PropulsionModel API",
@@ -306,6 +315,7 @@ BURN_REFERENCES: tuple[EngineeringReference, ...] = (
     NASA_GRC_MASS_FLOW_CHOKING,
     NASA_MULTIPLE_VALIDATION_CALIBRATION,
     NASA_NODAL_FEED_PRESSURIZATION,
+    NASA_MINIMUM_IMPULSE_THRUSTER,
     NASA_NAVIGATION_FILTER_BEST_PRACTICES,
     NASA_NESC_TRANSIENT_PRESSURE,
     NASA_NEXT_IPS_SUMMARY,

@@ -180,6 +180,13 @@ from .propagator import (
     PropulsionPartials,
     StreamStateBinding,
 )
+from .pulse_mode import (
+    PULSE_MODE_SCHEMA,
+    QUANTIZATION_POLICIES,
+    PulseBit,
+    PulseModeThruster,
+    PulsePlan,
+)
 from .reduction import ConstantBurnReduction, reduce_to_constant
 from .references import (
     BURN_REFERENCES,
@@ -342,6 +349,8 @@ __all__ = [
     "PROPAGATOR_BRIDGE_SCHEMA",
     "PROPULSION_PRIOR_SCHEMA",
     "PROPULSION_TIMELINE_SCHEMA",
+    "PULSE_MODE_SCHEMA",
+    "QUANTIZATION_POLICIES",
     "SCENARIO_REFERENCE_IDS",
     "THROTTLEABLE_ENGINE_SCHEMA",
     "UNCERTAINTY_REFERENCE_IDS",
@@ -458,6 +467,9 @@ __all__ = [
     "PropulsionSensitivity",
     "PropulsionState",
     "PropulsionTimeline",
+    "PulseBit",
+    "PulseModeThruster",
+    "PulsePlan",
     "RealizedThrottleHistory",
     "RectilinearPerformanceSurface",
     "RegulatedFeedConfiguration",
