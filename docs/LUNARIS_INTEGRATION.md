@@ -85,7 +85,9 @@ accuracy.
   which the vehicle reaches `protected_dry_mass_kg` is solved exactly
   (piecewise-quadratic mass, stable quadratic root) and becomes a segment
   boundary; the burn is off from that time on (`lunaris_burn_windows` reports
-  it). The bridge's internal clamp is then switched off by default
+  it). "Reaches" uses the bridge clamp's margin, `INVENTORY_LIMIT_TOLERANCE`
+  = 1e-12 kg, so a zero-flow plateau already at the limit cannot push the cut
+  later; a cut within the profile's boundary tolerance of the stop is the stop. The bridge's internal clamp is then switched off by default
   (`apply_inventory_limits=None`), because a clamp evaluated inside
   Runge–Kutta stages next to the cut biases the final mass; a test shows that
   bias.

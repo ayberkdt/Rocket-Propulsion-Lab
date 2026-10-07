@@ -228,7 +228,11 @@ class BurnWindowTests(unittest.TestCase):
 
     def test_dry_mass_cut_time_is_exact_inside_the_ramp_and_steady_phase(self) -> None:
         # Ramp 0..4 s to q = 0.5 kg/s, then steady.  Ramp consumes q * 4 / 2 = 1 kg.
-        for reserve, expected in ((0.5, 4.0 * sqrt(0.5 / 1.0)), (3.0, 4.0 + 2.0 / 0.5)):
+        # The cut is where the mass is within the bridge clamp margin (1e-12 kg)
+        # of the dry mass, i.e. after consuming reserve - 1e-12 kg.
+        margin = 1e-12
+        for reserve, expected in ((0.5, 4.0 * sqrt((0.5 - margin) / 1.0)),
+                                  (3.0, 4.0 + (2.0 - margin) / 0.5)):
             timeline = PropulsionTimeline(
                 burns=(ScheduledBurn("burn", protected_bridge(1500.0, 0.5, 100.0, 4.0,
                                                                100.0 - reserve), 10.0),)
@@ -254,7 +258,7 @@ class BurnWindowTests(unittest.TestCase):
             self.assertAlmostEqual(final[6], dry, places=9)
             # Thrust/flow ratio is constant (ramp included): c = 3000 m/s.
             self.assertTrue(isclose(final[3], 3000.0 * log(1000.0 / dry), rel_tol=1e-10))
-            self.assertAlmostEqual(dynamics.predicted_mass_kg(600.0), dry, places=12)
+            self.assertAlmostEqual(dynamics.predicted_mass_kg(600.0), dry + 1e-12, places=12)
         # Forcing the internal clamp on lets RK stages next to the cut see the
         # dry mass and stop the flow early: the documented bias, caught here.
         clamped = LunarisFiniteBurnDynamics(
