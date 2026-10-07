@@ -25,6 +25,7 @@ from rocket_propulsion.propulsion.burns import (
     ElectricThrottleTable,
     FirstOrderGaussMarkov,
     GatesExecutionErrorModel,
+    MassJettison,
     PerformanceAxis,
     PerformanceScalePoint,
     PowerLimitedPropulsionModel,
@@ -32,7 +33,9 @@ from rocket_propulsion.propulsion.burns import (
     PropellantMassModel,
     PropellantStation,
     PropulsionParameterPrior,
+    PropulsionTimeline,
     RectilinearPerformanceSurface,
+    ScheduledBurn,
     StreamStateBinding,
     TabulatedBurnArtifact,
     TabulatedBurnSegment,
@@ -193,6 +196,7 @@ class FuzzTests(unittest.TestCase):
             1.0, (0, 0, 0), ((1, 0, 0), (0, 1, 0), (0, 0, 1)),
             (PropellantStation("o", (0, 0, 1)),),
         )
+        timeline = PropulsionTimeline(burns=(ScheduledBurn("b", simple_bridge(), 0.0),))
         for value in BAD_VALUES:
             calls = {
                 "select_level": lambda v=value: model.select_level(v),
@@ -211,6 +215,30 @@ class FuzzTests(unittest.TestCase):
                 "surface json": lambda v=value: RectilinearPerformanceSurface.from_json(v),
                 "artifact json": lambda v=value: TabulatedBurnArtifact.from_json(v),
                 "prior dict": lambda v=value: PropulsionParameterPrior.from_dict(v),
+                "allocate force": lambda v=value: layout.allocate(
+                    force_n=v, torque_n_m=(0, 0, 0), center_of_mass_m=(0, 0, 0)
+                ),
+                "allocate max": lambda v=value: layout.allocate(
+                    force_n=(0, 0, 1), torque_n_m=(0, 0, 0), center_of_mass_m=(0, 0, 0),
+                    maximum_thrust_n=v,
+                ),
+                "bridge json": lambda v=value: PropagatorPropulsionBridge.from_json(v),
+                "electric json": lambda v=value: PowerLimitedPropulsionModel.from_json(v),
+                "timeline json": lambda v=value: PropulsionTimeline.from_json(v),
+                "timeline evaluate": lambda v=value: timeline.evaluate(
+                    time_s=v, vehicle_mass_kg=10.0, directions={"b": (1, 0, 0)},
+                    additional_states={"o": 1.0, "f": 1.0},
+                ),
+                "timeline directions": lambda v=value: timeline.evaluate(
+                    time_s=1.0, vehicle_mass_kg=10.0, directions=v,
+                    additional_states={"o": 1.0, "f": 1.0},
+                ),
+                "timeline stopped": lambda v=value: timeline.evaluate(
+                    time_s=1.0, vehicle_mass_kg=10.0, directions={"b": (1, 0, 0)},
+                    additional_states={"o": 1.0, "f": 1.0}, stopped_burns=v,
+                ),
+                "jettison": lambda v=value: MassJettison("j", 1.0, v),
+                "scheduled": lambda v=value: ScheduledBurn("b", simple_bridge(), v),
                 "table dict": lambda v=value: ElectricThrottleTable.from_dict(v),
                 "artifact dict": lambda v=value: TabulatedBurnArtifact.from_dict(v),
             }

@@ -22,6 +22,8 @@ astrodynamics package. All quantities are SI.
 | Impulsive maneuver execution errors | `execution_errors.py` | `GatesExecutionErrorModel` | [Errors](EXECUTION_ERRORS.md) |
 | Slowly wandering thrust on long arcs | `execution_errors.py` | `FirstOrderGaussMarkov` | [Errors](EXECUTION_ERRORS.md) |
 | Torque, cosine loss, CoM/inertia drift for 6-DOF | `vehicle_geometry.py` | `ThrusterLayout`, `PropellantMassModel` | [Geometry](VEHICLE_GEOMETRY.md) |
+| Bounded (0 ≤ T ≤ T_max) thruster allocation for a force/torque demand | `vehicle_geometry.py` | `ThrusterLayout.allocate` | [Geometry](VEHICLE_GEOMETRY.md#thrust-allocation) |
+| Several burns, coasts and stage/fairing jettison on one clock | `timeline.py` | `PropulsionTimeline` | [Timeline](PROPULSION_TIMELINE.md) |
 | Monte Carlo realizations with probabilities | `ensemble.py`, `scenarios.py` | hierarchical ensemble | [Ensemble](HIERARCHICAL_PROPULSION_ENSEMBLE.md) |
 
 All public types are importable from `rocket_propulsion.propulsion.burns`.
@@ -121,10 +123,30 @@ and reference identifiers from `references.py`. Re-opening a modified artifact
 fails. Store the `model_hash` with every trajectory result so a propulsion
 change can never pass silently into an orbit product.
 
-## 7. Known limits
+## 7. Robustness guarantees
 
-- One bridge represents one burn. Multi-burn plans and stage separation
-  (discrete mass jettison) are sequenced by the consumer.
+- **Fail-closed inputs:** every public boundary of these modules validates its
+  inputs through `core/validation.py`. `None`, text, `bool`, containers, NaN
+  and infinity raise `DomainError` or `InputError` naming the field, never a
+  bare `TypeError`. A seeded fuzz test (`tests/test_burn_input_robustness.py`)
+  enforces this.
+- **Canonical numbers:** integers are normalized to floats at construction, so
+  an artifact built with `1000` hashes exactly like one reopened from JSON.
+  Before this, such artifacts could be written but not reopened.
+- **Reopenable models:** `PropagatorPropulsionBridge`,
+  `PowerLimitedPropulsionModel` and `PropulsionTimeline` serialize to complete
+  JSON documents. Reopening re-verifies every nested hash. Ship the document
+  with a trajectory product so the exact propulsion model can be reproduced.
+- **Property tests:** random multi-segment profiles, throttle tables and
+  geometries are checked for continuity, drain closure, linearity, RK4
+  propellant and mass closure, monotone throttle paths and bounded-allocation
+  optimality against brute-force enumeration.
+
+## 8. Known limits
+
+- Steering, attitude dynamics and the decision when to start or stop a burn
+  belong to the consumer. `PropulsionTimeline` sequences burns and jettisons
+  but does not target them.
 - Thrust direction, steering laws, gimbal dynamics and attitude control belong
   to the consumer; `vehicle_geometry.py` provides the forces, torques and mass
   properties those models need.

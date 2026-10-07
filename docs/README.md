@@ -28,6 +28,8 @@
   thrust process noise.
 - `VEHICLE_GEOMETRY.md` defines thruster force/torque geometry and
   propellant-dependent centre of mass and inertia with analytic derivatives.
+- `PROPULSION_TIMELINE.md` defines multi-burn schedules, jettison events,
+  concurrent-burn summation and verified timeline documents.
 - `ELECTRIC_PROPULSION.md` defines the power-limited electric thruster model:
   hash-verified throttle tables, throttle paths with hysteresis, the
   fixed-efficiency law, power-switching roots and power/direction partials.

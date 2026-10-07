@@ -34,6 +34,7 @@ from rocket_propulsion.propulsion.burns import (
     sequence,
     simulate_pressure_fed_blowdown,
     tabulated,
+    timeline,
     uncertainty,
     vehicle_geometry,
 )
@@ -95,6 +96,7 @@ class BurnReferenceTests(unittest.TestCase):
             feed_line,
             feed_system,
             propagator,
+            timeline,
             vehicle_geometry,
         )
         missing: list[str] = []

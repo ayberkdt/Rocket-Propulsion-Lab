@@ -42,3 +42,13 @@ for oxidizer in (300.0, 150.0, 20.0):
         f"torque = {tuple(round(value, 4) for value in result.torque_n_m)} N m"
     )
 print("axial efficiency:", layout.axial_efficiency(thrusts, (0.0, 0.0, 1.0)))
+
+# Allocate thrust plus a pitch torque within 0..25 N per thruster (thrusters only push).
+allocation = layout.allocate(
+    force_n=(0.0, 0.0, 60.0),
+    torque_n_m=(0.0, 1.5, 0.0),
+    center_of_mass_m=properties.center_of_mass_m,
+    maximum_thrust_n=25.0,
+)
+print("allocation:", {name: round(value, 3) for name, value in allocation.thrusts_n})
+print("exact:", allocation.exact, "at maximum:", allocation.thrusters_at_maximum)

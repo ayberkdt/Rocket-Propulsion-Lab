@@ -133,6 +133,10 @@ acceptance gates, and the first three sprints are specified in
   calibration, the Gates execution-error model, first-order Gauss-Markov
   thrust noise, and body-frame thruster force/torque with propellant-dependent
   centre of mass and inertia
+- Implemented: fail-closed input validation and canonical numbers across the
+  propagation interface (fuzz- and property-tested), reopenable documents for
+  bridges, electric models and timelines, multi-burn timelines with jettison,
+  and bounded-variable thrust allocation
 - Remaining: native Sidera wrapper for the propagation bridge, public HTTP
   API/UI surfaces for the isolated transient core,
   higher-order distributed water-hammer/priming models, regulator hysteresis,

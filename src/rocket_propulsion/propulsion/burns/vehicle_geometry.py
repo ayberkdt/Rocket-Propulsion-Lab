@@ -26,7 +26,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from math import sqrt
 
-from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
 from rocket_propulsion.core.validation import real, real_mapping, real_tuple, text, vector3
 
 Vector = tuple[float, float, float]
@@ -116,6 +116,166 @@ class ForceTorque:
     torque_n_m: Vector
     total_thrust_n: float
     torque_wrt_center_of_mass: Matrix3
+
+
+def _least_squares(columns: list[list[float]], target: list[float]) -> list[float] | None:
+    """Solve ``min ||A s - b||`` by Householder QR; ``None`` if rank deficient."""
+
+    rows = len(target)
+    count = len(columns)
+    matrix = [[columns[j][i] for j in range(count)] for i in range(rows)]
+    rhs = list(target)
+    scale = max((abs(value) for row in matrix for value in row), default=0.0)
+    for k in range(count):
+        norm = sqrt(sum(matrix[i][k] ** 2 for i in range(k, rows)))
+        if norm <= 1e-12 * max(scale, 1.0):
+            return None
+        alpha = -norm if matrix[k][k] >= 0.0 else norm
+        v = [0.0] * rows
+        v[k] = matrix[k][k] - alpha
+        for i in range(k + 1, rows):
+            v[i] = matrix[i][k]
+        v_norm2 = sum(value * value for value in v[k:])
+        if v_norm2 > 0.0:
+            for j in range(k, count):
+                factor = 2.0 * sum(v[i] * matrix[i][j] for i in range(k, rows)) / v_norm2
+                for i in range(k, rows):
+                    matrix[i][j] -= factor * v[i]
+            factor = 2.0 * sum(v[i] * rhs[i] for i in range(k, rows)) / v_norm2
+            for i in range(k, rows):
+                rhs[i] -= factor * v[i]
+    solution = [0.0] * count
+    for k in range(count - 1, -1, -1):
+        total = rhs[k] - sum(matrix[k][j] * solution[j] for j in range(k + 1, count))
+        solution[k] = total / matrix[k][k]
+    return solution
+
+
+def _bvls(
+    columns: list[list[float]],
+    target: list[float],
+    upper: list[float],
+    *,
+    tolerance: float,
+    max_iterations: int,
+) -> tuple[list[float], int]:
+    """Bounded-variable least squares ``min ||A x - b||``, ``0 <= x <= upper``.
+
+    Active-set method: Lawson-Hanson NNLS generalized to upper bounds in the
+    manner of Stark and Parker.  With every upper bound infinite it reduces to
+    NNLS.  ``blocked`` holds variables that could not be freed without a rank
+    deficiency or without moving the solution; it is cleared whenever the
+    solution changes.
+    """
+
+    count = len(columns)
+    rows = len(target)
+    x = [0.0] * count
+    free: list[int] = []
+    at_upper: set[int] = set()
+    blocked: set[int] = set()
+
+    def gradient(values: list[float]) -> list[float]:
+        residual = [
+            target[i] - sum(columns[j][i] * values[j] for j in range(count)) for i in range(rows)
+        ]
+        return [sum(columns[j][i] * residual[i] for i in range(rows)) for j in range(count)]
+
+    def bound_tolerance(j: int) -> float:
+        return 1e-12 * max(1.0, upper[j] if upper[j] != float("inf") else 1.0)
+
+    iterations = 0
+    w = gradient(x)
+    while True:
+        candidates = [
+            j
+            for j in range(count)
+            if j not in free
+            and j not in blocked
+            and ((j not in at_upper and w[j] > tolerance) or (j in at_upper and w[j] < -tolerance))
+        ]
+        if not candidates:
+            return x, iterations
+        entering = max(candidates, key=lambda j: abs(w[j]))
+        entered_from_upper = entering in at_upper
+        at_upper.discard(entering)
+        free.append(entering)
+        previous = list(x)
+        while True:
+            iterations += 1
+            if iterations > max_iterations:
+                raise ConvergenceError("Thrust allocation did not converge.")
+            fixed = [j for j in range(count) if j not in free]
+            rhs = [
+                target[i] - sum(columns[j][i] * x[j] for j in fixed) for i in range(rows)
+            ]
+            solved = _least_squares([columns[j] for j in free], rhs)
+            if solved is None:
+                free.remove(entering)
+                if entered_from_upper:
+                    at_upper.add(entering)
+                blocked.add(entering)
+                break
+            trial = list(x)
+            for position, j in enumerate(free):
+                trial[j] = solved[position]
+            if all(0.0 < trial[j] < upper[j] for j in free):
+                x = trial
+                break
+            steps = []
+            for j in free:
+                if trial[j] <= 0.0 and x[j] > trial[j]:
+                    steps.append(x[j] / (x[j] - trial[j]))
+                elif trial[j] >= upper[j] and trial[j] > x[j]:
+                    steps.append((upper[j] - x[j]) / (trial[j] - x[j]))
+            alpha = max(0.0, min(steps)) if steps else 0.0
+            x = [x[j] + alpha * (trial[j] - x[j]) if j in free else x[j] for j in range(count)]
+            still_free = []
+            for j in free:
+                if x[j] <= bound_tolerance(j):
+                    x[j] = 0.0
+                elif x[j] >= upper[j] - bound_tolerance(j):
+                    x[j] = upper[j]
+                    at_upper.add(j)
+                else:
+                    still_free.append(j)
+            free = still_free
+            if not free:
+                break
+        if x == previous:
+            blocked.add(entering)
+        else:
+            blocked.clear()
+        w = gradient(x)
+
+
+@dataclass(frozen=True, slots=True)
+class ThrustAllocation:
+    """Non-negative thruster commands that best reproduce a force/torque demand.
+
+    Every thrust lies in ``[0, maximum]``.  ``exact`` means the weighted
+    residual is within the requested tolerance, i.e. the demand is achievable
+    within the limits.  When it is not, the allocation is the best
+    bounded approximation and ``thrusters_at_maximum`` shows which limits
+    bind, so the caller can scale the demand or re-plan.
+
+    References
+    ----------
+    C. L. Lawson and R. J. Hanson, Solving Least Squares Problems,
+    Prentice-Hall, 1974 (NNLS algorithm; reprinted by SIAM, 1995).
+    P. B. Stark and R. L. Parker, Bounded-variable least-squares: an
+    algorithm and applications, Computational Statistics 10, 1995.
+    """
+
+    thrusts_n: tuple[tuple[str, float], ...]
+    force_n: Vector
+    torque_n_m: Vector
+    force_residual_n: Vector
+    torque_residual_n_m: Vector
+    weighted_residual_norm: float
+    exact: bool
+    thrusters_at_maximum: tuple[str, ...]
+    iterations: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,6 +368,94 @@ class ThrusterLayout:
             torque_n_m=(torque[0], torque[1], torque[2]),
             total_thrust_n=total,
             torque_wrt_center_of_mass=_skew(net),
+        )
+
+    def allocate(
+        self,
+        *,
+        force_n: Vector,
+        torque_n_m: Vector,
+        center_of_mass_m: Vector,
+        torque_length_scale_m: float = 1.0,
+        maximum_thrust_n: float | Mapping[str, float] | None = None,
+        tolerance: float = 1e-9,
+    ) -> ThrustAllocation:
+        """Find non-negative thrusts minimizing the force/torque mismatch.
+
+        Solves ``min ||W (A T - b)||`` subject to ``0 <= T <= T_max`` with a
+        bounded-variable active-set method (Lawson-Hanson NNLS extended to
+        upper bounds), where ``A`` is :meth:`influence_matrix` and ``W``
+        divides torque rows by ``torque_length_scale_m`` so newtons and
+        newton-metres are weighed consistently.  If several allocations meet
+        the demand exactly, one of them is returned; no thrust-balancing
+        preference is applied.
+
+        References
+        ----------
+        C. L. Lawson and R. J. Hanson, Solving Least Squares Problems,
+        Prentice-Hall, 1974.
+        P. B. Stark and R. L. Parker, Bounded-variable least-squares: an
+        algorithm and applications, Computational Statistics 10, 1995.
+        """
+
+        desired_force = _vector(force_n, "Desired force")
+        desired_torque = _vector(torque_n_m, "Desired torque")
+        length = real(torque_length_scale_m, "Torque length scale")
+        if length <= 0.0:
+            raise DomainError("Torque length scale must be greater than zero.")
+        tolerance = real(tolerance, "Allocation tolerance")
+        if tolerance <= 0.0:
+            raise DomainError("Allocation tolerance must be greater than zero.")
+        if maximum_thrust_n is None:
+            maxima = {identifier: float("inf") for identifier in self.thruster_ids}
+        elif isinstance(maximum_thrust_n, Mapping):
+            maxima = real_mapping(maximum_thrust_n, "Maximum thrust")
+            if set(maxima) != set(self.thruster_ids):
+                raise DomainError("Maximum thrust must be given for every thruster.")
+        else:
+            limit = real(maximum_thrust_n, "Maximum thrust")
+            maxima = {identifier: limit for identifier in self.thruster_ids}
+        if any(value <= 0.0 for value in maxima.values()):
+            raise DomainError("Maximum thrust must be greater than zero.")
+        matrix = self.influence_matrix(center_of_mass_m)
+        weights = (1.0, 1.0, 1.0, 1.0 / length, 1.0 / length, 1.0 / length)
+        columns = [
+            [weights[row] * matrix[row][column] for row in range(6)]
+            for column in range(len(self.mounts))
+        ]
+        target = [weights[row] * value for row, value in enumerate((*desired_force, *desired_torque))]
+        demand_scale = max(1.0, sqrt(sum(value * value for value in target)))
+        thrusts, iterations = _bvls(
+            columns,
+            target,
+            [maxima[identifier] for identifier in self.thruster_ids],
+            tolerance=1e-14 * demand_scale,
+            max_iterations=60 * max(1, len(columns)),
+        )
+        allocation = dict(zip(self.thruster_ids, thrusts, strict=True))
+        result = self.resultant(allocation, center_of_mass_m)
+        force_residual = tuple(a - b for a, b in zip(result.force_n, desired_force, strict=True))
+        torque_residual = tuple(
+            a - b for a, b in zip(result.torque_n_m, desired_torque, strict=True)
+        )
+        norm = sqrt(
+            sum(value * value for value in force_residual)
+            + sum((value / length) ** 2 for value in torque_residual)
+        )
+        return ThrustAllocation(
+            thrusts_n=tuple(allocation.items()),
+            force_n=result.force_n,
+            torque_n_m=result.torque_n_m,
+            force_residual_n=force_residual,  # type: ignore[arg-type]
+            torque_residual_n_m=torque_residual,  # type: ignore[arg-type]
+            weighted_residual_norm=norm,
+            exact=norm <= tolerance * demand_scale,
+            thrusters_at_maximum=tuple(
+                identifier
+                for identifier, value in allocation.items()
+                if value >= maxima[identifier] * (1.0 - 1e-12)
+            ),
+            iterations=iterations,
         )
 
     def axial_efficiency(self, thrusts_n: Mapping[str, float], axis: Vector) -> float:

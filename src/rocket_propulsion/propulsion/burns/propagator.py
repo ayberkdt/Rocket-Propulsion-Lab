@@ -17,7 +17,7 @@ from enum import Enum
 from math import isfinite, sqrt
 from types import MappingProxyType
 
-from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import real, real_mapping, text, vector3
 
 from .performance_surface import (
@@ -540,6 +540,98 @@ class PropagatorPropulsionBridge:
         if include_hash:
             payload["model_hash"] = _canonical_hash(payload)
         return payload
+
+    def to_dict(self) -> dict[str, object]:
+        """Return the complete, reopenable bridge document.
+
+        The manifest (with ``model_hash``) is extended with the full source
+        artifact and optional performance surface, each carrying its own
+        content hash.  :meth:`from_dict` rebuilds the bridge and refuses any
+        document whose recomputed ``model_hash`` differs.
+
+        References
+        ----------
+        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        """
+
+        document = self.manifest()
+        document["artifact"] = self.artifact.to_dict()
+        document["performance_surface"] = (
+            None if self.performance_surface is None else self.performance_surface.to_dict()
+        )
+        return document
+
+    def to_json(self, *, indent: int | None = 2) -> str:
+        """Serialize the complete bridge document."""
+
+        return json.dumps(
+            self.to_dict(), allow_nan=False, ensure_ascii=False, indent=indent, sort_keys=True
+        )
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, object]) -> PropagatorPropulsionBridge:
+        """Rebuild a bridge and verify every nested hash and the model hash.
+
+        References
+        ----------
+        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        """
+
+        if not isinstance(payload, Mapping):
+            raise InputError("Propagator bridge document root must be an object.")
+        try:
+            surface_payload = payload["performance_surface"]
+            bridge = cls(
+                artifact=TabulatedBurnArtifact.from_dict(payload["artifact"]),
+                performance_surface=(
+                    None
+                    if surface_payload is None
+                    else RectilinearPerformanceSurface.from_dict(surface_payload)
+                ),
+                stream_bindings=tuple(
+                    StreamStateBinding(item["stream_id"], item["state_name"])
+                    for item in payload["stream_bindings"]
+                ),
+                state_constraints=tuple(
+                    AdditionalStateConstraint(
+                        item["state_name"], item["minimum_value"], item["label"]
+                    )
+                    for item in payload["state_constraints"]
+                ),
+                protected_dry_mass_kg=payload["protected_dry_mass_kg"],
+                require_complete_stream_binding=payload["require_complete_stream_binding"],
+                parameters=tuple(
+                    EstimableParameter(
+                        item["name"],
+                        item["reference_value"],
+                        item["scale"],
+                        item["minimum"],
+                        item["maximum"],
+                        item["unit"],
+                    )
+                    for item in payload["parameters"]
+                ),
+                nozzle_exit_area_m2=payload.get("nozzle_exit_area_m2"),
+                model_id=payload["model_id"],
+                schema=payload["schema"],
+            )
+        except (KeyError, TypeError, ValueError, AttributeError) as error:
+            raise InputError("Malformed propagator bridge document.") from error
+        if payload.get("model_hash") != bridge.model_hash:
+            raise InputError("Propagator bridge model hash does not match its contents.")
+        return bridge
+
+    @classmethod
+    def from_json(cls, text: str) -> PropagatorPropulsionBridge:
+        """Deserialize and integrity-check a bridge document."""
+
+        if not isinstance(text, str):
+            raise InputError("Propagator bridge document must be JSON text.")
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError as error:
+            raise InputError("Propagator bridge document is not valid JSON.") from error
+        return cls.from_dict(payload)
 
     def resolved_parameters(
         self, overrides: Mapping[str, float] | None = None

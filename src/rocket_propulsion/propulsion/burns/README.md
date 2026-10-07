@@ -131,6 +131,16 @@ or modifying Sidera:
   of the propagated tank masses with analytic derivatives. See
   `docs/VEHICLE_GEOMETRY.md`.
 
+- `timeline.py` sequences several bridges on one clock with overlap checks,
+  stage/fairing jettison events and summed concurrent burns, and persists the
+  whole schedule as one verified document. See `docs/PROPULSION_TIMELINE.md`.
+- `ThrusterLayout.allocate` (in `vehicle_geometry.py`) solves bounded thrust
+  allocation, 0 <= T <= T_max, with an active-set bounded least-squares method.
+
+Every public input of these modules is validated by
+`rocket_propulsion.core.validation`; bridges, electric models and timelines
+serialize to reopenable, hash-verified documents.
+
 Start with `docs/ASTRODYNAMICS_INTEGRATION.md` when wiring any of these into an
 orbit propagator.
 

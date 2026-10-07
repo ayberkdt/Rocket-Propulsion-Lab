@@ -193,6 +193,32 @@
   new partials against finite differences, and inertia against an independent
   parallel-axis sum.
 
+### Robustness, persistence, timelines and thrust allocation
+
+- Added `core/validation.py` and applied it at every public boundary of the
+  propagation interface: malformed values now raise `DomainError` /
+  `InputError` naming the field. A seeded fuzzer found 257 bare
+  `TypeError`/`ValueError` crashes before the change and none after.
+- Fixed: artifacts built with integer values (tabulated burns, performance
+  surfaces, throttle tables, priors) failed their own hash check on reopening.
+  Numbers are now normalized to float at construction.
+- Fixed: a non-string parameter-override key crashed while formatting its
+  error message.
+- `PropagatorPropulsionBridge`, `PowerLimitedPropulsionModel`: complete
+  `to_dict`/`to_json`/`from_dict`/`from_json` documents that re-verify every
+  nested hash and the model hash.
+- Added `timeline.py`: `PropulsionTimeline`, `ScheduledBurn`, `MassJettison`
+  with overlap checks, namespaced events, jettison mass handling, per-burn
+  directions/conditions/drivers, concurrent-burn summation and a verified
+  timeline document.
+- Added `ThrusterLayout.allocate`: bounded-variable least squares
+  (0 ≤ T ≤ T_max) by an active-set Lawson–Hanson / Stark–Parker method with
+  Householder QR, reporting residuals and binding limits.
+- New tests: fuzzing, integer round trips, bool rejection, property tests on
+  random profiles/tables/geometries, persistence tamper tests, a two-burn
+  RK4 timeline against the rocket equation, and bounded allocation against
+  brute-force optimality.
+
 ## 0.9.0 — engineering preview
 
 - Added variable-property thermochemistry, external CEA adaptation, and an

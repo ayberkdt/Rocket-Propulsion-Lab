@@ -916,6 +916,103 @@ class PowerLimitedPropulsionModel:
             payload["model_hash"] = _canonical_hash(payload)
         return payload
 
+    def to_dict(self) -> dict[str, object]:
+        """Return the complete, reopenable model document.
+
+        The manifest (with ``model_hash``) is extended with the full throttle
+        table of a discrete path.  :meth:`from_dict` refuses a document whose
+        recomputed hashes differ.
+
+        References
+        ----------
+        NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
+        """
+
+        document = self.manifest()
+        if isinstance(self.throttle_law, DiscreteThrottlePath):
+            document["throttle_table"] = self.throttle_law.table.to_dict()
+        return document
+
+    def to_json(self, *, indent: int | None = 2) -> str:
+        """Serialize the complete model document."""
+
+        return json.dumps(
+            self.to_dict(), allow_nan=False, ensure_ascii=False, indent=indent, sort_keys=True
+        )
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, object]) -> PowerLimitedPropulsionModel:
+        """Rebuild a model and verify the table and model hashes.
+
+        References
+        ----------
+        NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
+        """
+
+        if not isinstance(payload, Mapping):
+            raise InputError("Power-limited model document root must be an object.")
+        try:
+            law_payload = payload["throttle_law"]
+            if law_payload["law"] == "discrete_throttle_path":
+                table = ElectricThrottleTable.from_dict(payload["throttle_table"])
+                if table.table_hash != law_payload["table_hash"]:
+                    raise InputError("Throttle-path table hash does not match the table.")
+                law: DiscreteThrottlePath | FixedEfficiencyThrottle = DiscreteThrottlePath(
+                    table,
+                    tuple(law_payload["level_ids"]),
+                    law_payload["up_switch_hysteresis_w"],
+                    law_payload["path_id"],
+                )
+            elif law_payload["law"] == "fixed_efficiency":
+                law = FixedEfficiencyThrottle(
+                    law_payload["total_efficiency"],
+                    law_payload["specific_impulse_s"],
+                    law_payload["minimum_power_w"],
+                    law_payload["maximum_power_w"],
+                    law_payload["start_hysteresis_w"],
+                    law_payload["law_id"],
+                )
+            else:
+                raise InputError("Unknown throttle law in model document.")
+            model = cls(
+                throttle_law=law,
+                propellant_state_name=payload["propellant_state_name"],
+                propellant_reserve_kg=payload["propellant_reserve_kg"],
+                protected_dry_mass_kg=payload["protected_dry_mass_kg"],
+                power_margin_w=payload["power_margin_w"],
+                duty_cycle=payload["duty_cycle"],
+                parameters=tuple(
+                    EstimableParameter(
+                        item["name"],
+                        item["reference_value"],
+                        item["scale"],
+                        item["minimum"],
+                        item["maximum"],
+                        item["unit"],
+                    )
+                    for item in payload["parameters"]
+                ),
+                model_id=payload["model_id"],
+                schema=payload["schema"],
+            )
+        except InputError:
+            raise
+        except (KeyError, TypeError, ValueError, AttributeError) as error:
+            raise InputError("Malformed power-limited model document.") from error
+        if payload.get("model_hash") != model.model_hash:
+            raise InputError("Power-limited model hash does not match its contents.")
+        return model
+
+    @classmethod
+    def from_json(cls, text: str) -> PowerLimitedPropulsionModel:
+        """Deserialize and integrity-check a model document."""
+
+        try:
+            payload = json.loads(json_text(text, "Power-limited model document"))
+        except json.JSONDecodeError as error:
+            raise InputError("Power-limited model document is not valid JSON.") from error
+        return cls.from_dict(payload)
+
     @property
     def model_hash(self) -> str:
         """Content identity of the throttle law, limits and semantics."""
