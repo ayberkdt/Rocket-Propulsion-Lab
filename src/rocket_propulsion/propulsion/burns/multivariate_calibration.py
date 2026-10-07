@@ -27,6 +27,7 @@ from statistics import fmean
 from typing import Any
 
 from rocket_propulsion.core.errors import DomainError, InputError
+from rocket_propulsion.core.validation import read_json_document
 
 from .calibration import (
     CalibrationScope,
@@ -444,11 +445,7 @@ class HotFireMultivariateCalibration:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        try:
-            payload = json.loads(text)
-        except (TypeError, ValueError, RecursionError) as error:
-            raise InputError("Hot-fire multivariate calibration is not valid JSON.") from error
-        return cls.from_dict(payload)
+        return read_json_document(text, "Hot-fire multivariate calibration", cls.from_dict)
 
 
 def _group_vectors(

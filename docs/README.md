@@ -35,6 +35,8 @@
   propagator: exact-mass impulsive equivalents, finite burns inside Lunaris,
   bias-shifted segmentation, exact dry-mass cuts and the end-to-end
   verification.
+- `ADVERSARIAL_TESTING.md` explains the attack suites, their independent
+  oracles, the mutation checks and the defects they found.
 - `PULSE_MODE.md` defines pulse-mode thrusters: measured impulse bits, the
   minimum impulse bit, fewest-pulse plans with reported quantization and
   pulse-train artifacts.

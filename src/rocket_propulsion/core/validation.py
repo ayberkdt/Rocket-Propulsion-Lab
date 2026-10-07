@@ -17,7 +17,8 @@ boolean passed where a physical quantity is expected is always a caller bug.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import json
+from collections.abc import Callable, Mapping
 from dataclasses import fields, is_dataclass
 from math import isfinite
 from numbers import Integral, Real
@@ -30,7 +31,10 @@ def real(value: object, label: str) -> float:
 
     if isinstance(value, bool) or not isinstance(value, Real):
         raise DomainError(f"{label} must be a real number.", field=label)
-    number = float(value)
+    try:
+        number = float(value)
+    except OverflowError as error:  # an integer beyond the double range
+        raise DomainError(f"{label} must be finite.", field=label) from error
     if not isfinite(number):
         raise DomainError(f"{label} must be finite.", field=label)
     return number
@@ -164,3 +168,41 @@ def json_text(value: object, label: str) -> str:
     if not isinstance(value, str):
         raise InputError(f"{label} must be JSON text.", field=label)
     return value
+
+
+# Every way a decoded document can fail to build a model: missing keys, wrong
+# types, bad values (DomainError is a ValueError), short lists, integers beyond
+# the double range, and pathological nesting.
+DOCUMENT_ERRORS = (
+    KeyError, TypeError, ValueError, IndexError, AttributeError, OverflowError, RecursionError,
+)
+
+
+def read_json_document(value: object, label: str, build: Callable[[object], object]) -> object:
+    """Parse JSON text and build a model; every failure becomes an InputError.
+
+    ``value`` must be ``str`` (bytes are refused so the decoding is explicit).
+    The root must be a JSON object.  Errors raised while building, including
+    those raised by an integrity-hash check, are reported as
+    :class:`InputError` (a :class:`DomainError` from a validator passes
+    through unchanged, it already names the bad field).
+
+    References
+    ----------
+    RFC 8259, The JavaScript Object Notation (JSON) Data Interchange Format:
+    https://www.rfc-editor.org/rfc/rfc8259
+    """
+
+    source = json_text(value, label)
+    try:
+        payload = json.loads(source)
+    except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
+        raise InputError(f"{label} is not valid JSON.", field=label) from error
+    if not isinstance(payload, dict):
+        raise InputError(f"{label} root must be a JSON object.", field=label)
+    try:
+        return build(payload)
+    except (InputError, DomainError):
+        raise
+    except DOCUMENT_ERRORS as error:
+        raise InputError(f"{label} is malformed ({type(error).__name__}).", field=label) from error

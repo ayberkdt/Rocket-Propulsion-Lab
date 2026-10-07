@@ -18,7 +18,14 @@ from math import isfinite, prod
 from types import MappingProxyType
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import json_text, real, real_tuple, records, strings, text
+from rocket_propulsion.core.validation import (
+    read_json_document,
+    real,
+    real_tuple,
+    records,
+    strings,
+    text,
+)
 
 from .interpolation import pchip_slopes
 from .serialization import canonical_sha256
@@ -489,13 +496,7 @@ class RectilinearPerformanceSurface:
         CCSDS-502.0-B-3: https://ccsds.org/Pubs/502x0b3e1.pdf
         """
 
-        try:
-            payload = json.loads(json_text(text, "Performance-surface artifact"))
-        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
-            raise InputError("Performance-surface artifact is not valid JSON.") from error
-        if not isinstance(payload, dict):
-            raise InputError("Performance-surface artifact root must be an object.")
-        return cls.from_dict(payload)
+        return read_json_document(text, "Performance-surface artifact", cls.from_dict)
 
     def validity_surfaces(self) -> tuple[PerformanceValiditySurface, ...]:
         """Return lower and upper event surfaces for every input coordinate.

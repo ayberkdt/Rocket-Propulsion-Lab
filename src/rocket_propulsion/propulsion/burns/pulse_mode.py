@@ -41,10 +41,17 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from itertools import pairwise
-from math import ceil, floor, log
+from math import ceil, floor, log1p
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import integer, real, real_tuple, strings, text
+from rocket_propulsion.core.validation import (
+    integer,
+    read_json_document,
+    real,
+    real_tuple,
+    strings,
+    text,
+)
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
 from .serialization import canonical_sha256
@@ -54,6 +61,9 @@ from .throttleable import MonotoneCubicCurve
 PULSE_MODE_SCHEMA = "rocket_propulsion_pulse_mode_thruster_v1"
 PULSE_MODE_REFERENCE_IDS = ("NASA-20070032005",)
 QUANTIZATION_POLICIES = ("nearest", "no_overshoot")
+# A plan whose delivered value is within this relative distance of the
+# request counts as meeting it (``quantized`` is ``False``).
+_RELATIVE_TOLERANCE = 1e-9
 _MAX_PULSES = 10_000_000
 
 
@@ -289,7 +299,7 @@ class PulseModeThruster:
         consumed = count * bit.propellant_kg
         if consumed >= mass:
             raise DomainError("The pulse train consumes at least the whole initial mass.")
-        return bit.exhaust_velocity_m_s * log(mass / (mass - consumed))
+        return bit.exhaust_velocity_m_s * -log1p(-consumed / mass)
 
     def plan_impulse(
         self,
@@ -314,9 +324,11 @@ class PulseModeThruster:
         minimum = self.pulse(self.minimum_on_time_s)
         if request == 0.0:
             return self._plan("impulse", 0.0, 0, None, None, limit)
-        count = max(1, ceil(request / longest.impulse_n_s - 1e-12))
-        if request / count >= minimum.impulse_n_s * (1.0 - 1e-12):
-            on_time = self.on_time_for_impulse(min(request / count, longest.impulse_n_s))
+        count = max(1, ceil(request * (1.0 - _RELATIVE_TOLERANCE) / longest.impulse_n_s))
+        if request / count >= minimum.impulse_n_s * (1.0 - _RELATIVE_TOLERANCE):
+            on_time = self.on_time_for_impulse(
+                min(max(request / count, minimum.impulse_n_s), longest.impulse_n_s)
+            )
             return self._plan("impulse", request, count, self.pulse(on_time), None, limit)
         # The request lies in the gap between (count - 1) longest pulses and
         # count minimum impulse bits; no integer train meets it exactly.
@@ -375,7 +387,7 @@ class PulseModeThruster:
         policy = _policy(quantization)
         if request == 0.0:
             return self._plan("delta_v", 0.0, 0, None, mass, limit)
-        if request > self.exhaust_velocity_bound_m_s * log(mass / (mass - budget)):
+        if request > self.exhaust_velocity_bound_m_s * -log1p(-budget / mass):
             raise DomainError(
                 "The request exceeds the delta-v the propellant budget can deliver."
             )
@@ -390,7 +402,7 @@ class PulseModeThruster:
         def delta_v(count: int, on_time: float) -> float:
             bit = self.pulse(on_time)
             used = min(count * bit.propellant_kg, budget)
-            return bit.exhaust_velocity_m_s * log(mass / (mass - used))
+            return bit.exhaust_velocity_m_s * -log1p(-used / mass)
 
         def widest(count: int) -> float:
             if count <= at_longest:
@@ -416,16 +428,17 @@ class PulseModeThruster:
         exact = None
         below: tuple[float, int, float] = (0.0, 0, shortest)  # (Δv, count, width)
         above: tuple[float, int] | None = None                 # (Δv, count) at t_min
-        if at_longest >= 1 and high_end(at_longest) >= request:
+        reach = request * (1.0 - _RELATIVE_TOLERANCE)
+        if at_longest >= 1 and high_end(at_longest) >= reach:
             # Monotone part: smallest count whose longest pulse reaches the request.
             lower, upper = 0, at_longest
             while upper - lower > 1:
                 middle = (lower + upper) // 2
-                if high_end(middle) >= request:
+                if high_end(middle) >= reach:
                     upper = middle
                 else:
                     lower = middle
-            if low_end(upper) <= request:
+            if low_end(upper) <= request * (1.0 + _RELATIVE_TOLERANCE):
                 exact = upper
             else:
                 if upper > 1:
@@ -442,17 +455,20 @@ class PulseModeThruster:
                     raise DomainError(
                         "The budget-limited pulse search exceeded maximum_search_pulses."
                     )
-                if low_end(count) > request:
+                if low_end(count) > request * (1.0 + _RELATIVE_TOLERANCE):
                     above = (low_end(count), count)
                     break
                 top = high_end(count)
-                if top >= request:
+                if top >= reach:
                     exact = count
                     break
                 if top > below[0]:
                     below = (top, count, widest(count))
                 count += 1
-            if exact is None and above is None:
+            # At the very top of the range the best train may fall short of the
+            # request by rounding only; that is a met request.
+            if (exact is None and above is None
+                    and request - below[0] > _RELATIVE_TOLERANCE * request):
                 raise DomainError(
                     "The request exceeds the delta-v the propellant budget can deliver."
                 )
@@ -548,8 +564,8 @@ class PulseModeThruster:
         if target == "impulse":
             delivered = impulse
         else:
-            delivered = 0.0 if bit is None else bit.exhaust_velocity_m_s * log(
-                initial_mass / (initial_mass - propellant)
+            delivered = 0.0 if bit is None else bit.exhaust_velocity_m_s * -log1p(
+                -propellant / initial_mass
             )
         residual = request - delivered
         scale = max(abs(request), 1e-300)
@@ -558,7 +574,7 @@ class PulseModeThruster:
             requested=request,
             delivered=delivered,
             residual=residual,
-            quantized=abs(residual) > 1e-9 * scale,
+            quantized=abs(residual) > _RELATIVE_TOLERANCE * scale,
             pulse_count=count,
             pulse=bit if count else None,
             delivered_impulse_n_s=impulse,
@@ -634,14 +650,7 @@ class PulseModeThruster:
     def from_json(cls, text_value: str) -> PulseModeThruster:
         """Read and verify a JSON model document."""
 
-        if not isinstance(text_value, str):
-            raise InputError("Pulse-mode JSON must be text.")
-        try:
-            payload = json.loads(text_value)
-        except (ValueError, RecursionError) as error:
-            # JSONDecodeError, oversized integer literals and deep nesting.
-            raise InputError("Pulse-mode JSON is malformed.") from error
-        return cls.from_dict(payload)
+        return read_json_document(text_value, "Pulse-mode document", cls.from_dict)
 
 
 def _policy(value: str) -> str:

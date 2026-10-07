@@ -17,7 +17,14 @@ from math import isfinite, sqrt
 from types import MappingProxyType
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import real, real_mapping, records, text, vector3
+from rocket_propulsion.core.validation import (
+    read_json_document,
+    real,
+    real_mapping,
+    records,
+    text,
+    vector3,
+)
 
 from .performance_surface import (
     PerformanceGridLineSurface,
@@ -640,13 +647,7 @@ class PropagatorPropulsionBridge:
     def from_json(cls, text: str) -> PropagatorPropulsionBridge:
         """Deserialize and integrity-check a bridge document."""
 
-        if not isinstance(text, str):
-            raise InputError("Propagator bridge document must be JSON text.")
-        try:
-            payload = json.loads(text)
-        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
-            raise InputError("Propagator bridge document is not valid JSON.") from error
-        return cls.from_dict(payload)
+        return read_json_document(text, "Propagator bridge document", cls.from_dict)
 
     def resolved_parameters(
         self, overrides: Mapping[str, float] | None = None

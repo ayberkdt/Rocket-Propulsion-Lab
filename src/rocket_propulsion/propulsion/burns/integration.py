@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from math import exp, log
+from math import exp, log1p
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
@@ -85,8 +85,9 @@ def simulate_constant_burn(
     consumed = mass_flow * duration
     delivered_impulse = operating_point.delivered_thrust_n * duration
     axial_impulse = axial_thrust * duration
-    ideal_delta_v = axial_thrust / mass_flow * log(definition.initial_mass_kg / final_mass)
-    mass_ratio_log = log(definition.initial_mass_kg / final_mass)
+    # -log1p(-u/m0) avoids the cancellation of log(m0/mf) for small burns.
+    mass_ratio_log = -log1p(-consumed / definition.initial_mass_kg)
+    ideal_delta_v = axial_thrust / mass_flow * mass_ratio_log
     rocket_equivalent_isp = ideal_delta_v / (STANDARD_GRAVITY_M_S2 * mass_ratio_log)
 
     initial_state = PropulsionState(0.0, definition.initial_mass_kg, initial_tanks)

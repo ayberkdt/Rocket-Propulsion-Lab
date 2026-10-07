@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
-from math import cos, log, pi
+from math import cos, log1p, pi
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.validation import integer, real
@@ -143,7 +143,9 @@ def free_space_burn_metrics(
     delta_v, _ = integrate(points)
     refined, refined_moment = integrate(2 * points)
     final_mass = initial_mass_kg - consumed
-    ratio = log(initial_mass_kg / final_mass)
+    # ln(m0/mf) = -ln(1 - u/m0): log1p keeps full precision for small burns,
+    # where m0/mf rounds to within a few ulps of 1 (DLMF 4.6.1).
+    ratio = -log1p(-consumed / initial_mass_kg)
     return FreeSpaceBurnMetrics(
         initial_mass_kg=initial_mass_kg,
         final_mass_kg=final_mass,

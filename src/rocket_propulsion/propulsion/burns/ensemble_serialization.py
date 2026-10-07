@@ -21,6 +21,7 @@ from statistics import fmean
 from typing import Any
 
 from rocket_propulsion.core.errors import InputError
+from rocket_propulsion.core.validation import read_json_document
 
 from .ensemble import (
     ConditionalPropulsionRealization,
@@ -536,9 +537,5 @@ def hierarchical_ensemble_from_json(text: str) -> HierarchicalPropulsionEnsemble
     NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
     """
 
-    try:
-        payload = json.loads(text)
-    except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
-        raise InputError("Hierarchical ensemble is not valid JSON.") from error
-    return hierarchical_ensemble_from_dict(payload)
+    return read_json_document(text, "Hierarchical ensemble", hierarchical_ensemble_from_dict)
 

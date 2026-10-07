@@ -58,6 +58,10 @@ rocket equation holds exactly:
   `[t_min, t_max(n)]` with `t_max(n) = min(t_longest, m⁻¹(budget/n))`. Beyond
   the count the budget allows at the longest width, shorter pulses can still
   fit, and those budget-limited counts are scanned as well.
+- A plan whose delivered value is within 1e-9 (relative) of the request
+  counts as exact (`quantized=False`), so a request one rounding step outside
+  an achievable interval is met by that interval's train rather than by one
+  more pulse.
 - Requests above everything the budget can deliver, or above the pulse limit
   (applied to the returned plan), fail closed.
 

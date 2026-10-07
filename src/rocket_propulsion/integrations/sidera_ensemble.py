@@ -21,7 +21,7 @@ from math import isclose, isfinite, sqrt
 from typing import Any, Literal
 
 from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError, InputError
-from rocket_propulsion.core.validation import integer, real, text, vector3
+from rocket_propulsion.core.validation import integer, read_json_document, real, text, vector3
 from rocket_propulsion.propulsion.burns import HierarchicalPropulsionEnsemble
 from rocket_propulsion.propulsion.burns.ensemble_serialization import (
     HIERARCHICAL_ENSEMBLE_SCHEMA,
@@ -329,11 +329,7 @@ class SideraEnsembleHandoff:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        try:
-            payload = json.loads(text)
-        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
-            raise InputError("Sidera ensemble hand-off is not valid JSON.") from error
-        return cls.from_dict(payload)
+        return read_json_document(text, "Sidera ensemble hand-off", cls.from_dict)
 
 
 def export_sidera_ensemble_handoff(

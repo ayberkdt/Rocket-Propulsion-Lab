@@ -81,6 +81,9 @@ Registered with value, unit and source in `rocket_propulsion.core.constants`;
 - C. L. Lawson and R. J. Hanson, **Solving Least Squares Problems**, 1974;
   P. B. Stark and R. L. Parker, **Bounded-Variable Least-Squares**, Comput.
   Stat. 10, 1995 — bounded thrust allocation (bibliographic citations).
+- IETF RFC 8259, **The JavaScript Object Notation (JSON) Data Interchange
+  Format** — the document grammar the readers enforce (no NaN/Infinity):
+  <https://www.rfc-editor.org/rfc/rfc8259>
 - D. Goldberg, **What Every Computer Scientist Should Know About
   Floating-Point Arithmetic**, ACM Computing Surveys 23(1), 1991 — the
   cancellation-free quadratic root (bibliographic citation).

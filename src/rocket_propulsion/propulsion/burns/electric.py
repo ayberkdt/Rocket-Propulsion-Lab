@@ -50,7 +50,7 @@ from math import isfinite
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import (
     integer,
-    json_text,
+    read_json_document,
     real,
     real_mapping,
     records,
@@ -272,13 +272,7 @@ class ElectricThrottleTable:
     def from_json(cls, text: str) -> ElectricThrottleTable:
         """Deserialize and integrity-check a JSON throttle table."""
 
-        try:
-            payload = json.loads(json_text(text, "Electric throttle-table artifact"))
-        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
-            raise InputError("Electric throttle-table artifact is not valid JSON.") from error
-        if not isinstance(payload, dict):
-            raise InputError("Electric throttle-table artifact root must be an object.")
-        return cls.from_dict(payload)
+        return read_json_document(text, "Electric throttle-table artifact", cls.from_dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -995,11 +989,7 @@ class PowerLimitedPropulsionModel:
     def from_json(cls, text: str) -> PowerLimitedPropulsionModel:
         """Deserialize and integrity-check a model document."""
 
-        try:
-            payload = json.loads(json_text(text, "Power-limited model document"))
-        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
-            raise InputError("Power-limited model document is not valid JSON.") from error
-        return cls.from_dict(payload)
+        return read_json_document(text, "Power-limited model document", cls.from_dict)
 
     @property
     def model_hash(self) -> str:

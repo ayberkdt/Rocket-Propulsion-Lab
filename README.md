@@ -56,7 +56,9 @@ core never imports an astrodynamics package.
 | **Impulsive equivalents** | Free-space Δv, effective exhaust velocity and impulse placement time t* of any tabulated burn (Gauss–Legendre with error estimate). |
 | **Verified sensitivities** | Variational equations with saltation at burn events reproduce finite differences of whole propagations; `time_event_jump` supplies the jump. |
 | **Multi-burn timelines** | Several bridges on one clock with overlap checks, stage/fairing jettison events, summed concurrent burns and one verified document. |
-| **Robust by construction** | Fail-closed input validation at every boundary (fuzz-tested), canonical numbers for stable hashes, and reopenable model documents for bridges, electric models and timelines. |
+| **Robust by construction** | Fail-closed input validation at every boundary, canonical numbers for stable hashes, and reopenable model documents for bridges, electric models and timelines. Every document reader refuses or reproduces each of 1 500+ generated mutants. |
+| **Adversarial tests with independent oracles** | Attack suites for large-epoch boundary rounding, dry-mass cuts, pulse quantization and hostile JSON, each checked against oracles written in the test (enumeration, closed forms, SciPy integration), with mutation checks that the tests catch the bugs they target. See [Adversarial testing](docs/ADVERSARIAL_TESTING.md). |
+| **Traceable constants** | Every physical constant lives in `core.constants` with its defining source; a test refuses bare copies, and every model page cites its equations. |
 | **Partials** | Acceleration and mass-rate partials with respect to mass, direction, ambient pressure, available power, operating conditions and bounded estimator drivers, all checked against finite differences. |
 
 ### Propulsion physics and studies

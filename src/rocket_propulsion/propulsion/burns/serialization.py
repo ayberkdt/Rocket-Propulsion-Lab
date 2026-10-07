@@ -9,6 +9,7 @@ from enum import Enum
 from typing import Any
 
 from rocket_propulsion.core.errors import InputError
+from rocket_propulsion.core.validation import read_json_document
 
 
 def _primitive(value: Any) -> Any:
@@ -339,9 +340,5 @@ def burn_result_from_dict(payload: dict[str, Any]) -> Any:
 def burn_result_from_json(text: str) -> Any:
     """Parse and integrity-check a serialized burn result."""
 
-    try:
-        payload = json.loads(text)
-    except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
-        raise InputError("Burn artifact is not valid JSON.") from error
-    return burn_result_from_dict(payload)
+    return read_json_document(text, "Burn artifact", burn_result_from_dict)
 

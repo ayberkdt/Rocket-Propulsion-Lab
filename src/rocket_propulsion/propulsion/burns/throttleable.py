@@ -30,6 +30,7 @@ from itertools import pairwise
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import (
     name_value_pairs,
+    read_json_document,
     real,
     real_mapping,
     real_tuple,
@@ -586,10 +587,4 @@ class ThrottleableEngineModel:
     def from_json(cls, text_value: str) -> ThrottleableEngineModel:
         """Deserialize and integrity-check a model document."""
 
-        if not isinstance(text_value, str):
-            raise InputError("Throttleable engine document must be JSON text.")
-        try:
-            payload = json.loads(text_value)
-        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
-            raise InputError("Throttleable engine document is not valid JSON.") from error
-        return cls.from_dict(payload)
+        return read_json_document(text_value, "Throttleable engine document", cls.from_dict)

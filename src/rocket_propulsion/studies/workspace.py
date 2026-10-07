@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass, field, replace
 from typing import Any
 
 from rocket_propulsion.core.errors import InputError
+from rocket_propulsion.core.validation import DOCUMENT_ERRORS
 
 CURRENT_SCHEMA_VERSION = 2
 
@@ -117,14 +118,35 @@ def migrate_workspace_document(document: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def workspace_from_json(text: str) -> Workspace:
-    """Parse, migrate, and validate a workspace JSON document."""
+    """Parse, migrate, and validate a workspace JSON document.
 
+    A workspace is a user-editable study file without an integrity hash, so a
+    changed document yields a changed workspace; malformed content is refused
+    with :class:`InputError`.
+
+    References
+    ----------
+    RFC 8259, The JavaScript Object Notation (JSON) Data Interchange Format:
+    https://www.rfc-editor.org/rfc/rfc8259
+    """
+
+    if not isinstance(text, str):
+        raise InputError("Workspace must be JSON text.", code="invalid_workspace_json")
     try:
         raw = json.loads(text)
-    except (TypeError, ValueError, RecursionError) as error:
+    except (ValueError, RecursionError) as error:
         raise InputError("Workspace is not valid JSON.", code="invalid_workspace_json") from error
     if not isinstance(raw, dict):
         raise InputError("Workspace root must be a JSON object.")
+    try:
+        return _workspace_from_document(raw)
+    except InputError:
+        raise
+    except DOCUMENT_ERRORS as error:
+        raise InputError("Workspace content is malformed.", field="workspace") from error
+
+
+def _workspace_from_document(raw: dict) -> Workspace:
     document = migrate_workspace_document(raw)
     raw_cases = document.get("cases")
     if not isinstance(raw_cases, list):

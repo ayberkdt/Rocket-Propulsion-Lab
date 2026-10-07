@@ -22,8 +22,8 @@ from typing import Any
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import (
-    json_text,
     name_value_pairs,
+    read_json_document,
     real,
     records,
     strings,
@@ -580,11 +580,7 @@ class TabulatedBurnArtifact:
 
     @classmethod
     def from_json(cls, text: str) -> TabulatedBurnArtifact:
-        try:
-            payload = json.loads(json_text(text, "Tabulated burn artifact"))
-        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
-            raise InputError("Tabulated burn artifact is not valid JSON.") from error
-        return cls.from_dict(payload)
+        return read_json_document(text, "Tabulated burn artifact", cls.from_dict)
 
 
 def scale_tabulated_artifact(

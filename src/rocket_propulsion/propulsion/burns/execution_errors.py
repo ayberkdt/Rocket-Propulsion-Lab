@@ -28,7 +28,7 @@ import random
 from collections.abc import Mapping
 from dataclasses import dataclass
 from itertools import pairwise
-from math import exp, isfinite, log, sqrt
+from math import exp, isfinite, log1p, sqrt
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import (
@@ -444,7 +444,7 @@ def delta_v_log_sensitivities(consumed_mass_fraction: float) -> tuple[float, flo
     mu = real(consumed_mass_fraction, "Consumed mass fraction")
     if not 0.0 < mu < 1.0:
         raise DomainError("Consumed mass fraction must lie in (0, 1).")
-    return 1.0, -1.0 + mu / ((1.0 - mu) * (-log(1.0 - mu)))
+    return 1.0, -1.0 + mu / ((1.0 - mu) * -log1p(-mu))
 
 
 @dataclass(frozen=True, slots=True)

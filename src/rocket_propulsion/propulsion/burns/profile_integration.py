@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from math import exp, inf, log
+from math import exp, inf, log1p
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
@@ -228,7 +228,8 @@ def simulate_profiled_burn(
 
     delivered_impulse = operating_point.delivered_thrust_n * exposure
     axial_impulse = delivered_impulse * definition.cant_efficiency
-    mass_ratio_log = log(definition.initial_mass_kg / final_mass)
+    # -log1p(-u/m0) avoids the cancellation of log(m0/mf) for small burns.
+    mass_ratio_log = -log1p(-consumed / definition.initial_mass_kg)
     ideal_delta_v = (
         operating_point.delivered_thrust_n
         * definition.cant_efficiency
