@@ -2,6 +2,20 @@
 
 ## Unreleased — standalone burn vertical slice
 
+- Consolidated the advanced propulsion work on one Sidera-first branch while
+  retaining Lunaris only as a tested legacy compatibility adapter.
+- Added the hash-bound `rocket_propulsion_sidera_provider_handoff_v1` contract:
+  absolute/relative time mapping, explicit named-state order, event inventory,
+  operating inputs, estimable drivers, nested bridge integrity, and optional
+  body-frame force/moment closure.
+- Added non-extrapolating N-D engine maps with independent named propellant-
+  stream scales and analytic force, total-flow, and component-flow gradients.
+- Added dual regulated bipropellant feed/line coupling with engine and line O/F,
+  first-component depletion, positive-safe O/F events, mass/storage closure,
+  and a composed four-state Jacobian.
+- Added ordered two-axis gimballed engine clusters with body-frame force and
+  moment about a moving centre of mass, vector-cancellation loss, analytic
+  thrust/gimbal partials, and integrity-checked persistence.
 - Added immutable burn, tank, explicit propellant-stream, operating-point,
   profile, summary, and integration-evidence contracts.
 - Added exact constant-burn solutions for duration, propellant, impulse, and

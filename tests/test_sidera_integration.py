@@ -35,9 +35,7 @@ class SideraAdapterTests(unittest.TestCase):
         self.assertEqual(burn["direction"], [1.0, 0.0, 0.0])
         self.assertEqual(burn["throttle"], 1.0)
         sidera_mass_flow = burn["thrust_n"] / (STANDARD_GRAVITY_M_S2 * burn["isp_s"])
-        self.assertAlmostEqual(
-            sidera_mass_flow, self.result.operating_point.total_tank_flow_kg_s
-        )
+        self.assertAlmostEqual(sidera_mass_flow, self.result.operating_point.total_tank_flow_kg_s)
 
     def test_direction_is_normalized_and_invalid_frame_refused(self) -> None:
         artifact = export_sidera_artifact(
@@ -89,6 +87,11 @@ class SideraAdapterTests(unittest.TestCase):
             capabilities.constant_burn_exact,
             capabilities.constructor_compatible and capabilities.maneuver_plan_available,
         )
+        self.assertIsInstance(capabilities.propulsion_provider_available, bool)
+        self.assertIsInstance(capabilities.additional_states_available, bool)
+        self.assertIsInstance(capabilities.event_detectors_available, bool)
+        self.assertIsInstance(capabilities.analytic_partials_available, bool)
+        self.assertIsInstance(capabilities.body_frame_force_moment_available, bool)
 
     def test_native_public_contract_when_sidera_is_on_python_path(self) -> None:
         capabilities = inspect_sidera_capabilities()

@@ -32,12 +32,13 @@ from .performance_surface import (
     RectilinearPerformanceSurface,
 )
 from .serialization import canonical_sha256
+from .stream_performance import RectilinearStreamPerformanceSurface
+from .tabulated import InterpolationPolicy, TabulatedBurnArtifact, TabulatedBurnSegment
 
 # Absolute margin (kg, or the bound state's unit) within which a mass or tank
 # state counts as having reached its protected limit.  Shared by the bridge's
 # clamp and by consumers that precompute the cut (the Lunaris adapter).
 INVENTORY_LIMIT_TOLERANCE = 1e-12
-from .tabulated import InterpolationPolicy, TabulatedBurnArtifact, TabulatedBurnSegment
 
 PROPAGATOR_BRIDGE_SCHEMA = "rocket_propulsion_propagator_bridge_v1"
 AMBIENT_PRESSURE_CONDITION = "ambient_pressure_pa"
@@ -110,8 +111,7 @@ class EstimableParameter:
         numeric = real(value, f"Parameter {self.name!r}")
         if not self.minimum <= numeric <= self.maximum:
             raise DomainError(
-                f"Parameter {self.name!r} must be finite and in "
-                f"[{self.minimum}, {self.maximum}]."
+                f"Parameter {self.name!r} must be finite and in [{self.minimum}, {self.maximum}]."
             )
         return numeric
 
@@ -229,16 +229,10 @@ class PropulsionPartials:
     """
 
     acceleration_wrt_mass: tuple[float, float, float]
-    acceleration_wrt_parameters: tuple[
-        tuple[str, tuple[float, float, float]], ...
-    ]
+    acceleration_wrt_parameters: tuple[tuple[str, tuple[float, float, float]], ...]
     mass_rate_wrt_parameters: tuple[tuple[str, float], ...]
-    additional_state_rates_wrt_parameters: tuple[
-        tuple[str, tuple[tuple[str, float], ...]], ...
-    ]
-    acceleration_wrt_conditions: tuple[
-        tuple[str, tuple[float, float, float]], ...
-    ] = ()
+    additional_state_rates_wrt_parameters: tuple[tuple[str, tuple[tuple[str, float], ...]], ...]
+    acceleration_wrt_conditions: tuple[tuple[str, tuple[float, float, float]], ...] = ()
     mass_rate_wrt_conditions: tuple[tuple[str, float], ...] = ()
     additional_state_rates_wrt_conditions: tuple[
         tuple[str, tuple[tuple[str, float], ...]], ...
@@ -329,8 +323,6 @@ def _validated_states(additional_states: Mapping[str, float] | None) -> dict[str
     return real_mapping(additional_states, "Additional states")
 
 
-
-
 @dataclass(frozen=True, slots=True)
 class PropulsionDerivativeJump:
     """Left-minus-right propulsion derivatives at one time event.
@@ -383,6 +375,7 @@ class PropagatorPropulsionBridge:
 
     artifact: TabulatedBurnArtifact
     performance_surface: RectilinearPerformanceSurface | None = None
+    stream_performance_surface: RectilinearStreamPerformanceSurface | None = None
     stream_bindings: tuple[StreamStateBinding, ...] = ()
     state_constraints: tuple[AdditionalStateConstraint, ...] = ()
     protected_dry_mass_kg: float | None = None
@@ -401,6 +394,17 @@ class PropagatorPropulsionBridge:
             self.performance_surface, RectilinearPerformanceSurface
         ):
             raise DomainError("Performance surface must be a RectilinearPerformanceSurface.")
+        if self.stream_performance_surface is not None and not isinstance(
+            self.stream_performance_surface, RectilinearStreamPerformanceSurface
+        ):
+            raise DomainError(
+                "Stream performance surface must be a RectilinearStreamPerformanceSurface."
+            )
+        if self.performance_surface is not None and self.stream_performance_surface is not None:
+            raise DomainError(
+                "A bridge may use either a total-flow or stream-resolved performance "
+                "surface, not both."
+            )
         for field_name, kind in (
             ("stream_bindings", StreamStateBinding),
             ("state_constraints", AdditionalStateConstraint),
@@ -426,8 +430,9 @@ class PropagatorPropulsionBridge:
         if self.nozzle_exit_area_m2 is not None:
             if not isfinite(self.nozzle_exit_area_m2) or self.nozzle_exit_area_m2 <= 0.0:
                 raise DomainError("Nozzle exit area must be finite and greater than zero.")
-            if self.performance_surface is not None and any(
-                axis.name == AMBIENT_PRESSURE_CONDITION for axis in self.performance_surface.axes
+            active_surface = self.performance_surface or self.stream_performance_surface
+            if active_surface is not None and any(
+                axis.name == AMBIENT_PRESSURE_CONDITION for axis in active_surface.axes
             ):
                 raise DomainError(
                     "Ambient pressure is applied through the nozzle exit area; it must not "
@@ -452,8 +457,7 @@ class PropagatorPropulsionBridge:
             stream_id
             for segment in self.artifact.segments
             for stream_id, _ in (
-                segment.start_stream_mass_flows_kg_s
-                + segment.end_stream_mass_flows_kg_s
+                segment.start_stream_mass_flows_kg_s + segment.end_stream_mass_flows_kg_s
             )
         }
         unknown_bindings = set(binding_ids) - artifact_streams
@@ -468,6 +472,10 @@ class PropagatorPropulsionBridge:
                 "Every artifact stream must be bound when complete binding is required: "
                 + ", ".join(sorted(missing))
             )
+        if self.stream_performance_surface is not None and (
+            set(self.stream_performance_surface.stream_ids) != artifact_streams
+        ):
+            raise DomainError("Stream-performance outputs must match the artifact streams exactly.")
 
         if not self.parameters:
             limit = max(1.0, self.artifact.duration_s)
@@ -477,9 +485,7 @@ class PropagatorPropulsionBridge:
                 (
                     EstimableParameter("thrust_scale", 1.0, 1e-3, 0.01, 2.0, "1"),
                     EstimableParameter("mass_flow_scale", 1.0, 1e-3, 0.01, 2.0, "1"),
-                    EstimableParameter(
-                        "ignition_time_bias_s", 0.0, 1e-3, -limit, limit, "s"
-                    ),
+                    EstimableParameter("ignition_time_bias_s", 0.0, 1e-3, -limit, limit, "s"),
                 ),
             )
         names = [parameter.name for parameter in self.parameters]
@@ -504,13 +510,16 @@ class PropagatorPropulsionBridge:
             "model_id": self.model_id,
             "artifact_hash": self.artifact.artifact_hash,
             "performance_surface_hash": (
+                None if self.performance_surface is None else self.performance_surface.surface_hash
+            ),
+            "stream_performance_surface_hash": (
                 None
-                if self.performance_surface is None
-                else self.performance_surface.surface_hash
+                if self.stream_performance_surface is None
+                else self.stream_performance_surface.surface_hash
             ),
             "operating_condition_axes": (
                 []
-                if self.performance_surface is None
+                if self.performance_surface is None and self.stream_performance_surface is None
                 else [
                     {
                         "name": axis.name,
@@ -518,7 +527,11 @@ class PropagatorPropulsionBridge:
                         "minimum": axis.minimum,
                         "maximum": axis.maximum,
                     }
-                    for axis in self.performance_surface.axes
+                    for axis in (
+                        self.performance_surface.axes
+                        if self.performance_surface is not None
+                        else self.stream_performance_surface.axes
+                    )
                 ]
             ),
             "force_semantics": "net_axial_thrust_along_resolved_direction",
@@ -579,6 +592,11 @@ class PropagatorPropulsionBridge:
         document["performance_surface"] = (
             None if self.performance_surface is None else self.performance_surface.to_dict()
         )
+        document["stream_performance_surface"] = (
+            None
+            if self.stream_performance_surface is None
+            else self.stream_performance_surface.to_dict()
+        )
         return document
 
     def to_json(self, *, indent: int | None = 2) -> str:
@@ -601,12 +619,18 @@ class PropagatorPropulsionBridge:
             raise InputError("Propagator bridge document root must be an object.")
         try:
             surface_payload = payload["performance_surface"]
+            stream_surface_payload = payload.get("stream_performance_surface")
             bridge = cls(
                 artifact=TabulatedBurnArtifact.from_dict(payload["artifact"]),
                 performance_surface=(
                     None
                     if surface_payload is None
                     else RectilinearPerformanceSurface.from_dict(surface_payload)
+                ),
+                stream_performance_surface=(
+                    None
+                    if stream_surface_payload is None
+                    else RectilinearStreamPerformanceSurface.from_dict(stream_surface_payload)
                 ),
                 stream_bindings=tuple(
                     StreamStateBinding(item["stream_id"], item["state_name"])
@@ -670,9 +694,7 @@ class PropagatorPropulsionBridge:
     def event_surfaces(self) -> tuple[BurnEventSurface, ...]:
         """Return every time and inventory discontinuity exactly once."""
 
-        surfaces = [
-            BurnEventSurface("burn:start", BurnEventKind.START, False, relative_time_s=0.0)
-        ]
+        surfaces = [BurnEventSurface("burn:start", BurnEventKind.START, False, relative_time_s=0.0)]
         for index, segment in enumerate(self.artifact.segments[:-1], start=1):
             surfaces.append(
                 BurnEventSurface(
@@ -721,9 +743,12 @@ class PropagatorPropulsionBridge:
         https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetectorsProvider.html
         """
 
-        if self.performance_surface is None:
+        if self.performance_surface is None and self.stream_performance_surface is None:
             return ()
-        return self.performance_surface.validity_surfaces()
+        if self.performance_surface is not None:
+            return self.performance_surface.validity_surfaces()
+        assert self.stream_performance_surface is not None
+        return self.stream_performance_surface.validity_surfaces()
 
     def mass_closure(
         self,
@@ -757,9 +782,7 @@ class PropagatorPropulsionBridge:
         bound_states = sorted({binding.state_name for binding in self.stream_bindings})
         missing = set(bound_states) - set(states)
         if missing:
-            raise DomainError(
-                "Missing bound propulsion states: " + ", ".join(sorted(missing))
-            )
+            raise DomainError("Missing bound propulsion states: " + ", ".join(sorted(missing)))
         tracked = sum(states[name] for name in bound_states)
         residual = vehicle_mass_kg - non_propellant_mass_kg - tracked
         return PropellantMassClosure(
@@ -828,9 +851,12 @@ class PropagatorPropulsionBridge:
         https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetectorsProvider.html
         """
 
-        if self.performance_surface is None:
+        if self.performance_surface is None and self.stream_performance_surface is None:
             return ()
-        return self.performance_surface.grid_line_surfaces()
+        if self.performance_surface is not None:
+            return self.performance_surface.grid_line_surfaces()
+        assert self.stream_performance_surface is not None
+        return self.stream_performance_surface.grid_line_surfaces()
 
     def _segment_at(
         self, effective_time_s: float, side: str
@@ -930,7 +956,11 @@ class PropagatorPropulsionBridge:
         if operating_conditions is not None and not isinstance(operating_conditions, Mapping):
             raise DomainError("Operating conditions must be a mapping.")
         supplied_conditions = dict(operating_conditions or {})
-        if self.performance_surface is None and supplied_conditions:
+        if (
+            self.performance_surface is None
+            and self.stream_performance_surface is None
+            and supplied_conditions
+        ):
             raise DomainError(
                 "Operating conditions were supplied but this bridge has no performance surface."
             )
@@ -959,7 +989,10 @@ class PropagatorPropulsionBridge:
             ):
                 inhibited.append("protected_dry_mass_kg")
             for constraint in self.state_constraints:
-                if states[constraint.state_name] <= constraint.minimum_value + INVENTORY_LIMIT_TOLERANCE:
+                if (
+                    states[constraint.state_name]
+                    <= constraint.minimum_value + INVENTORY_LIMIT_TOLERANCE
+                ):
                     inhibited.append(constraint.state_name)
         active = segment is not None and not inhibited
 
@@ -974,19 +1007,13 @@ class PropagatorPropulsionBridge:
                 force_vector_n=zero,
                 acceleration_m_s2=zero,
                 mass_derivative_kg_s=0.0,
-                additional_state_derivatives=tuple(
-                    (name, 0.0) for name in sorted(required_states)
-                ),
+                additional_state_derivatives=tuple((name, 0.0) for name in sorted(required_states)),
                 parameters=tuple(parameter_values.items()),
                 inhibited_by=tuple(inhibited),
                 partials=PropulsionPartials(
                     acceleration_wrt_mass=zero,
-                    acceleration_wrt_parameters=tuple(
-                        (name, zero) for name in parameter_values
-                    ),
-                    mass_rate_wrt_parameters=tuple(
-                        (name, 0.0) for name in parameter_values
-                    ),
+                    acceleration_wrt_parameters=tuple((name, zero) for name in parameter_values),
+                    mass_rate_wrt_parameters=tuple((name, 0.0) for name in parameter_values),
                     additional_state_rates_wrt_parameters=tuple(
                         (name, tuple((state, 0.0) for state in sorted(required_states)))
                         for name in parameter_values
@@ -1001,11 +1028,19 @@ class PropagatorPropulsionBridge:
             if self.performance_surface is None
             else self.performance_surface.evaluate(supplied_conditions)
         )
-        surface_force_scale = (
-            1.0 if surface_evaluation is None else surface_evaluation.force_scale
+        stream_surface_evaluation = (
+            None
+            if self.stream_performance_surface is None
+            else self.stream_performance_surface.evaluate(supplied_conditions)
         )
-        surface_flow_scale = (
-            1.0 if surface_evaluation is None else surface_evaluation.mass_flow_scale
+        surface_force_scale = (
+            surface_evaluation.force_scale
+            if surface_evaluation is not None
+            else (
+                stream_surface_evaluation.force_scale
+                if stream_surface_evaluation is not None
+                else 1.0
+            )
         )
         sample = segment.state_at(
             min(max(effective_time, segment.start_time_s), segment.end_time_s)
@@ -1013,6 +1048,24 @@ class PropagatorPropulsionBridge:
         base_thrust = float(sample["axial_thrust_n"])
         base_flow = float(sample["total_mass_flow_kg_s"])
         stream_flows = dict(sample["stream_mass_flows_kg_s"])
+        common_surface_flow_scale = (
+            1.0 if surface_evaluation is None else surface_evaluation.mass_flow_scale
+        )
+        stream_surface_scales = (
+            {}
+            if stream_surface_evaluation is None
+            else dict(stream_surface_evaluation.stream_flow_scales)
+        )
+        stream_scale_by_id = {
+            stream_id: stream_surface_scales.get(stream_id, common_surface_flow_scale)
+            for stream_id in stream_flows
+        }
+        surface_scaled_total_flow = (
+            sum(flow * stream_scale_by_id[stream_id] for stream_id, flow in stream_flows.items())
+            if stream_flows
+            else base_flow * common_surface_flow_scale
+        )
+        surface_flow_scale = surface_scaled_total_flow / base_flow if base_flow > 0.0 else 1.0
         vacuum_thrust = base_thrust * thrust_scale * surface_force_scale
         pressure_loss = 0.0
         if self.nozzle_exit_area_m2 is not None:
@@ -1025,7 +1078,7 @@ class PropagatorPropulsionBridge:
         # Kept on the linear branch even when negative: a consumer stops the burn
         # at the net_thrust_margin_n root instead of seeing a clamp inside a step.
         thrust = vacuum_thrust - pressure_loss
-        total_flow = base_flow * flow_scale * surface_flow_scale
+        total_flow = surface_scaled_total_flow * flow_scale
         force = tuple(thrust * value for value in unit_direction)
         # da/dd = (|F|/m)(I - u u^T)/|d| for the supplied, unnormalized d.
         direction_gain = thrust / (vehicle_mass_kg * direction_norm)
@@ -1038,7 +1091,7 @@ class PropagatorPropulsionBridge:
         for stream_id, flow in stream_flows.items():
             if stream_id in binding_by_stream:
                 state_drains[binding_by_stream[stream_id]] -= (
-                    flow * flow_scale * surface_flow_scale
+                    flow * flow_scale * stream_scale_by_id[stream_id]
                 )
 
         duration = segment.duration_s
@@ -1047,41 +1100,37 @@ class PropagatorPropulsionBridge:
             flow_slope = 0.0
             stream_slopes = {stream_id: 0.0 for stream_id in stream_flows}
         else:
-            thrust_slope = (
-                segment.end_axial_thrust_n - segment.start_axial_thrust_n
-            ) / duration
+            thrust_slope = (segment.end_axial_thrust_n - segment.start_axial_thrust_n) / duration
             flow_slope = (
                 segment.end_total_mass_flow_kg_s - segment.start_total_mass_flow_kg_s
             ) / duration
             start_streams = dict(segment.start_stream_mass_flows_kg_s)
             end_streams = dict(segment.end_stream_mass_flows_kg_s)
             stream_slopes = {
-                stream_id: (
-                    end_streams.get(stream_id, 0.0) - start_streams.get(stream_id, 0.0)
-                )
+                stream_id: (end_streams.get(stream_id, 0.0) - start_streams.get(stream_id, 0.0))
                 / duration
                 for stream_id in start_streams.keys() | end_streams.keys()
             }
+        surface_scaled_flow_slope = (
+            sum(slope * stream_scale_by_id[stream_id] for stream_id, slope in stream_slopes.items())
+            if stream_slopes
+            else flow_slope * common_surface_flow_scale
+        )
 
         zero = (0.0, 0.0, 0.0)
         thrust_scale_partial = tuple(
-            base_thrust * surface_force_scale * value / vehicle_mass_kg
-            for value in unit_direction
+            base_thrust * surface_force_scale * value / vehicle_mass_kg for value in unit_direction
         )
         time_partial = tuple(
-            -thrust_scale
-            * surface_force_scale
-            * thrust_slope
-            * value
-            / vehicle_mass_kg
+            -thrust_scale * surface_force_scale * thrust_slope * value / vehicle_mass_kg
             for value in unit_direction
         )
         mass_partials = (
             ("thrust_scale", 0.0),
-            ("mass_flow_scale", -base_flow * surface_flow_scale),
+            ("mass_flow_scale", -surface_scaled_total_flow),
             (
                 "ignition_time_bias_s",
-                flow_scale * surface_flow_scale * flow_slope,
+                flow_scale * surface_scaled_flow_slope,
             ),
         )
 
@@ -1090,50 +1139,81 @@ class PropagatorPropulsionBridge:
             if parameter_name == "mass_flow_scale":
                 for stream_id, flow in stream_flows.items():
                     if stream_id in binding_by_stream:
-                        values[binding_by_stream[stream_id]] -= flow * surface_flow_scale
+                        values[binding_by_stream[stream_id]] -= flow * stream_scale_by_id[stream_id]
             elif parameter_name == "ignition_time_bias_s":
                 for stream_id, slope in stream_slopes.items():
                     if stream_id in binding_by_stream:
                         values[binding_by_stream[stream_id]] += (
-                            flow_scale * surface_flow_scale * slope
+                            flow_scale * stream_scale_by_id[stream_id] * slope
                         )
             return tuple(sorted(values.items()))
 
         force_condition_gradients = (
-            {}
-            if surface_evaluation is None
-            else dict(surface_evaluation.force_scale_gradient)
+            dict(surface_evaluation.force_scale_gradient)
+            if surface_evaluation is not None
+            else (
+                dict(stream_surface_evaluation.force_scale_gradient)
+                if stream_surface_evaluation is not None
+                else {}
+            )
         )
-        flow_condition_gradients = (
-            {}
-            if surface_evaluation is None
-            else dict(surface_evaluation.mass_flow_scale_gradient)
+        common_flow_condition_gradients = (
+            dict(surface_evaluation.mass_flow_scale_gradient)
+            if surface_evaluation is not None
+            else {}
         )
+        stream_flow_condition_gradients = (
+            {}
+            if stream_surface_evaluation is None
+            else {
+                stream_id: dict(gradients)
+                for stream_id, gradients in (stream_surface_evaluation.stream_flow_scale_gradients)
+            }
+        )
+        condition_names = tuple(force_condition_gradients)
+        total_flow_condition_derivatives = {
+            name: (
+                base_flow * common_flow_condition_gradients[name]
+                if surface_evaluation is not None
+                else sum(
+                    flow * stream_flow_condition_gradients[stream_id][name]
+                    for stream_id, flow in stream_flows.items()
+                )
+            )
+            for name in condition_names
+        }
+        stream_flow_condition_derivative = {
+            (stream_id, name): (
+                common_flow_condition_gradients[name]
+                if surface_evaluation is not None
+                else stream_flow_condition_gradients[stream_id][name]
+            )
+            for stream_id in stream_flows
+            for name in condition_names
+        }
         acceleration_condition_partials = tuple(
             (
                 name,
                 tuple(
-                    base_thrust
-                    * thrust_scale
-                    * gradient
-                    * value
-                    / vehicle_mass_kg
+                    base_thrust * thrust_scale * gradient * value / vehicle_mass_kg
                     for value in unit_direction
                 ),
             )
             for name, gradient in force_condition_gradients.items()
         )
         mass_condition_partials = tuple(
-            (name, -base_flow * flow_scale * gradient)
-            for name, gradient in flow_condition_gradients.items()
+            (name, -flow_scale * total_flow_condition_derivatives[name]) for name in condition_names
         )
 
         def state_condition_partials(condition_name: str) -> tuple[tuple[str, float], ...]:
             values = {state_name: 0.0 for state_name in required_states}
-            gradient = flow_condition_gradients[condition_name]
             for stream_id, flow in stream_flows.items():
                 if stream_id in binding_by_stream:
-                    values[binding_by_stream[stream_id]] -= flow * flow_scale * gradient
+                    values[binding_by_stream[stream_id]] -= (
+                        flow
+                        * flow_scale
+                        * stream_flow_condition_derivative[(stream_id, condition_name)]
+                    )
             return tuple(sorted(values.items()))
 
         return PropulsionDynamicsEvaluation(
@@ -1149,9 +1229,7 @@ class PropagatorPropulsionBridge:
             parameters=tuple(parameter_values.items()),
             inhibited_by=(),
             partials=PropulsionPartials(
-                acceleration_wrt_mass=tuple(
-                    -value / vehicle_mass_kg for value in acceleration
-                ),  # type: ignore[arg-type]
+                acceleration_wrt_mass=tuple(-value / vehicle_mass_kg for value in acceleration),  # type: ignore[arg-type]
                 acceleration_wrt_parameters=(
                     ("thrust_scale", thrust_scale_partial),  # type: ignore[arg-type]
                     ("mass_flow_scale", zero),
@@ -1164,8 +1242,7 @@ class PropagatorPropulsionBridge:
                 acceleration_wrt_conditions=acceleration_condition_partials,
                 mass_rate_wrt_conditions=mass_condition_partials,
                 additional_state_rates_wrt_conditions=tuple(
-                    (name, state_condition_partials(name))
-                    for name in flow_condition_gradients
+                    (name, state_condition_partials(name)) for name in condition_names
                 ),
                 nonsmooth_parameters=("ignition_time_bias_s",) if at_boundary else (),
                 acceleration_wrt_direction=tuple(
@@ -1189,7 +1266,13 @@ class PropagatorPropulsionBridge:
                 ),  # type: ignore[arg-type]
             ),
             operating_conditions=(
-                () if surface_evaluation is None else surface_evaluation.conditions
+                surface_evaluation.conditions
+                if surface_evaluation is not None
+                else (
+                    stream_surface_evaluation.conditions
+                    if stream_surface_evaluation is not None
+                    else ()
+                )
             ),
             performance_force_scale=surface_force_scale,
             performance_mass_flow_scale=surface_flow_scale,
@@ -1197,4 +1280,3 @@ class PropagatorPropulsionBridge:
             pressure_thrust_loss_n=pressure_loss,
             net_thrust_margin_n=(None if self.nozzle_exit_area_m2 is None else thrust),
         )
-

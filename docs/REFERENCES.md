@@ -90,6 +90,21 @@ Registered with value, unit and source in `rocket_propulsion.core.constants`;
 
 ## Finite-burn, transient, and blowdown references
 
+- NASA, **Simulation Analysis of Computer-Controlled Pressurization for
+  Mixture Ratio Control** — independent oxidizer/fuel flow measurement,
+  pressure control, and mixture-ratio response:
+  <https://ntrs.nasa.gov/citations/20050206420>
+- NASA, **Space Simulation Experiments on Reaction Control System Thruster
+  Plumes** — measured short-pulse bipropellant flow-ratio transients:
+  <https://ntrs.nasa.gov/citations/19730002016>
+- NASA SP-8059, **Spacecraft Attitude Control During Thrusting Maneuvers** —
+  thrust-vector pointing, misalignment, centre-of-mass moment arms, and
+  attitude-control design criteria:
+  <https://ntrs.nasa.gov/citations/19710016722>
+- NASA/TM-20240012525, **MSFC-TVC TB-03: Derivation of Thrust Vector Control
+  Actuator-Force / Gimbal-Torque Transformation Matrix** — order-sensitive
+  three-dimensional two-axis gimbal geometry:
+  <https://ntrs.nasa.gov/citations/20240012525>
 - NASA SP-8112, **Pressurization Systems for Liquid Rockets** — pressure-fed
   architectures, ullage expansion, blowdown pressure decay and sizing context:
   <https://ntrs.nasa.gov/citations/19760015212>

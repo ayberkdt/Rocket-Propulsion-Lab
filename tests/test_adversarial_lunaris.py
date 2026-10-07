@@ -44,7 +44,10 @@ from tests.test_lunaris_integration import _FreeSpaceDynamics
 
 LUNARIS = importlib.util.find_spec("lunaris") is not None
 SCIPY = importlib.util.find_spec("scipy") is not None
-X = lambda burn_id, t, y: (1.0, 0.0, 0.0)
+
+
+def X(burn_id, t, y):
+    return (1.0, 0.0, 0.0)
 
 
 def bridge_from(rows, dry=None, tag="adv", bias_limit_s=None):

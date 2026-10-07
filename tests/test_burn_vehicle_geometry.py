@@ -301,7 +301,9 @@ class ThrustAllocationTests(unittest.TestCase):
                   "center_of_mass_m": (0.0, 0.0, 0.0)}
         force_first = layout.allocate(**demand, torque_length_scale_m=100.0)
         torque_first = layout.allocate(**demand, torque_length_scale_m=0.01)
-        torque_norm = lambda r: sqrt(sum(v * v for v in r.torque_residual_n_m))
+        def torque_norm(result):
+            return sqrt(sum(value * value for value in result.torque_residual_n_m))
+
         self.assertLess(torque_norm(torque_first), torque_norm(force_first))
 
 

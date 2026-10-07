@@ -21,4 +21,8 @@ class SideraCapabilities:
     reason: str | None = None
     weighted_maneuver_ensemble_available: bool = False
     exact_weighted_tabulated_ensemble: bool = False
-
+    propulsion_provider_available: bool = False
+    additional_states_available: bool = False
+    event_detectors_available: bool = False
+    analytic_partials_available: bool = False
+    body_frame_force_moment_available: bool = False

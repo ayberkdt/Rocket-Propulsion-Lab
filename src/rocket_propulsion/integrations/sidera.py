@@ -58,6 +58,7 @@ def inspect_sidera_capabilities() -> SideraCapabilities:
         maneuver_plan = getattr(propagation, "ManeuverPlan", None)
         tabulated = getattr(propagation, "TabulatedFiniteBurn", None)
         weighted_ensemble = getattr(propagation, "WeightedManeuverEnsemble", None)
+        propulsion_provider = getattr(propagation, "PropulsionProvider", None)
     except Exception as error:  # noqa: BLE001 - optional integration boundary
         return SideraCapabilities(
             status="incompatible",
@@ -86,10 +87,17 @@ def inspect_sidera_capabilities() -> SideraCapabilities:
 
     exact = compatible and maneuver_plan is not None
     independent_mass_flow = (
-        tabulated is not None
-        and "mass_flow_kg_s" in inspect.signature(tabulated).parameters
+        tabulated is not None and "mass_flow_kg_s" in inspect.signature(tabulated).parameters
     )
     weighted_ensemble_available = weighted_ensemble is not None
+    provider_parameters: set[str] = set()
+    if propulsion_provider is not None:
+        try:
+            provider_parameters = set(inspect.signature(propulsion_provider).parameters)
+        except (TypeError, ValueError):
+            # Presence is still reported, but unsupported/introspection-hostile
+            # providers do not receive inferred sub-capabilities.
+            provider_parameters = set()
     return SideraCapabilities(
         status="supported" if exact else "incompatible",
         version=str(getattr(sidera, "__version__", "unknown")),
@@ -103,10 +111,13 @@ def inspect_sidera_capabilities() -> SideraCapabilities:
         reason=reason,
         weighted_maneuver_ensemble_available=weighted_ensemble_available,
         exact_weighted_tabulated_ensemble=(
-            tabulated is not None
-            and independent_mass_flow
-            and weighted_ensemble_available
+            tabulated is not None and independent_mass_flow and weighted_ensemble_available
         ),
+        propulsion_provider_available=propulsion_provider is not None,
+        additional_states_available="additional_states" in provider_parameters,
+        event_detectors_available="event_detectors" in provider_parameters,
+        analytic_partials_available="partials" in provider_parameters,
+        body_frame_force_moment_available="body_wrench" in provider_parameters,
     )
 
 
@@ -228,16 +239,10 @@ def to_native_finite_burn(
             "A compatible Sidera FiniteBurn installation is unavailable.",
             details={"capabilities": asdict(capabilities)},
         )
-    artifact = export_sidera_artifact(
-        result, t_start_s=t_start_s, direction=direction, frame=frame
-    )
+    artifact = export_sidera_artifact(result, t_start_s=t_start_s, direction=direction, frame=frame)
     finite_burn = import_module("sidera.core.propagation").FiniteBurn
     return finite_burn(
-        **{
-            key: value
-            for key, value in artifact["maneuvers"][0].items()
-            if key != "kind"
-        }
+        **{key: value for key, value in artifact["maneuvers"][0].items() if key != "kind"}
     )
 
 
@@ -250,9 +255,6 @@ def to_native_maneuver_plan(
 ) -> Any:
     """Wrap the exact native finite burn in Sidera's public ``ManeuverPlan``."""
 
-    burn = to_native_finite_burn(
-        result, t_start_s=t_start_s, direction=direction, frame=frame
-    )
+    burn = to_native_finite_burn(result, t_start_s=t_start_s, direction=direction, frame=frame)
     maneuver_plan = import_module("sidera.core.propagation").ManeuverPlan
     return maneuver_plan((burn,))
-

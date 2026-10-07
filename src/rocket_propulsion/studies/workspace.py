@@ -5,12 +5,35 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field, replace
+from math import isfinite
 from typing import Any
 
 from rocket_propulsion.core.errors import InputError
 from rocket_propulsion.core.validation import DOCUMENT_ERRORS
 
 CURRENT_SCHEMA_VERSION = 2
+
+
+def _validate_json_tree(value: Any, path: str = "workspace") -> None:
+    """Reject non-JSON values, non-string keys, NaN, and infinities recursively."""
+
+    if value is None or isinstance(value, (str, bool, int)):
+        return
+    if isinstance(value, float):
+        if not isfinite(value):
+            raise InputError(f"{path} must contain only finite numbers.", field=path)
+        return
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise InputError(f"{path} keys must be strings.", field=path)
+            _validate_json_tree(item, f"{path}.{key}")
+        return
+    if isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _validate_json_tree(item, f"{path}[{index}]")
+        return
+    raise InputError(f"{path} contains a non-JSON value.", field=path)
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,7 +61,10 @@ class Workspace:
 
 
 def _validate_case_id(case_id: str) -> None:
-    if not case_id or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for character in case_id):
+    if not case_id or any(
+        character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+        for character in case_id
+    ):
         raise InputError(
             "Case id must contain only letters, numbers, hyphens, and underscores.",
             field="case_id",
@@ -79,13 +105,18 @@ def workspace_to_json(workspace: Workspace, *, indent: int = 2) -> str:
 
     if workspace.schema_version != CURRENT_SCHEMA_VERSION:
         raise InputError("Only current-version workspaces can be serialized.")
-    return json.dumps(
-        asdict(workspace),
-        ensure_ascii=False,
-        indent=indent,
-        sort_keys=True,
-        allow_nan=False,
-    ) + "\n"
+    payload = asdict(workspace)
+    _validate_json_tree(payload)
+    return (
+        json.dumps(
+            payload,
+            ensure_ascii=False,
+            indent=indent,
+            sort_keys=True,
+            allow_nan=False,
+        )
+        + "\n"
+    )
 
 
 def _migrate_v1(document: dict[str, Any]) -> dict[str, Any]:
@@ -138,6 +169,7 @@ def workspace_from_json(text: str) -> Workspace:
         raise InputError("Workspace is not valid JSON.", code="invalid_workspace_json") from error
     if not isinstance(raw, dict):
         raise InputError("Workspace root must be a JSON object.")
+    _validate_json_tree(raw)
     try:
         return _workspace_from_document(raw)
     except InputError:

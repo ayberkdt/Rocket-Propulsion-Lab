@@ -13,8 +13,10 @@ astrodynamics package. All quantities are SI.
 
 | Need | Module | Main type | Detail |
 |---|---|---|---|
+| Primary Rocket Propulsion Lab → Sidera provider contract | `integrations/sidera_propulsion.py` | `SideraPropulsionProviderHandoff` | [Sidera provider](SIDERA_PROPULSION_PROVIDER.md) |
 | Chemical burn with a known thrust/flow history | `propagator.py` | `PropagatorPropulsionBridge` | [Bridge](PROPAGATOR_PROPULSION_BRIDGE.md) |
 | Thrust that depends on tank/feed pressure, throttle, power … | `performance_surface.py` | `RectilinearPerformanceSurface` | [Surfaces](OPERATING_CONDITION_SURFACES.md) |
+| Independent oxidizer/fuel response and feed-line/O-F dynamics | `stream_performance.py`, `bipropellant.py` | `RectilinearStreamPerformanceSurface`, `BipropellantDynamicFeedCoupling` | [Sidera provider](SIDERA_PROPULSION_PROVIDER.md) |
 | Ascent or landing: ambient back-pressure | `propagator.py` | `nozzle_exit_area_m2`, `ambient_pressure_pa` | [Bridge](PROPAGATOR_PROPULSION_BRIDGE.md#ambient-pressure) |
 | Pressure-fed liquid stage with regulator dynamics | `feed_system.py`, `feed_line.py` | `RegulatedFeedSystem`, `DynamicFeedLine` | [Feed](REGULATED_FEED_DYNAMICS.md), [Line](DYNAMIC_FEED_LINE.md) |
 | Ion / Hall thruster limited by available power | `electric.py` | `PowerLimitedPropulsionModel` | [Electric](ELECTRIC_PROPULSION.md) |
@@ -22,11 +24,12 @@ astrodynamics package. All quantities are SI.
 | Impulsive maneuver execution errors | `execution_errors.py` | `GatesExecutionErrorModel` | [Errors](EXECUTION_ERRORS.md) |
 | Slowly wandering thrust on long arcs | `execution_errors.py` | `FirstOrderGaussMarkov` | [Errors](EXECUTION_ERRORS.md) |
 | Torque, cosine loss, CoM/inertia drift for 6-DOF | `vehicle_geometry.py` | `ThrusterLayout`, `PropellantMassModel` | [Geometry](VEHICLE_GEOMETRY.md) |
+| Ordered two-axis gimbal force/moment and analytic derivatives | `vectoring.py` | `MountedEngineCluster` | [Sidera provider](SIDERA_PROPULSION_PROVIDER.md) |
 | Bounded (0 ≤ T ≤ T_max) thruster allocation for a force/torque demand | `vehicle_geometry.py` | `ThrusterLayout.allocate` | [Geometry](VEHICLE_GEOMETRY.md#thrust-allocation) |
 | Several burns, coasts and stage/fairing jettison on one clock | `timeline.py` | `PropulsionTimeline` | [Timeline](PROPULSION_TIMELINE.md) |
 | Throttle as an optimization control, smooth Isp(u) | `throttleable.py` | `ThrottleableEngineModel`, `MonotoneCubicCurve` | [Optimization](TRAJECTORY_OPTIMIZATION.md) |
 | Impulsive equivalent (Δv, t*) of a finite burn | `burn_metrics.py` | `free_space_burn_metrics` | [Optimization](TRAJECTORY_OPTIMIZATION.md#3-impulsive-equivalent-of-a-finite-burn) |
-| Lunar orbit propagation in Lunaris (impulsive or finite burns) | `integrations/lunaris.py` | `lunaris_impulsive_equivalents`, `LunarisFiniteBurnDynamics` | [Lunaris](LUNARIS_INTEGRATION.md) |
+| Legacy lunar propagation compatibility | `integrations/lunaris.py` | `lunaris_impulsive_equivalents`, `LunarisFiniteBurnDynamics` | [Lunaris](LUNARIS_INTEGRATION.md) |
 | Saltation for sensitivities at burn events | `propagator.py` | `time_event_jump` | [Optimization](TRAJECTORY_OPTIMIZATION.md#4-variational-equations-across-burn-discontinuities) |
 | Monte Carlo realizations with probabilities | `ensemble.py`, `scenarios.py` | hierarchical ensemble | [Ensemble](HIERARCHICAL_PROPULSION_ENSEMBLE.md) |
 
