@@ -21,6 +21,7 @@ from math import isclose, isfinite, sqrt
 from typing import Any, Literal
 
 from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError, InputError
+from rocket_propulsion.core.validation import integer, real, text, vector3
 from rocket_propulsion.propulsion.burns import HierarchicalPropulsionEnsemble
 from rocket_propulsion.propulsion.burns.ensemble_serialization import (
     HIERARCHICAL_ENSEMBLE_SCHEMA,
@@ -44,7 +45,7 @@ _FRAMES = {"inertial", "ric", "vnb"}
 
 
 def _sha256_hex(value: str, field: str) -> str:
-    normalized = str(value).lower()
+    normalized = text(value, field).lower()
     if len(normalized) != 64 or any(
         character not in "0123456789abcdef" for character in normalized
     ):
@@ -53,9 +54,7 @@ def _sha256_hex(value: str, field: str) -> str:
 
 
 def _unit_direction(values: tuple[float, float, float]) -> tuple[float, float, float]:
-    vector = tuple(float(value) for value in values)
-    if len(vector) != 3 or any(not isfinite(value) for value in vector):
-        raise DomainError("Sidera ensemble direction must contain three finite values.")
+    vector = vector3(values, "Sidera ensemble direction")
     norm = sqrt(sum(value * value for value in vector))
     if norm <= 0.0:
         raise DomainError("Sidera ensemble direction must be non-zero.")
@@ -83,8 +82,15 @@ class SideraEnsembleBurnJob:
     artifact: TabulatedBurnArtifact
 
     def __post_init__(self) -> None:
-        if not self.scenario_id.strip():
-            raise DomainError("Sidera ensemble scenario ID must not be empty.")
+        text(self.scenario_id, "Sidera ensemble scenario ID")
+        object.__setattr__(
+            self, "conditional_index", integer(self.conditional_index, "Conditional index")
+        )
+        for name in ("scenario_probability", "conditional_probability", "joint_probability",
+                     "t_start_s"):
+            object.__setattr__(self, name, real(getattr(self, name), f"Sidera job {name}"))
+        if not isinstance(self.artifact, TabulatedBurnArtifact):
+            raise DomainError("Sidera ensemble jobs require a TabulatedBurnArtifact.")
         if self.conditional_index < 0:
             raise DomainError("Sidera conditional index must be nonnegative.")
         probabilities = (
@@ -106,7 +112,7 @@ class SideraEnsembleBurnJob:
             raise DomainError("Sidera joint probability does not factor correctly.")
         if not isfinite(self.t_start_s):
             raise DomainError("Sidera ensemble start time must be finite.")
-        frame = str(self.frame).strip().lower()
+        frame = text(self.frame, "Sidera ensemble frame").strip().lower()
         if frame not in _FRAMES:
             raise DomainError("Sidera ensemble frame must be inertial, ric, or vnb.")
         object.__setattr__(self, "frame", frame)

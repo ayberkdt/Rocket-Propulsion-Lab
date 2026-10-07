@@ -15,6 +15,7 @@ from math import isfinite, sqrt
 from typing import TYPE_CHECKING
 
 from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.validation import coerce_fields, real
 
 from .feed_system import RegulatedFeedEvaluation, RegulatedFeedState, RegulatedFeedSystem
 from .serialization import canonical_sha256
@@ -79,6 +80,7 @@ class DynamicFeedLineConfiguration:
     schema: str = DYNAMIC_FEED_LINE_SCHEMA
 
     def __post_init__(self) -> None:
+        coerce_fields(self, "Feed-line configuration")
         if self.schema != DYNAMIC_FEED_LINE_SCHEMA:
             raise DomainError("Unsupported dynamic feed-line schema.")
         if not self.model_id.strip():
@@ -116,6 +118,7 @@ class DynamicFeedLineState:
     manifold_pressure_pa: float
 
     def __post_init__(self) -> None:
+        coerce_fields(self, "Feed-line state")
         if not isfinite(self.mass_flow_kg_s):
             raise DomainError("Feed-line mass flow must be finite.")
         _positive(self.manifold_pressure_pa, "Feed-line manifold pressure")
@@ -330,6 +333,11 @@ class DynamicFeedLine:
         NASA nodal feed/pressurization modeling:
         https://ntrs.nasa.gov/citations/20240003493
         """
+
+        if not isinstance(state, DynamicFeedLineState):
+            raise DomainError("Feed-line evaluation requires a DynamicFeedLineState.")
+        upstream_pressure_pa = real(upstream_pressure_pa, "Upstream pressure")
+        engine_mass_flow_kg_s = real(engine_mass_flow_kg_s, "Engine mass flow")
 
         _positive(upstream_pressure_pa, "Dynamic-line upstream pressure")
         _nonnegative(engine_mass_flow_kg_s, "Engine mass-flow demand")

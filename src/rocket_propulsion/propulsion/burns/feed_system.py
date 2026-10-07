@@ -16,6 +16,7 @@ from math import isfinite, sqrt
 from typing import TYPE_CHECKING
 
 from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.validation import coerce_fields, real
 
 from .serialization import canonical_sha256
 
@@ -57,6 +58,7 @@ class IdealPressurantGas:
     name: str = "pressurant"
 
     def __post_init__(self) -> None:
+        coerce_fields(self, "Pressurant gas")
         _positive(self.specific_gas_constant_j_kg_k, "Pressurant gas constant")
         if not isfinite(self.gamma) or self.gamma <= 1.0:
             raise DomainError("Pressurant gamma must be finite and greater than one.")
@@ -127,6 +129,7 @@ class RegulatedFeedConfiguration:
     schema: str = FEED_SYSTEM_SCHEMA
 
     def __post_init__(self) -> None:
+        coerce_fields(self, "Feed configuration")
         if self.schema != FEED_SYSTEM_SCHEMA:
             raise DomainError("Unsupported regulated-feed schema.")
         if not self.model_id.strip():
@@ -185,6 +188,7 @@ class RegulatedFeedState:
     regulator_opening: float
 
     def __post_init__(self) -> None:
+        coerce_fields(self, "Feed state")
         for value, label in (
             (self.propellant_mass_kg, "Propellant mass"),
             (self.tank_pressurant_mass_kg, "Tank pressurant mass"),
@@ -480,6 +484,13 @@ class RegulatedFeedSystem:
         https://ntrs.nasa.gov/citations/20240003493
         """
 
+        propellant_mass_kg = real(propellant_mass_kg, "Initial propellant mass")
+        tank_pressure_pa = real(tank_pressure_pa, "Initial tank pressure")
+        tank_gas_temperature_k = real(tank_gas_temperature_k, "Initial tank gas temperature")
+        bottle_pressure_pa = real(bottle_pressure_pa, "Initial bottle pressure")
+        bottle_gas_temperature_k = real(bottle_gas_temperature_k, "Initial bottle gas temperature")
+        regulator_opening = real(regulator_opening, "Initial regulator opening")
+
         _positive(propellant_mass_kg, "Initial propellant mass")
         _positive(tank_pressure_pa, "Initial tank pressure")
         _positive(tank_gas_temperature_k, "Initial tank gas temperature")
@@ -593,6 +604,10 @@ class RegulatedFeedSystem:
         NASA mass-flow choking relation:
         https://www.grc.nasa.gov/www/k-12/BGP/mflchk.html
         """
+
+        if not isinstance(state, RegulatedFeedState):
+            raise DomainError("Feed evaluation requires a RegulatedFeedState.")
+        propellant_mass_flow_kg_s = real(propellant_mass_flow_kg_s, "Propellant mass flow")
 
         _nonnegative(propellant_mass_flow_kg_s, "Propellant mass-flow demand")
         config = self.configuration

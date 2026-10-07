@@ -18,6 +18,7 @@ boolean passed where a physical quantity is expected is always a caller bug.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import fields, is_dataclass
 from math import isfinite
 from numbers import Integral, Real
 
@@ -126,6 +127,35 @@ def real_matrix(value: object, label: str) -> tuple[tuple[float, ...], ...]:
     if isinstance(value, (str, bytes, Mapping)) or not hasattr(value, "__iter__"):
         raise DomainError(f"{label} must be a matrix.", field=label)
     return tuple(real_tuple(row, label) for row in value)  # type: ignore[union-attr]
+
+
+def coerce_fields(instance: object, label: str) -> None:
+    """Validate and normalize a frozen dataclass's annotated scalar fields in place.
+
+    Fields annotated ``float`` become finite floats, ``float | None`` likewise
+    unless ``None``, ``int`` become integers and ``str`` must be non-blank
+    strings.  Other annotations are left to the class's own checks.  Call it
+    first in ``__post_init__`` so later checks only see clean values.
+    """
+
+    if not is_dataclass(instance):
+        raise TypeError("coerce_fields requires a dataclass instance.")
+    for item in fields(instance):
+        annotation = item.type if isinstance(item.type, str) else getattr(
+            item.type, "__name__", str(item.type)
+        )
+        annotation = annotation.replace(" ", "")
+        value = getattr(instance, item.name)
+        name = f"{label} {item.name}"
+        if annotation == "float":
+            object.__setattr__(instance, item.name, real(value, name))
+        elif annotation in {"float|None", "None|float"}:
+            if value is not None:
+                object.__setattr__(instance, item.name, real(value, name))
+        elif annotation == "int":
+            object.__setattr__(instance, item.name, integer(value, name))
+        elif annotation == "str":
+            text(value, name)
 
 
 def json_text(value: object, label: str) -> str:

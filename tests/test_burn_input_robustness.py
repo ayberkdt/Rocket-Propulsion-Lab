@@ -9,6 +9,7 @@
    conservation, continuity and consistency invariants.
 """
 
+import dataclasses
 import json
 import random
 import unittest
@@ -21,6 +22,8 @@ from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.propulsion.burns import (
     AdditionalStateConstraint,
     DiscreteThrottlePath,
+    DynamicFeedLine,
+    DynamicFeedLineState,
     ElectricThrottleLevel,
     ElectricThrottleTable,
     FirstOrderGaussMarkov,
@@ -37,6 +40,7 @@ from rocket_propulsion.propulsion.burns import (
     PropulsionParameterPrior,
     PropulsionTimeline,
     RectilinearPerformanceSurface,
+    RegulatedFeedSystem,
     ScheduledBurn,
     StreamStateBinding,
     TabulatedBurnArtifact,
@@ -272,6 +276,156 @@ class FuzzTests(unittest.TestCase):
             }
             for label, call in calls.items():
                 self.assert_fails_closed(f"{label} {value!r}", call)
+
+
+class FeedAndAdapterFuzzTests(unittest.TestCase):
+    """Feed-system, feed-line and Lunaris-adapter boundaries fail closed too."""
+
+    def assert_fails_closed(self, label: str, call) -> None:
+        try:
+            call()
+        except ACCEPTED:
+            pass
+        except Exception as error:  # noqa: BLE001 - any other exception is the failure under test
+            self.fail(f"{label} raised {type(error).__name__}: {error}")
+
+    def test_feed_system_and_line(self) -> None:
+        from tests.test_burn_feed_line import example_line
+        from tests.test_burn_feed_system import example_feed_system
+
+        system = example_feed_system()
+        state = system.initial_state(
+            propellant_mass_kg=10.0, tank_pressure_pa=2e6, tank_gas_temperature_k=300.0,
+            bottle_pressure_pa=2e7, bottle_gas_temperature_k=300.0, regulator_opening=0.5,
+        )
+        line = example_line()
+        line_state = DynamicFeedLineState(0.2, 1.84e6)
+        initial = {
+            "propellant_mass_kg": 10.0, "tank_pressure_pa": 2e6, "tank_gas_temperature_k": 300.0,
+            "bottle_pressure_pa": 2e7, "bottle_gas_temperature_k": 300.0,
+            "regulator_opening": 0.5,
+        }
+        for value in BAD_VALUES:
+            self.assert_fails_closed("feed flow", lambda v=value: system.evaluate(state, v))
+            self.assert_fails_closed("feed state", lambda v=value: system.evaluate(v, 0.1))
+            for field in dataclasses.fields(state):
+                self.assert_fails_closed(
+                    f"feed state {field.name}",
+                    lambda v=value, f=field: system.evaluate(
+                        dataclasses.replace(state, **{f.name: v}), 0.1
+                    ),
+                )
+            for name in initial:
+                self.assert_fails_closed(
+                    f"initial {name}",
+                    lambda v=value, n=name: system.initial_state(**dict(initial, **{n: v})),
+                )
+            for field in dataclasses.fields(system.configuration):
+                self.assert_fails_closed(
+                    f"feed config {field.name}",
+                    lambda v=value, f=field: RegulatedFeedSystem(
+                        dataclasses.replace(system.configuration, **{f.name: v})
+                    ),
+                )
+            self.assert_fails_closed(
+                "line upstream",
+                lambda v=value: line.evaluate(
+                    line_state, upstream_pressure_pa=v, engine_mass_flow_kg_s=0.2
+                ),
+            )
+            self.assert_fails_closed(
+                "line flow",
+                lambda v=value: line.evaluate(
+                    line_state, upstream_pressure_pa=2e6, engine_mass_flow_kg_s=v
+                ),
+            )
+            self.assert_fails_closed(
+                "line state",
+                lambda v=value: line.evaluate(
+                    v, upstream_pressure_pa=2e6, engine_mass_flow_kg_s=0.2
+                ),
+            )
+            for field in dataclasses.fields(line.configuration):
+                self.assert_fails_closed(
+                    f"line config {field.name}",
+                    lambda v=value, f=field: DynamicFeedLine(
+                        dataclasses.replace(line.configuration, **{f.name: v})
+                    ),
+                )
+
+    def test_sidera_adapters(self) -> None:
+        from rocket_propulsion.integrations import (
+            SideraEnsembleBurnJob,
+            export_sidera_artifact,
+        )
+        from rocket_propulsion.propulsion.burns import (
+            BurnTarget,
+            BurnTargetKind,
+            simulate_constant_burn,
+        )
+        from tests.test_burns import example_definition, example_operating_point
+
+        result = simulate_constant_burn(
+            example_definition(BurnTarget(BurnTargetKind.DURATION, 1.0)),
+            example_operating_point(),
+        )
+        base = {"t_start_s": 0.0, "direction": (1.0, 0.0, 0.0), "frame": "inertial"}
+        for value in BAD_VALUES:
+            self.assert_fails_closed(
+                "sidera result", lambda v=value: export_sidera_artifact(v, **base)
+            )
+            for key in (*base, "mode"):
+                self.assert_fails_closed(
+                    f"sidera {key}",
+                    lambda v=value, k=key: export_sidera_artifact(result, **dict(base, **{k: v})),
+                )
+            job = {
+                "scenario_id": "s", "conditional_index": 0, "scenario_probability": 1.0,
+                "conditional_probability": 1.0, "joint_probability": 1.0, "t_start_s": 0.0,
+                "direction": (1.0, 0.0, 0.0), "frame": "ric", "artifact": simple_artifact(),
+            }
+            for key in job:
+                self.assert_fails_closed(
+                    f"sidera job {key}",
+                    lambda v=value, k=key, j=job: SideraEnsembleBurnJob(**dict(j, **{k: v})),
+                )
+
+    def test_lunaris_adapter(self) -> None:
+        from rocket_propulsion.integrations import (
+            LunarisFiniteBurnDynamics,
+            lunaris_impulsive_equivalents,
+        )
+
+        bridge = PropagatorPropulsionBridge(simple_artifact(), require_complete_stream_binding=False)
+        timeline = PropulsionTimeline(burns=(ScheduledBurn("b", bridge, 0.0),))
+        for value in BAD_VALUES:
+            self.assert_fails_closed(
+                "impulsive mass",
+                lambda v=value: lunaris_impulsive_equivalents(
+                    timeline, initial_mass_kg=v, directions={"b": ((1, 0, 0), "inertial")}
+                ),
+            )
+            self.assert_fails_closed(
+                "impulsive directions",
+                lambda v=value: lunaris_impulsive_equivalents(
+                    timeline, initial_mass_kg=10.0, directions=v
+                ),
+            )
+            self.assert_fails_closed(
+                "impulsive entry",
+                lambda v=value: lunaris_impulsive_equivalents(
+                    timeline, initial_mass_kg=10.0, directions={"b": v}
+                ),
+            )
+            self.assert_fails_closed(
+                "impulsive frame",
+                lambda v=value: lunaris_impulsive_equivalents(
+                    timeline, initial_mass_kg=10.0, directions={"b": ((1, 0, 0), v)}
+                ),
+            )
+            self.assert_fails_closed(
+                "finite timeline", lambda v=value: LunarisFiniteBurnDynamics(object(), v)
+            )
 
 
 class CanonicalNumberTests(unittest.TestCase):

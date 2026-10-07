@@ -5,11 +5,12 @@ from __future__ import annotations
 import inspect
 from dataclasses import asdict
 from importlib import import_module
-from math import isfinite, sqrt
+from math import sqrt
 from typing import Any, Literal
 
 from rocket_propulsion import __version__
 from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError
+from rocket_propulsion.core.validation import real, text, vector3
 from rocket_propulsion.propulsion.burns import (
     BurnResult,
     ProfiledBurnResult,
@@ -110,8 +111,7 @@ def inspect_sidera_capabilities() -> SideraCapabilities:
 
 
 def _normalized_direction(direction: tuple[float, float, float]) -> tuple[float, float, float]:
-    if len(direction) != 3 or any(not isfinite(value) for value in direction):
-        raise DomainError("Sidera direction must contain exactly three finite components.")
+    direction = vector3(direction, "Sidera direction")
     norm = sqrt(sum(value * value for value in direction))
     if norm <= 0.0:
         raise DomainError("Sidera direction must be non-zero.")
@@ -126,13 +126,14 @@ def _validated_export_inputs(
     frame: str,
     require_exact: bool,
 ) -> tuple[tuple[float, float, float], str]:
+    if not isinstance(result, (BurnResult, ProfiledBurnResult)):
+        raise DomainError("Sidera export requires a BurnResult or ProfiledBurnResult.")
     # Re-open the artifact through the public integrity boundary before using it.
     burn_result_from_dict(burn_result_to_dict(result))
     if require_exact and not result.summary.exact_constant_sidera_export_available:
         raise DomainError("Burn result is not eligible for exact constant Sidera export.")
-    if not isfinite(t_start_s):
-        raise DomainError("Sidera start time must be finite.")
-    normalized_frame = str(frame).strip().lower()
+    real(t_start_s, "Sidera start time")
+    normalized_frame = text(frame, "Sidera frame").strip().lower()
     if normalized_frame not in _FRAMES:
         raise DomainError("Sidera finite-burn frame must be inertial, ric, or vnb.")
     return _normalized_direction(direction), normalized_frame
@@ -148,7 +149,7 @@ def export_sidera_artifact(
 ) -> dict[str, Any]:
     """Create an exact or explicitly approximate hand-off without importing Sidera."""
 
-    if mode not in {"exact", "equivalent_constant"}:
+    if not isinstance(mode, str) or mode not in ("exact", "equivalent_constant"):
         raise DomainError("Sidera export mode must be exact or equivalent_constant.")
 
     normalized_direction, normalized_frame = _validated_export_inputs(
@@ -168,7 +169,7 @@ def export_sidera_artifact(
         isp_s = result.summary.rocket_equivalent_specific_impulse_s
     burn = {
         "kind": "finite_burn",
-        "t_start_s": float(t_start_s),
+        "t_start_s": real(t_start_s, "Sidera start time"),
         "duration_s": result.summary.duration_s,
         "thrust_n": thrust_n,
         "isp_s": isp_s,
