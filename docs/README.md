@@ -20,6 +20,14 @@
   supply-pressure/ambient/throttle/power performance maps and their gradients.
 - `REGULATED_FEED_DYNAMICS.md` defines the pressurant bottle, dynamic
   regulator, thermal ullage, line-loss ODE and implicit feed/engine closure.
+- `ASTRODYNAMICS_INTEGRATION.md` is the entry point for propagator, orbit-
+  determination and trajectory-optimization developers: module map, state
+  layout, event protocol and partials.
+- `EXECUTION_ERRORS.md` defines driver priors (including the hot-fire
+  calibration mapping), the Gates execution-error model and Gauss-Markov
+  thrust process noise.
+- `VEHICLE_GEOMETRY.md` defines thruster force/torque geometry and
+  propellant-dependent centre of mass and inertia with analytic derivatives.
 - `ELECTRIC_PROPULSION.md` defines the power-limited electric thruster model:
   hash-verified throttle tables, throttle paths with hysteresis, the
   fixed-efficiency law, power-switching roots and power/direction partials.

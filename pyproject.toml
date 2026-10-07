@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rocket-propulsion-lab"
 version = "0.9.0"
-description = "Compressible-flow and thermodynamics calculators for rocket propulsion studies."
+description = "Rocket propulsion analysis and propagation-ready propulsion models for astrodynamics."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Ayberk Demirkanat" }]
-keywords = ["rocket", "propulsion", "nozzle", "compressible-flow", "thermodynamics"]
+keywords = ["rocket", "propulsion", "nozzle", "compressible-flow", "thermodynamics", "astrodynamics", "orbit-propagation", "electric-propulsion"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
