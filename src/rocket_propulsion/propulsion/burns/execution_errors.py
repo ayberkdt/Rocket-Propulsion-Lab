@@ -33,6 +33,7 @@ from itertools import pairwise
 from math import exp, isfinite, log, sqrt
 
 from rocket_propulsion.core.errors import DomainError, InputError
+from rocket_propulsion.core.validation import real, real_tuple, text, vector3
 
 from .calibration import CalibrationScope
 from .multivariate_calibration import HotFireMultivariateCalibration
@@ -102,6 +103,23 @@ class PropulsionParameterPrior:
     def __post_init__(self) -> None:
         if self.schema != PROPULSION_PRIOR_SCHEMA:
             raise DomainError("Unsupported propulsion-prior schema.")
+        for field_name in ("parameter_names", "reference_ids"):
+            value = getattr(self, field_name)
+            if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
+                raise DomainError(f"Prior {field_name} must be a sequence of strings.")
+            object.__setattr__(
+                self, field_name, tuple(text(item, f"Prior {field_name}") for item in value)
+            )
+        object.__setattr__(self, "mean", real_tuple(self.mean, "Prior mean"))
+        if isinstance(self.covariance, (str, bytes)) or not hasattr(self.covariance, "__iter__"):
+            raise DomainError("Prior covariance must be a matrix.")
+        object.__setattr__(
+            self,
+            "covariance",
+            tuple(real_tuple(row, "Prior covariance") for row in self.covariance),
+        )
+        if not isinstance(self.source, str) or not isinstance(self.rationale, str):
+            raise DomainError("Prior source and rationale must be strings.")
         size = len(self.parameter_names)
         if size == 0:
             raise DomainError("A parameter prior requires at least one parameter.")
@@ -151,7 +169,13 @@ class PropulsionParameterPrior:
         https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf
         """
 
-        names = tuple(standard_deviations)
+        if not isinstance(standard_deviations, Mapping):
+            raise DomainError("Standard deviations must be a mapping.")
+        if mean is not None and not isinstance(mean, Mapping):
+            raise DomainError("Means must be a mapping.")
+        if correlation is not None and not isinstance(correlation, Mapping):
+            raise DomainError("Correlations must be a mapping of name pairs.")
+        names = tuple(text(name, "Prior parameter name") for name in standard_deviations)
         defaults = {"thrust_scale": 1.0, "mass_flow_scale": 1.0, "ignition_time_bias_s": 0.0}
         supplied_mean = dict(mean or {})
         if set(supplied_mean) - set(names):
@@ -159,22 +183,26 @@ class PropulsionParameterPrior:
         means = []
         for name in names:
             if name in supplied_mean:
-                means.append(float(supplied_mean[name]))
+                means.append(real(supplied_mean[name], f"Prior mean {name!r}"))
             elif name in defaults:
                 means.append(defaults[name])
             else:
                 raise DomainError(f"Parameter {name!r} needs an explicit mean.")
         sigmas = []
         for name in names:
-            sigma = float(standard_deviations[name])
-            if not isfinite(sigma) or sigma < 0.0:
+            sigma = real(standard_deviations[name], f"Prior sigma {name!r}")
+            if sigma < 0.0:
                 raise DomainError("Prior standard deviations must be finite and non-negative.")
             sigmas.append(sigma)
         rho = {name: {other: (1.0 if name == other else 0.0) for other in names} for name in names}
-        for (first, second), value in (correlation or {}).items():
+        for pair, raw in (correlation or {}).items():
+            if not isinstance(pair, tuple) or len(pair) != 2:
+                raise DomainError("Correlation keys must be (name, name) pairs.")
+            first, second = pair
             if first not in rho or second not in rho or first == second:
                 raise DomainError("Correlation pairs must name two distinct prior parameters.")
-            if not isfinite(value) or not -1.0 <= value <= 1.0:
+            value = real(raw, "Correlation coefficient")
+            if not -1.0 <= value <= 1.0:
                 raise DomainError("Correlation coefficients must lie in [-1, 1].")
             rho[first][second] = rho[second][first] = float(value)
         covariance = tuple(
@@ -218,6 +246,8 @@ class PropulsionParameterPrior:
         NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
         """
 
+        if not isinstance(calibration, HotFireMultivariateCalibration):
+            raise DomainError("A HotFireMultivariateCalibration is required.")
         names = calibration.parameter_names
         if "thrust_scale" not in names or "specific_impulse_scale" not in names:
             raise DomainError(
@@ -275,7 +305,8 @@ class PropulsionParameterPrior:
             mapped_mean = [1.0, 1.0]
         names_out: list[str] = ["thrust_scale", "mass_flow_scale"]
         if ignition_time_bias_sigma_s is not None:
-            if not isfinite(ignition_time_bias_sigma_s) or ignition_time_bias_sigma_s < 0.0:
+            ignition_time_bias_sigma_s = real(ignition_time_bias_sigma_s, "Ignition-time sigma")
+            if ignition_time_bias_sigma_s < 0.0:
                 raise DomainError("Ignition-time sigma must be finite and non-negative.")
             names_out.append("ignition_time_bias_s")
             mapped_mean.append(0.0)
@@ -336,6 +367,10 @@ class PropulsionParameterPrior:
         NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
         """
 
+        if isinstance(parameters, (str, bytes)) or not hasattr(parameters, "__iter__"):
+            raise DomainError("Bridge parameters must be a sequence.")
+        if any(not isinstance(item, EstimableParameter) for item in parameters):
+            raise DomainError("Bridge parameters must be EstimableParameter records.")
         drivers = {parameter.name: parameter for parameter in parameters}
         warnings: list[str] = []
         for name, value, sigma in zip(
@@ -417,8 +452,8 @@ def delta_v_log_sensitivities(consumed_mass_fraction: float) -> tuple[float, flo
     NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
     """
 
-    mu = float(consumed_mass_fraction)
-    if not isfinite(mu) or not 0.0 < mu < 1.0:
+    mu = real(consumed_mass_fraction, "Consumed mass fraction")
+    if not 0.0 < mu < 1.0:
         raise DomainError("Consumed mass fraction must lie in (0, 1).")
     return 1.0, -1.0 + mu / ((1.0 - mu) * (-log(1.0 - mu)))
 
@@ -450,14 +485,16 @@ class GatesExecutionErrorModel:
     proportional_pointing_sigma_rad: float
 
     def __post_init__(self) -> None:
-        for value in (
-            self.fixed_magnitude_sigma_m_s,
-            self.proportional_magnitude_sigma,
-            self.fixed_pointing_sigma_m_s,
-            self.proportional_pointing_sigma_rad,
+        for field_name in (
+            "fixed_magnitude_sigma_m_s",
+            "proportional_magnitude_sigma",
+            "fixed_pointing_sigma_m_s",
+            "proportional_pointing_sigma_rad",
         ):
-            if not isfinite(value) or value < 0.0:
+            value = real(getattr(self, field_name), f"Gates {field_name}")
+            if value < 0.0:
                 raise DomainError("Gates error sigmas must be finite and non-negative.")
+            object.__setattr__(self, field_name, value)
 
     @classmethod
     def from_parameter_prior(
@@ -485,6 +522,8 @@ class GatesExecutionErrorModel:
         https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf
         """
 
+        if not isinstance(prior, PropulsionParameterPrior):
+            raise DomainError("A PropulsionParameterPrior is required.")
         gradient = dict(
             zip(
                 ("thrust_scale", "mass_flow_scale"),
@@ -511,8 +550,7 @@ class GatesExecutionErrorModel:
 
     @staticmethod
     def _unit(delta_v: tuple[float, float, float]) -> tuple[tuple[float, float, float], float]:
-        if len(delta_v) != 3 or any(not isfinite(value) for value in delta_v):
-            raise DomainError("Delta-v must contain three finite components.")
+        delta_v = vector3(delta_v, "Delta-v")
         magnitude = sqrt(sum(value * value for value in delta_v))
         if magnitude <= 0.0:
             raise DomainError("Delta-v must be non-zero.")
@@ -521,7 +559,8 @@ class GatesExecutionErrorModel:
     def along_and_transverse_variance(self, delta_v_magnitude_m_s: float) -> tuple[float, float]:
         """Return the along-burn and per-transverse-axis variances [m^2/s^2]."""
 
-        if not isfinite(delta_v_magnitude_m_s) or delta_v_magnitude_m_s < 0.0:
+        delta_v_magnitude_m_s = real(delta_v_magnitude_m_s, "Delta-v magnitude")
+        if delta_v_magnitude_m_s < 0.0:
             raise DomainError("Delta-v magnitude must be finite and non-negative.")
         v2 = delta_v_magnitude_m_s**2
         return (
@@ -558,7 +597,10 @@ class GatesExecutionErrorModel:
         NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
         """
 
+        if not isinstance(generator, random.Random):
+            raise DomainError("A random.Random generator is required.")
         unit, magnitude = self._unit(delta_v)
+        delta_v = vector3(delta_v, "Delta-v")
         along, transverse = self.along_and_transverse_variance(magnitude)
         helper = (1.0, 0.0, 0.0) if abs(unit[0]) < 0.9 else (0.0, 1.0, 0.0)
         first = _cross(unit, helper)
@@ -605,11 +647,16 @@ class FirstOrderGaussMarkov:
     time_constant_s: float
 
     def __post_init__(self) -> None:
-        if not self.parameter_name.strip():
-            raise DomainError("Gauss-Markov parameter name must not be empty.")
-        if not isfinite(self.steady_state_sigma) or self.steady_state_sigma < 0.0:
+        text(self.parameter_name, "Gauss-Markov parameter name")
+        object.__setattr__(
+            self, "steady_state_sigma", real(self.steady_state_sigma, "Gauss-Markov sigma")
+        )
+        object.__setattr__(
+            self, "time_constant_s", real(self.time_constant_s, "Gauss-Markov time constant")
+        )
+        if self.steady_state_sigma < 0.0:
             raise DomainError("Gauss-Markov sigma must be finite and non-negative.")
-        if not isfinite(self.time_constant_s) or self.time_constant_s <= 0.0:
+        if self.time_constant_s <= 0.0:
             raise DomainError("Gauss-Markov time constant must be finite and positive.")
 
     @property
@@ -621,8 +668,7 @@ class FirstOrderGaussMarkov:
     def transition(self, dt_s: float) -> float:
         """Return ``phi = exp(-|dt| / tau)``."""
 
-        if not isfinite(dt_s):
-            raise DomainError("Gauss-Markov step must be finite.")
+        dt_s = real(dt_s, "Gauss-Markov step")
         return exp(-abs(dt_s) / self.time_constant_s)
 
     def discrete_noise_variance(self, dt_s: float) -> float:
@@ -634,7 +680,9 @@ class FirstOrderGaussMarkov:
     def propagate(self, mean: float, variance: float, dt_s: float) -> tuple[float, float]:
         """Propagate the deviation's mean and variance over ``dt_s``."""
 
-        if not isfinite(mean) or not isfinite(variance) or variance < 0.0:
+        mean = real(mean, "Gauss-Markov mean")
+        variance = real(variance, "Gauss-Markov variance")
+        if variance < 0.0:
             raise DomainError("Gauss-Markov mean and variance must be finite and valid.")
         phi = self.transition(dt_s)
         return phi * mean, phi * phi * variance + self.discrete_noise_variance(dt_s)
@@ -651,14 +699,19 @@ class FirstOrderGaussMarkov:
         NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
         """
 
+        if not isinstance(generator, random.Random):
+            raise DomainError("A random.Random generator is required.")
+        times_s = real_tuple(times_s, "Gauss-Markov sample times")
         if not times_s:
             return ()
-        if any(not isfinite(t) for t in times_s) or any(
+        if any(
             later <= earlier for earlier, later in pairwise(times_s)
         ):
             raise DomainError("Gauss-Markov sample times must be finite and increasing.")
         value = (
-            generator.gauss(0.0, self.steady_state_sigma) if initial is None else float(initial)
+            generator.gauss(0.0, self.steady_state_sigma)
+            if initial is None
+            else real(initial, "Gauss-Markov initial value")
         )
         values = [value]
         for earlier, later in pairwise(times_s):

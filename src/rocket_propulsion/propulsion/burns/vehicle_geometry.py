@@ -24,9 +24,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from math import isfinite, sqrt
+from math import sqrt
 
 from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.validation import real, real_mapping, real_tuple, text, vector3
 
 Vector = tuple[float, float, float]
 Matrix3 = tuple[Vector, Vector, Vector]
@@ -35,9 +36,7 @@ _ZERO: Vector = (0.0, 0.0, 0.0)
 
 
 def _vector(value: tuple[float, ...], label: str) -> Vector:
-    if len(value) != 3 or any(not isfinite(float(item)) for item in value):
-        raise DomainError(f"{label} must contain three finite components.")
-    return (float(value[0]), float(value[1]), float(value[2]))
+    return vector3(value, label)
 
 
 def _cross(a: Vector, b: Vector) -> Vector:
@@ -95,8 +94,7 @@ class ThrusterMount:
     thrust_axis: Vector
 
     def __post_init__(self) -> None:
-        if not self.thruster_id.strip():
-            raise DomainError("Thruster identifier must not be empty.")
+        text(self.thruster_id, "Thruster identifier")
         object.__setattr__(self, "position_m", _vector(self.position_m, "Thruster position"))
         axis = _vector(self.thrust_axis, "Thrust axis")
         norm = sqrt(_dot(axis, axis))
@@ -138,6 +136,11 @@ class ThrusterLayout:
     mounts: tuple[ThrusterMount, ...]
 
     def __post_init__(self) -> None:
+        if isinstance(self.mounts, (str, bytes)) or not hasattr(self.mounts, "__iter__"):
+            raise DomainError("Thruster mounts must be a sequence.")
+        object.__setattr__(self, "mounts", tuple(self.mounts))
+        if any(not isinstance(mount, ThrusterMount) for mount in self.mounts):
+            raise DomainError("Thruster mounts must be ThrusterMount records.")
         if not self.mounts:
             raise DomainError("A thruster layout requires at least one thruster.")
         identifiers = [mount.thruster_id for mount in self.mounts]
@@ -181,6 +184,7 @@ class ThrusterLayout:
         """
 
         center = _vector(center_of_mass_m, "Centre of mass")
+        thrusts_n = real_mapping(thrusts_n, "Thruster thrusts")
         unknown = set(thrusts_n) - set(self.thruster_ids)
         if unknown:
             raise DomainError("Unknown thrusters: " + ", ".join(sorted(unknown)))
@@ -188,8 +192,8 @@ class ThrusterLayout:
         torque = [0.0, 0.0, 0.0]
         total = 0.0
         for mount in self.mounts:
-            thrust = float(thrusts_n.get(mount.thruster_id, 0.0))
-            if not isfinite(thrust) or thrust < 0.0:
+            thrust = thrusts_n.get(mount.thruster_id, 0.0)
+            if thrust < 0.0:
                 raise DomainError("Thruster thrust must be finite and non-negative.")
             if thrust == 0.0:
                 continue
@@ -240,8 +244,7 @@ class PropellantStation:
     position_m: Vector
 
     def __post_init__(self) -> None:
-        if not self.state_name.strip():
-            raise DomainError("Propellant station state name must not be empty.")
+        text(self.state_name, "Propellant station state name")
         object.__setattr__(self, "position_m", _vector(self.position_m, "Station position"))
 
 
@@ -286,17 +289,19 @@ class PropellantMassModel:
     stations: tuple[PropellantStation, ...]
 
     def __post_init__(self) -> None:
-        if not isfinite(self.dry_mass_kg) or self.dry_mass_kg <= 0.0:
+        object.__setattr__(self, "dry_mass_kg", real(self.dry_mass_kg, "Dry mass"))
+        if self.dry_mass_kg <= 0.0:
             raise DomainError("Dry mass must be finite and greater than zero.")
         object.__setattr__(
             self, "dry_center_of_mass_m", _vector(self.dry_center_of_mass_m, "Dry centre of mass")
         )
-        inertia = self.dry_inertia_kg_m2
+        raw = self.dry_inertia_kg_m2
+        if isinstance(raw, (str, bytes)) or not hasattr(raw, "__iter__"):
+            raise DomainError("Dry inertia must be a 3x3 matrix.")
+        inertia = tuple(real_tuple(row, "Dry inertia") for row in raw)
         if len(inertia) != 3 or any(len(row) != 3 for row in inertia):
             raise DomainError("Dry inertia must be a 3x3 matrix.")
-        values = [float(value) for row in inertia for value in row]
-        if any(not isfinite(value) for value in values):
-            raise DomainError("Dry inertia must be finite.")
+        object.__setattr__(self, "dry_inertia_kg_m2", inertia)
         for i in range(3):
             for j in range(i):
                 if abs(inertia[i][j] - inertia[j][i]) > 1e-9 * max(1.0, abs(inertia[i][j])):
@@ -307,6 +312,11 @@ class PropellantMassModel:
             for i in range(3)
         ):
             raise DomainError("Dry inertia diagonal violates the triangle inequality.")
+        if isinstance(self.stations, (str, bytes)) or not hasattr(self.stations, "__iter__"):
+            raise DomainError("Propellant stations must be a sequence.")
+        object.__setattr__(self, "stations", tuple(self.stations))
+        if any(not isinstance(station, PropellantStation) for station in self.stations):
+            raise DomainError("Propellant stations must be PropellantStation records.")
         names = [station.state_name for station in self.stations]
         if len(names) != len(set(names)):
             raise DomainError("Each tank state may have only one propellant station.")
@@ -319,12 +329,13 @@ class PropellantMassModel:
         B. Wie, Space Vehicle Dynamics and Control, 2nd ed., AIAA, 2008.
         """
 
+        states = real_mapping(additional_states, "Tank states")
         masses: list[float] = []
         for station in self.stations:
-            if station.state_name not in additional_states:
+            if station.state_name not in states:
                 raise DomainError(f"Missing tank state {station.state_name!r}.")
-            value = float(additional_states[station.state_name])
-            if not isfinite(value) or value < 0.0:
+            value = states[station.state_name]
+            if value < 0.0:
                 raise DomainError("Tank-state masses must be finite and non-negative.")
             masses.append(value)
         total = self.dry_mass_kg + sum(masses)

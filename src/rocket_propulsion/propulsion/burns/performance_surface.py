@@ -19,6 +19,7 @@ from math import isfinite, prod
 from types import MappingProxyType
 
 from rocket_propulsion.core.errors import DomainError, InputError
+from rocket_propulsion.core.validation import json_text, real, real_tuple, text
 
 PERFORMANCE_SURFACE_SCHEMA = "rocket_propulsion_performance_surface_v1"
 PERFORMANCE_SURFACE_REFERENCE_IDS = (
@@ -55,8 +56,9 @@ class PerformanceAxis:
     values: tuple[float, ...]
 
     def __post_init__(self) -> None:
-        if not self.name.strip() or not self.unit.strip():
-            raise DomainError("Performance-axis name and unit must not be empty.")
+        text(self.name, "Performance-axis name")
+        text(self.unit, "Performance-axis unit")
+        object.__setattr__(self, "values", real_tuple(self.values, "Performance-axis values"))
         if len(self.values) < 2:
             raise DomainError("A performance axis requires at least two coordinates.")
         if any(not isfinite(value) for value in self.values):
@@ -108,7 +110,14 @@ class PerformanceScalePoint:
     mass_flow_scale: float
 
     def __post_init__(self) -> None:
-        if not self.coordinates or any(not isfinite(value) for value in self.coordinates):
+        object.__setattr__(
+            self, "coordinates", real_tuple(self.coordinates, "Performance-point coordinates")
+        )
+        object.__setattr__(self, "force_scale", real(self.force_scale, "Performance force scale"))
+        object.__setattr__(
+            self, "mass_flow_scale", real(self.mass_flow_scale, "Performance mass-flow scale")
+        )
+        if not self.coordinates:
             raise DomainError("Performance-point coordinates must be finite and non-empty.")
         for value, label in (
             (self.force_scale, "Performance force scale"),
@@ -172,16 +181,11 @@ class PerformanceValiditySurface:
     def value(self, conditions: Mapping[str, float]) -> float:
         """Evaluate positive-inside signed distance in axis units."""
 
+        if not isinstance(conditions, Mapping):
+            raise DomainError("Operating conditions must be a mapping.")
         if self.condition_name not in conditions:
             raise DomainError(f"Missing operating condition {self.condition_name!r}.")
-        try:
-            value = float(conditions[self.condition_name])
-        except (TypeError, ValueError) as error:
-            raise DomainError(
-                f"Operating condition {self.condition_name!r} must be numeric."
-            ) from error
-        if not isfinite(value):
-            raise DomainError(f"Operating condition {self.condition_name!r} must be finite.")
+        value = real(conditions[self.condition_name], f"Operating condition {self.condition_name!r}")
         if self.bound == "lower":
             return value - self.boundary_value
         return self.boundary_value - value
@@ -228,16 +232,11 @@ class PerformanceGridLineSurface:
     def value(self, conditions: Mapping[str, float]) -> float:
         """Evaluate the signed distance ``condition - coordinate`` in axis units."""
 
+        if not isinstance(conditions, Mapping):
+            raise DomainError("Operating conditions must be a mapping.")
         if self.condition_name not in conditions:
             raise DomainError(f"Missing operating condition {self.condition_name!r}.")
-        try:
-            value = float(conditions[self.condition_name])
-        except (TypeError, ValueError) as error:
-            raise DomainError(
-                f"Operating condition {self.condition_name!r} must be numeric."
-            ) from error
-        if not isfinite(value):
-            raise DomainError(f"Operating condition {self.condition_name!r} must be finite.")
+        value = real(conditions[self.condition_name], f"Operating condition {self.condition_name!r}")
         return value - self.coordinate
 
 
@@ -277,6 +276,20 @@ class RectilinearPerformanceSurface:
     def __post_init__(self) -> None:
         if self.schema != PERFORMANCE_SURFACE_SCHEMA:
             raise DomainError("Unsupported performance-surface schema.")
+        for name, kind in (("axes", PerformanceAxis), ("points", PerformanceScalePoint)):
+            value = getattr(self, name)
+            if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
+                raise DomainError(f"Performance-surface {name} must be a sequence.")
+            object.__setattr__(self, name, tuple(value))
+            if any(not isinstance(item, kind) for item in getattr(self, name)):
+                raise DomainError(f"Performance-surface {name} have the wrong record type.")
+        text(self.source_id, "Performance-surface source identifier")
+        text(self.source_sha256, "Performance-surface source hash")
+        if isinstance(self.reference_ids, (str, bytes)):
+            raise DomainError("Performance-surface references must be a sequence.")
+        object.__setattr__(self, "reference_ids", tuple(self.reference_ids))
+        if any(not isinstance(item, str) for item in self.reference_ids):
+            raise DomainError("Performance-surface references must be strings.")
         if not self.axes:
             raise DomainError("A performance surface requires at least one axis.")
         names = [axis.name for axis in self.axes]
@@ -430,7 +443,7 @@ class RectilinearPerformanceSurface:
         """
 
         try:
-            payload = json.loads(text)
+            payload = json.loads(json_text(text, "Performance-surface artifact"))
         except json.JSONDecodeError as error:
             raise InputError("Performance-surface artifact is not valid JSON.") from error
         if not isinstance(payload, dict):
@@ -505,6 +518,8 @@ class RectilinearPerformanceSurface:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
+        if not isinstance(conditions, Mapping):
+            raise DomainError("Operating conditions must be a mapping.")
         expected_names = {axis.name for axis in self.axes}
         supplied_names = set(conditions)
         if supplied_names != expected_names:
@@ -519,14 +534,7 @@ class RectilinearPerformanceSurface:
         brackets: list[tuple[int, int, float, float]] = []
         boundary_axes: list[str] = []
         for axis in self.axes:
-            try:
-                value = float(conditions[axis.name])
-            except (TypeError, ValueError) as error:
-                raise DomainError(
-                    f"Operating condition {axis.name!r} must be numeric."
-                ) from error
-            if not isfinite(value):
-                raise DomainError(f"Operating condition {axis.name!r} must be finite.")
+            value = real(conditions[axis.name], f"Operating condition {axis.name!r}")
             tolerance = max(1e-12, max(abs(axis.minimum), abs(axis.maximum)) * 1e-12)
             if value < axis.minimum - tolerance or value > axis.maximum + tolerance:
                 raise DomainError(

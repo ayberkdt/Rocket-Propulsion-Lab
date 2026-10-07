@@ -18,6 +18,7 @@ from math import isfinite, sqrt
 from types import MappingProxyType
 
 from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.validation import real, real_mapping, text, vector3
 
 from .performance_surface import (
     PerformanceGridLineSurface,
@@ -73,8 +74,14 @@ class EstimableParameter:
     unit: str
 
     def __post_init__(self) -> None:
-        if not self.name.strip():
-            raise DomainError("Estimable parameter name must not be empty.")
+        text(self.name, "Estimable parameter name")
+        text(self.unit, "Estimable parameter unit")
+        for field_name in ("reference_value", "scale", "minimum", "maximum"):
+            object.__setattr__(
+                self,
+                field_name,
+                real(getattr(self, field_name), f"Estimable parameter {field_name}"),
+            )
         values = (self.reference_value, self.scale, self.minimum, self.maximum)
         if any(not isfinite(value) for value in values):
             raise DomainError("Estimable parameter values and bounds must be finite.")
@@ -88,11 +95,8 @@ class EstimableParameter:
     def validate(self, value: float) -> float:
         """Return a finite in-bounds value or fail closed."""
 
-        try:
-            numeric = float(value)
-        except (TypeError, ValueError) as error:
-            raise DomainError(f"Parameter {self.name!r} must be numeric.") from error
-        if not isfinite(numeric) or not self.minimum <= numeric <= self.maximum:
+        numeric = real(value, f"Parameter {self.name!r}")
+        if not self.minimum <= numeric <= self.maximum:
             raise DomainError(
                 f"Parameter {self.name!r} must be finite and in "
                 f"[{self.minimum}, {self.maximum}]."
@@ -115,8 +119,8 @@ class StreamStateBinding:
     state_name: str
 
     def __post_init__(self) -> None:
-        if not self.stream_id.strip() or not self.state_name.strip():
-            raise DomainError("Stream and additional-state names must not be empty.")
+        text(self.stream_id, "Stream identifier")
+        text(self.state_name, "Additional-state name")
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,9 +137,12 @@ class AdditionalStateConstraint:
     label: str = "tank reserve"
 
     def __post_init__(self) -> None:
-        if not self.state_name.strip() or not self.label.strip():
-            raise DomainError("State-constraint names must not be empty.")
-        if not isfinite(self.minimum_value) or self.minimum_value < 0.0:
+        text(self.state_name, "State-constraint state name")
+        text(self.label, "State-constraint label")
+        object.__setattr__(
+            self, "minimum_value", real(self.minimum_value, "State-constraint minimum")
+        )
+        if self.minimum_value < 0.0:
             raise DomainError("State-constraint minimum must be finite and non-negative.")
 
 
@@ -172,10 +179,9 @@ class BurnEventSurface:
     ) -> float:
         """Evaluate the signed event function without hidden state."""
 
-        if not isfinite(relative_time_s) or not isfinite(vehicle_mass_kg):
-            raise DomainError("Event evaluation time and mass must be finite.")
-        if not isfinite(ignition_time_bias_s):
-            raise DomainError("Event ignition-time bias must be finite.")
+        relative_time_s = real(relative_time_s, "Event evaluation time")
+        vehicle_mass_kg = real(vehicle_mass_kg, "Event evaluation vehicle mass")
+        ignition_time_bias_s = real(ignition_time_bias_s, "Event ignition-time bias")
         if self.relative_time_s is not None:
             return relative_time_s - (self.relative_time_s + ignition_time_bias_s)
         if self.kind is BurnEventKind.DRY_MASS:
@@ -183,12 +189,10 @@ class BurnEventSurface:
             return vehicle_mass_kg - self.threshold
         if self.state_name is None or self.threshold is None:
             raise DomainError("Malformed state event surface.")
-        if self.state_name not in additional_states:
+        states = real_mapping(additional_states, "Additional states")
+        if self.state_name not in states:
             raise DomainError(f"Missing additional state {self.state_name!r}.")
-        value = float(additional_states[self.state_name])
-        if not isfinite(value):
-            raise DomainError(f"Additional state {self.state_name!r} must be finite.")
-        return value - self.threshold
+        return states[self.state_name] - self.threshold
 
 
 @dataclass(frozen=True, slots=True)
@@ -302,8 +306,7 @@ class PropellantMassClosure:
 def _normalized_with_norm(
     vector: tuple[float, float, float],
 ) -> tuple[tuple[float, float, float], float]:
-    if len(vector) != 3 or any(not isfinite(value) for value in vector):
-        raise DomainError("Thrust direction must contain three finite components.")
+    vector = vector3(vector, "Thrust direction")
     norm = sqrt(sum(value * value for value in vector))
     if norm <= 0.0:
         raise DomainError("Thrust direction must be non-zero.")
@@ -311,18 +314,7 @@ def _normalized_with_norm(
 
 
 def _validated_states(additional_states: Mapping[str, float] | None) -> dict[str, float]:
-    states = dict(additional_states or {})
-    for name, value in states.items():
-        try:
-            numeric_value = float(value)
-        except (TypeError, ValueError) as error:
-            raise DomainError(
-                "Additional-state names and values must be valid and finite."
-            ) from error
-        if not isinstance(name, str) or not name.strip() or not isfinite(numeric_value):
-            raise DomainError("Additional-state names and values must be valid and finite.")
-        states[name] = numeric_value
-    return states
+    return real_mapping(additional_states, "Additional states")
 
 
 def _canonical_hash(payload: object) -> str:
@@ -380,6 +372,31 @@ class PropagatorPropulsionBridge:
             raise DomainError("Unsupported propagator bridge schema.")
         if not self.model_id.strip():
             raise DomainError("Propagator bridge model identifier must not be empty.")
+        if not isinstance(self.artifact, TabulatedBurnArtifact):
+            raise DomainError("Propagator bridge requires a TabulatedBurnArtifact.")
+        if self.performance_surface is not None and not isinstance(
+            self.performance_surface, RectilinearPerformanceSurface
+        ):
+            raise DomainError("Performance surface must be a RectilinearPerformanceSurface.")
+        for field_name, kind in (
+            ("stream_bindings", StreamStateBinding),
+            ("state_constraints", AdditionalStateConstraint),
+            ("parameters", EstimableParameter),
+        ):
+            value = getattr(self, field_name)
+            if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
+                raise DomainError(f"Propagator bridge {field_name} must be a sequence.")
+            object.__setattr__(self, field_name, tuple(value))
+            if any(not isinstance(item, kind) for item in getattr(self, field_name)):
+                raise DomainError(f"Propagator bridge {field_name} have the wrong record type.")
+        for field_name in ("protected_dry_mass_kg", "nozzle_exit_area_m2"):
+            if getattr(self, field_name) is not None:
+                object.__setattr__(
+                    self, field_name, real(getattr(self, field_name), f"Bridge {field_name}")
+                )
+        if not isinstance(self.require_complete_stream_binding, bool):
+            raise DomainError("require_complete_stream_binding must be a boolean.")
+        text(self.model_id, "Propagator bridge model identifier")
         # Re-open at the public integrity boundary before accepting the source.
         TabulatedBurnArtifact.from_dict(self.artifact.to_dict())
         if self.protected_dry_mass_kg is not None and (
@@ -529,7 +546,7 @@ class PropagatorPropulsionBridge:
     ) -> Mapping[str, float]:
         """Resolve named overrides against immutable driver definitions."""
 
-        supplied = dict(overrides or {})
+        supplied = real_mapping(overrides, "Parameter overrides")
         known = {parameter.name for parameter in self.parameters}
         unknown = set(supplied) - known
         if unknown:
@@ -618,11 +635,13 @@ class PropagatorPropulsionBridge:
         NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
         """
 
+        vehicle_mass_kg = real(vehicle_mass_kg, "Vehicle mass")
+        non_propellant_mass_kg = real(non_propellant_mass_kg, "Non-propellant mass")
         for value, label in (
             (vehicle_mass_kg, "Vehicle mass"),
             (non_propellant_mass_kg, "Non-propellant mass"),
         ):
-            if not isfinite(value) or value < 0.0:
+            if value < 0.0:
                 raise DomainError(f"{label} must be finite and non-negative.")
         if vehicle_mass_kg <= 0.0:
             raise DomainError("Vehicle mass must be greater than zero.")
@@ -725,8 +744,12 @@ class PropagatorPropulsionBridge:
         NASA-20040000363: https://ntrs.nasa.gov/citations/20040000363
         """
 
-        if side not in {"left", "right"}:
+        if side not in ("left", "right"):
             raise DomainError("Propagation boundary side must be 'left' or 'right'.")
+        relative_time_s = real(relative_time_s, "Relative propagation time")
+        vehicle_mass_kg = real(vehicle_mass_kg, "Vehicle mass")
+        if not isinstance(apply_inventory_limits, bool):
+            raise DomainError("apply_inventory_limits must be a boolean.")
         if not isfinite(relative_time_s):
             raise DomainError("Relative propagation time must be finite.")
         if not isfinite(vehicle_mass_kg) or vehicle_mass_kg <= 0.0:
@@ -739,6 +762,8 @@ class PropagatorPropulsionBridge:
             raise DomainError(
                 "Missing bound propulsion states: " + ", ".join(sorted(missing_states))
             )
+        if operating_conditions is not None and not isinstance(operating_conditions, Mapping):
+            raise DomainError("Operating conditions must be a mapping.")
         supplied_conditions = dict(operating_conditions or {})
         if self.performance_surface is None and supplied_conditions:
             raise DomainError(
@@ -749,7 +774,8 @@ class PropagatorPropulsionBridge:
                 raise DomainError(
                     "Ambient pressure was supplied but this bridge has no nozzle exit area."
                 )
-            if not isfinite(ambient_pressure_pa) or ambient_pressure_pa < 0.0:
+            ambient_pressure_pa = real(ambient_pressure_pa, "Ambient pressure")
+            if ambient_pressure_pa < 0.0:
                 raise DomainError("Ambient pressure must be finite and non-negative.")
 
         parameter_values = self.resolved_parameters(parameter_overrides)

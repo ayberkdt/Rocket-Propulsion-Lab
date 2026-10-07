@@ -21,6 +21,7 @@ from math import isfinite
 from typing import Any
 
 from rocket_propulsion.core.errors import DomainError, InputError
+from rocket_propulsion.core.validation import json_text, real, text
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
 from .models import ProfiledBurnResult
@@ -50,6 +51,17 @@ class InterpolationPolicy(str, Enum):
 def _nonnegative(value: float, label: str) -> None:
     if not isfinite(value) or value < 0.0:
         raise DomainError(f"{label} must be finite and non-negative.")
+
+
+def _normalized_pairs(value: object, label: str) -> tuple[tuple[str, float], ...]:
+    if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
+        raise DomainError(f"{label} must be a sequence of (identifier, flow) pairs.")
+    pairs: list[tuple[str, float]] = []
+    for item in value:  # type: ignore[union-attr]
+        if isinstance(item, (str, bytes)) or not hasattr(item, "__len__") or len(item) != 2:
+            raise DomainError(f"{label} must be a sequence of (identifier, flow) pairs.")
+        pairs.append((text(item[0], f"{label} identifier"), real(item[1], label)))
+    return tuple(pairs)
 
 
 def _flow_pairs(value: tuple[tuple[str, float], ...], label: str) -> None:
@@ -86,6 +98,22 @@ class TabulatedBurnSegment:
     phase: str = "tabulated"
 
     def __post_init__(self) -> None:
+        for name in (
+            "start_time_s",
+            "end_time_s",
+            "start_delivered_thrust_n",
+            "end_delivered_thrust_n",
+            "start_axial_thrust_n",
+            "end_axial_thrust_n",
+            "start_total_mass_flow_kg_s",
+            "end_total_mass_flow_kg_s",
+        ):
+            object.__setattr__(self, name, real(getattr(self, name), f"Tabulated segment {name}"))
+        for name in ("start_stream_mass_flows_kg_s", "end_stream_mass_flows_kg_s"):
+            object.__setattr__(
+                self, name, _normalized_pairs(getattr(self, name), f"Tabulated segment {name}")
+            )
+        text(self.phase, "Tabulated segment phase")
         if not isfinite(self.start_time_s) or self.start_time_s < 0.0:
             raise DomainError("Tabulated segment start time must be finite and non-negative.")
         if not isfinite(self.end_time_s) or self.end_time_s <= self.start_time_s:
@@ -244,6 +272,24 @@ class TabulatedBurnArtifact:
     def __post_init__(self) -> None:
         if self.schema != "rocket_propulsion_tabulated_burn_v1":
             raise DomainError("Unsupported tabulated burn schema.")
+        if isinstance(self.segments, (str, bytes)) or not hasattr(self.segments, "__iter__"):
+            raise DomainError("Tabulated burn segments must be a sequence of segments.")
+        object.__setattr__(self, "segments", tuple(self.segments))
+        if any(not isinstance(item, TabulatedBurnSegment) for item in self.segments):
+            raise DomainError("Tabulated burn segments must be TabulatedBurnSegment records.")
+        try:
+            object.__setattr__(self, "interpolation", InterpolationPolicy(self.interpolation))
+        except ValueError as error:
+            raise DomainError("Unknown tabulated interpolation policy.") from error
+        text(self.source_id, "Tabulated burn source identifier")
+        text(self.source_sha256, "Tabulated burn source hash")
+        for name in ("reference_ids", "warnings"):
+            value = getattr(self, name)
+            if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
+                raise DomainError(f"Tabulated burn {name} must be a sequence of strings.")
+            object.__setattr__(self, name, tuple(value))
+            if any(not isinstance(item, str) for item in getattr(self, name)):
+                raise DomainError(f"Tabulated burn {name} must contain only strings.")
         if not self.segments:
             raise DomainError("A tabulated burn requires at least one segment.")
         if abs(self.segments[0].start_time_s) > 1e-12:
@@ -324,9 +370,10 @@ class TabulatedBurnArtifact:
     def state_at(self, time_s: float, *, side: str = "right") -> dict[str, Any]:
         """Evaluate the artifact with explicit left/right discontinuity semantics."""
 
-        if side not in {"left", "right"}:
+        if side not in ("left", "right"):
             raise DomainError("Tabulated boundary side must be 'left' or 'right'.")
-        if not isfinite(time_s) or not 0.0 <= time_s <= self.duration_s:
+        time_s = real(time_s, "Tabulated burn time")
+        if not 0.0 <= time_s <= self.duration_s:
             raise DomainError("Tabulated burn time lies outside the artifact.")
         segment = self.segments[self.segment_index_at(time_s, side=side)]
         return segment.state_at(min(max(time_s, segment.start_time_s), segment.end_time_s))
@@ -354,8 +401,9 @@ class TabulatedBurnArtifact:
         NASA-TM-107318: https://ntrs.nasa.gov/citations/19970010379
         """
 
-        if side not in {"left", "right"}:
+        if side not in ("left", "right"):
             raise DomainError("Tabulated boundary side must be 'left' or 'right'.")
+        time_s = real(time_s, "Tabulated burn time")
         segments = self.segments
         index = max(0, bisect_right(segments, time_s, key=_segment_start) - 1)
         # Within the 1e-12 s contiguity tolerance a previous segment can still
@@ -374,6 +422,7 @@ class TabulatedBurnArtifact:
     def is_boundary_time(self, time_s: float) -> bool:
         """Return whether ``time_s`` lies on zero or any segment end, in O(log n)."""
 
+        time_s = real(time_s, "Tabulated burn time")
         tolerance = self.boundary_tolerance_s
         if abs(time_s) <= tolerance:
             return True
@@ -478,7 +527,7 @@ class TabulatedBurnArtifact:
     @classmethod
     def from_json(cls, text: str) -> TabulatedBurnArtifact:
         try:
-            payload = json.loads(text)
+            payload = json.loads(json_text(text, "Tabulated burn artifact"))
         except json.JSONDecodeError as error:
             raise InputError("Tabulated burn artifact is not valid JSON.") from error
         return cls.from_dict(payload)
