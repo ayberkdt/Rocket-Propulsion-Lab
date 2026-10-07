@@ -71,6 +71,31 @@ the complete orbit propagation.
 Outside the firing interval, or after an inventory limit is reached, force and
 all mass derivatives are exact zeros. The profile is never extrapolated.
 
+Segment lookup is a bisection over segment start times, so an evaluation costs
+the same for a two-segment profile and a 2000-segment imported trace.
+
+### Inventory limits inside an integration step
+
+By default `evaluate` also zeroes its output when the vehicle mass or a
+constrained tank state is at or below its limit. That clamp is a safety net for
+consumers without event handling, but it makes the right-hand side
+discontinuous *inside* a step: a Runge-Kutta stage that probes just past a
+reserve root sees zero drain, so the step under-drains and a root located on
+that step is biased by a fraction of the step (about 7e-4 s for a 0.01 s RK4
+step in `tests/test_burn_propagator_integration.py`). A consumer that registers
+the dry-mass and reserve surfaces, locates their roots and then switches the
+burn off itself should call `evaluate(..., apply_inventory_limits=False)`; the
+same flag is forwarded by `evaluate_coupled_feed_propulsion` and the dynamic
+feed-line composition. With it the test locates the reserve root to 1e-10 s.
+
+### Derivative-kink surfaces
+
+With a performance surface attached, `operating_condition_grid_surfaces()`
+returns one non-stopping root per interior grid coordinate. Multilinear
+interpolation is continuous there but its gradient jumps; register these next
+to the stopping `operating_condition_surfaces()` and restart integration on
+each crossing.
+
 ## Estimation and variational equations
 
 Three named, bounded drivers are provided:
@@ -100,7 +125,19 @@ Inside a linear segment,
 
 At a declared jump the timing derivative is mathematically non-smooth. The
 bridge reports that fact instead of returning a misleading differentiable
-value. Tests compare every smooth analytic parameter derivative against central
+value.
+
+`partials.acceleration_wrt_direction` is the 3x3 Jacobian with respect to the
+supplied, not necessarily unit, direction vector \(\mathbf d\):
+
+\[
+  \frac{\partial\mathbf a}{\partial\mathbf d}
+  =\frac{F}{m\,\lVert\mathbf d\rVert}\left(I-\hat u\hat u^{\mathsf T}\right).
+\]
+
+Only the perpendicular part of a pointing perturbation changes the
+acceleration. A consumer that parameterizes attitude by angles or a quaternion
+chains this matrix with its own \(\partial\mathbf d/\partial\theta\). Tests compare every smooth analytic parameter derivative against central
 finite differences.
 
 When a performance surface is attached, the same evaluation also returns
@@ -114,6 +151,22 @@ propagated engine-manifold state instead of an algebraic input. Its coupled
 evaluation drains the tank with line flow, drives compliant storage with the
 difference between line and engine flow, and inserts the engine demand
 gradient into the line-state Jacobian. See `DYNAMIC_FEED_LINE.md`.
+
+## Mass closure diagnostic
+
+`mass_closure(vehicle_mass_kg=..., additional_states=..., non_propellant_mass_kg=...)`
+returns
+
+\[
+  r = m - m_\mathrm{non\text{-}propellant} - \sum_k m_k ,
+\]
+
+summed over the bound tank states. With complete stream binding the total
+drain equals the sum of the bound drains, so \(r\) stays at integration
+round-off for the whole burn. A growing residual reveals inconsistent initial
+states, an unbound stream, or a consumer that integrates vehicle mass and tank
+states with different derivatives. The end-to-end RK4 test keeps
+\(|r| < 10^{-11}\) kg.
 
 ## Integrity and refusal rules
 
@@ -138,11 +191,17 @@ loop can adapt one bridge evaluation as follows:
 
 1. convert the current epoch to burn-relative seconds;
 2. resolve the guidance/attitude direction in the propagation frame;
-3. pass current total mass and registered tank additional states;
+3. pass current total mass and registered tank additional states, with
+   `apply_inventory_limits=False` once inventory events are registered;
 4. add `acceleration_m_s2` to translational dynamics;
 5. add `mass_derivative_kg_s` and named state derivatives;
-6. register every `event_surfaces()` root once during force-model setup; and
-7. map named analytic partials into Sidera's variational/estimation ordering.
+6. register every `event_surfaces()` root once during force-model setup, plus
+   `operating_condition_surfaces()` (stopping) and
+   `operating_condition_grid_surfaces()` (restart only) when a surface is
+   attached;
+7. map named analytic partials, including the direction Jacobian, into
+   Sidera's variational/estimation ordering; and
+8. monitor `mass_closure()` as an integration-consistency check.
 
 When the dynamic line is selected, Sidera also integrates line flow, manifold
 pressure, and the regulated-feed states. It registers the dynamic-line roots

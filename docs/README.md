@@ -20,6 +20,9 @@
   supply-pressure/ambient/throttle/power performance maps and their gradients.
 - `REGULATED_FEED_DYNAMICS.md` defines the pressurant bottle, dynamic
   regulator, thermal ullage, line-loss ODE and implicit feed/engine closure.
+- `ELECTRIC_PROPULSION.md` defines the power-limited electric thruster model:
+  hash-verified throttle tables, throttle paths with hysteresis, the
+  fixed-efficiency law, power-switching roots and power/direction partials.
 - `DYNAMIC_FEED_LINE.md` defines the propagated liquid-flow/manifold-pressure
   states, conservation law, cutoff roots and composed Jacobians used to add a
   calibrated first feed-line mode to an orbit propagator.

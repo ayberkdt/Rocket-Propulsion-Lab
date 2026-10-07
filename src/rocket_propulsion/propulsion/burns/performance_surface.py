@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import product
 from math import isfinite, prod
+from types import MappingProxyType
 
 from rocket_propulsion.core.errors import DomainError, InputError
 
@@ -187,6 +188,60 @@ class PerformanceValiditySurface:
 
 
 @dataclass(frozen=True, slots=True)
+class PerformanceGridLineSurface:
+    """Signed non-stopping event on one interior grid coordinate.
+
+    Multilinear interpolation is continuous, but the derivative along an axis
+    jumps when that condition crosses an interior grid coordinate.  A
+    variable-step integrator that steps across such a kink without restarting
+    loses its error estimate, and gradient-based optimizers see a
+    discontinuous Jacobian.  Registering these surfaces lets the consumer
+    land on each kink and restart, exactly as it does for profile boundaries.
+    The value is ``condition - coordinate``; it never inhibits the burn.
+
+    Exactly on the coordinate, :meth:`RectilinearPerformanceSurface.evaluate`
+    returns the gradient of the upper cell (the right-hand limit along that
+    axis), except at the axis maximum, where only the lower cell exists.
+
+    References
+    ----------
+    Hairer, Norsett and Wanner, Solving Ordinary Differential Equations I,
+    section II.6 (discontinuities and dense-output event location).
+    Orekit EventDetector 13.1.5 API:
+    https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+    """
+
+    event_id: str
+    condition_name: str
+    coordinate: float
+    unit: str
+    stops_burn: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.event_id.strip() or not self.condition_name.strip() or not self.unit.strip():
+            raise DomainError("Performance grid-line event names and unit must not be empty.")
+        if not isfinite(self.coordinate):
+            raise DomainError("Performance grid-line coordinate must be finite.")
+        if self.stops_burn:
+            raise DomainError("Performance grid-line events never stop the burn.")
+
+    def value(self, conditions: Mapping[str, float]) -> float:
+        """Evaluate the signed distance ``condition - coordinate`` in axis units."""
+
+        if self.condition_name not in conditions:
+            raise DomainError(f"Missing operating condition {self.condition_name!r}.")
+        try:
+            value = float(conditions[self.condition_name])
+        except (TypeError, ValueError) as error:
+            raise DomainError(
+                f"Operating condition {self.condition_name!r} must be numeric."
+            ) from error
+        if not isfinite(value):
+            raise DomainError(f"Operating condition {self.condition_name!r} must be finite.")
+        return value - self.coordinate
+
+
+@dataclass(frozen=True, slots=True)
 class RectilinearPerformanceSurface:
     """Complete non-extrapolating N-D force and tank-flow scale map.
 
@@ -215,6 +270,9 @@ class RectilinearPerformanceSurface:
     source_sha256: str
     reference_ids: tuple[str, ...] = PERFORMANCE_SURFACE_REFERENCE_IDS
     schema: str = PERFORMANCE_SURFACE_SCHEMA
+    _point_index: Mapping[tuple[float, ...], PerformanceScalePoint] = field(
+        init=False, repr=False, compare=False
+    )
 
     def __post_init__(self) -> None:
         if self.schema != PERFORMANCE_SURFACE_SCHEMA:
@@ -250,6 +308,12 @@ class RectilinearPerformanceSurface:
                 "Performance surface must contain the complete Cartesian grid "
                 f"(missing={missing}, extra={extra})."
             )
+        # Built once: evaluation is called at every propagator stage.
+        object.__setattr__(
+            self,
+            "_point_index",
+            MappingProxyType({point.coordinates: point for point in self.points}),
+        )
 
     @property
     def surface_hash(self) -> str:
@@ -404,6 +468,29 @@ class RectilinearPerformanceSurface:
             )
         )
 
+    def grid_line_surfaces(self) -> tuple[PerformanceGridLineSurface, ...]:
+        """Return one non-stopping kink event per interior axis coordinate.
+
+        Domain endpoints are excluded; they are covered by the stopping
+        :meth:`validity_surfaces`.
+
+        References
+        ----------
+        Orekit EventDetectorsProvider 13.1.5 API:
+        https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetectorsProvider.html
+        """
+
+        return tuple(
+            PerformanceGridLineSurface(
+                f"performance:{axis.name}:grid:{index}",
+                axis.name,
+                coordinate,
+                axis.unit,
+            )
+            for axis in self.axes
+            for index, coordinate in enumerate(axis.values[1:-1], start=1)
+        )
+
     def evaluate(self, conditions: Mapping[str, float]) -> PerformanceSurfaceEvaluation:
         """Interpolate scales and analytic gradients without extrapolation.
 
@@ -448,7 +535,8 @@ class RectilinearPerformanceSurface:
                 )
             value = min(axis.maximum, max(axis.minimum, value))
             normalized[axis.name] = value
-            if any(abs(value - coordinate) <= tolerance for coordinate in axis.values):
+            nearest = bisect_left(axis.values, value - tolerance)
+            if nearest < len(axis.values) and axis.values[nearest] <= value + tolerance:
                 boundary_axes.append(axis.name)
             upper = min(bisect_right(axis.values, value), len(axis.values) - 1)
             lower = max(0, upper - 1)
@@ -458,7 +546,7 @@ class RectilinearPerformanceSurface:
             fraction = (value - axis.values[lower]) / width
             brackets.append((lower, upper, fraction, width))
 
-        point_by_coordinate = {point.coordinates: point for point in self.points}
+        point_by_coordinate = self._point_index
         force_scale = 0.0
         flow_scale = 0.0
         force_gradient = [0.0] * len(self.axes)

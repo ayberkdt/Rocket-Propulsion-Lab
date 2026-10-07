@@ -123,6 +123,10 @@ acceptance gates, and the first three sprints are specified in
 - Implemented in the isolated propulsion core: a two-state dynamic liquid-line
   surrogate with hydraulic inertance/compliance, quadratic damping, explicit
   stored-mass closure, pressure/flow events and engine/feed-composed Jacobians
+- Implemented in the isolated propulsion core: power-limited electric
+  propulsion with hash-verified throttle tables, maximum-thrust/maximum-Isp
+  throttle paths, up-switch hysteresis, a fixed-efficiency continuous law,
+  deterministic power-switching roots and analytic power/direction partials
 - Remaining: native Sidera wrapper for the propagation bridge, public HTTP
   API/UI surfaces for the isolated transient core,
   higher-order distributed water-hammer/priming models, regulator hysteresis,

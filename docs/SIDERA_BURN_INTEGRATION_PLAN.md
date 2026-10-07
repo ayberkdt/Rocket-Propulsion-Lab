@@ -962,7 +962,9 @@ Deferred until the underlying providers are validated:
 - thermal soak, cumulative on-time and cooldown availability;
 - regulated pressurization and feed-line pressure-drop dynamics;
 - hybrid regression coupling and solid grain/nozzle erosion providers;
-- electric-propulsion power-limited performance maps;
+- electric-propulsion power-limited performance maps (implemented in
+  `electric.py`, see `ELECTRIC_PROPULSION.md`; Sidera-side power model and
+  mode-state wiring remain);
 - qualification-data residual dashboards and Bayesian calibration;
 - burn targeting/optimization, which remains in Sidera or another mission
   layer and consumes this project's propulsion profiles.
