@@ -264,6 +264,15 @@ JCGM_100_2008 = EngineeringReference(
     "Propagation of correlated measurement uncertainty and covariance reporting.",
 )
 
+NASA_NEXT_IPS_SUMMARY = EngineeringReference(
+    "NASA-20090004685",
+    "NASA's Evolutionary Xenon Thruster (NEXT) Ion Propulsion System Information Summary",
+    "NASA",
+    2008,
+    "https://ntrs.nasa.gov/citations/20090004685",
+    "Electric-thruster throttle tables: input power, thrust, specific impulse and efficiency.",
+)
+
 OREKIT_PROPULSION_MODEL = EngineeringReference(
     "OREKIT-13.1.5-PROPULSION-MODEL",
     "Orekit 13.1.5 PropulsionModel API",
@@ -289,6 +298,7 @@ BURN_REFERENCES: tuple[EngineeringReference, ...] = (
     NASA_MULTIPLE_VALIDATION_CALIBRATION,
     NASA_NODAL_FEED_PRESSURIZATION,
     NASA_NESC_TRANSIENT_PRESSURE,
+    NASA_NEXT_IPS_SUMMARY,
     NASA_SP_125,
     NASA_SP_2009_569,
     NASA_SP_2011_3421,

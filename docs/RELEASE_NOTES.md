@@ -152,6 +152,23 @@
   direction Jacobian, the grid-line events and lookup equivalence with the
   previous linear scan.
 
+### Power-limited electric propulsion
+
+- Added `ElectricThrottleTable` (hash-verified, provenance-bound throttle
+  levels with Isp and total-efficiency consistency checks),
+  `DiscreteThrottlePath` (maximum-thrust or maximum-Isp path, up-switch
+  hysteresis) and `FixedEfficiencyThrottle` (`T = 2 eta P / (g0 Isp)` between
+  start and saturation power).
+- Added `PowerLimitedPropulsionModel` with propagator-owned mode state,
+  `PowerSwitchSurface` roots carrying a deterministic target level, saturation
+  kink roots, power margin, duty cycle, inventory roots, mass closure and
+  analytic partials with respect to mass, direction, available power and the
+  thrust/flow drivers.
+- Added `tests/test_burn_electric.py`, including event-driven RK4 runs under
+  decaying power that reproduce analytic switch times, the piecewise rocket
+  equation and the energy-to-propellant identity; and
+  `examples/electric_propulsion.py`.
+
 ## 0.9.0 — engineering preview
 
 - Added variable-property thermochemistry, external CEA adaptation, and an

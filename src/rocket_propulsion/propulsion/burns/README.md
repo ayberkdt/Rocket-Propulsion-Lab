@@ -116,6 +116,12 @@ or modifying Sidera:
   dynamics, nonlinear damping, positive-safe pressure/flow roots, explicit
   storage-mass closure, and engine-composed analytic Jacobians. See
   `docs/DYNAMIC_FEED_LINE.md`.
+- `electric.py` models power-limited electric thrusters for propagation:
+  hash-verified throttle tables, discrete throttle paths with hysteresis or a
+  fixed-efficiency continuous law, propagator-owned mode state with
+  deterministic power-switching roots, and analytic mass/direction/power
+  partials. Available power stays the consumer's model. See
+  `docs/ELECTRIC_PROPULSION.md`.
 
 The exchange artifact intentionally has no epoch, direction, frame, position,
 velocity, central body, or orbital result. A future Sidera adapter will combine
