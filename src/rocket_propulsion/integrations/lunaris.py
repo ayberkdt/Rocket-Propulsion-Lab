@@ -42,6 +42,7 @@ from rocket_propulsion.propulsion.burns import (
     epoch_time_tolerance,
     free_space_burn_metrics,
 )
+from rocket_propulsion.propulsion.burns.propagator import INVENTORY_LIMIT_TOLERANCE
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
 LUNARIS_FRAMES = ("inertial", "ric")
@@ -251,7 +252,10 @@ def _time_to_consume(bridge: Any, mass_flow_scale: float, amount_kg: float) -> f
     ``a tau^2 + q0 tau - c = 0`` (Goldberg 1991, ACM Computing Surveys 23(1)).
     """
 
-    remaining = amount_kg
+    # The bridge's clamp treats a mass within INVENTORY_LIMIT_TOLERANCE of the
+    # limit as reached; the cut uses the same margin, otherwise rounding can
+    # carry it past a zero-flow plateau that already sits at the limit.
+    remaining = amount_kg - INVENTORY_LIMIT_TOLERANCE
     if remaining <= 0.0:
         return 0.0
     for segment in bridge.artifact.segments:
@@ -339,7 +343,11 @@ def lunaris_burn_windows(
         cutoff_relative = bridge.artifact.duration_s
         if mass is not None and bridge.protected_dry_mass_kg is not None:
             reached = _time_to_consume(bridge, flow_scale, mass - bridge.protected_dry_mass_kg)
-            if reached is not None and reached < bridge.artifact.duration_s:
+            # A cut within the profile's boundary tolerance of the stop is the
+            # stop itself (the two sums differ only by rounding).
+            if reached is not None and reached < (
+                bridge.artifact.duration_s - bridge.artifact.boundary_tolerance_s
+            ):
                 depletion = ignition + reached
                 cutoff_relative = reached
         events = tuple(

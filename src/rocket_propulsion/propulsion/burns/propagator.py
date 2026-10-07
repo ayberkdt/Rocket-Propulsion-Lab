@@ -25,6 +25,11 @@ from .performance_surface import (
     RectilinearPerformanceSurface,
 )
 from .serialization import canonical_sha256
+
+# Absolute margin (kg, or the bound state's unit) within which a mass or tank
+# state counts as having reached its protected limit.  Shared by the bridge's
+# clamp and by consumers that precompute the cut (the Lunaris adapter).
+INVENTORY_LIMIT_TOLERANCE = 1e-12
 from .tabulated import InterpolationPolicy, TabulatedBurnArtifact, TabulatedBurnSegment
 
 PROPAGATOR_BRIDGE_SCHEMA = "rocket_propulsion_propagator_bridge_v1"
@@ -949,11 +954,11 @@ class PropagatorPropulsionBridge:
         inhibited: list[str] = []
         if apply_inventory_limits:
             if self.protected_dry_mass_kg is not None and vehicle_mass_kg <= (
-                self.protected_dry_mass_kg + 1e-12
+                self.protected_dry_mass_kg + INVENTORY_LIMIT_TOLERANCE
             ):
                 inhibited.append("protected_dry_mass_kg")
             for constraint in self.state_constraints:
-                if states[constraint.state_name] <= constraint.minimum_value + 1e-12:
+                if states[constraint.state_name] <= constraint.minimum_value + INVENTORY_LIMIT_TOLERANCE:
                     inhibited.append(constraint.state_name)
         active = segment is not None and not inhibited
 
