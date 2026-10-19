@@ -103,7 +103,7 @@ class RocketPropulsionHandler(BaseHTTPRequestHandler):
                 )
             try:
                 decoded = json.loads(self.rfile.read(length))
-            except (json.JSONDecodeError, UnicodeDecodeError) as error:
+            except (ValueError, RecursionError) as error:  # incl. JSON and Unicode decode errors
                 raise InputError(
                     "Request body must be valid UTF-8 JSON.",
                     code="invalid_json",

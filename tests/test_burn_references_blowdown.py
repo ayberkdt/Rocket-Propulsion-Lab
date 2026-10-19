@@ -15,6 +15,7 @@ from rocket_propulsion.propulsion.burns import (
     PressurePerformanceSample,
     PressurePerformanceTable,
     blowdown,
+    burn_metrics,
     burn_reference,
     calibration,
     cluster,
@@ -22,18 +23,23 @@ from rocket_propulsion.propulsion.burns import (
     electric,
     ensemble,
     ensemble_serialization,
+    execution_errors,
     feed_line,
     feed_system,
     multivariate_calibration,
     performance_surface,
     propagator,
+    pulse_mode,
     references,
     response,
     scenarios,
     sequence,
     simulate_pressure_fed_blowdown,
     tabulated,
+    throttleable,
+    timeline,
     uncertainty,
+    vehicle_geometry,
 )
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
@@ -75,6 +81,7 @@ class BurnReferenceTests(unittest.TestCase):
     def test_public_transient_types_and_functions_carry_references(self) -> None:
         modules = (
             references,
+            burn_metrics,
             response,
             sequence,
             cluster,
@@ -83,6 +90,7 @@ class BurnReferenceTests(unittest.TestCase):
             calibration,
             discrepancy,
             electric,
+            execution_errors,
             multivariate_calibration,
             performance_surface,
             uncertainty,
@@ -92,6 +100,10 @@ class BurnReferenceTests(unittest.TestCase):
             feed_line,
             feed_system,
             propagator,
+            pulse_mode,
+            throttleable,
+            timeline,
+            vehicle_geometry,
         )
         missing: list[str] = []
         for module in modules:

@@ -41,7 +41,6 @@ evaluation reports any ``power_deficit_w`` instead.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -49,16 +48,28 @@ from itertools import pairwise
 from math import isfinite
 
 from rocket_propulsion.core.errors import DomainError, InputError
+from rocket_propulsion.core.validation import (
+    integer,
+    read_json_document,
+    real,
+    real_mapping,
+    records,
+    strings,
+    text,
+)
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
+from .direction import _direction_geometry
+from .mass_closure import _MASS_CLOSURE_POLICY, _inventory_ledger
+from .numeric_outputs import _finite_rational, _fraction
 from .propagator import (
     BurnEventKind,
     BurnEventSurface,
     EstimableParameter,
     PropellantMassClosure,
-    _normalized_with_norm,
     _validated_states,
 )
+from .serialization import _require_numerical_policies, canonical_sha256
 
 ELECTRIC_THROTTLE_TABLE_SCHEMA = "rocket_propulsion_electric_throttle_table_v1"
 POWER_LIMITED_PROPULSION_SCHEMA = "rocket_propulsion_power_limited_propulsion_v1"
@@ -66,32 +77,39 @@ ELECTRIC_PROPULSION_REFERENCE_IDS = (
     "NASA-20090004685",
     "OREKIT-13.1.5-PROPULSION-MODEL",
 )
+
 OFF_LEVEL = -1
 _POWER_TOLERANCE_W = 1e-9
 
 
-def _canonical_hash(payload: object) -> str:
-    encoded = json.dumps(
-        payload,
-        allow_nan=False,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
-def _positive(value: float, label: str) -> None:
-    if not isfinite(value) or value <= 0.0:
+def _positive(value: float, label: str) -> float:
+    number = real(value, label)
+    if number <= 0.0:
         raise DomainError(f"{label} must be finite and greater than zero.")
+    return number
 
 
-def _nonnegative(value: float, label: str) -> None:
-    if not isfinite(value) or value < 0.0:
+def _nonnegative(value: float, label: str) -> float:
+    number = real(value, label)
+    if number < 0.0:
         raise DomainError(f"{label} must be finite and non-negative.")
+    return number
+
+
+def _strings_blank(value: object, label: str) -> tuple[str, ...]:
+    return strings(value, label, allow_blank=True)
+
+
+def _set(instance: object, name: str, value: object) -> None:
+    object.__setattr__(instance, name, value)
+
+
 
 
 def _sha256_hex(value: str, label: str) -> None:
+    text(value, label)
     if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
         raise DomainError(f"{label} must be a lower-case SHA-256 hex digest.")
 
@@ -117,11 +135,10 @@ class ElectricThrottleLevel:
     mass_flow_kg_s: float
 
     def __post_init__(self) -> None:
-        if not self.level_id.strip():
-            raise DomainError("Throttle level identifier must not be empty.")
-        _positive(self.input_power_w, "Throttle level input power")
-        _positive(self.thrust_n, "Throttle level thrust")
-        _positive(self.mass_flow_kg_s, "Throttle level mass flow")
+        text(self.level_id, "Throttle level identifier")
+        _set(self, "input_power_w", _positive(self.input_power_w, "Throttle level input power"))
+        _set(self, "thrust_n", _positive(self.thrust_n, "Throttle level thrust"))
+        _set(self, "mass_flow_kg_s", _positive(self.mass_flow_kg_s, "Throttle level mass flow"))
         if self.total_efficiency > 1.0 + 1e-12:
             raise DomainError(
                 f"Throttle level {self.level_id!r} implies jet power above input power."
@@ -163,6 +180,9 @@ class ElectricThrottleTable:
     def __post_init__(self) -> None:
         if self.schema != ELECTRIC_THROTTLE_TABLE_SCHEMA:
             raise DomainError("Unsupported electric throttle-table schema.")
+        _set(self, "levels", records(self.levels, ElectricThrottleLevel, "Throttle levels"))
+        _set(self, "reference_ids", _strings_blank(self.reference_ids, "Throttle-table references"))
+        text(self.source_id, "Throttle-table source identifier")
         if not self.levels:
             raise DomainError("An electric throttle table requires at least one level.")
         identifiers = [level.level_id for level in self.levels]
@@ -188,7 +208,7 @@ class ElectricThrottleTable:
     def table_hash(self) -> str:
         """Return content identity of levels and provenance."""
 
-        return _canonical_hash(self.to_dict(include_hash=False))
+        return canonical_sha256(self.to_dict(include_hash=False))
 
     def to_dict(self, *, include_hash: bool = True) -> dict[str, object]:
         """Return deterministic JSON-compatible table content."""
@@ -209,7 +229,7 @@ class ElectricThrottleTable:
             ],
         }
         if include_hash:
-            payload["table_hash"] = _canonical_hash(payload)
+            payload["table_hash"] = canonical_sha256(payload)
         return payload
 
     def to_json(self, *, indent: int | None = 2) -> str:
@@ -230,16 +250,16 @@ class ElectricThrottleTable:
             if not isinstance(levels_payload, list):
                 raise TypeError
             table = cls(
-                schema=str(payload["schema"]),
-                source_id=str(payload["source_id"]),
-                source_sha256=str(payload["source_sha256"]),
-                reference_ids=tuple(str(item) for item in payload["reference_ids"]),
+                schema=payload["schema"],
+                source_id=payload["source_id"],
+                source_sha256=payload["source_sha256"],
+                reference_ids=payload["reference_ids"],
                 levels=tuple(
                     ElectricThrottleLevel(
-                        level_id=str(item["level_id"]),
-                        input_power_w=float(item["input_power_w"]),
-                        thrust_n=float(item["thrust_n"]),
-                        mass_flow_kg_s=float(item["mass_flow_kg_s"]),
+                        level_id=item["level_id"],
+                        input_power_w=item["input_power_w"],
+                        thrust_n=item["thrust_n"],
+                        mass_flow_kg_s=item["mass_flow_kg_s"],
                     )
                     for item in levels_payload
                 ),
@@ -254,13 +274,7 @@ class ElectricThrottleTable:
     def from_json(cls, text: str) -> ElectricThrottleTable:
         """Deserialize and integrity-check a JSON throttle table."""
 
-        try:
-            payload = json.loads(text)
-        except json.JSONDecodeError as error:
-            raise InputError("Electric throttle-table artifact is not valid JSON.") from error
-        if not isinstance(payload, dict):
-            raise InputError("Electric throttle-table artifact root must be an object.")
-        return cls.from_dict(payload)
+        return read_json_document(text, "Electric throttle-table artifact", cls.from_dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -307,8 +321,12 @@ class PowerSwitchSurface:
     to_level: int
 
     def __post_init__(self) -> None:
-        if not self.event_id.strip():
-            raise DomainError("Power-switch event identifier must not be empty.")
+        text(self.event_id, "Power-switch event identifier")
+        if not isinstance(self.crossing, str):
+            raise DomainError("Power-switch crossing must be a string.")
+        _set(self, "threshold_w", real(self.threshold_w, "Power-switch threshold"))
+        _set(self, "from_level", integer(self.from_level, "Power-switch from_level"))
+        _set(self, "to_level", integer(self.to_level, "Power-switch to_level"))
         if self.from_level < OFF_LEVEL or self.to_level < OFF_LEVEL:
             raise DomainError("Power-switch levels must be -1 (off) or a level index.")
         if not isfinite(self.threshold_w):
@@ -321,9 +339,7 @@ class PowerSwitchSurface:
     def value(self, available_power_w: float) -> float:
         """Evaluate ``available_power_w - threshold_w``."""
 
-        if not isfinite(available_power_w):
-            raise DomainError("Available power must be finite.")
-        return available_power_w - self.threshold_w
+        return real(available_power_w, "Available power") - self.threshold_w
 
 
 @dataclass(frozen=True, slots=True)
@@ -350,13 +366,21 @@ class DiscreteThrottlePath:
     )
 
     def __post_init__(self) -> None:
+        if not isinstance(self.table, ElectricThrottleTable):
+            raise DomainError("Throttle path requires an ElectricThrottleTable.")
+        _set(self, "level_ids", _strings_blank(self.level_ids, "Throttle-path level identifiers"))
+        text(self.path_id, "Throttle path identifier")
         if not self.level_ids:
             raise DomainError("A throttle path requires at least one level.")
         if len(self.level_ids) != len(set(self.level_ids)):
             raise DomainError("A throttle path may use each level only once.")
         if not self.path_id.strip():
             raise DomainError("Throttle path identifier must not be empty.")
-        _nonnegative(self.up_switch_hysteresis_w, "Up-switch hysteresis")
+        _set(
+            self,
+            "up_switch_hysteresis_w",
+            _nonnegative(self.up_switch_hysteresis_w, "Up-switch hysteresis"),
+        )
         levels = tuple(self.table.level(level_id) for level_id in self.level_ids)
         if any(
             upper.input_power_w <= lower.input_power_w for lower, upper in pairwise(levels)
@@ -414,6 +438,9 @@ class DiscreteThrottlePath:
     def select_level(self, available_power_w: float, current_level: int | None) -> int:
         """Return the level index for ``available_power_w`` (``-1`` = off)."""
 
+        available_power_w = real(available_power_w, "Available power")
+        if current_level is not None:
+            current_level = integer(current_level, "Current throttle level")
         levels = self.levels
         feasible = OFF_LEVEL
         for index, level in enumerate(levels):
@@ -439,6 +466,7 @@ class DiscreteThrottlePath:
     def switching_surfaces(self, current_level: int) -> tuple[PowerSwitchSurface, ...]:
         """Return the down- and up-switch roots for the current level."""
 
+        current_level = integer(current_level, "Current throttle level")
         levels = self.levels
         if current_level < OFF_LEVEL or current_level >= len(levels):
             raise DomainError("Current throttle level is outside the path.")
@@ -518,16 +546,18 @@ class FixedEfficiencyThrottle:
     law_id: str = "fixed-efficiency"
 
     def __post_init__(self) -> None:
-        if not isfinite(self.total_efficiency) or not 0.0 < self.total_efficiency <= 1.0:
+        _set(self, "total_efficiency", real(self.total_efficiency, "Total efficiency"))
+        if not 0.0 < self.total_efficiency <= 1.0:
             raise DomainError("Total efficiency must be in (0, 1].")
-        _positive(self.specific_impulse_s, "Specific impulse")
-        _positive(self.minimum_power_w, "Minimum input power")
-        _positive(self.maximum_power_w, "Maximum input power")
+        _set(self, "specific_impulse_s", _positive(self.specific_impulse_s, "Specific impulse"))
+        _set(self, "minimum_power_w", _positive(self.minimum_power_w, "Minimum input power"))
+        _set(self, "maximum_power_w", _positive(self.maximum_power_w, "Maximum input power"))
         if self.maximum_power_w <= self.minimum_power_w:
             raise DomainError("Maximum input power must exceed the minimum.")
-        _nonnegative(self.start_hysteresis_w, "Start hysteresis")
-        if not self.law_id.strip():
-            raise DomainError("Throttle law identifier must not be empty.")
+        _set(
+            self, "start_hysteresis_w", _nonnegative(self.start_hysteresis_w, "Start hysteresis")
+        )
+        text(self.law_id, "Throttle law identifier")
 
     @property
     def level_count(self) -> int:
@@ -542,6 +572,9 @@ class FixedEfficiencyThrottle:
     def select_level(self, available_power_w: float, current_level: int | None) -> int:
         """Return ``0`` when the thruster runs and ``-1`` when it is off."""
 
+        available_power_w = real(available_power_w, "Available power")
+        if current_level is not None:
+            current_level = integer(current_level, "Current throttle level")
         if current_level is not None and current_level not in {OFF_LEVEL, 0}:
             raise DomainError("Current throttle level is outside the continuous law.")
         threshold = self.minimum_power_w
@@ -552,6 +585,7 @@ class FixedEfficiencyThrottle:
     def switching_surfaces(self, current_level: int) -> tuple[PowerSwitchSurface, ...]:
         """Return the shutdown root when on, or the start root when off."""
 
+        current_level = integer(current_level, "Current throttle level")
         if current_level == 0:
             return (
                 PowerSwitchSurface(
@@ -708,14 +742,28 @@ class PowerLimitedPropulsionModel:
     def __post_init__(self) -> None:
         if self.schema != POWER_LIMITED_PROPULSION_SCHEMA:
             raise DomainError("Unsupported power-limited propulsion schema.")
-        if not self.model_id.strip() or not self.propellant_state_name.strip():
-            raise DomainError("Model and propellant-state names must not be empty.")
+        if not isinstance(self.throttle_law, (DiscreteThrottlePath, FixedEfficiencyThrottle)):
+            raise DomainError("Throttle law must be a DiscreteThrottlePath or FixedEfficiencyThrottle.")
+        text(self.model_id, "Model identifier")
+        text(self.propellant_state_name, "Propellant state name")
         if self.propellant_reserve_kg is not None:
-            _nonnegative(self.propellant_reserve_kg, "Propellant reserve")
+            _set(
+                self,
+                "propellant_reserve_kg",
+                _nonnegative(self.propellant_reserve_kg, "Propellant reserve"),
+            )
         if self.protected_dry_mass_kg is not None:
-            _positive(self.protected_dry_mass_kg, "Protected dry mass")
-        _nonnegative(self.power_margin_w, "Power margin")
-        if not isfinite(self.duty_cycle) or not 0.0 < self.duty_cycle <= 1.0:
+            _set(
+                self,
+                "protected_dry_mass_kg",
+                _positive(self.protected_dry_mass_kg, "Protected dry mass"),
+            )
+        _set(self, "power_margin_w", _nonnegative(self.power_margin_w, "Power margin"))
+        _set(self, "duty_cycle", real(self.duty_cycle, "Duty cycle"))
+        _set(
+            self, "parameters", records(self.parameters, EstimableParameter, "Parameters")
+        )
+        if not 0.0 < self.duty_cycle <= 1.0:
             raise DomainError("Duty cycle must be in (0, 1].")
         if not self.parameters:
             object.__setattr__(
@@ -735,9 +783,7 @@ class PowerLimitedPropulsionModel:
     def effective_power_w(self, available_power_w: float) -> float:
         """Return available power minus the declared margin."""
 
-        if not isfinite(available_power_w):
-            raise DomainError("Available power must be finite.")
-        return available_power_w - self.power_margin_w
+        return real(available_power_w, "Available power") - self.power_margin_w
 
     def select_level(self, available_power_w: float, current_level: int | None = None) -> int:
         """Initialize (``current_level=None``) or update the throttle mode.
@@ -810,7 +856,7 @@ class PowerLimitedPropulsionModel:
     ) -> dict[str, float]:
         """Resolve named overrides against the bounded driver definitions."""
 
-        supplied = dict(overrides or {})
+        supplied = real_mapping(overrides, "Parameter overrides")
         known = {parameter.name for parameter in self.parameters}
         unknown = set(supplied) - known
         if unknown:
@@ -829,6 +875,8 @@ class PowerLimitedPropulsionModel:
             "schema": self.schema,
             "model_id": self.model_id,
             "throttle_law": self.throttle_law.manifest(),
+            "mass_closure_numerics": _MASS_CLOSURE_POLICY,
+            "direction_numerics": "scaled_hypot_rational_projection_and_signed_tangents_v1",
             "propellant_state_name": self.propellant_state_name,
             "propellant_reserve_kg": self.propellant_reserve_kg,
             "protected_dry_mass_kg": self.protected_dry_mass_kg,
@@ -851,14 +899,108 @@ class PowerLimitedPropulsionModel:
             "reference_ids": list(ELECTRIC_PROPULSION_REFERENCE_IDS),
         }
         if include_hash:
-            payload["model_hash"] = _canonical_hash(payload)
+            payload["model_hash"] = canonical_sha256(payload)
         return payload
+
+    def to_dict(self) -> dict[str, object]:
+        """Return the complete, reopenable model document.
+
+        The manifest (with ``model_hash``) is extended with the full throttle
+        table of a discrete path.  :meth:`from_dict` refuses a document whose
+        recomputed hashes differ.
+
+        References
+        ----------
+        NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
+        """
+
+        document = self.manifest()
+        if isinstance(self.throttle_law, DiscreteThrottlePath):
+            document["throttle_table"] = self.throttle_law.table.to_dict()
+        return document
+
+    def to_json(self, *, indent: int | None = 2) -> str:
+        """Serialize the complete model document."""
+
+        return json.dumps(
+            self.to_dict(), allow_nan=False, ensure_ascii=False, indent=indent, sort_keys=True
+        )
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, object]) -> PowerLimitedPropulsionModel:
+        """Rebuild a model and verify the table and model hashes.
+
+        References
+        ----------
+        NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
+        """
+
+        if not isinstance(payload, Mapping):
+            raise InputError("Power-limited model document root must be an object.")
+        try:
+            law_payload = payload["throttle_law"]
+            if law_payload["law"] == "discrete_throttle_path":
+                table = ElectricThrottleTable.from_dict(payload["throttle_table"])
+                if table.table_hash != law_payload["table_hash"]:
+                    raise InputError("Throttle-path table hash does not match the table.")
+                law: DiscreteThrottlePath | FixedEfficiencyThrottle = DiscreteThrottlePath(
+                    table,
+                    tuple(law_payload["level_ids"]),
+                    law_payload["up_switch_hysteresis_w"],
+                    law_payload["path_id"],
+                )
+            elif law_payload["law"] == "fixed_efficiency":
+                law = FixedEfficiencyThrottle(
+                    law_payload["total_efficiency"],
+                    law_payload["specific_impulse_s"],
+                    law_payload["minimum_power_w"],
+                    law_payload["maximum_power_w"],
+                    law_payload["start_hysteresis_w"],
+                    law_payload["law_id"],
+                )
+            else:
+                raise InputError("Unknown throttle law in model document.")
+            model = cls(
+                throttle_law=law,
+                propellant_state_name=payload["propellant_state_name"],
+                propellant_reserve_kg=payload["propellant_reserve_kg"],
+                protected_dry_mass_kg=payload["protected_dry_mass_kg"],
+                power_margin_w=payload["power_margin_w"],
+                duty_cycle=payload["duty_cycle"],
+                parameters=tuple(
+                    EstimableParameter(
+                        item["name"],
+                        item["reference_value"],
+                        item["scale"],
+                        item["minimum"],
+                        item["maximum"],
+                        item["unit"],
+                    )
+                    for item in payload["parameters"]
+                ),
+                model_id=payload["model_id"],
+                schema=payload["schema"],
+            )
+        except InputError:
+            raise
+        except (KeyError, TypeError, ValueError, AttributeError) as error:
+            raise InputError("Malformed power-limited model document.") from error
+        if payload.get("model_hash") != model.model_hash:
+            raise InputError("Power-limited model hash does not match its contents.")
+        _require_numerical_policies(payload, model.manifest(include_hash=False))
+        return model
+
+    @classmethod
+    def from_json(cls, text: str) -> PowerLimitedPropulsionModel:
+        """Deserialize and integrity-check a model document."""
+
+        return read_json_document(text, "Power-limited model document", cls.from_dict)
 
     @property
     def model_hash(self) -> str:
         """Content identity of the throttle law, limits and semantics."""
 
-        return _canonical_hash(self.manifest(include_hash=False))
+        return canonical_sha256(self.manifest(include_hash=False))
 
     def mass_closure(
         self,
@@ -874,19 +1016,15 @@ class PowerLimitedPropulsionModel:
         NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
         """
 
-        _positive(vehicle_mass_kg, "Vehicle mass")
-        _nonnegative(non_propellant_mass_kg, "Non-propellant mass")
+        vehicle_mass_kg = _positive(vehicle_mass_kg, "Vehicle mass")
+        non_propellant_mass_kg = _nonnegative(non_propellant_mass_kg, "Non-propellant mass")
         states = _validated_states(additional_states)
         if self.propellant_state_name not in states:
             raise DomainError(f"Missing propellant state {self.propellant_state_name!r}.")
-        tracked = states[self.propellant_state_name]
-        residual = vehicle_mass_kg - non_propellant_mass_kg - tracked
         return PropellantMassClosure(
-            vehicle_mass_kg=vehicle_mass_kg,
-            non_propellant_mass_kg=non_propellant_mass_kg,
-            tracked_propellant_kg=tracked,
-            residual_kg=residual,
-            relative_residual=residual / vehicle_mass_kg,
+            vehicle_mass_kg, non_propellant_mass_kg,
+            *_inventory_ledger(vehicle_mass_kg, non_propellant_mass_kg,
+                               (states[self.propellant_state_name],)),
         )
 
     def evaluate(
@@ -915,11 +1053,15 @@ class PowerLimitedPropulsionModel:
         https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
         """
 
+        level_index = integer(level_index, "Throttle level index")
         if level_index < OFF_LEVEL or level_index >= self.throttle_law.level_count:
             raise DomainError("Throttle level index is outside the throttle law.")
-        _positive(vehicle_mass_kg, "Vehicle mass")
+        vehicle_mass_kg = _positive(vehicle_mass_kg, "Vehicle mass")
+        available_power_w = real(available_power_w, "Available power")
+        if not isinstance(apply_inventory_limits, bool):
+            raise DomainError("apply_inventory_limits must be a boolean.")
         effective_power = self.effective_power_w(available_power_w)
-        unit, norm = _normalized_with_norm(direction)
+        geometry = _direction_geometry(direction)
         states = _validated_states(additional_states)
         if self.propellant_state_name not in states:
             raise DomainError(f"Missing propellant state {self.propellant_state_name!r}.")
@@ -966,14 +1108,15 @@ class PowerLimitedPropulsionModel:
 
         point = self.throttle_law.operating_point(level_index, effective_power)
         duty = self.duty_cycle
-        base_thrust = point.thrust_n * duty
+        base_thrust = _fraction(point.thrust_n) * _fraction(duty)
         base_flow = point.mass_flow_kg_s * duty
-        thrust = base_thrust * thrust_scale
+        exact_thrust = base_thrust * _fraction(thrust_scale)
+        thrust = _finite_rational(exact_thrust, "Axial thrust")
         flow = base_flow * flow_scale
-        force = tuple(thrust * value for value in unit)
-        acceleration = tuple(value / vehicle_mass_kg for value in force)
-        direction_gain = thrust / (vehicle_mass_kg * norm)
-        thrust_power_slope = point.thrust_wrt_available_power * duty * thrust_scale
+        force = geometry.project(exact_thrust, label="Force")
+        acceleration = geometry.project(exact_thrust, vehicle_mass_kg, label="Acceleration")
+        thrust_power_slope = (_fraction(point.thrust_wrt_available_power)
+                              * _fraction(duty) * _fraction(thrust_scale))
         flow_power_slope = point.mass_flow_wrt_available_power * duty * flow_scale
         return ElectricPropulsionEvaluation(
             active=True,
@@ -993,25 +1136,17 @@ class PowerLimitedPropulsionModel:
             parameters=tuple(parameters.items()),
             inhibited_by=(),
             partials=ElectricPropulsionPartials(
-                acceleration_wrt_mass=tuple(
-                    -value / vehicle_mass_kg for value in acceleration
-                ),  # type: ignore[arg-type]
-                acceleration_wrt_direction=tuple(
-                    tuple(
-                        direction_gain
-                        * ((1.0 if row == column else 0.0) - unit[row] * unit[column])
-                        for column in range(3)
-                    )
-                    for row in range(3)
-                ),  # type: ignore[arg-type]
-                acceleration_wrt_available_power=tuple(
-                    thrust_power_slope * value / vehicle_mass_kg for value in unit
-                ),  # type: ignore[arg-type]
+                acceleration_wrt_mass=geometry.project(
+                    -exact_thrust, _fraction(vehicle_mass_kg)**2, label="Mass acceleration partial"),
+                acceleration_wrt_direction=geometry.jacobian(exact_thrust, vehicle_mass_kg),
+                acceleration_wrt_available_power=geometry.project(
+                    thrust_power_slope, vehicle_mass_kg, label="Power acceleration partial"),
                 mass_rate_wrt_available_power=-flow_power_slope,
                 acceleration_wrt_parameters=(
                     (
                         "thrust_scale",
-                        tuple(base_thrust * value / vehicle_mass_kg for value in unit),
+                        geometry.project(base_thrust, vehicle_mass_kg,
+                                         label="Thrust scale acceleration partial"),
                     ),  # type: ignore[arg-type]
                     ("mass_flow_scale", _ZERO3),
                 ),

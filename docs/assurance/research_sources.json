@@ -1,0 +1,43 @@
+{
+  "purpose": "screening independent experimental referents; no completed hardware validation",
+  "sources": [
+    {
+      "id": "SAMSON-2019",
+      "url": "https://www.mdpi.com/2226-4310/6/8/91",
+      "archived_pdf": "output/assurance/sources/samson2019.pdf",
+      "sha256": "8d89dd8a9f41cf4a0b028528fd111c7e910b2c9a7c14c7467dc7fbf9027717c4",
+      "locator": "PDF pages 10-11, Figure 12 and accompanying text",
+      "measured_means": [
+        {"gas": "nitrogen", "environment": "atmospheric", "inlet_pressure": {"value": 60, "unit": "psig"}, "thrust": {"value": 0.02208, "unit": "N"}},
+        {"gas": "nitrogen", "environment": "atmospheric", "inlet_pressure": {"value": 30, "unit": "psig"}, "thrust": {"value": 0.00906, "unit": "N"}}
+      ],
+      "corrected_value_not_measured_in_target_conditions": {"gas": "krypton", "environment": "vacuum", "thrust": {"value": 0.02, "unit": "N", "approximate": true}},
+      "issues": ["No raw time series or aggregate numerical uncertainty recovered", "Source writes 43.5 psig (2 bar), requiring clarification", "Different test article from unselected project hardware"],
+      "admitted_for_project_hardware_validation": false
+    },
+    {
+      "id": "NASA-GFSSP6",
+      "url": "https://ntrs.nasa.gov/citations/20160005401",
+      "archived_pdf": "output/assurance/sources/gfssp6.pdf",
+      "sha256": "340f4b208a4814d776ef020df7167304dd74c09d641fb006d352b958cad4bc8c",
+      "locator": "Example 29, printed pages 293-301; Figure 251",
+      "issues": ["MHTB cryogenic tank differs from ideal isothermal inventory model", "Insulation degradation factor adjusted against test: not independent holdout validation", "No GFSSP execution or matching model-to-experiment comparison completed"],
+      "admitted_for_project_hardware_validation": false
+    },
+    {
+      "id": "NASA-JSC-2017-ABSTRACT",
+      "url": "https://ntrs.nasa.gov/citations/20170000809",
+      "archived_pdf": "output/assurance/sources/jsc2017.pdf",
+      "sha256": "20daeddc6888f69b9bb668a88f8d4aaea11b515191dc2bc7f6e864ff0aa3a108",
+      "issues": ["Only one-page abstract; no usable raw measured series in download", "Search tool PDF display title was inconsistent; local title agrees with citation"],
+      "admitted_for_project_hardware_validation": false
+    },
+    {
+      "id": "DLR-DX2025-LUMEN",
+      "url": "https://elib.dlr.de/219953/1/DX2025benchmark.pdf",
+      "locator": "Section 4.3, lines 266-292",
+      "issues": ["Provided nominal and fault trajectories are simulated, not raw hot-fire measurements", "No dataset downloaded or simulator executed in this assessment"],
+      "admitted_for_project_hardware_validation": false
+    }
+  ]
+}

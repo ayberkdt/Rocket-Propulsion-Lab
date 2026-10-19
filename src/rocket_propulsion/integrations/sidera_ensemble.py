@@ -17,10 +17,11 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, dataclass
-from math import isclose, isfinite, sqrt
+from math import isclose, isfinite
 from typing import Any, Literal
 
 from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError, InputError
+from rocket_propulsion.core.validation import integer, read_json_document, real, text
 from rocket_propulsion.propulsion.burns import HierarchicalPropulsionEnsemble
 from rocket_propulsion.propulsion.burns.ensemble_serialization import (
     HIERARCHICAL_ENSEMBLE_SCHEMA,
@@ -32,6 +33,7 @@ from rocket_propulsion.propulsion.burns.serialization import canonical_json_byte
 from rocket_propulsion.propulsion.burns.tabulated import TabulatedBurnArtifact
 
 from .contracts import SideraCapabilities
+from .direction import _ADAPTER_DIRECTION_POLICY, _directed_vector, _stored_unit_direction
 
 SIDERA_ENSEMBLE_HANDOFF_SCHEMA = "rocket_propulsion_sidera_ensemble_handoff_v1"
 SIDERA_ENSEMBLE_REQUIRED_CAPABILITIES = (
@@ -44,7 +46,7 @@ _FRAMES = {"inertial", "ric", "vnb"}
 
 
 def _sha256_hex(value: str, field: str) -> str:
-    normalized = str(value).lower()
+    normalized = text(value, field).lower()
     if len(normalized) != 64 or any(
         character not in "0123456789abcdef" for character in normalized
     ):
@@ -53,13 +55,7 @@ def _sha256_hex(value: str, field: str) -> str:
 
 
 def _unit_direction(values: tuple[float, float, float]) -> tuple[float, float, float]:
-    vector = tuple(float(value) for value in values)
-    if len(vector) != 3 or any(not isfinite(value) for value in vector):
-        raise DomainError("Sidera ensemble direction must contain three finite values.")
-    norm = sqrt(sum(value * value for value in vector))
-    if norm <= 0.0:
-        raise DomainError("Sidera ensemble direction must be non-zero.")
-    return tuple(value / norm for value in vector)
+    return _directed_vector(values, 1., label="Sidera ensemble unit direction")
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,8 +79,15 @@ class SideraEnsembleBurnJob:
     artifact: TabulatedBurnArtifact
 
     def __post_init__(self) -> None:
-        if not self.scenario_id.strip():
-            raise DomainError("Sidera ensemble scenario ID must not be empty.")
+        text(self.scenario_id, "Sidera ensemble scenario ID")
+        object.__setattr__(
+            self, "conditional_index", integer(self.conditional_index, "Conditional index")
+        )
+        for name in ("scenario_probability", "conditional_probability", "joint_probability",
+                     "t_start_s"):
+            object.__setattr__(self, name, real(getattr(self, name), f"Sidera job {name}"))
+        if not isinstance(self.artifact, TabulatedBurnArtifact):
+            raise DomainError("Sidera ensemble jobs require a TabulatedBurnArtifact.")
         if self.conditional_index < 0:
             raise DomainError("Sidera conditional index must be nonnegative.")
         probabilities = (
@@ -106,7 +109,7 @@ class SideraEnsembleBurnJob:
             raise DomainError("Sidera joint probability does not factor correctly.")
         if not isfinite(self.t_start_s):
             raise DomainError("Sidera ensemble start time must be finite.")
-        frame = str(self.frame).strip().lower()
+        frame = text(self.frame, "Sidera ensemble frame").strip().lower()
         if frame not in _FRAMES:
             raise DomainError("Sidera ensemble frame must be inertial, ric, or vnb.")
         object.__setattr__(self, "frame", frame)
@@ -210,6 +213,7 @@ class SideraEnsembleHandoff:
             "force_channel": "axial_thrust_n",
             "mass_flow_channel": "total_tank_mass_flow_kg_s",
             "direction_semantics": "unit_vector_in_declared_frame",
+            "direction_numerics": _ADAPTER_DIRECTION_POLICY,
             "required_capabilities": list(self.required_capabilities),
             "joint_probability_sum": self.joint_probability_sum,
             "jobs": [
@@ -268,27 +272,32 @@ class SideraEnsembleHandoff:
             "force_channel": "axial_thrust_n",
             "mass_flow_channel": "total_tank_mass_flow_kg_s",
             "direction_semantics": "unit_vector_in_declared_frame",
+            "direction_numerics": _ADAPTER_DIRECTION_POLICY,
         }
         if any(payload.get(key) != value for key, value in expected_semantics.items()):
             raise InputError("Sidera ensemble hand-off physical semantics changed.")
         try:
-            jobs = tuple(
-                SideraEnsembleBurnJob(
+            jobs = []
+            for item in payload["jobs"]:
+                # Serialized coordinates are the evidence covered by the hash.
+                # Validate them as unit vectors, then preserve their exact bits.
+                direction = _stored_unit_direction(item["direction"], label="Stored Sidera direction")
+                job = SideraEnsembleBurnJob(
                     scenario_id=str(item["scenario_id"]),
                     conditional_index=int(item["conditional_index"]),
                     scenario_probability=float(item["scenario_probability"]),
                     conditional_probability=float(item["conditional_probability"]),
                     joint_probability=float(item["joint_probability"]),
                     t_start_s=float(item["t_start_s"]),
-                    direction=tuple(float(value) for value in item["direction"]),
+                    direction=direction,
                     frame=str(item["frame"]),
                     artifact=TabulatedBurnArtifact.from_dict(item["artifact"]),
                 )
-                for item in payload["jobs"]
-            )
+                object.__setattr__(job, "direction", direction)
+                jobs.append(job)
             handoff = cls(
                 source_ensemble_hash=str(payload["source_ensemble_hash"]),
-                jobs=jobs,
+                jobs=tuple(jobs),
                 joint_probability_sum=float(payload["joint_probability_sum"]),
                 warnings=tuple(str(item) for item in payload["warnings"]),
                 required_capabilities=tuple(
@@ -298,6 +307,8 @@ class SideraEnsembleHandoff:
             )
         except InputError:
             raise
+        except DomainError as error:
+            raise InputError("Malformed Sidera ensemble hand-off values.") from error
         except (KeyError, TypeError, ValueError, IndexError) as error:
             raise InputError("Malformed Sidera ensemble hand-off.") from error
         for declared, job in zip(payload["jobs"], handoff.jobs, strict=True):
@@ -323,11 +334,7 @@ class SideraEnsembleHandoff:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        try:
-            payload = json.loads(text)
-        except json.JSONDecodeError as error:
-            raise InputError("Sidera ensemble hand-off is not valid JSON.") from error
-        return cls.from_dict(payload)
+        return read_json_document(text, "Sidera ensemble hand-off", cls.from_dict)
 
 
 def export_sidera_ensemble_handoff(

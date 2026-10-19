@@ -127,6 +127,24 @@ acceptance gates, and the first three sprints are specified in
   propulsion with hash-verified throttle tables, maximum-thrust/maximum-Isp
   throttle paths, up-switch hysteresis, a fixed-efficiency continuous law,
   deterministic power-switching roots and analytic power/direction partials
+- Implemented in the isolated propulsion core: ambient back-pressure thrust in
+  the propagation bridge (`F = F_vac - p_a A_e`, analytic partial, net-thrust
+  margin root), navigation-facing driver priors linearized from hot-fire
+  calibration, the Gates execution-error model, first-order Gauss-Markov
+  thrust noise, and body-frame thruster force/torque with propellant-dependent
+  centre of mass and inertia
+- Implemented: fail-closed input validation and canonical numbers across the
+  propagation interface (fuzz- and property-tested), reopenable documents for
+  bridges, electric models and timelines, multi-burn timelines with jettison,
+  and bounded-variable thrust allocation
+- Implemented: throttle-commanded engine model with smooth (PCHIP) throttle
+  characteristics, free-space burn metrics and impulsive-equivalent time,
+  saltation support (`time_event_jump`) with an end-to-end variational test,
+  and fixes plus regression tests for every finding of a code review
+- Implemented: Lunaris adapter (exact-mass impulsive equivalents, finite burns
+  in Lunaris' propagator, segmentation markers) verified end-to-end, C1 cubic
+  Hermite performance surfaces, minimum-effort balanced thrust allocation, and
+  fail-closed validation of the feed models and Sidera adapters
 - Remaining: native Sidera wrapper for the propagation bridge, public HTTP
   API/UI surfaces for the isolated transient core,
   higher-order distributed water-hammer/priming models, regulator hysteresis,

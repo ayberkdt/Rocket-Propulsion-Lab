@@ -8,11 +8,15 @@ propulsion bookkeeping only.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, fields
 from enum import Enum
 from math import isfinite
 
 from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.validation import coerce_fields, name_value_pairs, real, records, strings, text
+
+from .numeric_outputs import _finite_rational, _fraction
 
 
 class PropellantRole(str, Enum):
@@ -54,13 +58,84 @@ class CutoffReason(str, Enum):
 
 
 def _finite_nonnegative(value: float, label: str) -> None:
-    if not isfinite(value) or value < 0.0:
-        raise DomainError(f"{label} must be finite and non-negative.")
+    if real(value, label) < 0.0:
+        raise DomainError(f"{label} must be finite and non-negative.", field=label)
 
 
 def _finite_positive(value: float, label: str) -> None:
-    if not isfinite(value) or value <= 0.0:
-        raise DomainError(f"{label} must be finite and greater than zero.")
+    if real(value, label) <= 0.0:
+        raise DomainError(f"{label} must be finite and greater than zero.", field=label)
+
+
+def _boolean(value, label):
+    """Keep physical flags distinct from text and numeric truthiness."""
+    if not isinstance(value, bool):
+        raise DomainError(f"{label} must be boolean.", field=label)
+    return value
+
+
+def _enum(value, kind, label):
+    """Normalize only recognized enum spellings, preserving dispatch semantics."""
+    if not isinstance(value, str):
+        raise DomainError(f"{label} must be a recognized {kind.__name__}.", field=label)
+    try:
+        return kind(value)
+    except ValueError as error:
+        raise DomainError(f"{label} must be a recognized {kind.__name__}.", field=label) from error
+
+
+def _utf8(value, label):
+    """Require encodable Unicode for the canonical UTF-8 identity boundary."""
+    try:
+        value.encode('utf-8')
+    except UnicodeError as error:
+        raise DomainError(f'{label} contains an unpaired Unicode surrogate.', field=label) from error
+
+
+def _model_fields(record, label):
+    """Normalize scalar fields and check textual identity without restricting Unicode."""
+    coerce_fields(record, label)
+    for item in fields(record):
+        value = getattr(record, item.name)
+        if isinstance(value, str):
+            _utf8(value, item.name)
+
+
+def _model_strings(value, label):
+    """Snapshot textual sequences and reject unencodable identity content."""
+    result = strings(value, label)
+    for item in result:
+        _utf8(item, label)
+    return result
+
+
+def _inventory_pairs(value, label):
+    """Snapshot unique nonnegative named inventories without dropping content."""
+    if isinstance(value, (str, bytes, Mapping)) or not hasattr(value, '__iter__'):
+        raise DomainError(f"{label} must be a sequence of pairs.", field=label)
+    items = tuple(value)
+    if any(isinstance(item, (str, bytes, Mapping)) or not hasattr(item, '__len__')
+           or len(item) != 2 for item in items):
+        raise DomainError(f"{label} must contain exactly two-item pairs.", field=label)
+    pairs = name_value_pairs(items, label)
+    if len({name for name, _ in pairs}) != len(pairs):
+        raise DomainError(f"{label} identifiers must be unique.", field=label)
+    for name, amount in pairs:
+        _utf8(name, label)
+        _finite_nonnegative(amount, label)
+    return pairs
+
+
+def _point_contract(point):
+    """Validate scalar sample fields and snapshot inventories, including idle samples."""
+    _model_fields(point, type(point).__name__)
+    for item in fields(point):
+        if item.type == 'float':
+            _finite_nonnegative(getattr(point, item.name), item.name)
+    _finite_positive(point.vehicle_mass_kg, 'vehicle_mass_kg')
+    if point.axial_thrust_n > point.delivered_thrust_n:
+        raise DomainError('Axial thrust cannot exceed delivered thrust.', field='axial_thrust_n')
+    object.__setattr__(point, 'tank_masses_kg', _inventory_pairs(point.tank_masses_kg, 'tank_masses_kg'))
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,12 +152,19 @@ class PropellantFlow:
     contributes_to_delivered_thrust: bool = True
 
     def __post_init__(self) -> None:
-        if not self.stream_id.strip():
-            raise DomainError("Stream identifier must not be empty.")
-        if self.tank_depleting and not self.tank_id.strip():
-            raise DomainError("A tank-depleting stream requires a tank identifier.")
-        if not self.propellant_key.strip():
-            raise DomainError("Propellant key must not be empty.")
+        text(self.stream_id, 'stream_id')
+        text(self.propellant_key, 'propellant_key')
+        _boolean(self.tank_depleting, 'tank_depleting')
+        _boolean(self.contributes_to_delivered_thrust, 'contributes_to_delivered_thrust')
+        if not isinstance(self.tank_id, str):
+            raise DomainError('tank_id must be a string.', field='tank_id')
+        if self.tank_depleting:
+            text(self.tank_id, 'tank_id')
+        for name in ('stream_id', 'propellant_key', 'tank_id'):
+            _utf8(getattr(self, name), name)
+        object.__setattr__(self, 'role', _enum(self.role, PropellantRole, 'role'))
+        object.__setattr__(self, 'destination', _enum(self.destination, FlowDestination, 'destination'))
+        object.__setattr__(self, 'mass_flow_kg_s', real(self.mass_flow_kg_s, 'mass_flow_kg_s'))
         _finite_nonnegative(self.mass_flow_kg_s, "Stream mass flow")
 
 
@@ -117,16 +199,17 @@ class EngineOperatingPoint:
     def __post_init__(self) -> None:
         from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
-        if not self.name.strip():
-            raise DomainError("Operating-point name must not be empty.")
+        _model_fields(self, 'Operating point')
+        object.__setattr__(self, 'streams', records(self.streams, PropellantFlow, 'streams'))
+        object.__setattr__(self, 'warnings', _model_strings(self.warnings, 'warnings'))
         for value, label in (
             (self.commanded_throttle, "Commanded throttle"),
             (self.realized_throttle, "Realized throttle"),
         ):
             if not isfinite(value) or not 0.0 < value <= 1.0:
-                raise DomainError(f"{label} must be finite and in (0, 1].")
+                raise DomainError(f"{label} must be finite and in (0, 1].", field=label)
         if self.active_engine_count < 1:
-            raise DomainError("Active engine count must be at least one.")
+            raise DomainError("Active engine count must be at least one.", field='active_engine_count')
         for value, label in (
             (self.ideal_thrust_n, "Ideal thrust"),
             (self.delivered_thrust_n, "Delivered thrust"),
@@ -143,26 +226,26 @@ class EngineOperatingPoint:
             (self.ambient_pressure_pa, "Ambient pressure"),
         ):
             _finite_nonnegative(value, label)
-        if self.delivered_thrust_n > self.ideal_thrust_n * (1.0 + 1e-12):
-            raise DomainError("Delivered thrust cannot exceed ideal thrust.")
+        if _fraction(self.delivered_thrust_n) > _fraction(self.ideal_thrust_n) * _fraction(1.0 + 1e-12):
+            raise DomainError("Delivered thrust cannot exceed ideal thrust.", field='delivered_thrust_n')
         if not self.streams:
-            raise DomainError("At least one propellant stream is required.")
+            raise DomainError("At least one propellant stream is required.", field='streams')
 
-        tank_flow = sum(flow.mass_flow_kg_s for flow in self.streams if flow.tank_depleting)
+        tank_flow = sum((_fraction(flow.mass_flow_kg_s) for flow in self.streams if flow.tank_depleting), _fraction(0.))
         chamber_flow = sum(
-            flow.mass_flow_kg_s
+            (_fraction(flow.mass_flow_kg_s)
             for flow in self.streams
-            if flow.destination is FlowDestination.CHAMBER
+            if flow.destination is FlowDestination.CHAMBER), _fraction(0.)
         )
         oxidizer_flow = sum(
-            flow.mass_flow_kg_s
+            (_fraction(flow.mass_flow_kg_s)
             for flow in self.streams
-            if flow.tank_depleting and flow.role is PropellantRole.OXIDIZER
+            if flow.tank_depleting and flow.role is PropellantRole.OXIDIZER), _fraction(0.)
         )
         fuel_flow = sum(
-            flow.mass_flow_kg_s
+            (_fraction(flow.mass_flow_kg_s)
             for flow in self.streams
-            if flow.tank_depleting and flow.role is PropellantRole.FUEL
+            if flow.tank_depleting and flow.role is PropellantRole.FUEL), _fraction(0.)
         )
         for actual, declared, label in (
             (tank_flow, self.total_tank_flow_kg_s, "Total tank flow"),
@@ -170,26 +253,22 @@ class EngineOperatingPoint:
             (oxidizer_flow, self.oxidizer_mass_flow_kg_s, "Oxidizer mass flow"),
             (fuel_flow, self.fuel_mass_flow_kg_s, "Fuel mass flow"),
         ):
-            tolerance = max(1e-12, abs(declared) * 1e-10)
-            if abs(actual - declared) > tolerance:
-                raise DomainError(f"{label} does not close against explicit streams.")
+            tolerance = max(_fraction(1e-12), abs(_fraction(declared)) * _fraction(1e-10))
+            if abs(actual - _fraction(declared)) > tolerance:
+                raise DomainError(f"{label} does not close against explicit streams.", field=label)
 
-        expected_isp = self.delivered_thrust_n / (
-            STANDARD_GRAVITY_M_S2 * self.total_tank_flow_kg_s
-        )
-        if abs(expected_isp - self.system_specific_impulse_s) > max(
-            1e-10, expected_isp * 1e-10
-        ):
+        expected_isp = _fraction(self.delivered_thrust_n) / (_fraction(STANDARD_GRAVITY_M_S2) * _fraction(self.total_tank_flow_kg_s))
+        if abs(expected_isp - _fraction(self.system_specific_impulse_s)) > max(_fraction(1e-10), expected_isp * _fraction(1e-10)):
             raise DomainError(
-                "System specific impulse must use delivered thrust and total tank flow."
+                "System specific impulse must use delivered thrust and total tank flow.", field='system_specific_impulse_s'
             )
         if self.mixture_ratio is not None:
             _finite_positive(self.mixture_ratio, "Mixture ratio")
             if self.fuel_mass_flow_kg_s <= 0.0:
-                raise DomainError("Mixture ratio requires a positive fuel flow.")
-            expected_ratio = self.oxidizer_mass_flow_kg_s / self.fuel_mass_flow_kg_s
-            if abs(expected_ratio - self.mixture_ratio) > max(1e-10, expected_ratio * 1e-10):
-                raise DomainError("Mixture ratio does not close against oxidizer and fuel flow.")
+                raise DomainError("Mixture ratio requires a positive fuel flow.", field='mixture_ratio')
+            expected_ratio = _fraction(self.oxidizer_mass_flow_kg_s) / _fraction(self.fuel_mass_flow_kg_s)
+            if abs(expected_ratio - _fraction(self.mixture_ratio)) > max(_fraction(1e-10), expected_ratio * _fraction(1e-10)):
+                raise DomainError("Mixture ratio does not close against oxidizer and fuel flow.", field='mixture_ratio')
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,14 +282,12 @@ class TankDefinition:
     reserve_mass_kg: float = 0.0
 
     def __post_init__(self) -> None:
-        if not self.tank_id.strip():
-            raise DomainError("Tank identifier must not be empty.")
-        if not self.propellant_key.strip():
-            raise DomainError("Tank propellant key must not be empty.")
+        _model_fields(self, 'Tank')
+        object.__setattr__(self, 'role', _enum(self.role, PropellantRole, 'role'))
         _finite_nonnegative(self.loaded_mass_kg, "Loaded tank mass")
         _finite_nonnegative(self.reserve_mass_kg, "Tank reserve mass")
         if self.reserve_mass_kg > self.loaded_mass_kg:
-            raise DomainError("Tank reserve cannot exceed loaded mass.")
+            raise DomainError("Tank reserve cannot exceed loaded mass.", field='reserve_mass_kg')
 
     @property
     def expendable_mass_kg(self) -> float:
@@ -227,6 +304,8 @@ class BurnTarget:
     value: float
 
     def __post_init__(self) -> None:
+        _model_fields(self, 'Burn target')
+        object.__setattr__(self, 'kind', _enum(self.kind, BurnTargetKind, 'kind'))
         _finite_positive(self.value, "Burn target")
 
 
@@ -243,22 +322,24 @@ class BurnDefinition:
     cant_efficiency: float = 1.0
 
     def __post_init__(self) -> None:
-        if not self.name.strip():
-            raise DomainError("Burn name must not be empty.")
+        _model_fields(self, 'Burn definition')
+        object.__setattr__(self, 'tanks', records(self.tanks, TankDefinition, 'tanks'))
+        if not isinstance(self.target, BurnTarget):
+            raise DomainError('target must be a BurnTarget.', field='target')
         _finite_positive(self.initial_mass_kg, "Initial vehicle mass")
         _finite_nonnegative(self.protected_dry_mass_kg, "Protected dry mass")
         _finite_positive(self.maximum_duration_s, "Maximum burn duration")
         if not isfinite(self.cant_efficiency) or not 0.0 < self.cant_efficiency <= 1.0:
-            raise DomainError("Cant efficiency must be finite and in (0, 1].")
+            raise DomainError("Cant efficiency must be finite and in (0, 1].", field='cant_efficiency')
         if not self.tanks:
-            raise DomainError("At least one tank is required.")
+            raise DomainError("At least one tank is required.", field='tanks')
         tank_ids = [tank.tank_id for tank in self.tanks]
         if len(tank_ids) != len(set(tank_ids)):
-            raise DomainError("Tank identifiers must be unique.")
-        if self.protected_dry_mass_kg + sum(t.loaded_mass_kg for t in self.tanks) > (
-            self.initial_mass_kg * (1.0 + 1e-12)
+            raise DomainError("Tank identifiers must be unique.", field='tanks')
+        if _fraction(self.protected_dry_mass_kg) + sum((_fraction(t.loaded_mass_kg) for t in self.tanks), _fraction(0.)) > (
+            _fraction(self.initial_mass_kg) * _fraction(1.0 + 1e-12)
         ):
-            raise DomainError("Protected dry mass plus tank loads exceeds initial mass.")
+            raise DomainError("Protected dry mass plus tank loads exceeds initial mass.", field='initial_mass_kg')
 
 
 @dataclass(frozen=True, slots=True)
@@ -269,10 +350,16 @@ class PropulsionState:
     vehicle_mass_kg: float
     tank_masses_kg: tuple[tuple[str, float], ...]
 
+    def __post_init__(self) -> None:
+        _model_fields(self, 'Propulsion state')
+        _finite_nonnegative(self.time_s, 'time_s')
+        _finite_positive(self.vehicle_mass_kg, 'vehicle_mass_kg')
+        object.__setattr__(self, 'tank_masses_kg', _inventory_pairs(self.tank_masses_kg, 'tank_masses_kg'))
+
 
 @dataclass(frozen=True, slots=True)
 class BurnProfilePoint:
-    """One exact endpoint from a constant burn."""
+    """One binary64 endpoint from a constant burn."""
 
     time_s: float
     delivered_thrust_n: float
@@ -283,10 +370,13 @@ class BurnProfilePoint:
     tank_masses_kg: tuple[tuple[str, float], ...]
     phase: str
 
+    def __post_init__(self) -> None:
+        _point_contract(self)
+
 
 @dataclass(frozen=True, slots=True)
 class ThrottleSegment:
-    """One exact piecewise-linear throttle segment.
+    """One piecewise-linear throttle segment defined by supplied binary values.
 
     Segments are ordered and contiguous by construction in
     :class:`ThrottleSchedule`. A discontinuous command is represented by an
@@ -299,21 +389,26 @@ class ThrottleSegment:
     phase: str = "commanded"
 
     def __post_init__(self) -> None:
+        _model_fields(self, 'Throttle segment')
         _finite_positive(self.duration_s, "Throttle-segment duration")
         for value, label in (
             (self.start_throttle, "Segment start throttle"),
             (self.end_throttle, "Segment end throttle"),
         ):
             if not isfinite(value) or not 0.0 <= value <= 1.0:
-                raise DomainError(f"{label} must be finite and in [0, 1].")
-        if not self.phase.strip():
-            raise DomainError("Throttle-segment phase must not be empty.")
+                raise DomainError(f"{label} must be finite and in [0, 1].", field=label)
+        text(self.phase, "Throttle-segment phase")
 
     @property
     def exposure_s(self) -> float:
-        """Return the exact full-throttle-equivalent duration."""
+        """Return rounded full-throttle exposure from exact input arithmetic."""
 
-        return 0.5 * (self.start_throttle + self.end_throttle) * self.duration_s
+        return _finite_rational(
+            (_fraction(self.start_throttle) + _fraction(self.end_throttle))
+            * _fraction(self.duration_s)
+            / 2,
+            "Throttle segment exposure",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -324,29 +419,45 @@ class ThrottleSchedule:
     name: str = "piecewise-linear throttle schedule"
 
     def __post_init__(self) -> None:
-        if not self.name.strip():
-            raise DomainError("Throttle-schedule name must not be empty.")
-        if not isinstance(self.segments, tuple) or not self.segments:
-            raise DomainError("Throttle schedule requires at least one segment.")
-        if self.total_exposure_s <= 0.0:
-            raise DomainError("Throttle schedule must contain positive commanded exposure.")
+        _model_fields(self, 'Throttle schedule')
+        object.__setattr__(self, 'segments', records(self.segments, ThrottleSegment, 'segments'))
+        if not self.segments:
+            raise DomainError("Throttle schedule requires at least one segment.", field='segments')
+        if not any(
+            segment.start_throttle > 0 or segment.end_throttle > 0 for segment in self.segments
+        ):
+            raise DomainError("Throttle schedule must contain positive commanded exposure.", field='segments')
 
     @property
     def total_duration_s(self) -> float:
         """Return command time from the first segment to schedule end."""
 
-        return sum(segment.duration_s for segment in self.segments)
+        return _finite_rational(
+            sum((_fraction(segment.duration_s) for segment in self.segments), _fraction(0.0)),
+            "Schedule duration",
+        )
 
     @property
     def total_exposure_s(self) -> float:
         """Return ``integral(throttle dt)`` over the complete schedule."""
 
-        return sum(segment.exposure_s for segment in self.segments)
+        return _finite_rational(
+            sum(
+                (
+                    (_fraction(segment.start_throttle) + _fraction(segment.end_throttle))
+                    * _fraction(segment.duration_s)
+                    / 2
+                    for segment in self.segments
+                ),
+                _fraction(0.0),
+            ),
+            "Schedule exposure",
+        )
 
 
 @dataclass(frozen=True, slots=True)
 class ProfiledBurnPoint:
-    """One exact L1 endpoint with throttle, force, flow, and inventory state."""
+    """One L1 sample with rounded throttle, force, flow, and inventory fields."""
 
     time_s: float
     commanded_throttle: float
@@ -361,6 +472,12 @@ class ProfiledBurnPoint:
     tank_masses_kg: tuple[tuple[str, float], ...]
     chamber_pressure_pa: float
     phase: str
+
+    def __post_init__(self) -> None:
+        _point_contract(self)
+        for name in ('commanded_throttle', 'realized_throttle'):
+            if getattr(self, name) > 1:
+                raise DomainError(f'{name} must be in [0, 1].', field=name)
 
 
 @dataclass(frozen=True, slots=True)
@@ -389,6 +506,25 @@ class BurnSummary:
     delta_v_closure_error_m_s: float
     exact_constant_sidera_export_available: bool
 
+    def __post_init__(self) -> None:
+        _model_fields(self, 'Burn summary')
+        object.__setattr__(self, 'requested_target_kind', _enum(self.requested_target_kind, BurnTargetKind, 'requested_target_kind'))
+        object.__setattr__(self, 'cutoff_reason', _enum(self.cutoff_reason, CutoffReason, 'cutoff_reason'))
+        _boolean(self.target_achieved, 'target_achieved')
+        _boolean(self.exact_constant_sidera_export_available, 'exact_constant_sidera_export_available')
+        if self.binding_constraint is not None:
+            text(self.binding_constraint, 'binding_constraint')
+        for item in fields(self):
+            if item.type == 'float':
+                _finite_nonnegative(getattr(self, item.name), item.name)
+        for name in ('requested_target_value', 'initial_mass_kg', 'final_mass_kg'):
+            _finite_positive(getattr(self, name), name)
+        if self.final_mass_kg > self.initial_mass_kg:
+            raise DomainError('Burn final mass exceeds initial mass.', field='final_mass_kg')
+        if self.axial_total_impulse_n_s > self.delivered_total_impulse_n_s:
+            raise DomainError('Axial impulse exceeds delivered impulse.', field='axial_total_impulse_n_s')
+        object.__setattr__(self, 'consumed_by_tank_kg', _inventory_pairs(self.consumed_by_tank_kg, 'consumed_by_tank_kg'))
+
 
 @dataclass(frozen=True, slots=True)
 class IntegrationEvidence:
@@ -400,6 +536,14 @@ class IntegrationEvidence:
     segment_count: int
     accepted_steps: int
     rejected_steps: int
+
+    def __post_init__(self) -> None:
+        _model_fields(self, 'Integration evidence')
+        for name in ('absolute_tolerance', 'relative_tolerance'):
+            _finite_nonnegative(getattr(self, name), name)
+        for name in ('segment_count', 'accepted_steps', 'rejected_steps'):
+            if getattr(self, name) < 0:
+                raise DomainError(f'{name} must be nonnegative.', field=name)
 
 
 @dataclass(frozen=True, slots=True)
@@ -418,10 +562,13 @@ class BurnResult:
     input_hash: str
     result_hash: str
 
+    def __post_init__(self) -> None:
+        _result_contract(self, 'rocket_propulsion_burn_v1', BurnProfilePoint)
+
 
 @dataclass(frozen=True, slots=True)
 class ProfiledBurnResult:
-    """Top-level result for an exact piecewise-linear L1 throttle schedule."""
+    """Top-level result for a piecewise-linear L1 throttle schedule."""
 
     schema: str
     definition: BurnDefinition
@@ -436,3 +583,27 @@ class ProfiledBurnResult:
     input_hash: str
     result_hash: str
 
+    def __post_init__(self) -> None:
+        _result_contract(self, 'rocket_propulsion_burn_v2', ProfiledBurnPoint)
+        if not isinstance(self.schedule, ThrottleSchedule):
+            raise DomainError('schedule must be a ThrottleSchedule.', field='schedule')
+
+
+def _result_contract(result, schema, point_kind):
+    """Snapshot typed result structure; authoritative reproduction is checked on I/O."""
+    if result.schema != schema:
+        raise DomainError('Result schema does not match its record type.', field='schema')
+    for name, kind in (('definition', BurnDefinition), ('operating_point', EngineOperatingPoint),
+                       ('initial_state', PropulsionState), ('final_state', PropulsionState),
+                       ('summary', BurnSummary), ('evidence', IntegrationEvidence)):
+        if not isinstance(getattr(result, name), kind):
+            raise DomainError(f'{name} must be a {kind.__name__}.', field=name)
+    object.__setattr__(result, 'profile', records(result.profile, point_kind, 'profile'))
+    object.__setattr__(result, 'warnings', _model_strings(result.warnings, 'warnings'))
+    for name in ('input_hash', 'result_hash'):
+        digest = getattr(result, name)
+        # Solvers construct a provisional record before computing its own hash.
+        if name == 'result_hash' and digest == '':
+            continue
+        if not isinstance(digest, str) or len(digest) != 64 or any(c not in '0123456789abcdef' for c in digest):
+            raise DomainError(f'{name} must be a lowercase SHA-256 digest.', field=name)

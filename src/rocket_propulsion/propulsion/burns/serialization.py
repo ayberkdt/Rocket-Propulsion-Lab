@@ -8,7 +8,8 @@ from dataclasses import fields, is_dataclass
 from enum import Enum
 from typing import Any
 
-from rocket_propulsion.core.errors import InputError
+from rocket_propulsion.core.errors import DomainError, InputError
+from rocket_propulsion.core.validation import DOCUMENT_ERRORS, json_text
 
 
 def _primitive(value: Any) -> Any:
@@ -37,6 +38,19 @@ def canonical_json_bytes(value: Any) -> bytes:
     ).encode("utf-8")
 
 
+def canonical_sha256(value: Any) -> str:
+    """Return the SHA-256 hex digest of :func:`canonical_json_bytes`."""
+
+    return hashlib.sha256(canonical_json_bytes(value)).hexdigest()
+
+
+def _require_numerical_policies(payload, manifest) -> None:
+    """Reject missing or changed numerical policies recognized by this model."""
+    for key, value in manifest.items():
+        if key.endswith("_numerics") and payload.get(key) != value:
+            raise InputError(f"Model numerical policy {key} is missing or unsupported.", field=key)
+
+
 def _sha256(value: Any) -> str:
     return hashlib.sha256(canonical_json_bytes(value)).hexdigest()
 
@@ -61,14 +75,14 @@ def burn_result_hash(result: Any) -> str:
 
 
 def burn_result_to_dict(result: Any) -> dict[str, Any]:
-    """Return the JSON-compatible canonical artifact object."""
+    """Export only a typed, hash-consistent result reproducible from its inputs."""
 
+    from .models import BurnResult, ProfiledBurnResult
+
+    if not isinstance(result, (BurnResult, ProfiledBurnResult)):
+        raise InputError('Burn result must be a supported result record.', field='result')
     payload = _primitive(result)
-    if payload.get("schema") not in {
-        "rocket_propulsion_burn_v1",
-        "rocket_propulsion_burn_v2",
-    }:
-        raise ValueError("Unsupported burn result schema.")
+    burn_result_from_dict(payload)
     return payload
 
 
@@ -84,258 +98,119 @@ def burn_result_to_json(result: Any, *, indent: int | None = 2) -> str:
     )
 
 
-def _pairs(value: Any, field: str) -> tuple[tuple[str, float], ...]:
-    try:
-        return tuple((str(item[0]), float(item[1])) for item in value)
-    except (TypeError, ValueError, IndexError) as error:
-        raise InputError(f"Field {field} must contain name/value pairs.", field=field) from error
+def _record_data(value, kind, label):
+    """Require precisely the declared record fields; never discard unhashed data."""
+    if not isinstance(value, dict):
+        raise InputError(f"{label} must be an object.", field=label)
+    expected = {item.name for item in fields(kind)}
+    if set(value) != expected:
+        raise InputError(f"{label} has missing or unsupported fields.", field=label)
+    return dict(value)
+
+
+def _array(value, label):
+    """Accept JSON-compatible arrays without iterating strings or mappings."""
+    if not isinstance(value, (list, tuple)):
+        raise InputError(f"{label} must be an array.", field=label)
+    return tuple(value)
 
 
 def burn_result_from_dict(payload: dict[str, Any]) -> Any:
-    """Reconstruct and integrity-check a ``rocket_propulsion_burn_v1`` result."""
-
+    """Validate exact v1/v2 structure, raw types, hashes and solver reproduction."""
     from .models import (
-        BurnDefinition,
-        BurnProfilePoint,
-        BurnResult,
-        BurnSummary,
-        BurnTarget,
-        BurnTargetKind,
-        CutoffReason,
-        EngineOperatingPoint,
-        FlowDestination,
-        IntegrationEvidence,
-        ProfiledBurnPoint,
-        ProfiledBurnResult,
-        PropellantFlow,
-        PropellantRole,
-        PropulsionState,
-        TankDefinition,
-        ThrottleSchedule,
-        ThrottleSegment,
+        BurnDefinition, BurnProfilePoint, BurnResult, BurnSummary, BurnTarget,
+        EngineOperatingPoint, IntegrationEvidence, ProfiledBurnPoint, ProfiledBurnResult,
+        PropellantFlow, PropulsionState, TankDefinition, ThrottleSchedule, ThrottleSegment,
     )
 
     if not isinstance(payload, dict):
-        raise InputError("Burn artifact root must be an object.")
+        raise InputError("Burn artifact root must be an object.", field="artifact")
     schema = payload.get("schema")
-    if schema not in {"rocket_propulsion_burn_v1", "rocket_propulsion_burn_v2"}:
+    if not isinstance(schema, str) or schema not in {"rocket_propulsion_burn_v1", "rocket_propulsion_burn_v2"}:
         raise InputError("Unsupported burn result schema.", field="schema")
+    result_kind = BurnResult if schema == "rocket_propulsion_burn_v1" else ProfiledBurnResult
+    point_kind = BurnProfilePoint if result_kind is BurnResult else ProfiledBurnPoint
+
+    def record(kind, value, label):
+        return kind(**_record_data(value, kind, label))
+
     try:
-        definition_data = payload["definition"]
-        target_data = definition_data["target"]
-        definition = BurnDefinition(
-            name=str(definition_data["name"]),
-            initial_mass_kg=float(definition_data["initial_mass_kg"]),
-            protected_dry_mass_kg=float(definition_data["protected_dry_mass_kg"]),
-            tanks=tuple(
-                TankDefinition(
-                    tank_id=str(item["tank_id"]),
-                    propellant_key=str(item["propellant_key"]),
-                    role=PropellantRole(item["role"]),
-                    loaded_mass_kg=float(item["loaded_mass_kg"]),
-                    reserve_mass_kg=float(item["reserve_mass_kg"]),
-                )
-                for item in definition_data["tanks"]
-            ),
-            target=BurnTarget(BurnTargetKind(target_data["kind"]), float(target_data["value"])),
-            maximum_duration_s=float(definition_data["maximum_duration_s"]),
-            cant_efficiency=float(definition_data["cant_efficiency"]),
-        )
-        point_data = payload["operating_point"]
-        operating_point = EngineOperatingPoint(
-            name=str(point_data["name"]),
-            commanded_throttle=float(point_data["commanded_throttle"]),
-            realized_throttle=float(point_data["realized_throttle"]),
-            active_engine_count=int(point_data["active_engine_count"]),
-            ideal_thrust_n=float(point_data["ideal_thrust_n"]),
-            delivered_thrust_n=float(point_data["delivered_thrust_n"]),
-            chamber_specific_impulse_s=float(point_data["chamber_specific_impulse_s"]),
-            system_specific_impulse_s=float(point_data["system_specific_impulse_s"]),
-            chamber_mass_flow_kg_s=float(point_data["chamber_mass_flow_kg_s"]),
-            total_tank_flow_kg_s=float(point_data["total_tank_flow_kg_s"]),
-            oxidizer_mass_flow_kg_s=float(point_data["oxidizer_mass_flow_kg_s"]),
-            fuel_mass_flow_kg_s=float(point_data["fuel_mass_flow_kg_s"]),
-            mixture_ratio=(
-                None if point_data["mixture_ratio"] is None else float(point_data["mixture_ratio"])
-            ),
-            chamber_pressure_pa=float(point_data["chamber_pressure_pa"]),
-            ambient_pressure_pa=float(point_data["ambient_pressure_pa"]),
-            streams=tuple(
-                PropellantFlow(
-                    stream_id=str(item["stream_id"]),
-                    tank_id=str(item["tank_id"]),
-                    propellant_key=str(item["propellant_key"]),
-                    role=PropellantRole(item["role"]),
-                    destination=FlowDestination(item["destination"]),
-                    mass_flow_kg_s=float(item["mass_flow_kg_s"]),
-                    tank_depleting=bool(item["tank_depleting"]),
-                    contributes_to_delivered_thrust=bool(
-                        item["contributes_to_delivered_thrust"]
-                    ),
-                )
-                for item in point_data["streams"]
-            ),
-            model_id=str(point_data["model_id"]),
-            source=str(point_data["source"]),
-            warnings=tuple(str(item) for item in point_data["warnings"]),
-        )
-
-        def state(item: dict[str, Any], field: str) -> PropulsionState:
-            return PropulsionState(
-                time_s=float(item["time_s"]),
-                vehicle_mass_kg=float(item["vehicle_mass_kg"]),
-                tank_masses_kg=_pairs(item["tank_masses_kg"], field),
-            )
-
-        if schema == "rocket_propulsion_burn_v1":
-            schedule = None
-            profile = tuple(
-                BurnProfilePoint(
-                    time_s=float(item["time_s"]),
-                    delivered_thrust_n=float(item["delivered_thrust_n"]),
-                    axial_thrust_n=float(item["axial_thrust_n"]),
-                    system_specific_impulse_s=float(item["system_specific_impulse_s"]),
-                    total_mass_flow_kg_s=float(item["total_mass_flow_kg_s"]),
-                    vehicle_mass_kg=float(item["vehicle_mass_kg"]),
-                    tank_masses_kg=_pairs(
-                        item["tank_masses_kg"], "profile.tank_masses_kg"
-                    ),
-                    phase=str(item["phase"]),
-                )
-                for item in payload["profile"]
-            )
-        else:
-            schedule_data = payload["schedule"]
-            schedule = ThrottleSchedule(
-                name=str(schedule_data["name"]),
-                segments=tuple(
-                    ThrottleSegment(
-                        duration_s=float(item["duration_s"]),
-                        start_throttle=float(item["start_throttle"]),
-                        end_throttle=float(item["end_throttle"]),
-                        phase=str(item["phase"]),
-                    )
-                    for item in schedule_data["segments"]
-                ),
-            )
-            profile = tuple(
-                ProfiledBurnPoint(
-                    time_s=float(item["time_s"]),
-                    commanded_throttle=float(item["commanded_throttle"]),
-                    realized_throttle=float(item["realized_throttle"]),
-                    delivered_thrust_n=float(item["delivered_thrust_n"]),
-                    axial_thrust_n=float(item["axial_thrust_n"]),
-                    system_specific_impulse_s=float(item["system_specific_impulse_s"]),
-                    total_mass_flow_kg_s=float(item["total_mass_flow_kg_s"]),
-                    oxidizer_mass_flow_kg_s=float(item["oxidizer_mass_flow_kg_s"]),
-                    fuel_mass_flow_kg_s=float(item["fuel_mass_flow_kg_s"]),
-                    vehicle_mass_kg=float(item["vehicle_mass_kg"]),
-                    tank_masses_kg=_pairs(
-                        item["tank_masses_kg"], "profile.tank_masses_kg"
-                    ),
-                    chamber_pressure_pa=float(item["chamber_pressure_pa"]),
-                    phase=str(item["phase"]),
-                )
-                for item in payload["profile"]
-            )
-        summary_data = payload["summary"]
-        summary = BurnSummary(
-            requested_target_kind=BurnTargetKind(summary_data["requested_target_kind"]),
-            requested_target_value=float(summary_data["requested_target_value"]),
-            target_achieved=bool(summary_data["target_achieved"]),
-            cutoff_reason=CutoffReason(summary_data["cutoff_reason"]),
-            binding_constraint=(
-                None
-                if summary_data["binding_constraint"] is None
-                else str(summary_data["binding_constraint"])
-            ),
-            duration_s=float(summary_data["duration_s"]),
-            initial_mass_kg=float(summary_data["initial_mass_kg"]),
-            final_mass_kg=float(summary_data["final_mass_kg"]),
-            consumed_propellant_kg=float(summary_data["consumed_propellant_kg"]),
-            consumed_by_tank_kg=_pairs(
-                summary_data["consumed_by_tank_kg"], "summary.consumed_by_tank_kg"
-            ),
-            delivered_total_impulse_n_s=float(summary_data["delivered_total_impulse_n_s"]),
-            axial_total_impulse_n_s=float(summary_data["axial_total_impulse_n_s"]),
-            average_delivered_thrust_n=float(summary_data["average_delivered_thrust_n"]),
-            system_equivalent_specific_impulse_s=float(
-                summary_data["system_equivalent_specific_impulse_s"]
-            ),
-            ideal_delta_v_m_s=float(summary_data["ideal_delta_v_m_s"]),
-            rocket_equivalent_specific_impulse_s=float(
-                summary_data["rocket_equivalent_specific_impulse_s"]
-            ),
-            thrust_centroid_time_s=float(summary_data["thrust_centroid_time_s"]),
-            mass_closure_error_kg=float(summary_data["mass_closure_error_kg"]),
-            impulse_closure_error_n_s=float(summary_data["impulse_closure_error_n_s"]),
-            delta_v_closure_error_m_s=float(summary_data["delta_v_closure_error_m_s"]),
-            exact_constant_sidera_export_available=bool(
-                summary_data["exact_constant_sidera_export_available"]
-            ),
-        )
-        evidence_data = payload["evidence"]
-        common = {
-            "schema": str(payload["schema"]),
-            "definition": definition,
-            "operating_point": operating_point,
-            "initial_state": state(
-                payload["initial_state"], "initial_state.tank_masses_kg"
-            ),
-            "final_state": state(payload["final_state"], "final_state.tank_masses_kg"),
-            "profile": profile,
-            "summary": summary,
-            "evidence": IntegrationEvidence(
-                method=str(evidence_data["method"]),
-                absolute_tolerance=float(evidence_data["absolute_tolerance"]),
-                relative_tolerance=float(evidence_data["relative_tolerance"]),
-                segment_count=int(evidence_data["segment_count"]),
-                accepted_steps=int(evidence_data["accepted_steps"]),
-                rejected_steps=int(evidence_data["rejected_steps"]),
-            ),
-            "warnings": tuple(str(item) for item in payload["warnings"]),
-            "input_hash": str(payload["input_hash"]),
-            "result_hash": str(payload["result_hash"]),
+        data = _record_data(payload, result_kind, "artifact")
+        definition_data = _record_data(data["definition"], BurnDefinition, "definition")
+        definition = BurnDefinition(**{
+            **definition_data,
+            "target": record(BurnTarget, definition_data["target"], "definition.target"),
+            "tanks": tuple(record(TankDefinition, item, "definition.tanks")
+                           for item in _array(definition_data["tanks"], "definition.tanks")),
+        })
+        point_data = _record_data(data["operating_point"], EngineOperatingPoint, "operating_point")
+        operating_point = EngineOperatingPoint(**{
+            **point_data,
+            "streams": tuple(record(PropellantFlow, item, "operating_point.streams")
+                             for item in _array(point_data["streams"], "operating_point.streams")),
+        })
+        converted = {
+            **data, "definition": definition, "operating_point": operating_point,
+            "initial_state": record(PropulsionState, data["initial_state"], "initial_state"),
+            "final_state": record(PropulsionState, data["final_state"], "final_state"),
+            "summary": record(BurnSummary, data["summary"], "summary"),
+            "evidence": record(IntegrationEvidence, data["evidence"], "evidence"),
+            "profile": tuple(record(point_kind, item, "profile")
+                             for item in _array(data["profile"], "profile")),
         }
-        if schema == "rocket_propulsion_burn_v1":
-            result = BurnResult(**common)
+        if result_kind is ProfiledBurnResult:
+            schedule_data = _record_data(data["schedule"], ThrottleSchedule, "schedule")
+            converted["schedule"] = ThrottleSchedule(**{
+                **schedule_data,
+                "segments": tuple(record(ThrottleSegment, item, "schedule.segments")
+                                  for item in _array(schedule_data["segments"], "schedule.segments")),
+            })
+        result = result_kind(**converted)
+        declared_schedule = result.schedule if isinstance(result, ProfiledBurnResult) else None
+        if result.input_hash != burn_input_hash(result.definition, result.operating_point, declared_schedule):
+            raise InputError("Burn artifact input hash does not match its inputs.", field="input_hash")
+        if result.result_hash != burn_result_hash(result):
+            raise InputError("Burn artifact result hash does not match its contents.", field="result_hash")
+        # A recomputed hash is not evidence that the output follows its inputs.
+        if isinstance(result, ProfiledBurnResult):
+            from .profile_integration import simulate_profiled_burn
+            expected = simulate_profiled_burn(result.definition, result.operating_point, result.schedule)
         else:
-            result = ProfiledBurnResult(schedule=schedule, **common)
-    except (KeyError, TypeError, ValueError) as error:
-        if isinstance(error, InputError):
-            raise
-        raise InputError("Malformed burn result artifact.") from error
+            from .integration import simulate_constant_burn
+            expected = simulate_constant_burn(result.definition, result.operating_point)
+        if canonical_json_bytes(result) != canonical_json_bytes(expected):
+            raise InputError("Burn artifact does not reproduce from its declared inputs.", field="result")
+        return result
+    except InputError:
+        raise
+    except DomainError as error:
+        raise InputError(f"Malformed burn result artifact: {error}", field=error.field) from error
+    except DOCUMENT_ERRORS + (UnicodeError,) as error:
+        raise InputError("Malformed burn result artifact.", field="artifact") from error
 
-    declared_schedule = result.schedule if isinstance(result, ProfiledBurnResult) else None
-    if result.input_hash != burn_input_hash(
-        result.definition, result.operating_point, declared_schedule
-    ):
-        raise InputError("Burn artifact input hash does not match its inputs.", field="input_hash")
-    if result.result_hash != burn_result_hash(result):
-        raise InputError("Burn artifact result hash does not match its contents.", field="result_hash")
-    # Re-evaluation makes persistence validation stronger than a
-    # self-consistent, recomputed hash.
-    if isinstance(result, ProfiledBurnResult):
-        from .profile_integration import simulate_profiled_burn
 
-        expected = simulate_profiled_burn(
-            result.definition, result.operating_point, result.schedule
-        )
-    else:
-        from .integration import simulate_constant_burn
-
-        expected = simulate_constant_burn(result.definition, result.operating_point)
-    if canonical_json_bytes(result) != canonical_json_bytes(expected):
-        raise InputError("Burn artifact does not reproduce from its declared inputs.")
+def _unique_object(pairs):
+    """Reject ambiguous object members at every JSON depth before model coercion."""
+    result = {}
+    for name, value in pairs:
+        if name in result:
+            raise InputError(f"Duplicate burn artifact field {name!r}.", field=name)
+        result[name] = value
     return result
 
 
+def _reject_constant(value):
+    """Keep nonstandard NaN and infinity tokens out of the whole artifact."""
+    raise InputError(f"Nonstandard JSON constant {value!r}.", field="JSON constant")
+
+
 def burn_result_from_json(text: str) -> Any:
-    """Parse and integrity-check a serialized burn result."""
-
+    """Parse strict JSON and validate the complete burn artifact."""
+    source = json_text(text, "Burn artifact")
     try:
-        payload = json.loads(text)
-    except json.JSONDecodeError as error:
-        raise InputError("Burn artifact is not valid JSON.") from error
+        payload = json.loads(source, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except InputError:
+        raise
+    except DOCUMENT_ERRORS as error:
+        raise InputError("Burn artifact is not valid JSON.", field="artifact") from error
     return burn_result_from_dict(payload)
-

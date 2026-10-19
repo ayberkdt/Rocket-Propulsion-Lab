@@ -390,7 +390,7 @@ class ApiRouteTests(unittest.TestCase):
         )
         self.assertEqual(export["schema"], "sidera_maneuver_plan_v1")
         self.assertEqual(export["maneuvers"][0]["throttle"], 1.0)
-        self.assertIn(capabilities["status"], {"unavailable", "incompatible", "supported"})
+        self.assertIn(capabilities["status"], {"checking", "unavailable", "incompatible", "supported"})
 
         report = dispatch_calculation(
             "/api/v1/burn/report", {"burn_result": result}

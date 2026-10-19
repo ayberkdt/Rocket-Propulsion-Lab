@@ -10,7 +10,7 @@ inventory roots by bisection and latches the burn off after a stopping event.
 import random
 import unittest
 from itertools import pairwise
-from math import isclose, log, sqrt
+from math import hypot, isclose, log
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.propulsion.burns import (
@@ -215,9 +215,10 @@ class BridgeTimeIntegrationTests(unittest.TestCase):
         self.assertAlmostEqual(final[8], 5.0 - 1.5, places=12)
         expected_dv = EXHAUST_VELOCITY_M_S * log(100.0 / final[6])
         self.assertTrue(isclose(self.speed_along_axis(final), expected_dv, rel_tol=1e-10))
-        transverse = sqrt(
-            sum(value * value for value in final[3:6]) - self.speed_along_axis(final) ** 2
-        )
+        # |v x unit| avoids subtracting two nearly identical squared speeds.
+        vx, vy, vz = final[3:6]
+        ux, uy, uz = self.unit
+        transverse = hypot(vy * uz - vz * uy, vz * ux - vx * uz, vx * uy - vy * ux)
         self.assertLess(transverse, 1e-9)
         closure = bridge.mass_closure(
             vehicle_mass_kg=final[6],
@@ -351,32 +352,30 @@ class MassClosureTests(unittest.TestCase):
 
 
 def _reference_artifact_segment(artifact: TabulatedBurnArtifact, time_s: float, side: str):
-    """The original linear scan, kept as the oracle for the bisect lookup."""
+    """Independent interval-membership scan; side applies only at equality."""
 
-    tolerance = max(1e-12, artifact.duration_s * 1e-12)
     for index, segment in enumerate(artifact.segments):
         if segment.start_time_s <= time_s < segment.end_time_s:
-            if side == "left" and index > 0 and abs(time_s - segment.start_time_s) <= tolerance:
+            if side == "left" and index > 0 and time_s == segment.start_time_s:
                 return artifact.segments[index - 1]
             return segment
     return artifact.segments[-1]
 
 
 def _reference_bridge_segment(artifact: TabulatedBurnArtifact, time_s: float, side: str):
-    tolerance = max(1e-12, artifact.duration_s * 1e-12)
     at_boundary = any(
-        abs(time_s - value) <= tolerance
+        time_s == value
         for value in (0.0, *(segment.end_time_s for segment in artifact.segments))
     )
     if time_s < 0.0 or time_s > artifact.duration_s:
         return None, at_boundary
-    if abs(time_s) <= tolerance and side == "left":
+    if time_s == 0.0 and side == "left":
         return None, True
-    if abs(time_s - artifact.duration_s) <= tolerance and side == "right":
+    if time_s == artifact.duration_s and side == "right":
         return None, True
     for index, segment in enumerate(artifact.segments):
         if segment.start_time_s <= time_s < segment.end_time_s:
-            if side == "left" and index > 0 and abs(time_s - segment.start_time_s) <= tolerance:
+            if side == "left" and index > 0 and time_s == segment.start_time_s:
                 return artifact.segments[index - 1], True
             return segment, at_boundary
     return artifact.segments[-1], at_boundary
@@ -410,6 +409,8 @@ class SegmentLookupTests(unittest.TestCase):
         for boundary in boundaries:
             for offset in (0.0, -0.5 * tolerance, 0.5 * tolerance, -2 * tolerance, 2 * tolerance):
                 self.times.append(boundary + offset)
+            from math import nextafter
+            self.times.extend((nextafter(boundary,float('-inf')),nextafter(boundary,float('inf'))))
 
     def test_bridge_lookup_matches_linear_scan_oracle(self) -> None:
         for time_s in self.times:

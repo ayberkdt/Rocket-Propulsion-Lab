@@ -1,0 +1,12 @@
+{
+  "scope": "Controlled candidate native Lunaris impulse fix; live dependency not modified by capture",
+  "live_path": "D:\\Masaustu\\LUNAR_SIMULATION\\src\\lunaris\\core\\propagation\\plans.py",
+  "base_source_sha256": "66b73353a17c683ff0627e8e1656c7694b3cc196a43bc0b24b27d86025714333",
+  "candidate_source_sha256": "868b9c3106092fae02b7f000a21c470b7d86aab6f6aa0d370f487ab6e011090d",
+  "candidate_source": "scripts/native_lunaris_candidate/plans.py",
+  "patch_file": "docs/assurance/lunaris_impulse.patch",
+  "patch_sha256": "53423101d980cbae38b5fd65221c95aea003965b295280305551adc1c8053f0a",
+  "base_snapshot_manifest_sha256": "cd5ba1fa01cf9ff3cb1f0f7190801e81794f0d6c50d91616011ad7bdd7a05860",
+  "status": "applied_to_live_source_sha_verified",
+  "live_target_sha256_after": "868b9c3106092fae02b7f000a21c470b7d86aab6f6aa0d370f487ab6e011090d"
+}

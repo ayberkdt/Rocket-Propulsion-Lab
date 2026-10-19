@@ -86,7 +86,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
     if options.command == "simulate":
         try:
             payload = json.loads(_read_text(options.input))
-        except json.JSONDecodeError as error:
+        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
             raise InputError("Burn input is not valid JSON.", field="input") from error
         if not isinstance(payload, dict):
             raise InputError("Burn input root must be an object.", field="input")

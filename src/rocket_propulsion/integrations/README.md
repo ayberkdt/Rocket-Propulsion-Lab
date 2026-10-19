@@ -1,7 +1,16 @@
 # Integrations
 
-Adapters in this package transform immutable Rocket Propulsion Lab results;
-they do not participate in the propulsion calculation.
+Adapters in this package define the propulsion/astrodynamics boundary without
+moving orbit, frame, attitude, or event-location logic into this repository.
+
+`sidera_propulsion.py` is the primary integration path. Its
+`rocket_propulsion_sidera_provider_handoff_v1` document embeds the complete
+propagator bridge, declares absolute/relative time mapping, additional-state
+order, operating-condition inputs, estimable drivers, and every stopping or
+restart event. An optional mounted engine cluster closes scalar engine thrust
+to a body-frame force and moment with analytic gimbal derivatives. The hand-off
+is executable and integrity-checkable without Sidera, so both repositories can
+test the same contract before native integration.
 
 The Sidera adapter exports an exact constant finite burn using delivered
 thrust, system-effective Isp, and unity target throttle. Unity is essential:
@@ -22,3 +31,6 @@ tabulated artifact to start time, normalized direction, and frame, fixes axial
 thrust and total tank flow as independent channels, retains zero-thrust jobs,
 and reports the exact public capabilities current Sidera still lacks. It does
 not construct native objects or alter Sidera.
+
+`lunaris.py` is retained as a tested legacy compatibility adapter. New finite-
+burn integration and capability growth target Sidera.

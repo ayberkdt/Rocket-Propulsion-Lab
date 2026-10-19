@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from math import isfinite, sqrt
 
+from rocket_propulsion.core.constants import AIR_SPECIFIC_GAS_CONSTANT_J_KG_K
 from rocket_propulsion.core.errors import DomainError
 
 
@@ -27,7 +28,7 @@ def complete_ideal_gas_state(
     pressure_pa: float | None = None,
     temperature_k: float | None = None,
     density_kg_m3: float | None = None,
-    gas_constant_j_kg_k: float = 287.05,
+    gas_constant_j_kg_k: float = AIR_SPECIFIC_GAS_CONSTANT_J_KG_K,
     gamma: float = 1.4,
 ) -> IdealGasState:
     """Complete an ideal-gas state from exactly two of ``p``, ``T``, and ``rho``.

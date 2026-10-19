@@ -122,6 +122,38 @@ or modifying Sidera:
   deterministic power-switching roots, and analytic mass/direction/power
   partials. Available power stays the consumer's model. See
   `docs/ELECTRIC_PROPULSION.md`.
+- `execution_errors.py` supplies navigation-facing second-moment models:
+  hash-verified driver priors (optionally linearized from a paired hot-fire
+  calibration), the Gates impulsive execution-error covariance and
+  first-order Gauss-Markov thrust process noise. See `docs/EXECUTION_ERRORS.md`.
+- `vehicle_geometry.py` gives body-frame thruster force/torque, a 6xN
+  influence matrix, cosine efficiency, and centre of mass/inertia as functions
+  of the propagated tank masses with analytic derivatives. See
+  `docs/VEHICLE_GEOMETRY.md`.
+
+- `timeline.py` sequences several bridges on one clock with overlap checks,
+  stage/fairing jettison events and summed concurrent burns, and persists the
+  whole schedule as one verified document. See `docs/PROPULSION_TIMELINE.md`.
+- `ThrusterLayout.allocate` (in `vehicle_geometry.py`) solves bounded thrust
+  allocation, 0 <= T <= T_max, with an active-set bounded least-squares method.
+
+- `throttleable.py` models a throttle-commanded engine for optimization with
+  smooth monotone throttle curves; `burn_metrics.py` gives free-space delta-v
+  and impulsive-equivalent time. See `docs/TRAJECTORY_OPTIMIZATION.md`.
+
+- `pulse_mode.py` models pulse-mode thrusters (impulse bits, minimum impulse
+  bit, Δv quantization, pulse-train artifacts). See `docs/PULSE_MODE.md`.
+- `interpolation.py` holds the shared PCHIP slope kernel used by the
+  throttle curves and the C1 cubic Hermite performance surfaces.
+- The Lunaris adapter lives in `rocket_propulsion.integrations.lunaris`; see
+  `docs/LUNARIS_INTEGRATION.md`.
+
+Every public input of these modules is validated by
+`rocket_propulsion.core.validation`; bridges, electric models and timelines
+serialize to reopenable, hash-verified documents.
+
+Start with `docs/ASTRODYNAMICS_INTEGRATION.md` when wiring any of these into an
+orbit propagator.
 
 The exchange artifact intentionally has no epoch, direction, frame, position,
 velocity, central body, or orbital result. A future Sidera adapter will combine

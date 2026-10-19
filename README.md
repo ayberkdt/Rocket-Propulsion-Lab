@@ -1,163 +1,293 @@
 # Rocket Propulsion Lab
 
-Rocket propulsion studies for compressible aerodynamics and thermodynamics in a
-small, dependency-free Python application. The current release contains:
+Motor and feed hardware assurance review: [evidence and open TRL5 gates](docs/PROPULSION_ASSURANCE.md).
+The SASS study outputs are preliminary design screens; hardware readiness is not assessed.
 
-- isentropic perfect-gas relations with forward and inverse conversions;
-- normal-shock relations;
-- ideal-gas thermodynamic state calculations;
-- NASA Glenn temperature-dependent properties for ten combustion species;
-- frozen ideal-gas mixtures with mole/mass fraction conversion and inverse
-  enthalpy/entropy temperature solutions;
-- static/stagnation state and compression/expansion connections;
-- Fanno and Rayleigh constant-area duct-flow relations;
-- weak/strong oblique-shock branches with detachment limits;
-- ideal choked converging-diverging nozzle performance;
-- back-pressure nozzle regimes, internal normal shocks, altitude sweeps, and a
-  source-labelled empirical separation screen;
-- conical, preliminary Hermite, Rao/TOP, and MOC nozzle contours with
-  station-by-station flow solutions and CSV/SVG/DXF/STL export;
-- external NASA CEA adaptation plus an explicitly experimental local Gibbs
-  equilibrium provider and O/F performance sweeps;
-- switchable performance loss budgets, Bartz wall heat flux, experimental
-  regenerative channel balance, and condensed-phase performance bands;
-- isentropic, nozzle, P-v, and T-s engineering plots;
-- Tsiolkovsky forward/inverse mission calculations and rocket thrust;
-- multi-stage mass optimization and pressure-fed, gas-generator, and
-  staged-combustion component energy balances;
-- versioned `.rplab.json` workspaces, case comparison, seeded Monte Carlo/Latin
-  hypercube uncertainty, sensitivity ranking, and JSON/CSV/SVG/HTML reports;
-- standalone L0 constant and L1 piecewise-linear burn analysis with explicit
-  tank streams, system-Isp closure, browser/workspace/report flows, and
-  fail-closed exact or explicitly reduced Sidera hand-off;
-- isolated transient-burn development for eventual Sidera integration:
-  first-order engine response, restart/cooldown constraints, engine clusters,
-  imported solid/test curves, and a hashed discontinuity-safe tabulated
-  thrust/mass-flow contract;
-- reference-backed preliminary pressure-fed blowdown with polytropic tank
-  decay, variable performance, measured pressure maps, convergence evidence,
-  and no Sidera source modification;
-- sourced propulsion uncertainty ensembles with bounded distributions,
-  aleatory/epistemic separation, optional correlated sampling, convergence
-  diagnostics and one reusable thrust/mass-flow artifact per realization;
-- explicit discrete propulsion scenarios for engine-out/common-cause loss,
-  ignition delay, early cutoff and performance degradation, with exhaustive
-  probabilities and one reusable artifact per outcome;
-- hierarchical propulsion ensembles that combine those discrete outcomes with
-  scenario-conditional continuous variation, exact joint weights, independent
-  replicate diagnostics, within/between-scenario variance attribution, a
-  complete artifact for every realization, and integrity-checked JSON
-  persistence;
-- an isolated weighted Sidera hand-off contract that binds every realization
-  to execution timing/direction while preserving axial force, independent total
-  tank drain, zero-thrust probability and nested provenance;
-- hot-fire random-effects calibration that separates motor-to-motor,
-  burn-to-burn and measurement uncertainty, retains solver evidence and turns
-  test results into hash-linked residual ensemble parameters;
-- paired hot-fire covariance calibration for thrust/Isp/time scales, including
-  full measurement-covariance removal, recorded correlation regularization,
-  ensemble-ready copulas, and recomputed versioned persistence;
-- model-form and qualification-to-flight discrepancy calibration with explicit
-  application domains, predictive epistemic variance, evidence-reuse refusal,
-  and layered aleatory/epistemic ensemble components;
-- a propagation-ready transient bridge with simultaneous force, total/tank
-  mass derivatives, exact discontinuity and reserve event surfaces, bounded
-  estimator drivers, analytic Jacobians, and a hash-bound integration manifest;
-- multidimensional state-dependent performance surfaces with complete-grid
-  validation, analytic condition gradients, no extrapolation and propagator
-  events at every declared operating-domain boundary;
-- regulated feed/pressurant ODEs with finite bottle inventory, thermal ullage,
-  choked valve flow, regulator dynamics, feed-line loss, protective events and
-  implicitly closed engine-flow/pressure Jacobians;
-- a two-state dynamic liquid feed line with hydraulic inertance, compliance,
-  nonlinear damping, manifold-pressure coupling, protective roots, mass
-  closure and analytic composed Jacobians for orbit propagation;
-- a screening catalog for common liquid, solid, and hybrid propellant systems;
-- a responsive browser interface backed by a versioned JSON API.
+A dependency-free Python toolkit for preliminary rocket-propulsion analysis,
+and a propulsion provider for astrodynamics software.
+
+It covers two jobs:
+
+1. **Engineering studies:** compressible flow, thermochemistry, nozzle
+   geometry, engine cycles, finite-burn sizing, hot-fire calibration and
+   uncertainty, available from Python, a JSON API, a CLI and a browser
+   workbench.
+2. **Propulsion for orbit propagation:** event-safe force and mass-flow models
+   with analytic partials, which an orbit propagator, orbit-determination
+   filter or trajectory optimizer can call at every integration step. These
+   cover chemical, pressure-fed and power-limited electric propulsion.
+
+The library computes no orbits. Epochs, frames, attitude, gravity and
+trajectory integration belong to the consuming astrodynamics framework (the
+companion project is Sidera). This line is enforced in code: the propulsion
+core never imports an astrodynamics package.
+
+> Engineering study software, not flight-certified. Python 3.11+, MIT licence,
+> no runtime dependencies.
+
+---
+
+## Contents
+
+- [Highlights](#highlights)
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Using it from an orbit propagator](#using-it-from-an-orbit-propagator)
+- [Project layout](#project-layout)
+- [Documentation](#documentation)
+- [Testing and quality](#testing-and-quality)
+- [Validation status and limits](#validation-status-and-limits)
+- [Conventions](#conventions)
+
+## Highlights
+
+### UZM 508E / SASS propulsion project preparation
+
+The source-cited `rocket_propulsion.studies.sass` package adds preliminary
+mission delta-v allocation, residual-closed propellant sizing, tank and bus
+resource budgets, five field-cited hardware records, explicit feasibility
+screens, fixed-scale trade studies and deterministic design sensitivities.
+It preserves assumptions, missing data and differing manufacturer claims;
+catalogue extrapolation is disabled. A strict JSON request produces a fully
+cited JSON/HTML study. Course identity is verified; the assignment scope is
+still provisional. See [the research and preparation guide](docs/SASS_PROJECT_PREPARATION.md)
+and [`examples/sass_mission.json`](examples/sass_mission.json).
+
+### Propagation interface for astrodynamics
+
+| Capability | What a propagator gets |
+|---|---|
+| **Primary Sidera provider hand-off** | A hash-bound `SideraPropulsionProviderHandoff` with absolute-to-relative time mapping, explicit additional-state ordering, event and grid-root inventory, operating inputs, analytic-partial channels, and optional body-frame force/moment closure. It is executable without Sidera and states the exact capabilities Sidera must implement. |
+| **Transient burn bridge** | Thrust and vehicle/tank mass derivatives from a hash-verified thrust/flow history. Explicit left/right limits at discontinuities. Start, boundary, stop, dry-mass and reserve roots. O(log n) lookup. |
+| **Operating-condition maps** | N-D performance surfaces over pressure, throttle, mixture ratio or power, multilinear or C¹ cubic Hermite. Total-flow and independent named-stream maps are both supported, with analytic gradients, no extrapolation, stopping domain roots and restart roots at gradient kinks. |
+| **Dual-feed bipropellant dynamics** | Two regulated tanks and two inertance/compliance lines coupled to independent oxidizer/fuel engine-map channels; O/F limits, first-component depletion, storage/vehicle mass closure, and composed 4-state Jacobians. |
+| **Mounted gimballed engines** | Ordered two-axis body-fixed gimbal geometry, force and moment about the instantaneous centre of mass, vector-cancellation loss, and analytic thrust/gimbal derivatives for 6-DOF propagation. |
+| **Legacy Lunaris adapter** | Optional compatibility path for the older [Lunaris](https://github.com/ayberkdt/lunaris) propagator: exact-mass impulsive equivalents or finite burns, with bias-shifted segmentation and exact dry-mass cuts. New integration work targets Sidera. |
+| **Ambient back-pressure** | `F = F_vac − p_a·A_e` with `∂a/∂p_a` for ascent and landing, plus a net-thrust margin root. |
+| **Pressure-fed liquid stages** | Pressurant bottle, regulator, thermal ullage and feed-line ODEs, plus an inertance/compliance line model with composed Jacobians. |
+| **Power-limited electric propulsion** | Hash-verified throttle tables, maximum-thrust or maximum-Isp throttle paths with hysteresis, a fixed-efficiency continuous law, and power-switching roots with deterministic mode targets. |
+| **Navigation uncertainty** | Driver priors linearized from hot-fire calibration, the Gates execution-error covariance, and Gauss-Markov thrust process noise. |
+| **Vehicle geometry** | Thruster force/torque influence matrix, cosine loss, and centre of mass and inertia versus tank mass with analytic derivatives. |
+| **Thrust allocation** | Bounded least squares (0 ≤ T ≤ T_max, Lawson–Hanson / Stark–Parker) with an optional minimum-effort balance term, dependency-free, checked by brute force and KKT certificates. |
+| **Optimization-ready engine** | Throttle as a control with ∂a/∂u, smooth monotone (PCHIP) throttle characteristics, deep-throttle gap enforced. |
+| **Pulse-mode thrusters** | Measured impulse-bit tables, minimum impulse bit, fewest-pulse plans for an impulse or Δv with reported quantization residual (nearest or no-overshoot), and propagator-ready pulse-train artifacts. |
+| **Impulsive equivalents** | Free-space Δv, effective exhaust velocity and impulse placement time t* for supported tabulated histories, with numerical enclosures and explicit output-range errors. See [numerical scope](docs/FREE_SPACE_TABULATED_NUMERICS_REVIEW.md). |
+| **Verified sensitivities** | Variational equations with saltation at burn events reproduce finite differences of whole propagations; `time_event_jump` supplies the jump. |
+| **Multi-burn timelines** | Several bridges on one clock with overlap checks, stage/fairing jettison events, summed concurrent burns and one verified document. |
+| **Robust by construction** | Fail-closed input validation at every boundary, canonical numbers for stable hashes, and reopenable model documents for bridges, electric models and timelines. Every document reader refuses or reproduces each of 1 500+ generated mutants. |
+| **Adversarial tests with independent oracles** | Attack suites for large-epoch boundary rounding, dry-mass cuts, pulse quantization and hostile JSON, each checked against oracles written in the test (enumeration, closed forms, SciPy integration), with mutation checks that the tests catch the bugs they target. See [Adversarial testing](docs/ADVERSARIAL_TESTING.md). |
+| **Traceable constants** | Every physical constant lives in `core.constants` with its defining source; a test refuses bare copies, and every model page cites its equations. |
+| **Partials** | Acceleration and mass-rate partials for mass, direction, ambient pressure, power, conditions and estimator drivers, with targeted finite-difference and independent checks; complete coverage is not established. |
+
+### Propulsion physics and studies
+
+- Isentropic, normal/oblique shock, Fanno and Rayleigh relations.
+- Ideal and off-design C-D nozzles, internal shocks, altitude sweeps and a
+  separation screen.
+- NASA Glenn species data, frozen mixtures, an external NASA CEA adapter and an
+  experimental local Gibbs equilibrium solver.
+- Conical, Hermite, Rao/TOP and MOC contours, exported as CSV/SVG/DXF/STL.
+- Loss budgets, Bartz heat flux, regenerative cooling balance and two-phase
+  bands.
+- Tsiolkovsky sizing, multi-stage optimization and pressure-fed,
+  gas-generator and staged-combustion cycle balances.
+- Constant and profiled finite burns with explicit propellant-stream accounting
+  and system Isp from total tank drain.
+- Pressure-fed blowdown, engine clusters with first-order response, and
+  imported test traces.
+- Seeded uncertainty ensembles, discrete failure scenarios and hierarchical
+  ensembles with exact joint weights.
+- Hot-fire random-effects calibration, paired covariance calibration and
+  model-form / qualification-to-flight discrepancy.
+- Versioned workspaces, comparisons and JSON/CSV/SVG/HTML reports.
+
+## Installation
+
+```bash
+git clone https://github.com/ayberkdt/Rocket-Propulsion-Lab.git
+cd Rocket-Propulsion-Lab
+python -m pip install -e .            # no runtime dependencies
+python -m pip install -e ".[dev]"     # optional: pytest and ruff
+```
+
+Without installing, set `PYTHONPATH=src` (the PowerShell scripts in `scripts/`
+do this for you).
 
 ## Quick start
 
-```powershell
-.\scripts\run.ps1
+### Browser workbench and JSON API
+
+```bash
+rocket-propulsion            # or: .\scripts\run.ps1 on Windows
 ```
 
-Then open <http://127.0.0.1:8765>. The launcher searches for an installed Python
-3.11+ and falls back to the Python runtime bundled with Codex Desktop.
+Then open <http://127.0.0.1:8765>. The same calculations are available from
+`POST /api/v1/...` (see [docs/API.md](docs/API.md)) and from the
+`rocket-propulsion burn simulate` CLI.
 
-## Test
+### Engine performance in Python
 
-```powershell
-.\scripts\test.ps1
+```python
+from rocket_propulsion.compressible import calculate_off_design_nozzle
+
+nozzle = calculate_off_design_nozzle(
+    chamber_pressure_pa=5.0e6, chamber_temperature_k=3500.0,
+    throat_area_m2=0.01, area_ratio=25.0, ambient_pressure_pa=101_325.0,
+    gamma=1.22, gas_constant_j_kg_k=355.0,
+)
+print(nozzle.regime, round(nozzle.thrust_n), "N", round(nozzle.specific_impulse_s), "s")
 ```
 
-No package installation is required. Both scripts set `PYTHONPATH` to `src`.
+More in [`examples/`](examples/): blowdown, calibration, ensembles, feed
+systems, electric propulsion, navigation uncertainty, vehicle geometry and
+thrust allocation, pulse-mode trim maneuvers, and a two-burn timeline with
+jettison checked against the rocket equation.
 
-## Project map
+## Using it from an orbit propagator
+
+A tabulated burn becomes a force model with one call per integration stage:
+
+```python
+from rocket_propulsion.propulsion.burns import (
+    AdditionalStateConstraint, PropagatorPropulsionBridge, StreamStateBinding,
+    TabulatedBurnArtifact, TabulatedBurnSegment,
+)
+
+flows = (("oxidizer", 0.24), ("fuel", 0.06))
+artifact = TabulatedBurnArtifact(
+    segments=(TabulatedBurnSegment(0.0, 120.0, 1000.0, 1000.0, 1000.0, 1000.0,
+                                   0.3, 0.3, flows, flows, "steady"),),
+    source_id="engine-acceptance-test-42", source_sha256="0" * 64,
+    reference_ids=("NASA-20040000363",),
+)
+bridge = PropagatorPropulsionBridge(
+    artifact,
+    stream_bindings=(StreamStateBinding("oxidizer", "m_ox"),
+                     StreamStateBinding("fuel", "m_fuel")),
+    state_constraints=(AdditionalStateConstraint("m_ox", 2.0),),
+    protected_dry_mass_kg=400.0,
+    nozzle_exit_area_m2=0.004,
+)
+
+# Inside the propagator's right-hand side:
+value = bridge.evaluate(
+    relative_time_s=30.0, vehicle_mass_kg=520.0, direction=(0.0, 0.0, 1.0),
+    additional_states={"m_ox": 60.0, "m_fuel": 18.0},
+    ambient_pressure_pa=2_000.0, apply_inventory_limits=False,
+)
+print(value.acceleration_m_s2, value.mass_derivative_kg_s)
+print([event.event_id for event in bridge.event_surfaces()])   # register once
+```
+
+The consumer registers the roots, lands on time events, switches the burn off
+at inventory roots, and maps the analytic partials into its variational
+equations. The full protocol is in the
+**[astrodynamics integration guide](docs/ASTRODYNAMICS_INTEGRATION.md)**.
+The tests run the same protocol with an event-aware RK4 loop that reproduces
+the rocket equation, analytic cut-off times and mass closure.
+
+## Project layout
 
 ```text
 src/rocket_propulsion/
-├── api/              HTTP transport and static-file server
-├── compressible/     Isentropic and shock-flow physics
-├── core/             Shared validation and numerical solvers
-├── geometry/         Parametric nozzle contours and flow stations
-├── integrations/     Optional, fail-closed Sidera hand-off adapters
-├── propulsion/       Rocket equations, burn analysis, thrust, and propellants
-├── studies/          Workspaces, comparison, sampling, and reports
-├── thermochemistry/  NASA species data and frozen ideal-mixture properties
-├── thermodynamics/   Calorically perfect-gas relations
-└── web/              Browser UI
-tests/                Unit and API-level tests
-docs/                 Architecture and roadmap
+├── api/              HTTP transport, JSON API and static-file server
+├── compressible/     Isentropic, shock, duct and nozzle flow
+├── core/             Validation (strict input coercion), errors, units, solvers
+├── geometry/         Nozzle contours, MOC and CAD export
+├── integrations/     Optional, fail-closed Sidera and Lunaris adapters
+├── propulsion/       Performance, losses, cycles, staging, propellants
+│   └── burns/        Finite burns and the propagation interface:
+│       ├── propagator.py          transient burn bridge (events, partials, ambient pressure)
+│       ├── performance_surface.py N-D operating maps and kink/domain roots
+│       ├── feed_system.py         regulated pressurant and feed ODEs
+│       ├── feed_line.py           dynamic liquid line (inertance/compliance)
+│       ├── electric.py            power-limited electric propulsion
+│       ├── execution_errors.py    priors, Gates errors, Gauss-Markov noise
+│       ├── vehicle_geometry.py    thruster force/torque, allocation, mass properties
+│       ├── timeline.py            multi-burn schedules and mass jettison
+│       ├── throttleable.py        throttle-commanded engine, monotone cubic curves
+│       ├── burn_metrics.py        free-space delta-v and impulsive-equivalent time
+│       ├── tabulated.py           hash-verified thrust/flow exchange artifact
+│       └── ...                    sizing, profiles, blowdown, calibration, ensembles
+├── studies/          Workspaces, comparison, sampling and reports
+├── thermochemistry/  NASA species data, mixtures and equilibrium
+├── thermodynamics/   Ideal-gas, polytropic and heat-transfer relations
+└── web/              Browser workbench
+tests/                Unit, API and end-to-end integration tests
+examples/             Runnable scripts
+docs/                 Model, contract and validation documentation
 ```
 
-Every package owns a focused README. Public functions include equations,
-parameters, return values, and domain restrictions in their docstrings.
+Every package has its own README, and public functions document equations,
+units, validity limits and references in their docstrings.
 
-The first standalone finite-burn slice is available through the Python API,
-browser Burn workbench, `POST /api/v1/engine-operating-point`,
-`POST /api/v1/burn/simulate`, and the `rocket-propulsion burn simulate`
-command. It performs analytic constant-thrust/constant-flow inventory,
-impulse, and ideal one-dimensional delta-v accounting without depending on
-Sidera. L1 ramp/steady/shutdown schedules use exact analytic segment integrals;
-eligible constant results can be handed off exactly, while varying profiles
-require an explicit, evidence-carrying equivalent reduction. See
-[`examples/constant_burn_input.json`](examples/constant_burn_input.json) and
-[`examples/profiled_burn_input.json`](examples/profiled_burn_input.json).
+## Documentation
 
-## Scope and conventions
+| Topic | Documents |
+|---|---|
+| Start here | [User guide](docs/USER_GUIDE.md) · [API](docs/API.md) · [Architecture](docs/ARCHITECTURE.md) |
+| Astrodynamics interface | [Integration guide](docs/ASTRODYNAMICS_INTEGRATION.md) · [Sidera provider](docs/SIDERA_PROPULSION_PROVIDER.md) · [Propagator bridge](docs/PROPAGATOR_PROPULSION_BRIDGE.md) · [Operating surfaces](docs/OPERATING_CONDITION_SURFACES.md) · [Electric propulsion](docs/ELECTRIC_PROPULSION.md) · [Execution errors](docs/EXECUTION_ERRORS.md) · [Vehicle geometry](docs/VEHICLE_GEOMETRY.md) · [Timelines](docs/PROPULSION_TIMELINE.md) · [Optimization & sensitivities](docs/TRAJECTORY_OPTIMIZATION.md) · [Legacy Lunaris](docs/LUNARIS_INTEGRATION.md) · [Pulse mode](docs/PULSE_MODE.md) |
+| Feed systems | [Regulated feed](docs/REGULATED_FEED_DYNAMICS.md) · [Dynamic feed line](docs/DYNAMIC_FEED_LINE.md) · [Blowdown](docs/BLOWDOWN_MODEL.md) |
+| Uncertainty | [Propulsion uncertainty](docs/PROPULSION_UNCERTAINTY.md) · [Scenarios](docs/PROPULSION_SCENARIOS.md) · [Hierarchical ensemble](docs/HIERARCHICAL_PROPULSION_ENSEMBLE.md) · [Hot-fire calibration](docs/HOT_FIRE_CALIBRATION.md) · [Model discrepancy](docs/MODEL_DISCREPANCY_TRANSFER.md) |
+| Exchange contracts | [Tabulated burn](docs/TABULATED_BURN_CONTRACT.md) · [Sidera plan](docs/SIDERA_BURN_INTEGRATION_PLAN.md) · [Sidera ensemble hand-off](docs/SIDERA_ENSEMBLE_HANDOFF.md) |
+| Evidence and status | [Validation report](docs/VALIDATION_REPORT.md) · [Tolerances](docs/TOLERANCES.md) · [Gap analysis](docs/GAP_ANALYSIS.md) · [References](docs/REFERENCES.md) · [Roadmap](docs/ROADMAP.md) · [Release notes](docs/RELEASE_NOTES.md) |
 
-- SI units are used for dimensional quantities.
-- Angles are entered and returned in degrees.
-- `gamma` must be greater than one; Mach numbers must be positive.
-- This is an engineering study tool, not flight-certified analysis software.
+## Testing and quality
 
-The current fidelity boundary is explicit in
-[docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md); data provenance and model
-references are recorded in [docs/REFERENCES.md](docs/REFERENCES.md). Use the
-[user guide](docs/USER_GUIDE.md), [API guide](docs/API.md), and
-[validation report](docs/VALIDATION_REPORT.md) for reproducible engineering
-work. The remaining external CEA release gate is tracked in
-[docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md). The planned standalone
-burn-analysis library and its optional hand-off to the existing Sidera
-astrodynamics framework are specified in
-[docs/SIDERA_BURN_INTEGRATION_PLAN.md](docs/SIDERA_BURN_INTEGRATION_PLAN.md).
-The isolated transient exchange format and future consumer rules are in
-[docs/TABULATED_BURN_CONTRACT.md](docs/TABULATED_BURN_CONTRACT.md).
-The pressure-fed equations, applicability limits and primary bibliography are
-in [docs/BLOWDOWN_MODEL.md](docs/BLOWDOWN_MODEL.md).
-The uncertainty/ensemble contract and its Sidera ownership boundary are in
-[docs/PROPULSION_UNCERTAINTY.md](docs/PROPULSION_UNCERTAINTY.md).
-The probability-labelled failure/execution scenario contract is in
-[docs/PROPULSION_SCENARIOS.md](docs/PROPULSION_SCENARIOS.md).
-Their implemented conditional composition and future Sidera ensemble contract
-are in
-[docs/HIERARCHICAL_PROPULSION_ENSEMBLE.md](docs/HIERARCHICAL_PROPULSION_ENSEMBLE.md).
-The producer-side weighted transient hand-off and exact capability requirements
-for future Sidera consumption are in
-[docs/SIDERA_ENSEMBLE_HANDOFF.md](docs/SIDERA_ENSEMBLE_HANDOFF.md).
-The repeated-test calibration equations, assumptions and NIST/NASA references
-are in [docs/HOT_FIRE_CALIBRATION.md](docs/HOT_FIRE_CALIBRATION.md).
-Model validation discrepancy, qualification-to-flight transfer and their
-layered ensemble workflow are in
-[docs/MODEL_DISCREPANCY_TRANSFER.md](docs/MODEL_DISCREPANCY_TRANSFER.md).
+```bash
+python -m unittest discover -s tests      # or: pytest, or .\scripts\test.ps1
+python -m ruff check .
+```
 
+CI runs ruff, the full test suite and a package build on Python 3.11 and 3.12.
+
+The test suite includes:
+- analytic and reference-data checks for the flow and thermochemistry modules;
+- central finite-difference checks of every analytic partial;
+- event-aware RK4 integrations that reproduce the rocket equation, closed-form
+  positions, analytic reserve and power-switch times, and mass closure;
+- Monte Carlo checks of the covariance models;
+- a seeded fuzz suite that sends malformed values to every public
+  propagation-facing boundary and requires a typed, fail-closed error;
+- seeded property tests over random profiles, throttle tables, geometries and
+  allocation problems (bounded optimality against brute-force enumeration);
+- tamper tests on every persisted document;
+- variational-equation integrations (with saltation) checked against finite
+  differences of whole propagations;
+- a regression test for every finding of a systematic code review;
+- an end-to-end Lunaris propagation (when Lunaris is installed) comparing
+  finite and impulsive paths;
+- an automated gate that every public propulsion-transient type and function
+  cites its references.
+
+## Validation status and limits
+
+- **Release gate still open:** the nine-point external NASA CEA comparison
+  (LOX/LH2, LOX/RP-1, LOX/CH4) is still open, and the local Gibbs equilibrium
+  solver is labelled experimental. See
+  [docs/VALIDATION_REPORT.md](docs/VALIDATION_REPORT.md) and
+  [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md).
+- **No hardware data:** no engine, thruster or throttle data are bundled.
+  Performance maps, throttle tables and test traces are user-supplied evidence,
+  bound to their source by hash.
+- **Not modelled:** finite-rate chemistry, particle-resolved two-phase flow,
+  water hammer / acoustic feed modes, slosh, and nozzle separation inside the
+  propagation bridge.
+- **Responsibility of the consuming framework:** burn targeting, steering and
+  attitude dynamics. `PropulsionTimeline` sequences burns and jettisons but does
+  not decide when they happen.
+
+The detailed fidelity boundary is in [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md).
+
+## Conventions
+
+- SI units throughout; angles in the flow/geometry APIs are in degrees.
+- Names carry their unit (`thrust_n`, `ambient_pressure_pa`, `time_s`).
+- Invalid inputs fail closed with `DomainError` / `InputError`. Nothing is
+  silently extrapolated, clamped or approximated; an approximation must be
+  requested explicitly and carries evidence.
+- Every exchange artifact is canonical JSON with a SHA-256 content hash.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).

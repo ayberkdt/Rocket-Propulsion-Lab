@@ -9,6 +9,8 @@ from math import isfinite, log
 from pathlib import Path
 from typing import Any
 
+from .capabilities import SideraCapabilityProbe
+
 from rocket_propulsion.compressible import (
     calculate_fanno,
     calculate_ideal_nozzle,
@@ -20,6 +22,10 @@ from rocket_propulsion.compressible import (
     generate_isentropic_sweep,
     generate_nozzle_altitude_sweep,
     mach_from_isentropic,
+)
+from rocket_propulsion.core.constants import (
+    AIR_SPECIFIC_GAS_CONSTANT_J_KG_K,
+    STANDARD_GRAVITY_M_S2,
 )
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.metadata import ModelMetadata, ValidityRange
@@ -185,7 +191,7 @@ def calculate_ideal_gas_route(payload: dict[str, Any]) -> dict[str, Any]:
         pressure_pa=_optional_number(payload, "pressure_pa"),
         temperature_k=_optional_number(payload, "temperature_k"),
         density_kg_m3=_optional_number(payload, "density_kg_m3"),
-        gas_constant_j_kg_k=_number(payload, "gas_constant_j_kg_k", default=287.05),
+        gas_constant_j_kg_k=_number(payload, "gas_constant_j_kg_k", default=AIR_SPECIFIC_GAS_CONSTANT_J_KG_K),
         gamma=_number(payload, "gamma", default=1.4),
     )
     return asdict(state)
@@ -200,7 +206,7 @@ def calculate_stagnation_route(payload: dict[str, Any]) -> dict[str, Any]:
             static_pressure_pa=_number(payload, "static_pressure_pa"),
             static_temperature_k=_number(payload, "static_temperature_k"),
             gamma=_number(payload, "gamma", default=1.4),
-            gas_constant_j_kg_k=_number(payload, "gas_constant_j_kg_k", default=287.05),
+            gas_constant_j_kg_k=_number(payload, "gas_constant_j_kg_k", default=AIR_SPECIFIC_GAS_CONSTANT_J_KG_K),
         )
     )
 
@@ -215,7 +221,7 @@ def calculate_process_route(payload: dict[str, Any]) -> dict[str, Any]:
             inlet_temperature_k=_number(payload, "inlet_temperature_k"),
             efficiency=_number(payload, "efficiency", default=1.0),
             gamma=_number(payload, "gamma", default=1.4),
-            gas_constant_j_kg_k=_number(payload, "gas_constant_j_kg_k", default=287.05),
+            gas_constant_j_kg_k=_number(payload, "gas_constant_j_kg_k", default=AIR_SPECIFIC_GAS_CONSTANT_J_KG_K),
         )
     )
 
@@ -230,7 +236,7 @@ def calculate_polytropic_route(payload: dict[str, Any]) -> dict[str, Any]:
             inlet_temperature_k=_number(payload, "inlet_temperature_k"),
             exponent=_number(payload, "exponent"),
             gamma=_number(payload, "gamma", default=1.4),
-            gas_constant_j_kg_k=_number(payload, "gas_constant_j_kg_k", default=287.05),
+            gas_constant_j_kg_k=_number(payload, "gas_constant_j_kg_k", default=AIR_SPECIFIC_GAS_CONSTANT_J_KG_K),
             point_count=_integer(payload, "point_count", default=61),
         )
     )
@@ -668,11 +674,14 @@ def export_sidera_burn_route(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+_SIDERA_CAPABILITY_PROBE = SideraCapabilityProbe(lambda: inspect_sidera_capabilities())
+
+
 def sidera_capabilities_route(payload: dict[str, Any]) -> dict[str, Any]:
-    """Return the installed Sidera capability record without changing state."""
+    """Return pending/completed inspection without blocking on optional imports."""
 
     del payload
-    return asdict(inspect_sidera_capabilities())
+    return _SIDERA_CAPABILITY_PROBE.snapshot()
 
 
 def calculate_loss_budget_route(payload: dict[str, Any]) -> dict[str, Any]:
@@ -813,7 +822,7 @@ def calculate_staging_route(payload: dict[str, Any]) -> dict[str, Any]:
     if isinstance(raw_stages, str):
         try:
             raw_stages = json.loads(raw_stages)
-        except json.JSONDecodeError as error:
+        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
             raise InputError("stages must be valid JSON.", field="stages") from error
     if raw_stages is None and "stage1_specific_impulse_s" in payload:
         raw_stages = [
@@ -885,7 +894,7 @@ def calculate_uncertainty_route(payload: dict[str, Any]) -> dict[str, Any]:
     if isinstance(raw_parameters, str):
         try:
             raw_parameters = json.loads(raw_parameters)
-        except json.JSONDecodeError as error:
+        except (ValueError, RecursionError) as error:  # malformed, oversized or too deep
             raise InputError("parameters must be valid JSON.", field="parameters") from error
     if raw_parameters is None and "minimum_specific_impulse_s" in payload:
         raw_parameters = [
@@ -921,7 +930,7 @@ def calculate_uncertainty_route(payload: dict[str, Any]) -> dict[str, Any]:
         )
     result = propagate_uncertainty(
         parameters,
-        evaluator=lambda sample: 9.80665
+        evaluator=lambda sample: STANDARD_GRAVITY_M_S2
         * sample["specific_impulse_s"]
         * log(sample["mass_ratio"]),
         sample_count=_integer(payload, "sample_count", default=200),
@@ -1488,8 +1497,10 @@ ROUTE_METADATA = {
     ),
     "/api/v1/integrations/sidera/capabilities": ModelMetadata(
         model="Sidera public finite-burn capability probe",
-        version="1.0",
-        assumptions=("only installed public modules are inspected",),
+        version="1.1",
+        assumptions=("only installed public modules are inspected",
+                     "checking means unknown; flags are omitted until inspection completes",
+                     "process-local snapshot; restart server after installation changes"),
         units={},
     ),
     "/api/v1/loss-budget": ModelMetadata(

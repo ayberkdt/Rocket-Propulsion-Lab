@@ -8,8 +8,6 @@ terms required by a numerical force-model implementation.
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
@@ -17,8 +15,10 @@ from math import isfinite, sqrt
 from typing import TYPE_CHECKING
 
 from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.validation import coerce_fields, real, real_tuple, strings, text
 
 from .feed_system import RegulatedFeedEvaluation, RegulatedFeedState, RegulatedFeedSystem
+from .serialization import canonical_sha256
 
 if TYPE_CHECKING:
     from .propagator import PropagatorPropulsionBridge, PropulsionDynamicsEvaluation
@@ -41,15 +41,6 @@ def _nonnegative(value: float, label: str) -> None:
         raise DomainError(f"{label} must be finite and non-negative.")
 
 
-def _canonical_hash(payload: object) -> str:
-    encoded = json.dumps(
-        payload,
-        allow_nan=False,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,6 +80,7 @@ class DynamicFeedLineConfiguration:
     schema: str = DYNAMIC_FEED_LINE_SCHEMA
 
     def __post_init__(self) -> None:
+        coerce_fields(self, "Feed-line configuration")
         if self.schema != DYNAMIC_FEED_LINE_SCHEMA:
             raise DomainError("Unsupported dynamic feed-line schema.")
         if not self.model_id.strip():
@@ -126,6 +118,7 @@ class DynamicFeedLineState:
     manifold_pressure_pa: float
 
     def __post_init__(self) -> None:
+        coerce_fields(self, "Feed-line state")
         if not isfinite(self.mass_flow_kg_s):
             raise DomainError("Feed-line mass flow must be finite.")
         _positive(self.manifold_pressure_pa, "Feed-line manifold pressure")
@@ -143,6 +136,15 @@ class DynamicFeedLineDerivative:
 
     mass_flow_kg_s2: float
     manifold_pressure_pa_s: float
+
+    def __post_init__(self) -> None:
+        """Refuse non-finite stage rates before returning a line evaluation.
+
+        References
+        ----------
+        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        """
+        coerce_fields(self, "Feed-line derivative")
 
     def as_tuple(self) -> tuple[float, float]:
         """Return derivatives in state-field order.
@@ -171,6 +173,35 @@ class DynamicFeedLinePartials:
     derivative_wrt_engine_flow: tuple[float, float]
     nonsmooth_state_names: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        """Require finite two-component Jacobian columns as well as a finite RHS.
+
+        References
+        ----------
+        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        """
+        if not isinstance(self.derivative_wrt_state, (list, tuple)):
+            raise DomainError("Line state partials must be named two-component columns.")
+        columns = []
+        for column in self.derivative_wrt_state:
+            if not isinstance(column, (list, tuple)) or len(column) != 2:
+                raise DomainError("Line state partials must be named two-component columns.")
+            name = text(column[0], "Line partial state name")
+            values = real_tuple(column[1], "Line state partials")
+            if len(values) != 2:
+                raise DomainError("Line Jacobian columns require two components.")
+            columns.append((name, values))
+        if len({name for name, _ in columns}) != len(columns):
+            raise DomainError("Line state partial names must be unique.")
+        object.__setattr__(self, "derivative_wrt_state", tuple(columns))
+        for field in ("derivative_wrt_upstream_pressure", "derivative_wrt_engine_flow"):
+            values = real_tuple(getattr(self, field), field)
+            if len(values) != 2:
+                raise DomainError("Line input partials require two components.")
+            object.__setattr__(self, field, values)
+        object.__setattr__(self, "nonsmooth_state_names", strings(
+            self.nonsmooth_state_names, "Line nonsmooth states"))
+
 
 @dataclass(frozen=True, slots=True)
 class DynamicFeedLineEvaluation:
@@ -193,6 +224,16 @@ class DynamicFeedLineEvaluation:
     damping_ratio: float
     derivative: DynamicFeedLineDerivative
     partials: DynamicFeedLinePartials
+
+    def __post_init__(self) -> None:
+        """Keep modal and mass-conservation diagnostics finite.
+
+        References
+        ----------
+        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        """
+        coerce_fields(self, "Feed-line evaluation")
+        _positive(self.natural_angular_frequency_rad_s, "Feed-line natural frequency")
 
 
 class DynamicFeedLineEventKind(str, Enum):
@@ -262,6 +303,11 @@ class DynamicFeedPropulsionEvaluation:
     feed_line: DynamicFeedLineEvaluation
     partials: DynamicFeedCoupledPartials
 
+    @property
+    def reverse_flow_event_extension(self) -> bool:
+        """Whether the signed RHS is only a continuation for locating cutoff."""
+        return self.regulated_feed.reverse_flow_event_extension
+
 
 @dataclass(frozen=True, slots=True)
 class DynamicFeedLine:
@@ -293,7 +339,7 @@ class DynamicFeedLine:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        return _canonical_hash(self.manifest(include_hash=False))
+        return canonical_sha256(self.manifest(include_hash=False))
 
     def manifest(self, *, include_hash: bool = True) -> dict[str, object]:
         """Return a deterministic, unit-explicit model manifest.
@@ -321,7 +367,7 @@ class DynamicFeedLine:
             "reference_ids": list(DYNAMIC_FEED_LINE_REFERENCE_IDS),
         }
         if include_hash:
-            payload["model_hash"] = _canonical_hash(payload)
+            payload["model_hash"] = canonical_sha256(payload)
         return payload
 
     def evaluate(
@@ -341,6 +387,11 @@ class DynamicFeedLine:
         https://ntrs.nasa.gov/citations/20240003493
         """
 
+        if not isinstance(state, DynamicFeedLineState):
+            raise DomainError("Feed-line evaluation requires a DynamicFeedLineState.")
+        upstream_pressure_pa = real(upstream_pressure_pa, "Upstream pressure")
+        engine_mass_flow_kg_s = real(engine_mass_flow_kg_s, "Engine mass flow")
+
         _positive(upstream_pressure_pa, "Dynamic-line upstream pressure")
         _nonnegative(engine_mass_flow_kg_s, "Engine mass-flow demand")
         config = self.configuration
@@ -351,11 +402,11 @@ class DynamicFeedLine:
         ) / config.inertance_pa_s2_kg
         stored_mass_rate = flow - engine_mass_flow_kg_s
         pressure_rate = stored_mass_rate / config.compliance_kg_pa
-        natural_frequency = sqrt(1.0 / (config.inertance_pa_s2_kg * config.compliance_kg_pa))
+        natural_frequency = (1.0 / sqrt(config.inertance_pa_s2_kg)) / sqrt(config.compliance_kg_pa)
         damping_ratio = (
             config.resistance_pa_s2_kg2
             * abs(flow)
-            * sqrt(config.compliance_kg_pa / config.inertance_pa_s2_kg)
+            * (sqrt(config.compliance_kg_pa) / sqrt(config.inertance_pa_s2_kg))
         )
         flow_derivative = -2.0 * config.resistance_pa_s2_kg2 * abs(flow) / config.inertance_pa_s2_kg
         partials = DynamicFeedLinePartials(
@@ -458,6 +509,7 @@ def evaluate_dynamic_feed_propulsion(
     additional_states: Mapping[str, float] | None = None,
     parameter_overrides: Mapping[str, float] | None = None,
     apply_inventory_limits: bool = True,
+    ambient_pressure_pa: float | None = None,
 ) -> DynamicFeedPropulsionEvaluation:
     """Evaluate pressurant, inertial line, and engine without an algebraic loop.
 
@@ -468,6 +520,11 @@ def evaluate_dynamic_feed_propulsion(
 
     The regulated feed's static line resistance must be zero to prevent double
     application; dynamic resistance belongs to `DynamicFeedLine`.
+
+    Signed negative trial flows are continued consistently through the tank
+    mass and ullage-work equations for zero-flow event location. Results then
+    carry ``reverse_flow_event_extension=True``; physical propagation must stop
+    at zero. This continuation is not a sustained reverse-operation model.
 
     References
     ----------
@@ -497,9 +554,13 @@ def evaluate_dynamic_feed_propulsion(
         operating_conditions=conditions,
         parameter_overrides=parameter_overrides,
         apply_inventory_limits=apply_inventory_limits,
+        ambient_pressure_pa=ambient_pressure_pa,
     )
     engine_flow = -propulsion.mass_derivative_kg_s
-    feed_evaluation = regulated_feed.evaluate(regulated_state, max(0.0, line_state.mass_flow_kg_s))
+    feed_evaluation = regulated_feed.evaluate(
+        regulated_state, line_state.mass_flow_kg_s,
+        for_event_location=line_state.mass_flow_kg_s < 0.0,
+    )
     line_evaluation = feed_line.evaluate(
         line_state,
         upstream_pressure_pa=feed_evaluation.tank_pressure_pa,

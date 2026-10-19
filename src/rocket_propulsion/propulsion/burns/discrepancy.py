@@ -27,6 +27,7 @@ from math import isfinite, sqrt
 from typing import Any
 
 from rocket_propulsion.core.errors import DomainError, InputError
+from rocket_propulsion.core.validation import read_json_document
 
 from .calibration import CalibrationScope, MandelPauleEvidence, _mandel_paule
 from .ensemble import ScenarioConditionalUncertainty
@@ -303,11 +304,7 @@ class ScaleDiscrepancyCalibration:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        try:
-            payload = json.loads(text)
-        except (TypeError, json.JSONDecodeError) as error:
-            raise InputError("Discrepancy calibration is not valid JSON.") from error
-        return cls.from_dict(payload)
+        return read_json_document(text, "Discrepancy calibration", cls.from_dict)
 
 
 def calibrate_scale_discrepancy(

@@ -1,0 +1,703 @@
+"""Navigation-facing propulsion uncertainty: priors, Gates errors, process noise.
+
+Monte Carlo ensembles (``uncertainty.py``, ``ensemble.py``) carry complete
+realizations.  Orbit determination, linear covariance analysis and maneuver
+design instead need compact second-moment models:
+
+``PropulsionParameterPrior``
+    Mean and covariance of the propagator-bridge drivers (``thrust_scale``,
+    ``mass_flow_scale``, ``ignition_time_bias_s``), built from explicit
+    standard deviations or linearized from a paired hot-fire calibration.
+    It is the a-priori / consider covariance for those drivers.
+``GatesExecutionErrorModel``
+    The classical four-parameter impulsive maneuver execution-error model:
+    fixed and proportional magnitude errors along the burn, fixed and
+    proportional pointing errors across it.  The proportional magnitude term
+    can be derived from a parameter prior.
+``FirstOrderGaussMarkov``
+    Exponentially correlated (first-order Gauss-Markov) process noise for a
+    slowly wandering thrust or flow scale during long low-thrust arcs.
+
+Pointing statistics come from attitude control and remain the consumer's
+input; this module only supplies the propulsion-owned terms.
+"""
+
+from __future__ import annotations
+
+import random
+from collections.abc import Mapping
+from dataclasses import dataclass
+from itertools import pairwise
+from math import exp, isfinite, log1p, sqrt
+
+from rocket_propulsion.core.errors import DomainError, InputError
+from rocket_propulsion.core.validation import (
+    real,
+    real_matrix,
+    real_tuple,
+    records,
+    strings,
+    text,
+    vector3,
+)
+
+from .calibration import CalibrationScope
+from .multivariate_calibration import HotFireMultivariateCalibration
+from .propagator import EstimableParameter
+from .serialization import canonical_sha256
+from .vehicle_geometry import _cross
+
+PROPULSION_PRIOR_SCHEMA = "rocket_propulsion_parameter_prior_v1"
+EXECUTION_ERROR_REFERENCE_IDS = ("NASA-20180003657", "JCGM-100-2008")
+_SYMMETRY_TOLERANCE = 1e-12
+
+Matrix = tuple[tuple[float, ...], ...]
+
+
+
+
+def _cholesky(matrix: Matrix) -> Matrix | None:
+    """Return the lower Cholesky factor, or ``None`` if not positive semidefinite."""
+
+    size = len(matrix)
+    lower = [[0.0] * size for _ in range(size)]
+    scale = max((abs(matrix[i][i]) for i in range(size)), default=0.0)
+    tolerance = max(1e-300, scale * 1e-12)
+    for row in range(size):
+        for column in range(row + 1):
+            total = matrix[row][column] - sum(
+                lower[row][k] * lower[column][k] for k in range(column)
+            )
+            if row == column:
+                if total < -tolerance:
+                    return None
+                lower[row][column] = sqrt(max(total, 0.0))
+            elif lower[column][column] > 0.0:
+                lower[row][column] = total / lower[column][column]
+            elif abs(total) > tolerance:
+                return None
+    return tuple(tuple(row) for row in lower)
+
+
+@dataclass(frozen=True, slots=True)
+class PropulsionParameterPrior:
+    """Gaussian prior (mean and covariance) over named bridge drivers.
+
+    Parameters not listed are treated as known.  The covariance must be
+    symmetric positive semidefinite; it is stored in the parameters' own units
+    (dimensionless scales, seconds for timing bias).
+
+    References
+    ----------
+    NASA-20180003657 (Navigation Filter Best Practices):
+    https://ntrs.nasa.gov/citations/20180003657
+    JCGM 100:2008, section 5.2:
+    https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf
+    """
+
+    parameter_names: tuple[str, ...]
+    mean: tuple[float, ...]
+    covariance: Matrix
+    source: str
+    rationale: str
+    reference_ids: tuple[str, ...] = EXECUTION_ERROR_REFERENCE_IDS
+    schema: str = PROPULSION_PRIOR_SCHEMA
+
+    def __post_init__(self) -> None:
+        if self.schema != PROPULSION_PRIOR_SCHEMA:
+            raise DomainError("Unsupported propulsion-prior schema.")
+        for field_name in ("parameter_names", "reference_ids"):
+            object.__setattr__(
+                self, field_name, strings(getattr(self, field_name), f"Prior {field_name}")
+            )
+        object.__setattr__(self, "mean", real_tuple(self.mean, "Prior mean"))
+        object.__setattr__(self, "covariance", real_matrix(self.covariance, "Prior covariance"))
+        if not isinstance(self.source, str) or not isinstance(self.rationale, str):
+            raise DomainError("Prior source and rationale must be strings.")
+        size = len(self.parameter_names)
+        if size == 0:
+            raise DomainError("A parameter prior requires at least one parameter.")
+        if len(set(self.parameter_names)) != size or any(
+            not name.strip() for name in self.parameter_names
+        ):
+            raise DomainError("Prior parameter names must be unique and non-empty.")
+        if len(self.mean) != size or len(self.covariance) != size or any(
+            len(row) != size for row in self.covariance
+        ):
+            raise DomainError("Prior mean and covariance dimensions must match the names.")
+        values = (*self.mean, *(value for row in self.covariance for value in row))
+        if any(not isfinite(value) for value in values):
+            raise DomainError("Prior mean and covariance must be finite.")
+        for i in range(size):
+            for j in range(i):
+                tolerance = _SYMMETRY_TOLERANCE * max(
+                    1.0, abs(self.covariance[i][j]), abs(self.covariance[j][i])
+                )
+                if abs(self.covariance[i][j] - self.covariance[j][i]) > tolerance:
+                    raise DomainError("Prior covariance must be symmetric.")
+        if _cholesky(self.covariance) is None:
+            raise DomainError("Prior covariance must be positive semidefinite.")
+        if not self.source.strip() or not self.rationale.strip():
+            raise DomainError("Prior source and rationale must not be empty.")
+        if not self.reference_ids or len(set(self.reference_ids)) != len(self.reference_ids):
+            raise DomainError("Prior references must be non-empty and unique.")
+
+    @classmethod
+    def from_standard_deviations(
+        cls,
+        standard_deviations: Mapping[str, float],
+        *,
+        source: str,
+        rationale: str,
+        mean: Mapping[str, float] | None = None,
+        correlation: Mapping[tuple[str, str], float] | None = None,
+    ) -> PropulsionParameterPrior:
+        """Build a prior from sigmas, optional means and pairwise correlations.
+
+        Missing means default to the bridge reference values (1 for scales,
+        0 for timing bias); a name without a known default must be given.
+
+        References
+        ----------
+        JCGM 100:2008, section 5.2:
+        https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf
+        """
+
+        if not isinstance(standard_deviations, Mapping):
+            raise DomainError("Standard deviations must be a mapping.")
+        if mean is not None and not isinstance(mean, Mapping):
+            raise DomainError("Means must be a mapping.")
+        if correlation is not None and not isinstance(correlation, Mapping):
+            raise DomainError("Correlations must be a mapping of name pairs.")
+        names = tuple(text(name, "Prior parameter name") for name in standard_deviations)
+        defaults = {"thrust_scale": 1.0, "mass_flow_scale": 1.0, "ignition_time_bias_s": 0.0}
+        supplied_mean = dict(mean or {})
+        if set(supplied_mean) - set(names):
+            raise DomainError("Means were supplied for parameters without a sigma.")
+        means = []
+        for name in names:
+            if name in supplied_mean:
+                means.append(real(supplied_mean[name], f"Prior mean {name!r}"))
+            elif name in defaults:
+                means.append(defaults[name])
+            else:
+                raise DomainError(f"Parameter {name!r} needs an explicit mean.")
+        sigmas = []
+        for name in names:
+            sigma = real(standard_deviations[name], f"Prior sigma {name!r}")
+            if sigma < 0.0:
+                raise DomainError("Prior standard deviations must be finite and non-negative.")
+            sigmas.append(sigma)
+        rho = {name: {other: (1.0 if name == other else 0.0) for other in names} for name in names}
+        for pair, raw in (correlation or {}).items():
+            if not isinstance(pair, tuple) or len(pair) != 2:
+                raise DomainError("Correlation keys must be (name, name) pairs.")
+            first, second = pair
+            if first not in rho or second not in rho or first == second:
+                raise DomainError("Correlation pairs must name two distinct prior parameters.")
+            value = real(raw, "Correlation coefficient")
+            if not -1.0 <= value <= 1.0:
+                raise DomainError("Correlation coefficients must lie in [-1, 1].")
+            rho[first][second] = rho[second][first] = float(value)
+        covariance = tuple(
+            tuple(rho[a][b] * sigmas[i] * sigmas[j] for j, b in enumerate(names))
+            for i, a in enumerate(names)
+        )
+        return cls(names, tuple(means), covariance, source, rationale)
+
+    @classmethod
+    def from_multivariate_calibration(
+        cls,
+        calibration: HotFireMultivariateCalibration,
+        *,
+        scope: CalibrationScope = CalibrationScope.POPULATION,
+        artifact_includes_consensus: bool = True,
+        ignition_time_bias_sigma_s: float | None = None,
+    ) -> PropulsionParameterPrior:
+        """Linearize a paired hot-fire calibration onto the bridge drivers.
+
+        With calibrated scales ``T`` (thrust), ``I`` (specific impulse) and
+        optional ``A`` (axial efficiency), the bridge drivers are
+        ``thrust_scale = T A`` and ``mass_flow_scale = T / I``.  First-order
+        propagation (JCGM 100 law of propagation of uncertainty) gives
+        ``P = J C J^T``.  ``C`` uses the marginal process variances of the
+        selected ``scope`` and the calibration's effective (possibly
+        regularized) correlation, exactly as ``residual_model`` does.
+
+        If ``artifact_includes_consensus`` (default) the artifact was built
+        with the consensus corrections already applied, so the prior is the
+        *relative* residual about 1.  Otherwise the mean is the consensus
+        product and the covariance is absolute.
+
+        ``time_scale`` stretches burn duration and is not a bridge driver; it
+        is ignored.  The ignition-time sigma is not observable from scale
+        calibration and must be supplied explicitly to be included.
+
+        References
+        ----------
+        JCGM 100:2008, section 5.1.2:
+        https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf
+        NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
+        """
+
+        if not isinstance(calibration, HotFireMultivariateCalibration):
+            raise DomainError("A HotFireMultivariateCalibration is required.")
+        names = calibration.parameter_names
+        if "thrust_scale" not in names or "specific_impulse_scale" not in names:
+            raise DomainError(
+                "Calibration must contain thrust_scale and specific_impulse_scale."
+            )
+        if not isinstance(scope, CalibrationScope):
+            raise DomainError("Calibration scope must be a CalibrationScope value.")
+        evidence = (
+            calibration.population_correlation
+            if scope is CalibrationScope.POPULATION
+            else calibration.same_engine_correlation
+        )
+        if evidence is None:
+            raise DomainError("Same-engine correlation is undefined for this calibration.")
+        index = {name: position for position, name in enumerate(names)}
+        means = [marginal.consensus_scale for marginal in calibration.marginals]
+        variances = [
+            marginal.population_process_variance
+            if scope is CalibrationScope.POPULATION
+            else marginal.within_engine_process_variance
+            for marginal in calibration.marginals
+        ]
+        sigmas = [sqrt(max(value, 0.0)) for value in variances]
+        correlation = evidence.effective_matrix
+        selected = [index["thrust_scale"], index["specific_impulse_scale"]]
+        if "axial_efficiency_scale" in index:
+            selected.append(index["axial_efficiency_scale"])
+        covariance_in = [
+            [correlation[a][b] * sigmas[a] * sigmas[b] for b in selected] for a in selected
+        ]
+        thrust = means[selected[0]]
+        isp = means[selected[1]]
+        axial = means[selected[2]] if len(selected) == 3 else 1.0
+        jacobian = [[axial, 0.0], [1.0 / isp, -thrust / isp**2]]
+        if len(selected) == 3:
+            jacobian[0].append(thrust)
+            jacobian[1].append(0.0)
+        mapped_mean = [thrust * axial, thrust / isp]
+        mapped = [
+            [
+                sum(
+                    jacobian[r][a] * covariance_in[a][b] * jacobian[c][b]
+                    for a in range(len(selected))
+                    for b in range(len(selected))
+                )
+                for c in range(2)
+            ]
+            for r in range(2)
+        ]
+        if artifact_includes_consensus:
+            mapped = [
+                [mapped[r][c] / (mapped_mean[r] * mapped_mean[c]) for c in range(2)]
+                for r in range(2)
+            ]
+            mapped_mean = [1.0, 1.0]
+        names_out: list[str] = ["thrust_scale", "mass_flow_scale"]
+        if ignition_time_bias_sigma_s is not None:
+            ignition_time_bias_sigma_s = real(ignition_time_bias_sigma_s, "Ignition-time sigma")
+            if ignition_time_bias_sigma_s < 0.0:
+                raise DomainError("Ignition-time sigma must be finite and non-negative.")
+            names_out.append("ignition_time_bias_s")
+            mapped_mean.append(0.0)
+            mapped = [[*row, 0.0] for row in mapped]
+            mapped.append([0.0, 0.0, ignition_time_bias_sigma_s**2])
+        symmetric = tuple(
+            tuple(0.5 * (mapped[r][c] + mapped[c][r]) for c in range(len(mapped)))
+            for r in range(len(mapped))
+        )
+        return cls(
+            tuple(names_out),
+            tuple(mapped_mean),
+            symmetric,
+            source=(
+                f"{calibration.source}; paired hot-fire calibration "
+                f"sha256={calibration.calibration_hash}"
+            ),
+            rationale=(
+                f"{scope.value} scope, first-order mapping T*A and T/I"
+                + (", relative to consensus" if artifact_includes_consensus else ", absolute")
+            ),
+        )
+
+    @property
+    def standard_deviations(self) -> tuple[float, ...]:
+        """Return the square roots of the covariance diagonal."""
+
+        return tuple(sqrt(max(self.covariance[i][i], 0.0)) for i in range(len(self.mean)))
+
+    def relative_covariance(self) -> Matrix:
+        """Return ``C_ij / (mean_i mean_j)``; every mean must be non-zero."""
+
+        if any(value == 0.0 for value in self.mean):
+            raise DomainError("Relative covariance requires non-zero means.")
+        return tuple(
+            tuple(
+                self.covariance[i][j] / (self.mean[i] * self.mean[j])
+                for j in range(len(self.mean))
+            )
+            for i in range(len(self.mean))
+        )
+
+    def variance_of(self, name: str) -> float:
+        """Return one marginal variance, or zero for a parameter not in the prior."""
+
+        if name not in self.parameter_names:
+            return 0.0
+        position = self.parameter_names.index(name)
+        return self.covariance[position][position]
+
+    def check_against(self, parameters: tuple[EstimableParameter, ...]) -> tuple[str, ...]:
+        """Validate against bridge drivers; return warnings for 3-sigma bound overlap.
+
+        Unknown names and means outside the driver bounds fail closed.
+
+        References
+        ----------
+        NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
+        """
+
+        parameters = records(parameters, EstimableParameter, "Bridge parameters")
+        drivers = {parameter.name: parameter for parameter in parameters}
+        warnings: list[str] = []
+        for name, value, sigma in zip(
+            self.parameter_names, self.mean, self.standard_deviations, strict=True
+        ):
+            if name not in drivers:
+                raise DomainError(f"Prior parameter {name!r} is not a driver of this model.")
+            driver = drivers[name]
+            driver.validate(value)
+            if value - 3.0 * sigma < driver.minimum or value + 3.0 * sigma > driver.maximum:
+                warnings.append(
+                    f"{name}: mean +/- 3 sigma exceeds driver bounds "
+                    f"[{driver.minimum}, {driver.maximum}]."
+                )
+        return tuple(warnings)
+
+    @property
+    def prior_hash(self) -> str:
+        """Return content identity of names, moments and provenance."""
+
+        return canonical_sha256(self.to_dict(include_hash=False))
+
+    def to_dict(self, *, include_hash: bool = True) -> dict[str, object]:
+        """Return deterministic JSON-compatible prior content."""
+
+        payload: dict[str, object] = {
+            "schema": self.schema,
+            "parameter_names": list(self.parameter_names),
+            "mean": list(self.mean),
+            "covariance": [list(row) for row in self.covariance],
+            "source": self.source,
+            "rationale": self.rationale,
+            "reference_ids": list(self.reference_ids),
+        }
+        if include_hash:
+            payload["prior_hash"] = canonical_sha256(payload)
+        return payload
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, object]) -> PropulsionParameterPrior:
+        """Reopen a prior and reject malformed or hash-altered content."""
+
+        if not isinstance(payload, Mapping):
+            raise InputError("Parameter-prior artifact root must be an object.")
+        try:
+            prior = cls(
+                parameter_names=payload["parameter_names"],
+                mean=payload["mean"],
+                covariance=payload["covariance"],
+                source=payload["source"],
+                rationale=payload["rationale"],
+                reference_ids=payload["reference_ids"],
+                schema=payload["schema"],
+            )
+        except (KeyError, TypeError, ValueError, DomainError) as error:
+            raise InputError("Malformed parameter-prior artifact.") from error
+        if payload.get("prior_hash") != prior.prior_hash:
+            raise InputError("Parameter-prior hash does not match its contents.")
+        return prior
+
+
+def delta_v_log_sensitivities(consumed_mass_fraction: float) -> tuple[float, float]:
+    """Return ``(dlnDv/ds_T, dlnDv/ds_m)`` for a duration-terminated burn.
+
+    For constant effective exhaust velocity and a fixed burn duration,
+    ``Dv = (s_T / s_m) c ln(1 / (1 - s_m mu))`` where ``mu`` is the nominal
+    consumed fraction of initial mass.  At ``s_T = s_m = 1``::
+
+        dlnDv/ds_T = 1
+        dlnDv/ds_m = -1 + mu / ((1 - mu) (-ln(1 - mu)))   (~ mu/2 for small mu)
+
+    A flow-scale error mostly cancels: it changes both the exhaust velocity
+    and the propellant consumed.
+
+    References
+    ----------
+    NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
+    """
+
+    mu = real(consumed_mass_fraction, "Consumed mass fraction")
+    if not 0.0 < mu < 1.0:
+        raise DomainError("Consumed mass fraction must lie in (0, 1).")
+    return 1.0, -1.0 + mu / ((1.0 - mu) * -log1p(-mu))
+
+
+@dataclass(frozen=True, slots=True)
+class GatesExecutionErrorModel:
+    """Four-parameter impulsive maneuver execution-error covariance.
+
+    For a commanded velocity change ``Dv = V e`` (unit ``e``)::
+
+        Q = (sr^2 + V^2 ss^2) e e^T + (sa^2 + V^2 sp^2) (I - e e^T)
+
+    ``sr`` fixed magnitude (resolution/shutoff) error [m/s], ``ss``
+    proportional magnitude error [-], ``sa`` fixed transverse error [m/s] and
+    ``sp`` proportional pointing error [rad], all one-sigma.  The transverse
+    term applies independently to each of the two axes perpendicular to
+    ``e``.  Original model: C. R. Gates, "A Simplified Model of Midcourse
+    Maneuver Execution Errors", JPL Technical Report 32-504, 1963.
+
+    References
+    ----------
+    NASA-20180003657 (Navigation Filter Best Practices):
+    https://ntrs.nasa.gov/citations/20180003657
+    """
+
+    fixed_magnitude_sigma_m_s: float
+    proportional_magnitude_sigma: float
+    fixed_pointing_sigma_m_s: float
+    proportional_pointing_sigma_rad: float
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "fixed_magnitude_sigma_m_s",
+            "proportional_magnitude_sigma",
+            "fixed_pointing_sigma_m_s",
+            "proportional_pointing_sigma_rad",
+        ):
+            value = real(getattr(self, field_name), f"Gates {field_name}")
+            if value < 0.0:
+                raise DomainError("Gates error sigmas must be finite and non-negative.")
+            object.__setattr__(self, field_name, value)
+
+    @classmethod
+    def from_parameter_prior(
+        cls,
+        prior: PropulsionParameterPrior,
+        *,
+        consumed_mass_fraction: float,
+        fixed_magnitude_sigma_m_s: float,
+        fixed_pointing_sigma_m_s: float,
+        proportional_pointing_sigma_rad: float,
+    ) -> GatesExecutionErrorModel:
+        """Derive the proportional magnitude term from propulsion uncertainty.
+
+        ``ss = sqrt(g^T P_rel g)`` with ``g`` from
+        :func:`delta_v_log_sensitivities` and ``P_rel`` the relative
+        covariance of ``thrust_scale`` and ``mass_flow_scale`` (a scale not in
+        the prior contributes nothing).  Valid for duration-terminated burns;
+        an accelerometer (delta-v) cutoff removes most of this term and leaves
+        its own resolution error in the fixed magnitude sigma instead.
+
+        References
+        ----------
+        NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
+        JCGM 100:2008, section 5.2:
+        https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf
+        """
+
+        if not isinstance(prior, PropulsionParameterPrior):
+            raise DomainError("A PropulsionParameterPrior is required.")
+        gradient = dict(
+            zip(
+                ("thrust_scale", "mass_flow_scale"),
+                delta_v_log_sensitivities(consumed_mass_fraction),
+                strict=True,
+            )
+        )
+        relevant = [name for name in prior.parameter_names if name in gradient]
+        positions = {name: prior.parameter_names.index(name) for name in relevant}
+        if any(prior.mean[positions[name]] == 0.0 for name in relevant):
+            raise DomainError("Thrust and flow scale means must be non-zero.")
+        variance = 0.0
+        for a in relevant:
+            for b in relevant:
+                i, j = positions[a], positions[b]
+                relative = prior.covariance[i][j] / (prior.mean[i] * prior.mean[j])
+                variance += gradient[a] * relative * gradient[b]
+        return cls(
+            fixed_magnitude_sigma_m_s,
+            sqrt(max(variance, 0.0)),
+            fixed_pointing_sigma_m_s,
+            proportional_pointing_sigma_rad,
+        )
+
+    @staticmethod
+    def _unit(delta_v: tuple[float, float, float]) -> tuple[tuple[float, float, float], float]:
+        delta_v = vector3(delta_v, "Delta-v")
+        magnitude = sqrt(sum(value * value for value in delta_v))
+        if magnitude <= 0.0:
+            raise DomainError("Delta-v must be non-zero.")
+        return tuple(value / magnitude for value in delta_v), magnitude  # type: ignore[return-value]
+
+    def along_and_transverse_variance(self, delta_v_magnitude_m_s: float) -> tuple[float, float]:
+        """Return the along-burn and per-transverse-axis variances [m^2/s^2]."""
+
+        delta_v_magnitude_m_s = real(delta_v_magnitude_m_s, "Delta-v magnitude")
+        if delta_v_magnitude_m_s < 0.0:
+            raise DomainError("Delta-v magnitude must be finite and non-negative.")
+        v2 = delta_v_magnitude_m_s**2
+        return (
+            self.fixed_magnitude_sigma_m_s**2 + v2 * self.proportional_magnitude_sigma**2,
+            self.fixed_pointing_sigma_m_s**2 + v2 * self.proportional_pointing_sigma_rad**2,
+        )
+
+    def covariance(self, delta_v: tuple[float, float, float]) -> Matrix:
+        """Return the 3x3 execution-error covariance in the frame of ``delta_v``.
+
+        References
+        ----------
+        NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
+        """
+
+        unit, magnitude = self._unit(delta_v)
+        along, transverse = self.along_and_transverse_variance(magnitude)
+        return tuple(
+            tuple(
+                along * unit[i] * unit[j]
+                + transverse * ((1.0 if i == j else 0.0) - unit[i] * unit[j])
+                for j in range(3)
+            )
+            for i in range(3)
+        )
+
+    def sample(
+        self, delta_v: tuple[float, float, float], generator: random.Random
+    ) -> tuple[float, float, float]:
+        """Return one executed delta-v drawn from the Gaussian error model.
+
+        References
+        ----------
+        NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
+        """
+
+        if not isinstance(generator, random.Random):
+            raise DomainError("A random.Random generator is required.")
+        unit, magnitude = self._unit(delta_v)
+        delta_v = vector3(delta_v, "Delta-v")
+        along, transverse = self.along_and_transverse_variance(magnitude)
+        helper = (1.0, 0.0, 0.0) if abs(unit[0]) < 0.9 else (0.0, 1.0, 0.0)
+        first = _cross(unit, helper)
+        norm = sqrt(sum(value * value for value in first))
+        first = tuple(value / norm for value in first)
+        second = _cross(unit, first)
+        a = generator.gauss(0.0, sqrt(along))
+        b = generator.gauss(0.0, sqrt(transverse))
+        c = generator.gauss(0.0, sqrt(transverse))
+        return tuple(
+            delta_v[i] + a * unit[i] + b * first[i] + c * second[i] for i in range(3)
+        )  # type: ignore[return-value]
+
+
+
+@dataclass(frozen=True, slots=True)
+class FirstOrderGaussMarkov:
+    """Exponentially correlated process noise for one driver deviation.
+
+    The deviation ``x`` (for example ``thrust_scale - 1``) obeys
+    ``dx/dt = -x / tau + w`` with white noise of spectral density
+    ``q = 2 sigma^2 / tau``, so the steady-state standard deviation is
+    ``sigma``.  Over a step ``dt`` the exact discrete form is
+    ``x_{k+1} = phi x_k + w_k`` with ``phi = exp(-dt / tau)`` and
+    ``Var(w_k) = sigma^2 (1 - phi^2)``.
+
+    References
+    ----------
+    NASA-20180003657 (Navigation Filter Best Practices):
+    https://ntrs.nasa.gov/citations/20180003657
+    """
+
+    parameter_name: str
+    steady_state_sigma: float
+    time_constant_s: float
+
+    def __post_init__(self) -> None:
+        text(self.parameter_name, "Gauss-Markov parameter name")
+        object.__setattr__(
+            self, "steady_state_sigma", real(self.steady_state_sigma, "Gauss-Markov sigma")
+        )
+        object.__setattr__(
+            self, "time_constant_s", real(self.time_constant_s, "Gauss-Markov time constant")
+        )
+        if self.steady_state_sigma < 0.0:
+            raise DomainError("Gauss-Markov sigma must be finite and non-negative.")
+        if self.time_constant_s <= 0.0:
+            raise DomainError("Gauss-Markov time constant must be finite and positive.")
+
+    @property
+    def power_spectral_density(self) -> float:
+        """Return ``q = 2 sigma^2 / tau`` [unit^2/s]."""
+
+        return 2.0 * self.steady_state_sigma**2 / self.time_constant_s
+
+    def transition(self, dt_s: float) -> float:
+        """Return ``phi = exp(-|dt| / tau)``."""
+
+        dt_s = real(dt_s, "Gauss-Markov step")
+        return exp(-abs(dt_s) / self.time_constant_s)
+
+    def discrete_noise_variance(self, dt_s: float) -> float:
+        """Return ``sigma^2 (1 - phi^2)`` for a step of ``dt_s``."""
+
+        phi = self.transition(dt_s)
+        return self.steady_state_sigma**2 * (1.0 - phi * phi)
+
+    def propagate(self, mean: float, variance: float, dt_s: float) -> tuple[float, float]:
+        """Propagate the deviation's mean and variance over ``dt_s``."""
+
+        mean = real(mean, "Gauss-Markov mean")
+        variance = real(variance, "Gauss-Markov variance")
+        if variance < 0.0:
+            raise DomainError("Gauss-Markov mean and variance must be finite and valid.")
+        phi = self.transition(dt_s)
+        return phi * mean, phi * phi * variance + self.discrete_noise_variance(dt_s)
+
+    def sample_path(
+        self, times_s: tuple[float, ...], generator: random.Random, *, initial: float | None = None
+    ) -> tuple[float, ...]:
+        """Draw one exact discrete realization at increasing ``times_s``.
+
+        Without ``initial`` the first value is drawn from the steady state.
+
+        References
+        ----------
+        NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
+        """
+
+        if not isinstance(generator, random.Random):
+            raise DomainError("A random.Random generator is required.")
+        times_s = real_tuple(times_s, "Gauss-Markov sample times")
+        if not times_s:
+            return ()
+        if any(
+            later <= earlier for earlier, later in pairwise(times_s)
+        ):
+            raise DomainError("Gauss-Markov sample times must be finite and increasing.")
+        value = (
+            generator.gauss(0.0, self.steady_state_sigma)
+            if initial is None
+            else real(initial, "Gauss-Markov initial value")
+        )
+        values = [value]
+        for earlier, later in pairwise(times_s):
+            dt = later - earlier
+            value = self.transition(dt) * value + generator.gauss(
+                0.0, sqrt(self.discrete_noise_variance(dt))
+            )
+            values.append(value)
+        return tuple(values)

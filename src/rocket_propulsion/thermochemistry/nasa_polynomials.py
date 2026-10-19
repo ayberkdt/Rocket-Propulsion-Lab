@@ -10,9 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import log
 
+from rocket_propulsion.core.constants import MOLAR_GAS_CONSTANT_J_MOL_K
 from rocket_propulsion.core.errors import DomainError
 
-UNIVERSAL_GAS_CONSTANT_J_MOL_K = 8.31446261815324
+UNIVERSAL_GAS_CONSTANT_J_MOL_K = MOLAR_GAS_CONSTANT_J_MOL_K
 
 
 @dataclass(frozen=True, slots=True)

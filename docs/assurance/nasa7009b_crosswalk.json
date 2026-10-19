@@ -1,0 +1,18 @@
+{
+  "standard": "NASA-STD-7009B, approved 2024-03-05",
+  "pdf_sha256": "7b95a2065325dc3035c35ce110557d817555d3f22210ce5f6ce0bb2fb4ccd8b4",
+  "scope": "selected requirements relevant to this review; not a compliance determination",
+  "rows": [
+    {"requirement": "M&S 40", "section": "4.1.1.1", "status": "partial", "evidence": "PROPULSION_ASSURANCE.md permitted-use table; hardware configuration and intended mission unresolved"},
+    {"requirement": "M&S 43", "section": "4.1.1.5", "status": "open", "evidence": "No project-approved model acceptance criteria or credibility thresholds"},
+    {"requirement": "M&S 51", "section": "4.1.1.8", "status": "partial", "evidence": "Documented SASS/feed/decision/interval reproductions and fixes; catalogue discrepancies remain unresolved"},
+    {"requirement": "M&S 15", "section": "4.2.3.1", "status": "partial", "evidence": "Recorded independent software oracles, interval-corner enclosures, curated mutation assertions and source-bound regression results; not empirical validation"},
+    {"requirement": "M&S 16", "section": "4.2.3.2", "status": "partial", "evidence": "Numerical model assumptions and sampled verification cases documented; exhaustive numerical domain not demonstrated"},
+    {"requirement": "M&S 17", "section": "4.2.5.1", "status": "open", "evidence": "No selected motor/feed system or admitted independent experimental comparison"},
+    {"requirement": "M&S 18", "section": "4.2.5.2", "status": "open", "evidence": "Physical validation domain not established"},
+    {"requirement": "M&S 19", "section": "4.2.7.1", "status": "open", "evidence": "Experimental referent uncertainty budget not available; source precision is not treated as uncertainty"},
+    {"requirement": "M&S 21", "section": "4.2.7.2", "status": "open", "evidence": "Physical model/result uncertainties remain unquantified"},
+    {"requirement": "M&S 32", "section": "4.3.8.1", "status": "partial", "evidence": "JSON/HTML carry explicit unassessed hardware, missing empirical validation and uncertainty caveats"},
+    {"requirement": "M&S 33", "section": "4.3.8.2", "status": "open", "evidence": "No justified result uncertainty estimate; missing information is reported without inventing a magnitude"}
+  ]
+}

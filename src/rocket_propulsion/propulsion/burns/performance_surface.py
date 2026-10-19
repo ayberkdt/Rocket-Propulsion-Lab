@@ -9,34 +9,36 @@ never performed.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from bisect import bisect_left, bisect_right
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from itertools import product
+from fractions import Fraction
+from itertools import combinations, product
 from math import isfinite, prod
 from types import MappingProxyType
 
 from rocket_propulsion.core.errors import DomainError, InputError
+from rocket_propulsion.core.validation import (
+    read_json_document,
+    real,
+    real_tuple,
+    records,
+    strings,
+    text,
+)
+
+from .interpolation import _MULTILINEAR_POLICY, _multilinear_terms, _pchip_rational_slopes
+from .numeric_outputs import _finite_rational, _fraction
+from .serialization import _require_numerical_policies, canonical_sha256
 
 PERFORMANCE_SURFACE_SCHEMA = "rocket_propulsion_performance_surface_v1"
+INTERPOLATION_MODES = ("multilinear", "cubic_hermite")
 PERFORMANCE_SURFACE_REFERENCE_IDS = (
     "NASA-20000031654",
     "NASA-STD-7009B",
     "NASA-20040000363",
 )
-
-
-def _canonical_hash(payload: object) -> str:
-    encoded = json.dumps(
-        payload,
-        allow_nan=False,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,8 +57,9 @@ class PerformanceAxis:
     values: tuple[float, ...]
 
     def __post_init__(self) -> None:
-        if not self.name.strip() or not self.unit.strip():
-            raise DomainError("Performance-axis name and unit must not be empty.")
+        text(self.name, "Performance-axis name")
+        text(self.unit, "Performance-axis unit")
+        object.__setattr__(self, "values", real_tuple(self.values, "Performance-axis values"))
         if len(self.values) < 2:
             raise DomainError("A performance axis requires at least two coordinates.")
         if any(not isfinite(value) for value in self.values):
@@ -108,7 +111,14 @@ class PerformanceScalePoint:
     mass_flow_scale: float
 
     def __post_init__(self) -> None:
-        if not self.coordinates or any(not isfinite(value) for value in self.coordinates):
+        object.__setattr__(
+            self, "coordinates", real_tuple(self.coordinates, "Performance-point coordinates")
+        )
+        object.__setattr__(self, "force_scale", real(self.force_scale, "Performance force scale"))
+        object.__setattr__(
+            self, "mass_flow_scale", real(self.mass_flow_scale, "Performance mass-flow scale")
+        )
+        if not self.coordinates:
             raise DomainError("Performance-point coordinates must be finite and non-empty.")
         for value, label in (
             (self.force_scale, "Performance force scale"),
@@ -172,16 +182,11 @@ class PerformanceValiditySurface:
     def value(self, conditions: Mapping[str, float]) -> float:
         """Evaluate positive-inside signed distance in axis units."""
 
+        if not isinstance(conditions, Mapping):
+            raise DomainError("Operating conditions must be a mapping.")
         if self.condition_name not in conditions:
             raise DomainError(f"Missing operating condition {self.condition_name!r}.")
-        try:
-            value = float(conditions[self.condition_name])
-        except (TypeError, ValueError) as error:
-            raise DomainError(
-                f"Operating condition {self.condition_name!r} must be numeric."
-            ) from error
-        if not isfinite(value):
-            raise DomainError(f"Operating condition {self.condition_name!r} must be finite.")
+        value = real(conditions[self.condition_name], f"Operating condition {self.condition_name!r}")
         if self.bound == "lower":
             return value - self.boundary_value
         return self.boundary_value - value
@@ -228,16 +233,11 @@ class PerformanceGridLineSurface:
     def value(self, conditions: Mapping[str, float]) -> float:
         """Evaluate the signed distance ``condition - coordinate`` in axis units."""
 
+        if not isinstance(conditions, Mapping):
+            raise DomainError("Operating conditions must be a mapping.")
         if self.condition_name not in conditions:
             raise DomainError(f"Missing operating condition {self.condition_name!r}.")
-        try:
-            value = float(conditions[self.condition_name])
-        except (TypeError, ValueError) as error:
-            raise DomainError(
-                f"Operating condition {self.condition_name!r} must be numeric."
-            ) from error
-        if not isfinite(value):
-            raise DomainError(f"Operating condition {self.condition_name!r} must be finite.")
+        value = real(conditions[self.condition_name], f"Operating condition {self.condition_name!r}")
         return value - self.coordinate
 
 
@@ -246,12 +246,16 @@ class RectilinearPerformanceSurface:
     """Complete non-extrapolating N-D force and tank-flow scale map.
 
     Every Cartesian grid node must be supplied exactly once.  Evaluation uses
-    tensor-product multilinear interpolation; analytic gradients are constant
+    tensor-product multilinear interpolation by default; analytic gradients are constant
     with respect to each coordinate only in the one-dimensional case and vary
     multilinearly with the other coordinates in higher dimensions.  The
     surface records a source hash and stable reference identifiers.
 
-    This is a validated-domain interpolation mechanism, not a fitted physical
+    The optional cubic_hermite mode retains rational PCHIP nodal/mixed
+    derivatives and tensor sums until checked value/gradient export. It is C1;
+    one-dimensional monotonicity does not establish N-D interior positivity.
+
+    This is a declared-domain interpolation mechanism, not a fitted physical
     law.  The input nodes must come from applicable test data or a separately
     verified model.
 
@@ -270,13 +274,28 @@ class RectilinearPerformanceSurface:
     source_sha256: str
     reference_ids: tuple[str, ...] = PERFORMANCE_SURFACE_REFERENCE_IDS
     schema: str = PERFORMANCE_SURFACE_SCHEMA
+    interpolation: str = "multilinear"
     _point_index: Mapping[tuple[float, ...], PerformanceScalePoint] = field(
+        init=False, repr=False, compare=False
+    )
+    _hermite: Mapping[tuple[int, ...], Mapping[tuple[int, ...], tuple[Fraction, Fraction]]] = field(
         init=False, repr=False, compare=False
     )
 
     def __post_init__(self) -> None:
         if self.schema != PERFORMANCE_SURFACE_SCHEMA:
             raise DomainError("Unsupported performance-surface schema.")
+        for name, kind in (("axes", PerformanceAxis), ("points", PerformanceScalePoint)):
+            object.__setattr__(
+                self, name, records(getattr(self, name), kind, f"Performance-surface {name}")
+            )
+        text(self.source_id, "Performance-surface source identifier")
+        text(self.source_sha256, "Performance-surface source hash")
+        object.__setattr__(
+            self,
+            "reference_ids",
+            strings(self.reference_ids, "Performance-surface references", allow_blank=True),
+        )
         if not self.axes:
             raise DomainError("A performance surface requires at least one axis.")
         names = [axis.name for axis in self.axes]
@@ -308,12 +327,62 @@ class RectilinearPerformanceSurface:
                 "Performance surface must contain the complete Cartesian grid "
                 f"(missing={missing}, extra={extra})."
             )
+        if self.interpolation not in INTERPOLATION_MODES:
+            raise DomainError(f"Surface interpolation must be one of {INTERPOLATION_MODES}.")
         # Built once: evaluation is called at every propagator stage.
         object.__setattr__(
             self,
             "_point_index",
             MappingProxyType({point.coordinates: point for point in self.points}),
         )
+        object.__setattr__(
+            self,
+            "_hermite",
+            self._hermite_derivatives() if self.interpolation == "cubic_hermite" else {},
+        )
+
+    def _hermite_derivatives(
+        self,
+    ) -> Mapping[tuple[int, ...], Mapping[tuple[int, ...], tuple[Fraction, Fraction]]]:
+        """Nodal values and mixed partials for tensor-product cubic Hermite.
+
+        ``D[S]`` is the mixed partial over the axes in ``S`` (a sorted tuple).
+        It is built by applying the PCHIP slope operator along the largest
+        axis of ``S`` to ``D[S minus that axis]``, one grid line at a time.
+        """
+
+        dimension = len(self.axes)
+        shape = [len(axis.values) for axis in self.axes]
+        base: dict[tuple[int, ...], tuple[Fraction, Fraction]] = {}
+        for index in product(*(range(size) for size in shape)):
+            coordinate = tuple(self.axes[a].values[i] for a, i in enumerate(index))
+            point = self._point_index[coordinate]
+            base[index] = (_fraction(point.force_scale), _fraction(point.mass_flow_scale))
+        derivatives: dict[tuple[int, ...], Mapping[tuple[int, ...], tuple[Fraction, Fraction]]] = {
+            (): MappingProxyType(base)
+        }
+        subsets = sorted(
+            (subset for size in range(1, dimension + 1) for subset in combinations(range(dimension), size)),
+            key=len,
+        )
+        for subset in subsets:
+            axis_index = subset[-1]
+            source = derivatives[subset[:-1]]
+            values = self.axes[axis_index].values
+            result: dict[tuple[int, ...], tuple[Fraction, Fraction]] = {}
+            others = [range(size) for a, size in enumerate(shape) if a != axis_index]
+            for fixed in product(*others):
+                line = []
+                for i in range(shape[axis_index]):
+                    index = list(fixed)
+                    index.insert(axis_index, i)
+                    line.append(tuple(index))
+                force = _pchip_rational_slopes(values, tuple(source[item][0] for item in line))
+                flow = _pchip_rational_slopes(values, tuple(source[item][1] for item in line))
+                for position, item in enumerate(line):
+                    result[item] = (force[position], flow[position])
+            derivatives[subset] = MappingProxyType(result)
+        return MappingProxyType(derivatives)
 
     @property
     def surface_hash(self) -> str:
@@ -324,7 +393,7 @@ class RectilinearPerformanceSurface:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        return _canonical_hash(self.to_dict(include_hash=False))
+        return canonical_sha256(self.to_dict(include_hash=False))
 
     def to_dict(self, *, include_hash: bool = True) -> dict[str, object]:
         """Return deterministic JSON-compatible surface content.
@@ -353,8 +422,13 @@ class RectilinearPerformanceSurface:
             ],
             "reference_ids": list(self.reference_ids),
         }
+        if self.interpolation != "multilinear":
+            payload["interpolation"] = self.interpolation
+            payload["interpolation_numerics"] = "rational_pchip_tensor_hermite_export_v1"
+        else:
+            payload["interpolation_numerics"] = _MULTILINEAR_POLICY
         if include_hash:
-            payload["surface_hash"] = _canonical_hash(payload)
+            payload["surface_hash"] = canonical_sha256(payload)
         return payload
 
     def to_json(self, *, indent: int | None = 2) -> str:
@@ -392,23 +466,24 @@ class RectilinearPerformanceSurface:
             if not isinstance(axes_payload, list) or not isinstance(points_payload, list):
                 raise TypeError
             surface = cls(
-                schema=str(payload["schema"]),
-                source_id=str(payload["source_id"]),
-                source_sha256=str(payload["source_sha256"]),
-                reference_ids=tuple(str(item) for item in payload["reference_ids"]),
+                schema=payload["schema"],
+                source_id=payload["source_id"],
+                source_sha256=payload["source_sha256"],
+                reference_ids=payload["reference_ids"],
+                interpolation=payload.get("interpolation", "multilinear"),
                 axes=tuple(
                     PerformanceAxis(
-                        name=str(item["name"]),
-                        unit=str(item["unit"]),
-                        values=tuple(float(value) for value in item["values"]),
+                        name=item["name"],
+                        unit=item["unit"],
+                        values=item["values"],
                     )
                     for item in axes_payload
                 ),
                 points=tuple(
                     PerformanceScalePoint(
-                        coordinates=tuple(float(value) for value in item["coordinates"]),
-                        force_scale=float(item["force_scale"]),
-                        mass_flow_scale=float(item["mass_flow_scale"]),
+                        coordinates=item["coordinates"],
+                        force_scale=item["force_scale"],
+                        mass_flow_scale=item["mass_flow_scale"],
                     )
                     for item in points_payload
                 ),
@@ -417,6 +492,7 @@ class RectilinearPerformanceSurface:
             raise InputError("Malformed performance-surface artifact.") from error
         if payload.get("surface_hash") != surface.surface_hash:
             raise InputError("Performance-surface hash does not match its contents.")
+        _require_numerical_policies(payload, surface.to_dict(include_hash=False))
         return surface
 
     @classmethod
@@ -429,13 +505,7 @@ class RectilinearPerformanceSurface:
         CCSDS-502.0-B-3: https://ccsds.org/Pubs/502x0b3e1.pdf
         """
 
-        try:
-            payload = json.loads(text)
-        except json.JSONDecodeError as error:
-            raise InputError("Performance-surface artifact is not valid JSON.") from error
-        if not isinstance(payload, dict):
-            raise InputError("Performance-surface artifact root must be an object.")
-        return cls.from_dict(payload)
+        return read_json_document(text, "Performance-surface artifact", cls.from_dict)
 
     def validity_surfaces(self) -> tuple[PerformanceValiditySurface, ...]:
         """Return lower and upper event surfaces for every input coordinate.
@@ -472,7 +542,8 @@ class RectilinearPerformanceSurface:
         """Return one non-stopping kink event per interior axis coordinate.
 
         Domain endpoints are excluded; they are covered by the stopping
-        :meth:`validity_surfaces`.
+        :meth:`validity_surfaces`.  A ``cubic_hermite`` surface is C1, so it
+        has no derivative kinks and returns no surfaces.
 
         References
         ----------
@@ -480,6 +551,8 @@ class RectilinearPerformanceSurface:
         https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetectorsProvider.html
         """
 
+        if self.interpolation == "cubic_hermite":
+            return ()
         return tuple(
             PerformanceGridLineSurface(
                 f"performance:{axis.name}:grid:{index}",
@@ -505,6 +578,8 @@ class RectilinearPerformanceSurface:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
+        if not isinstance(conditions, Mapping):
+            raise DomainError("Operating conditions must be a mapping.")
         expected_names = {axis.name for axis in self.axes}
         supplied_names = set(conditions)
         if supplied_names != expected_names:
@@ -516,17 +591,10 @@ class RectilinearPerformanceSurface:
             )
 
         normalized: dict[str, float] = {}
-        brackets: list[tuple[int, int, float, float]] = []
+        brackets: list[tuple[int, int, float | Fraction, float | Fraction]] = []
         boundary_axes: list[str] = []
         for axis in self.axes:
-            try:
-                value = float(conditions[axis.name])
-            except (TypeError, ValueError) as error:
-                raise DomainError(
-                    f"Operating condition {axis.name!r} must be numeric."
-                ) from error
-            if not isfinite(value):
-                raise DomainError(f"Operating condition {axis.name!r} must be finite.")
+            value = real(conditions[axis.name], f"Operating condition {axis.name!r}")
             tolerance = max(1e-12, max(abs(axis.minimum), abs(axis.maximum)) * 1e-12)
             if value < axis.minimum - tolerance or value > axis.maximum + tolerance:
                 raise DomainError(
@@ -542,40 +610,111 @@ class RectilinearPerformanceSurface:
             lower = max(0, upper - 1)
             if upper == lower:
                 lower = max(0, upper - 1)
-            width = axis.values[upper] - axis.values[lower]
-            fraction = (value - axis.values[lower]) / width
+            width = _fraction(axis.values[upper]) - _fraction(axis.values[lower])
+            fraction = (_fraction(value) - _fraction(axis.values[lower])) / width
             brackets.append((lower, upper, fraction, width))
 
+        if self.interpolation == "cubic_hermite":
+            force_scale, flow_scale, force_gradient, flow_gradient = self._evaluate_hermite(
+                brackets
+            )
+            if force_scale <= 0.0 or flow_scale <= 0.0:
+                raise DomainError(
+                    "Cubic surface produced a non-positive scale inside the grid; "
+                    "use multilinear interpolation for these data."
+                )
+            return self._evaluation(
+                normalized, brackets, boundary_axes,
+                force_scale, flow_scale, force_gradient, flow_gradient,
+            )
         point_by_coordinate = self._point_index
-        force_scale = 0.0
-        flow_scale = 0.0
-        force_gradient = [0.0] * len(self.axes)
-        flow_gradient = [0.0] * len(self.axes)
+        force_scale = Fraction(0)
+        flow_scale = Fraction(0)
+        force_gradient = [Fraction(0)] * len(self.axes)
+        flow_gradient = [Fraction(0)] * len(self.axes)
 
-        for corner in product((0, 1), repeat=len(self.axes)):
+        for corner, weight, derivative_weights in _multilinear_terms(brackets):
             coordinate = tuple(
                 axis.values[brackets[index][corner[index]]]
                 for index, axis in enumerate(self.axes)
             )
             point = point_by_coordinate[coordinate]
-            factors = tuple(
-                fraction if corner[index] else 1.0 - fraction
-                for index, (_, _, fraction, _) in enumerate(brackets)
-            )
-            weight = prod(factors)
-            force_scale += weight * point.force_scale
-            flow_scale += weight * point.mass_flow_scale
-            for derivative_axis, (_, _, _, width) in enumerate(brackets):
-                sign = 1.0 if corner[derivative_axis] else -1.0
-                other_weight = prod(
-                    factor
-                    for index, factor in enumerate(factors)
-                    if index != derivative_axis
-                )
-                derivative_weight = sign * other_weight / width
-                force_gradient[derivative_axis] += derivative_weight * point.force_scale
-                flow_gradient[derivative_axis] += derivative_weight * point.mass_flow_scale
+            force, flow = _fraction(point.force_scale), _fraction(point.mass_flow_scale)
+            force_scale += weight * force
+            flow_scale += weight * flow
+            for derivative_axis, derivative_weight in enumerate(derivative_weights):
+                force_gradient[derivative_axis] += derivative_weight * force
+                flow_gradient[derivative_axis] += derivative_weight * flow
 
+        return self._evaluation(
+            normalized, brackets, boundary_axes,
+            _finite_rational(force_scale, "Multilinear force scale"),
+            _finite_rational(flow_scale, "Multilinear mass-flow scale"),
+            [_finite_rational(value, f"Multilinear force gradient: {axis.name}")
+             for axis, value in zip(self.axes, force_gradient, strict=True)],
+            [_finite_rational(value, f"Multilinear mass-flow gradient: {axis.name}")
+             for axis, value in zip(self.axes, flow_gradient, strict=True)],
+        )
+
+    def _evaluate_hermite(
+        self, brackets: list[tuple[int, int, float | Fraction, float | Fraction]]
+    ) -> tuple[float, float, list[float], list[float]]:
+        dimension = len(self.axes)
+        force = Fraction(0)
+        flow = Fraction(0)
+        force_gradient = [Fraction(0)] * dimension
+        flow_gradient = [Fraction(0)] * dimension
+        basis_cache = []
+        for _, _, t, width in brackets:
+            t, width = _fraction(t), _fraction(width)
+            t2, t3 = t * t, t * t * t
+            # (value basis, its d/dx) for [corner 0 value, corner 1 value,
+            # corner 0 slope, corner 1 slope]
+            basis_cache.append(
+                (
+                    (2 * t3 - 3 * t2 + 1, (6 * t2 - 6 * t) / width),
+                    (-2 * t3 + 3 * t2, (-6 * t2 + 6 * t) / width),
+                    ((t3 - 2 * t2 + t) * width, 3 * t2 - 4 * t + 1),
+                    ((t3 - t2) * width, 3 * t2 - 2 * t),
+                )
+            )
+        for subset, table in self._hermite.items():
+            members = set(subset)
+            for corner in product((0, 1), repeat=dimension):
+                index = tuple(brackets[a][corner[a]] for a in range(dimension))
+                d_force, d_flow = table[index]
+                values = []
+                slopes = []
+                for a in range(dimension):
+                    value, slope = basis_cache[a][corner[a] + (2 if a in members else 0)]
+                    values.append(value)
+                    slopes.append(slope)
+                weight = prod(values)
+                force += weight * d_force
+                flow += weight * d_flow
+                for j in range(dimension):
+                    partial = slopes[j] * prod(values[a] for a in range(dimension) if a != j)
+                    force_gradient[j] += partial * d_force
+                    flow_gradient[j] += partial * d_flow
+        return (
+            _finite_rational(force, "Cubic force scale"),
+            _finite_rational(flow, "Cubic mass-flow scale"),
+            [_finite_rational(value, f"Cubic force gradient: {axis.name}")
+             for axis, value in zip(self.axes, force_gradient, strict=True)],
+            [_finite_rational(value, f"Cubic mass-flow gradient: {axis.name}")
+             for axis, value in zip(self.axes, flow_gradient, strict=True)],
+        )
+
+    def _evaluation(
+        self,
+        normalized: dict[str, float],
+        brackets: list[tuple[int, int, float | Fraction, float | Fraction]],
+        boundary_axes: list[str],
+        force_scale: float,
+        flow_scale: float,
+        force_gradient: list[float],
+        flow_gradient: list[float],
+    ) -> PerformanceSurfaceEvaluation:
         return PerformanceSurfaceEvaluation(
             conditions=tuple((axis.name, normalized[axis.name]) for axis in self.axes),
             force_scale=force_scale,

@@ -486,7 +486,7 @@ function analysisWorkspace() {
       ideal_delta_v_m_s: latestBurnResult.summary.ideal_delta_v_m_s,
       result_hash: latestBurnResult.result_hash,
     },
-    model_versions: { "standalone-constant-burn": "analytic_constant_v1" },
+    model_versions: { "standalone-constant-burn": "analytic_constant_binary_ledgers_decimal1100_v2" },
     warnings: latestBurnResult.warnings || [],
   });
   return {
@@ -837,9 +837,14 @@ async function loadSideraCapabilities() {
     const payload = await response.json();
     if (!response.ok) throw new Error("Yetenek sorgusu başarısız.");
     const capability = payload.data;
+    if (capability.status === "checking") {
+      label.textContent = "Sidera yetenekleri denetleniyor; JSON aktarımı kullanılabilir.";
+      setTimeout(loadSideraCapabilities, 500);
+      return;
+    }
     label.textContent = capability.constant_burn_exact
       ? `Native Sidera ${capability.version}: exact constant burn destekleniyor.`
-      : "Native Sidera kullanılamıyor; doğrulanmış JSON hand-off yine üretilebilir.";
+      : "Native Sidera kullanılamıyor; JSON aktarımı yine üretilebilir.";
   } catch (error) {
     label.textContent = error.message;
   }

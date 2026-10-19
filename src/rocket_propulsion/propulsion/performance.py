@@ -3,9 +3,8 @@
 from dataclasses import dataclass
 from math import exp, isfinite, log
 
+from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2
 from rocket_propulsion.core.errors import DomainError
-
-STANDARD_GRAVITY_M_S2 = 9.80665
 
 
 @dataclass(frozen=True, slots=True)

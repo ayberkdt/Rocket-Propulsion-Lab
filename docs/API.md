@@ -76,6 +76,12 @@ inputs and never enter propulsion physics.
 `GET /api/v1/integrations/sidera/capabilities` reports whether native Sidera
 is installed and whether its public constant-burn contract is compatible.
 Standalone analysis, JSON/workspace persistence and reports do not require it.
+Metadata version 1.1 returns `status="checking"`, `probe_complete=false`
+while inspection runs in the background; capability flags are omitted until
+known. Poll again for a terminal `supported`, `incompatible` or `unavailable`
+record with `probe_complete=true`. The completed snapshot lasts for this
+server process; restart after installation/path changes. See
+[capability inspection behavior](HTTP_CAPABILITY_PROBE.md).
 
 The complete request shape is available in
 [`examples/constant_burn_input.json`](../examples/constant_burn_input.json) and

@@ -1,0 +1,543 @@
+{
+  "schema": "rocket_propulsion_sass_study_v1",
+  "title": "UZM 508E provisional propulsion trade - synthetic small spacecraft",
+  "bus_dry_mass_excluding_propulsion": {
+    "value": 50.0,
+    "unit": "kg",
+    "citations": [
+      {
+        "source_id": "NASA-SE-6",
+        "locator": "6.8: analyst assumption"
+      }
+    ],
+    "status": "assumption",
+    "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: chosen bus and payload dry allocation, excluding propulsion"
+  },
+  "residual_fraction": {
+    "value": 0.02,
+    "unit": "1",
+    "citations": [
+      {
+        "source_id": "NASA-SE-6",
+        "locator": "6.8: analyst assumption"
+      }
+    ],
+    "status": "assumption",
+    "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: unusable fraction of loaded propellant; not a prescribed industry margin"
+  },
+  "fixed_reserve": {
+    "value": 0.2,
+    "unit": "kg",
+    "citations": [
+      {
+        "source_id": "NASA-SE-6",
+        "locator": "6.8: analyst assumption"
+      }
+    ],
+    "status": "assumption",
+    "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: additional retained contingency mass, distinct from unusable fraction"
+  },
+  "items": [
+    {
+      "name": "injection_correction",
+      "nominal_delta_v": {
+        "value": 20.0,
+        "unit": "m/s",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: allocation supplied by the assumed mission design team"
+      },
+      "margin_fraction": {
+        "value": 0.1,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: chosen delta-v contingency"
+      },
+      "count": 1
+    },
+    {
+      "name": "collision_avoidance",
+      "nominal_delta_v": {
+        "value": 0.1,
+        "unit": "m/s",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: 20 hypothetical avoidance maneuvers; not an encounter forecast"
+      },
+      "margin_fraction": {
+        "value": 0.3,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: chosen delta-v contingency"
+      },
+      "count": 20
+    },
+    {
+      "name": "maintenance",
+      "nominal_delta_v": {
+        "value": 1.0,
+        "unit": "m/s",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: three hypothetical annual allocations; no atmospheric density model"
+      },
+      "margin_fraction": {
+        "value": 0.2,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: chosen delta-v contingency"
+      },
+      "count": 3
+    },
+    {
+      "name": "end_of_life",
+      "nominal_delta_v": {
+        "value": 50.0,
+        "unit": "m/s",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: placeholder disposal allocation; no regulatory compliance or lifetime claim"
+      },
+      "margin_fraction": {
+        "value": 0.1,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: chosen delta-v contingency"
+      },
+      "count": 1
+    }
+  ],
+  "candidates": [
+    {
+      "identifier": "cold_gas_nominal",
+      "catalog_key": "moog-058e151",
+      "other_propulsion_dry_mass": {
+        "value": 4.0,
+        "unit": "kg",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: chosen tank/feed/pressurant/electronics/mounting allocation; excludes catalogued thruster mass"
+      },
+      "installed_count": 4,
+      "firing_count": 2,
+      "axial_efficiency": {
+        "value": 1.0,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: parallel thrust along the selected translation direction"
+      },
+      "duty_fraction": {
+        "value": 0.5,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: 50 percent operational availability, not a trajectory solution"
+      },
+      "firing_bus_power": {
+        "value": 25.0,
+        "unit": "W",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: complete propulsion bus firing allocation; not a published product power"
+      }
+    },
+    {
+      "identifier": "hydrazine_nominal",
+      "catalog_key": "ariane-1n",
+      "other_propulsion_dry_mass": {
+        "value": 4.0,
+        "unit": "kg",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: chosen tank/feed/pressurant/electronics/mounting allocation; excludes catalogued thruster mass"
+      },
+      "installed_count": 2,
+      "firing_count": 1,
+      "axial_efficiency": {
+        "value": 1.0,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: parallel thrust along the selected translation direction"
+      },
+      "duty_fraction": {
+        "value": 0.5,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: 50 percent operational availability, not a trajectory solution"
+      },
+      "firing_bus_power": {
+        "value": 25.0,
+        "unit": "W",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: complete propulsion bus firing allocation; not a published product power"
+      }
+    },
+    {
+      "identifier": "bipropellant_nominal",
+      "catalog_key": "ariane-s10-13",
+      "other_propulsion_dry_mass": {
+        "value": 6.0,
+        "unit": "kg",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: chosen tank/feed/pressurant/electronics/mounting allocation; excludes catalogued thruster mass"
+      },
+      "installed_count": 2,
+      "firing_count": 1,
+      "axial_efficiency": {
+        "value": 1.0,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: parallel thrust along the selected translation direction"
+      },
+      "duty_fraction": {
+        "value": 0.5,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: 50 percent operational availability, not a trajectory solution"
+      },
+      "firing_bus_power": {
+        "value": 30.0,
+        "unit": "W",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: complete propulsion bus firing allocation; not a published product power"
+      }
+    },
+    {
+      "identifier": "green_map_needed",
+      "catalog_key": "ecaps-1n-hpgp",
+      "other_propulsion_dry_mass": {
+        "value": 4.0,
+        "unit": "kg",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: chosen tank/feed/pressurant/electronics/mounting allocation; excludes catalogued thruster mass"
+      },
+      "installed_count": 2,
+      "firing_count": 1,
+      "axial_efficiency": {
+        "value": 1.0,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: parallel thrust along the selected translation direction"
+      },
+      "duty_fraction": {
+        "value": 0.5,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: 50 percent operational availability, not a trajectory solution"
+      },
+      "firing_bus_power": null
+    },
+    {
+      "identifier": "ion_map_needed",
+      "catalog_key": "busek-bit3-page",
+      "other_propulsion_dry_mass": {
+        "value": 3.0,
+        "unit": "kg",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: chosen tank/feed/pressurant/electronics/mounting allocation; excludes catalogued thruster mass"
+      },
+      "installed_count": 1,
+      "firing_count": 1,
+      "axial_efficiency": {
+        "value": 1.0,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: parallel thrust along the selected translation direction"
+      },
+      "duty_fraction": {
+        "value": 0.5,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: 50 percent operational availability, not a trajectory solution"
+      },
+      "firing_bus_power": null
+    }
+  ],
+  "requirements": [
+    {
+      "identifier": "PREP-MASS",
+      "description": "Wet spacecraft mass allocation",
+      "metric": "wet_mass",
+      "relation": "at_most",
+      "limit": {
+        "value": 70.0,
+        "unit": "kg",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: analyst-selected preliminary feasibility threshold"
+      },
+      "verification": "preliminary numerical analysis only; assumptions require later validation"
+    },
+    {
+      "identifier": "PREP-TIME",
+      "description": "Total allocated maneuver elapsed-time ceiling",
+      "metric": "elapsed_time",
+      "relation": "at_most",
+      "limit": {
+        "value": 86400.0,
+        "unit": "s",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: analyst-selected preliminary feasibility threshold"
+      },
+      "verification": "preliminary numerical analysis only; assumptions require later validation"
+    },
+    {
+      "identifier": "PREP-POWER",
+      "description": "Firing bus power allocation",
+      "metric": "firing_bus_power",
+      "relation": "at_most",
+      "limit": {
+        "value": 50.0,
+        "unit": "W",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: analyst-selected preliminary feasibility threshold"
+      },
+      "verification": "preliminary numerical analysis only; assumptions require later validation"
+    }
+  ],
+  "criteria": [
+    {
+      "metric": "wet_mass",
+      "best": {
+        "value": 50.0,
+        "unit": "kg",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: fixed preferred utility anchor"
+      },
+      "worst": {
+        "value": 80.0,
+        "unit": "kg",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: fixed least-preferred utility anchor"
+      },
+      "weight": {
+        "value": 0.6,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: illustrative preference weight"
+      }
+    },
+    {
+      "metric": "elapsed_time",
+      "best": {
+        "value": 1000.0,
+        "unit": "s",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: fixed preferred utility anchor"
+      },
+      "worst": {
+        "value": 60000.0,
+        "unit": "s",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: fixed least-preferred utility anchor"
+      },
+      "weight": {
+        "value": 0.4,
+        "unit": "1",
+        "citations": [
+          {
+            "source_id": "NASA-SE-6",
+            "locator": "6.8: analyst assumption"
+          }
+        ],
+        "status": "assumption",
+        "note": "Synthetic teaching scenario, not an ITU assignment or hardware measurement: illustrative preference weight"
+      }
+    }
+  ]
+}

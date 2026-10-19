@@ -84,6 +84,42 @@ NASA_NESC_TRANSIENT_PRESSURE = EngineeringReference(
     "Valve-actuation, priming, discharge, vibration, and flow-disturbance pressure transients.",
 )
 
+NASA_MIXTURE_RATIO_CONTROL = EngineeringReference(
+    "NASA-20050206420",
+    "Simulation Analysis of Computer-Controlled Pressurization for Mixture Ratio Control",
+    "NASA",
+    2005,
+    "https://ntrs.nasa.gov/citations/20050206420",
+    "Independent oxidizer/fuel flow measurement, tank-pressure control, mixture-ratio control, and residual-propellant reduction.",
+)
+
+NASA_BIPROPELLANT_PULSE_TRANSIENTS = EngineeringReference(
+    "NASA-19730002016",
+    "Space Simulation Experiments on Reaction Control System Thruster Plumes",
+    "NASA",
+    1972,
+    "https://ntrs.nasa.gov/citations/19730002016",
+    "Measured fast oxidizer/fuel flow-ratio variation during short bipropellant pulse operation.",
+)
+
+NASA_SP_8059 = EngineeringReference(
+    "NASA-SP-8059",
+    "Spacecraft Attitude Control During Thrusting Maneuvers",
+    "NASA",
+    1971,
+    "https://ntrs.nasa.gov/citations/19710016722",
+    "Thrust-vector pointing, misalignment, centre-of-mass moment arms, and thrusting attitude-control design criteria.",
+)
+
+NASA_TVC_3D_GIMBAL_GEOMETRY = EngineeringReference(
+    "NASA-TM-20240012525",
+    "MSFC-TVC TB-03: Derivation of Thrust Vector Control Actuator-Force / Gimbal-Torque Transformation Matrix",
+    "NASA",
+    2024,
+    "https://ntrs.nasa.gov/citations/20240012525",
+    "Order-sensitive three-dimensional, two-degree-of-freedom gimbal geometry and torque/load transformations.",
+)
+
 NASA_GRC_MASS_FLOW_CHOKING = EngineeringReference(
     "NASA-GRC-MASS-FLOW-CHOKING",
     "Mass Flow Choking",
@@ -273,6 +309,24 @@ NASA_NEXT_IPS_SUMMARY = EngineeringReference(
     "Electric-thruster throttle tables: input power, thrust, specific impulse and efficiency.",
 )
 
+NASA_NAVIGATION_FILTER_BEST_PRACTICES = EngineeringReference(
+    "NASA-20180003657",
+    "Navigation Filter Best Practices (NASA/TP-2018-219822)",
+    "NASA",
+    2018,
+    "https://ntrs.nasa.gov/citations/20180003657",
+    "Prior/consider covariance, Gauss-Markov process noise and maneuver execution errors.",
+)
+
+NASA_MINIMUM_IMPULSE_THRUSTER = EngineeringReference(
+    "NASA-20070032005",
+    "The Minimum Impulse Thruster (J. M. Parker and M. J. Wilson)",
+    "NASA",
+    2005,
+    "https://ntrs.nasa.gov/citations/20070032005",
+    "Pulse-mode thrusters: minimum impulse bit set by valve response and electrical pulse width.",
+)
+
 OREKIT_PROPULSION_MODEL = EngineeringReference(
     "OREKIT-13.1.5-PROPULSION-MODEL",
     "Orekit 13.1.5 PropulsionModel API",
@@ -291,12 +345,18 @@ BURN_REFERENCES: tuple[EngineeringReference, ...] = (
     NASA_CR_140800,
     NASA_COMMON_CAUSE_FAILURE,
     NASA_AEROSPIKE_PARAMETRIC_MODEL,
+    NASA_BIPROPELLANT_PULSE_TRANSIENTS,
+    NASA_SP_8059,
+    NASA_TVC_3D_GIMBAL_GEOMETRY,
     NASA_LIQUID_ENGINE_RELIABILITY,
     NASA_LIQUID_FEEDLINE_DYNAMICS,
     NASA_HDBK_7009,
     NASA_GRC_MASS_FLOW_CHOKING,
     NASA_MULTIPLE_VALIDATION_CALIBRATION,
+    NASA_MIXTURE_RATIO_CONTROL,
     NASA_NODAL_FEED_PRESSURIZATION,
+    NASA_MINIMUM_IMPULSE_THRUSTER,
+    NASA_NAVIGATION_FILTER_BEST_PRACTICES,
     NASA_NESC_TRANSIENT_PRESSURE,
     NASA_NEXT_IPS_SUMMARY,
     NASA_SP_125,
