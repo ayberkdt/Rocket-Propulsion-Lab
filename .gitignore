@@ -44,3 +44,7 @@ desktop.ini
 .env.*
 *.log
 .claude/
+
+# Local verification archives and pinned external dependency snapshots
+/output/
+/.tmp/

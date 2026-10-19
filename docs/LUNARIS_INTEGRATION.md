@@ -8,7 +8,9 @@ ideal-rocket mass update \(m\,e^{-|\Delta v|/(g_0 I_{sp})}\). It accepts any
 dynamics object that provides `build_rhs()`.
 
 `rocket_propulsion.integrations.lunaris` connects Rocket Propulsion Lab
-timelines to Lunaris **without modifying Lunaris**. Lunaris is an optional
+timelines through Lunaris' public interfaces. The separately reviewed native
+norm/mass correction is described in `NATIVE_LUNARIS_IMPULSE_REVIEW.md`;
+the adapter itself does not patch the native package at runtime. Lunaris is an optional
 import; without it, the impulsive equivalents are still produced as data. The
 adapter was written against Lunaris `0.1.0rc3.dev0` (`lunaris.core.propagation`).
 
@@ -31,11 +33,13 @@ For each burn, taken in time order and starting from the previous burn's final
 mass:
 
 - \(\Delta v\) is the burn's free-space velocity change (Gauss–Legendre, with
-  an error estimate);
+  directed numerical enclosures; see `FREE_SPACE_TABULATED_NUMERICS_REVIEW.md`);
 - the impulse is placed at the acceleration-weighted centroid \(t^\ast\);
 - \(I_{sp}=c_\mathrm{eff}/g_0\) with \(c_\mathrm{eff}=\Delta v/\ln(m_0/m_f)\).
-  Lunaris' mass law then reproduces the finite burn's final mass **exactly**
-  (both sides use \(g_0 = 9.80665\) m/s²).
+  In exact arithmetic this construction reproduces the selected final mass.
+  Stored vectors, Isp and native evaluation have finite-precision errors;
+  there is no universal bit-for-bit mass equality claim. Both sides use
+  \(g_0 = 9.80665\) m/s².
 
 What is approximated: the burn's time distribution, i.e. the finite-duration /
 gravity loss. Each `LunarisImpulsiveEquivalent` reports
@@ -82,15 +86,19 @@ accuracy.
 - **Exact dry-mass cut.** Lunaris event functions only see `y[:6]`, so a
   mass-threshold event cannot be located by Lunaris. For a mass-only burn the
   mass flow is a function of time alone, so with `initial_mass_kg` the time at
-  which the vehicle reaches `protected_dry_mass_kg` is solved exactly
+  which the vehicle reaches `protected_dry_mass_kg` is precomputed
   (piecewise-quadratic mass, stable quadratic root) and becomes a segment
   boundary; the burn is off from that time on (`lunaris_burn_windows` reports
   it). "Reaches" uses the bridge clamp's margin, `INVENTORY_LIMIT_TOLERANCE`
   = 1e-12 kg, so a zero-flow plateau already at the limit cannot push the cut
-  later; a cut within the profile's boundary tolerance of the stop is the stop. The bridge's internal clamp is then switched off by default
+  later. Distinct represented profile events are retained; they are not merged
+  by an implicit time tolerance. The bridge's internal clamp is then switched off by default
   (`apply_inventory_limits=None`), because a clamp evaluated inside
   Runge–Kutta stages next to the cut biases the final mass; a test shows that
   bias.
+  The reserve-root and consumption arithmetic require their own range review;
+  the [clock review](TABULATED_TIME_CONTRACT_REVIEW.md) covers event coordinates,
+  ownership and canonical epoch dates rather than all mass predictions.
 - **Mass consistency.** With `initial_mass_kg`, every segment's first
   evaluation compares `y[6]` with the mass predicted from the timeline
   (`predicted_mass_kg`, relative tolerance `mass_tolerance=1e-9`) and fails

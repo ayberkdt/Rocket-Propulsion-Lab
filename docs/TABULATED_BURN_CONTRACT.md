@@ -40,14 +40,23 @@ Every segment carries SI values for:
 The artifact also carries the source identifier, source SHA-256, explicit
 interpolation policy, zero or more stable engineering `reference_ids`, warnings,
 derived duration/impulse/mass/centroid summary, and its own deterministic
-content hash. Changing the citations changes the artifact hash.
+content hash. Changing the citations changes the artifact hash. The required
+`integral_numerics` policy binds the range-safe integral/aggregate interpretation;
+older documents must be regenerated from their source samples. Numerical scope
+and compatibility are in `FREE_SPACE_TABULATED_NUMERICS_REVIEW.md`.
 
 Reference identifiers resolve through the reviewed registry in
-`rocket_propulsion.propulsion.burns.references`; they are not free-form claims.
+`rocket_propulsion.propulsion.burns.references` when producers use that registry.
+The current constructor checks nonblank/unique identifiers; it does not establish
+registry membership, source validity or the truth of a physical claim.
 
 Per-tank flows, when present, must sum to total mass flow at both segment ends.
 Axial thrust cannot exceed delivered thrust. Times are contiguous, strictly
-advancing within a segment and begin at zero relative time.
+advancing within a segment. The origin and shared endpoints must match exactly;
+no minimum relative duration or implicit snap floor is imposed. See
+[the time contract review](TABULATED_TIME_CONTRACT_REVIEW.md) for exact shifted
+ownership, caller-owned snap windows, canonical epoch events and actual clock
+collisions. This does not establish a physical instrument's time resolution.
 
 ## Command response
 

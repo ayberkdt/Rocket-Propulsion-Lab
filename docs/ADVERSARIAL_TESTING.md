@@ -21,6 +21,7 @@ that it works. Four rules apply:
 
 | Suite | What it attacks | Oracle |
 | --- | --- | --- |
+| `test_free_space_numerics.py`, `test_tabulated_ledger_numerics.py` | Intermediate range loss, false-zero diagnostics, directed tails, output rounding/range ties, scale/group order, HOLD and producer authority | Independent rational and paired-precision closed-form integrals/moments; direct enclosure inequalities; selected fault injections |
 | `test_adversarial_epochs.py` | Left/right limits at every boundary of random jump profiles at epochs 1–3·10⁸ s; snapping; resolution limits; RK4 integration across biased burns at random epochs | Segment values set by the test; written-out linear interpolation; Δv = c ln(m0/mf) with exact trapezoid propellant |
 | `test_adversarial_lunaris.py` | Coincident and back-to-back burns, bias that reorders burns, partial propagation windows, 400 random dry-mass cases (ramps up/down, plateaus, cuts on boundaries and at the stop), mass-check tolerance, predicted mass | Exact piecewise-quadratic mass and bisection; a two-burn lunar case integrated by SciPy DOP853 with a right-hand side written in the test |
 | `test_adversarial_pulse_mode.py` | 120 random thrusters with thousands of requests, including interval end points ± 1 ulp; budget-limited trains; pulse limits; forged plans; tampered and hostile documents | Exhaustive enumeration of achievable Δv/impulse intervals per pulse count |
@@ -31,21 +32,16 @@ that it works. Four rules apply:
 
 All of the following were fixed, and each has a regression test.
 
-- **Lost one-sided limits at large epochs.** Relative burn time formed from
-  absolute epochs carried their rounding (about 2·10⁻⁹ s at 10⁷ s), while the
-  boundary tolerance was 10⁻¹² s. In 745 of 2 000 random cases the left
-  limit at the stop came back as zero thrust. With bias, fixed-step RK4 was
-  0.29 m/s and 0.1 kg off. Fixed with `epoch_time_tolerance` and
-  `snap_to_boundary`; the error is now 8·10⁻¹⁰ m/s and 10⁻¹² kg.
-- **Inconsistent tolerances between layers.** After that fix, an RK stage
-  7·10⁻¹⁴ s before ignition was labelled "right" by the Lunaris wrapper but
-  snapped to the boundary by the bridge, and drew thrust. Both layers now use
-  the same tolerance.
+- **Clock ownership and event identity.** Earlier epoch-window repairs were
+  superseded by exact relative ownership and once-rounded canonical epoch dates.
+  Tiny interiors and distinct native markers are retained. Actual canonical-date
+  collisions fail explicitly; ambiguous addition-order aliases do not override
+  canonical events. See [the clock review](TABULATED_TIME_CONTRACT_REVIEW.md).
 - **Dry-mass cut pushed past a zero-flow plateau.** A rounding difference in
   the sum moved the cut from 26.4 s to 48.5 s. The cut now uses the bridge
   clamp's margin (`INVENTORY_LIMIT_TOLERANCE`).
-- **Spurious cut 10⁻¹⁴ s before the stop.** A cut within the profile's
-  boundary tolerance of the stop is now the stop itself.
+- **Near-stop cut handling.** Profile boundaries now use exact coordinates;
+  distinct dates are retained. Reserve-root arithmetic remains a separate review.
 - **Catastrophic cancellation in Δv for small burns.** `log(m0/(m0-u))` loses
   about 7 digits when u/m0 ≈ 10⁻⁷; pulse plans missed their target by
   1.3·10⁻⁹ relative. All five sites now use `-log1p(-u/m0)`.
@@ -62,8 +58,8 @@ All of the following were fixed, and each has a regression test.
 
 ## Known limits (deliberate)
 
-- A profile segment shorter than about twice the epoch resolution (for
-  example 2 µs at 10⁹ s) is refused, not silently mis-assigned.
+- A relative profile has no minimum duration. Absolute epoch placement requires
+  distinct canonical dates for distinct boundaries; actual collisions are refused.
 - The study workspace has no content hash, so an edited file gives an edited
   workspace. It is checked for stability, not for immutability.
 

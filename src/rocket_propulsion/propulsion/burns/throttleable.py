@@ -25,6 +25,7 @@ import json
 from bisect import bisect_right
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from fractions import Fraction
 from itertools import pairwise
 
 from rocket_propulsion.core.errors import DomainError, InputError
@@ -39,16 +40,18 @@ from rocket_propulsion.core.validation import (
 )
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
-from .interpolation import pchip_slopes
+from .direction import _direction_geometry
+from .mass_closure import _MASS_CLOSURE_POLICY, _inventory_ledger
+from .numeric_outputs import _finite_rational, _fraction
+from .interpolation import _hermite_coefficients, _hermite_segment, _pchip_rational_slopes
 from .propagator import (
     AdditionalStateConstraint,
     BurnEventKind,
     BurnEventSurface,
     EstimableParameter,
     PropellantMassClosure,
-    _normalized_with_norm,
 )
-from .serialization import canonical_sha256
+from .serialization import _require_numerical_policies, canonical_sha256
 
 THROTTLEABLE_ENGINE_SCHEMA = "rocket_propulsion_throttleable_engine_v1"
 THROTTLEABLE_REFERENCE_IDS = ("NASA-20040000363", "OREKIT-13.1.5-PROPULSION-MODEL")
@@ -65,7 +68,7 @@ class MonotoneCubicCurve:
 
     The curve passes through every node, is continuously differentiable, and
     is monotone on every interval where the data are monotone (no overshoot).
-    Evaluation returns the value and its exact derivative.
+    Evaluation returns the value and analytic derivative rounded at export.
 
     References
     ----------
@@ -77,7 +80,8 @@ class MonotoneCubicCurve:
 
     x: tuple[float, ...]
     y: tuple[float, ...]
-    _slopes: tuple[float, ...] = field(init=False, repr=False, compare=False)
+    _slopes: tuple[Fraction, ...] = field(init=False, repr=False, compare=False)
+    _segments: tuple[tuple[int, ...], ...] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "x", real_tuple(self.x, "Curve abscissae"))
@@ -86,7 +90,11 @@ class MonotoneCubicCurve:
             raise DomainError("A curve needs at least two nodes and matching x/y lengths.")
         if any(b <= a for a, b in pairwise(self.x)):
             raise DomainError("Curve abscissae must be strictly increasing.")
-        object.__setattr__(self, "_slopes", pchip_slopes(self.x, self.y))
+        object.__setattr__(self, "_slopes", _pchip_rational_slopes(self.x, self.y))
+        object.__setattr__(self, "_segments", tuple(
+            _hermite_coefficients(self.x[i], self.x[i+1], self.y[i], self.y[i+1],
+                                  self._slopes[i], self._slopes[i+1])
+            for i in range(len(self.x)-1)))
 
     def evaluate(self, value: float) -> tuple[float, float]:
         """Return ``(y(value), dy/dvalue)``; values outside the nodes are refused."""
@@ -104,22 +112,12 @@ class MonotoneCubicCurve:
         """Evaluate a float already validated and clamped to the nodes."""
 
         index = min(max(bisect_right(self.x, value) - 1, 0), len(self.x) - 2)
-        x0, x1 = self.x[index], self.x[index + 1]
-        y0, y1 = self.y[index], self.y[index + 1]
-        m0, m1 = self._slopes[index], self._slopes[index + 1]
-        h = x1 - x0
-        t = (value - x0) / h
-        h00 = 2 * t**3 - 3 * t**2 + 1
-        h10 = t**3 - 2 * t**2 + t
-        h01 = -2 * t**3 + 3 * t**2
-        h11 = t**3 - t**2
-        result = h00 * y0 + h10 * h * m0 + h01 * y1 + h11 * h * m1
-        d00 = (6 * t**2 - 6 * t) / h
-        d10 = 3 * t**2 - 4 * t + 1
-        d01 = (-6 * t**2 + 6 * t) / h
-        d11 = 3 * t**2 - 2 * t
-        derivative = d00 * y0 + d10 * m0 + d01 * y1 + d11 * m1
-        return result, derivative
+        return _hermite_segment(self._segments[index], value)
+
+    def _value_checked(self, value: float) -> float:
+        """Value-only internal query; avoid computing an unused derivative."""
+        index = min(max(bisect_right(self.x, value)-1, 0), len(self.x)-2)
+        return _hermite_segment(self._segments[index], value, derivative=False)
 
     def to_dict(self) -> dict[str, object]:
         return {"x": list(self.x), "y": list(self.y)}
@@ -186,7 +184,10 @@ class ThrottleableEngineModel:
 
     ``stream_fractions`` splits total flow into named tank states (for
     example ``(("m_ox", 0.78), ("m_fu", 0.22))``); fractions must sum to one,
-    so total and per-tank drains close exactly.  ``thrust_curve`` and
+    with a supplied sum within 1e-12 of one. Accepted fractions are normalized
+    by their exact binary sum, preserving relative weights. The internal
+    total/tank ledger closes exactly; exported fields round independently.
+    ``thrust_curve`` and
     ``flow_curve`` map throttle to the fraction of rated thrust and flow and
     must cover ``[minimum_throttle, maximum_throttle]``.
 
@@ -227,7 +228,8 @@ class ThrottleableEngineModel:
             raise DomainError("Stream fractions must be non-negative.")
         if not fractions or len({name for name, _ in fractions}) != len(fractions):
             raise DomainError("Stream fractions need unique, non-empty state names.")
-        if abs(sum(fraction for _, fraction in fractions) - 1.0) > 1e-12:
+        fraction_sum = sum((_fraction(value) for _, value in fractions), Fraction(0))
+        if abs(fraction_sum - 1) > _fraction(1e-12):
             raise DomainError("Stream fractions must sum to one.")
         object.__setattr__(self, "stream_fractions", tuple(fractions))
         for curve_name in ("thrust_curve", "flow_curve"):
@@ -352,7 +354,7 @@ class ThrottleableEngineModel:
         vehicle_mass_kg = real(vehicle_mass_kg, "Vehicle mass")
         if vehicle_mass_kg <= 0.0:
             raise DomainError("Vehicle mass must be greater than zero.")
-        unit, norm = _normalized_with_norm(direction)
+        geometry = _direction_geometry(direction)
         states = real_mapping(additional_states, "Additional states")
         names = [name for name, _ in self.stream_fractions]
         missing = set(names) - set(states)
@@ -407,68 +409,78 @@ class ThrottleableEngineModel:
             raise DomainError("Ambient pressure is required while the engine is firing.")
         thrust_fraction, thrust_slope = self._fraction(self.thrust_curve, throttle)
         flow_fraction, flow_slope = self._fraction(self.flow_curve, throttle)
-        vacuum = self.rated_thrust_n * thrust_fraction * thrust_scale
+        vacuum = _fraction(self.rated_thrust_n) * _fraction(thrust_fraction) * _fraction(thrust_scale)
         pressure_loss = (
-            0.0 if self.nozzle_exit_area_m2 is None else ambient_pressure_pa * self.nozzle_exit_area_m2
+            0.0 if self.nozzle_exit_area_m2 is None
+            else _fraction(ambient_pressure_pa) * _fraction(self.nozzle_exit_area_m2)
         )
-        thrust = vacuum - pressure_loss
-        flow = self.rated_mass_flow_kg_s * flow_fraction * flow_scale
-        force = tuple(thrust * value for value in unit)
-        acceleration = tuple(value / vehicle_mass_kg for value in force)
-        gain = thrust / (vehicle_mass_kg * norm)
-        d_thrust_du = self.rated_thrust_n * thrust_slope * thrust_scale
-        d_flow_du = self.rated_mass_flow_kg_s * flow_slope * flow_scale
-        base_flow = self.rated_mass_flow_kg_s * flow_fraction
+        exact_thrust = vacuum - _fraction(pressure_loss)
+        thrust = _finite_rational(exact_thrust, "Axial thrust")
+        base_flow = _fraction(self.rated_mass_flow_kg_s) * _fraction(flow_fraction)
+        if base_flow <= 0:
+            raise DomainError("Active throttle flow fraction must be positive.",
+                              field="Throttle flow fraction")
+        flow = base_flow * _fraction(flow_scale)
+        fraction_sum = sum((_fraction(value) for _, value in self.stream_fractions), Fraction(0))
+        tank_weights = tuple((name, _fraction(value) / fraction_sum)
+                             for name, value in self.stream_fractions)
+        force = geometry.project(exact_thrust, label="Force")
+        acceleration = geometry.project(exact_thrust, vehicle_mass_kg, label="Acceleration")
+        d_thrust_du = _fraction(self.rated_thrust_n) * _fraction(thrust_slope) * _fraction(thrust_scale)
+        d_flow_du = _fraction(self.rated_mass_flow_kg_s) * _fraction(flow_slope) * _fraction(flow_scale)
         return ThrottleableEvaluation(
             throttle=throttle,
             active=True,
             thrust_n=thrust,
             force_vector_n=force,  # type: ignore[arg-type]
             acceleration_m_s2=acceleration,  # type: ignore[arg-type]
-            mass_derivative_kg_s=-flow,
+            mass_derivative_kg_s=_finite_rational(-flow, "Total mass flow"),
             additional_state_derivatives=tuple(
-                (name, -flow * fraction) for name, fraction in self.stream_fractions
+                (name, _finite_rational(-flow * weight, f"Tank mass flow: {name}"))
+                for name, weight in tank_weights
             ),
-            vacuum_specific_impulse_s=vacuum / (STANDARD_GRAVITY_M_S2 * flow),
+            vacuum_specific_impulse_s=_finite_rational(
+                vacuum / (_fraction(STANDARD_GRAVITY_M_S2) * _fraction(flow)), "Vacuum specific impulse"),
             net_thrust_margin_n=None if self.nozzle_exit_area_m2 is None else thrust,
             parameters=tuple(parameters.items()),
             inhibited_by=(),
             partials=ThrottleablePartials(
-                acceleration_wrt_mass=tuple(-value / vehicle_mass_kg for value in acceleration),  # type: ignore[arg-type]
-                acceleration_wrt_direction=tuple(
-                    tuple(gain * ((1.0 if r == c else 0.0) - unit[r] * unit[c]) for c in range(3))
-                    for r in range(3)
-                ),  # type: ignore[arg-type]
-                acceleration_wrt_throttle=tuple(
-                    d_thrust_du * value / vehicle_mass_kg for value in unit
-                ),  # type: ignore[arg-type]
-                mass_rate_wrt_throttle=-d_flow_du,
+                acceleration_wrt_mass=geometry.project(
+                    -exact_thrust, _fraction(vehicle_mass_kg)**2, label="Mass acceleration partial"),
+                acceleration_wrt_direction=geometry.jacobian(exact_thrust, vehicle_mass_kg),
+                acceleration_wrt_throttle=geometry.project(
+                    d_thrust_du, vehicle_mass_kg, label="Throttle acceleration partial"),
+                mass_rate_wrt_throttle=_finite_rational(-d_flow_du, "Throttle mass-flow partial"),
                 additional_state_rates_wrt_throttle=tuple(
-                    (name, -d_flow_du * fraction) for name, fraction in self.stream_fractions
+                    (name, _finite_rational(-d_flow_du * weight,
+                                            f"Tank throttle mass-flow partial: {name}"))
+                    for name, weight in tank_weights
                 ),
                 acceleration_wrt_ambient_pressure=(
                     _ZERO3
                     if self.nozzle_exit_area_m2 is None
-                    else tuple(-self.nozzle_exit_area_m2 * v / vehicle_mass_kg for v in unit)
+                    else geometry.project(-self.nozzle_exit_area_m2, vehicle_mass_kg,
+                                          label="Ambient pressure acceleration partial")
                 ),  # type: ignore[arg-type]
                 acceleration_wrt_parameters=(
                     (
                         "thrust_scale",
-                        tuple(
-                            self.rated_thrust_n * thrust_fraction * v / vehicle_mass_kg
-                            for v in unit
-                        ),
+                        geometry.project(_fraction(self.rated_thrust_n) * _fraction(thrust_fraction),
+                                         vehicle_mass_kg, label="Thrust scale acceleration partial"),
                     ),  # type: ignore[arg-type]
                     ("mass_flow_scale", _ZERO3),
                 ),
-                mass_rate_wrt_parameters=(("thrust_scale", 0.0), ("mass_flow_scale", -base_flow)),
+                mass_rate_wrt_parameters=(
+                    ("thrust_scale", 0.0),
+                    ("mass_flow_scale", _finite_rational(-base_flow, "Mass-flow scale partial"))),
                 additional_state_rates_wrt_parameters=(
                     ("thrust_scale", tuple((name, 0.0) for name in names)),
                     (
                         "mass_flow_scale",
                         tuple(
-                            (name, -base_flow * fraction)
-                            for name, fraction in self.stream_fractions
+                            (name, _finite_rational(-base_flow * weight,
+                                                    f"Tank mass-flow scale partial: {name}"))
+                            for name, weight in tank_weights
                         ),
                     ),
                 ),
@@ -498,10 +510,9 @@ class ThrottleableEngineModel:
         missing = set(names) - set(states)
         if missing:
             raise DomainError("Missing tank states: " + ", ".join(sorted(missing)))
-        tracked = sum(states[name] for name in names)
-        residual = vehicle_mass_kg - non_propellant_mass_kg - tracked
         return PropellantMassClosure(
-            vehicle_mass_kg, non_propellant_mass_kg, tracked, residual, residual / vehicle_mass_kg
+            vehicle_mass_kg, non_propellant_mass_kg,
+            *_inventory_ledger(vehicle_mass_kg, non_propellant_mass_kg, (states[name] for name in names)),
         )
 
     def manifest(self, *, include_hash: bool = True) -> dict[str, object]:
@@ -509,6 +520,10 @@ class ThrottleableEngineModel:
 
         payload: dict[str, object] = {
             "schema": self.schema,
+            "direction_numerics": "scaled_hypot_rational_projection_and_signed_tangents_v1",
+            "mass_flow_numerics": "exact_binary_flow_ledger_normalized_stream_weights_v1",
+            "mass_closure_numerics": _MASS_CLOSURE_POLICY,
+            "curve_numerics": "rational_pchip_and_hermite_export_v1",
             "model_id": self.model_id,
             "rated_thrust_n": self.rated_thrust_n,
             "rated_mass_flow_kg_s": self.rated_mass_flow_kg_s,
@@ -585,6 +600,7 @@ class ThrottleableEngineModel:
             raise InputError("Malformed throttleable engine document.") from error
         if payload.get("model_hash") != model.model_hash:
             raise InputError("Throttleable engine hash does not match its contents.")
+        _require_numerical_policies(payload, model.manifest(include_hash=False))
         return model
 
     @classmethod

@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-from math import isfinite, sqrt
+from fractions import Fraction
+from math import isfinite
 from types import MappingProxyType
 
 from rocket_propulsion.core.errors import DomainError, InputError
@@ -23,15 +24,18 @@ from rocket_propulsion.core.validation import (
     real_mapping,
     records,
     text,
-    vector3,
 )
 
+from .direction import _direction_geometry
+from .mass_closure import _MASS_CLOSURE_POLICY, _closure_ratio, _inventory_ledger
 from .performance_surface import (
     PerformanceGridLineSurface,
     PerformanceValiditySurface,
     RectilinearPerformanceSurface,
 )
-from .serialization import canonical_sha256
+from .serialization import _require_numerical_policies, canonical_sha256
+from .numeric_outputs import _finite_rational, _fraction
+from .time_coordinates import _TIME_POLICY, _epoch_profile_time
 from .stream_performance import RectilinearStreamPerformanceSurface
 from .tabulated import InterpolationPolicy, TabulatedBurnArtifact, TabulatedBurnSegment
 
@@ -218,7 +222,8 @@ class PropulsionPartials:
     ``acceleration_wrt_direction`` is the 3x3 Jacobian ``J[i][j] = da_i/dd_j``
     with respect to the *supplied* (not necessarily unit) direction vector
     ``d``.  Because the bridge normalizes ``d``,
-    ``J = (|F|/m) (I - u u^T) / |d|``: only the component of a perturbation
+    ``J = (T/m) (I - u u^T) / |d|``, where T is signed axial thrust:
+    only the component of a perturbation
     perpendicular to the thrust axis changes the acceleration.  A consumer
     that parameterizes pointing by angles chains this with ``dd/dangle``.
 
@@ -300,27 +305,56 @@ class PropellantMassClosure:
     tracked_propellant_kg: float
     residual_kg: float
     relative_residual: float
+    residual_ratio: tuple[str, str] | None = field(default=None, repr=False)
+
+    def __post_init__(self) -> None:
+        for name, label in (("vehicle_mass_kg", "Vehicle mass"),
+                            ("non_propellant_mass_kg", "Non-propellant mass"),
+                            ("tracked_propellant_kg", "Tracked propellant mass"),
+                            ("residual_kg", "Mass closure residual"),
+                            ("relative_residual", "Relative mass closure residual")):
+            object.__setattr__(self, name, real(getattr(self, name), label))
+        if self.vehicle_mass_kg <= 0 or self.non_propellant_mass_kg < 0:
+            raise DomainError("Vehicle mass must be positive and other mass non-negative.")
+        ratio = _closure_ratio(self.residual_ratio, self.residual_kg)
+        expected = _finite_rational(ratio / _fraction(self.vehicle_mass_kg), "Relative mass closure residual")
+        if self.relative_residual != expected:
+            raise DomainError("Relative residual contradicts the numerical ratio.",
+                              field="Relative mass closure residual")
+        object.__setattr__(self, "residual_ratio", (str(ratio.numerator), str(ratio.denominator)))
 
     def is_closed(self, *, absolute_tolerance_kg: float) -> bool:
-        """Return whether ``|residual| <= absolute_tolerance_kg``."""
+        """Compare the unrounded numerical residual with a finite nonnegative tolerance."""
 
-        if not isfinite(absolute_tolerance_kg) or absolute_tolerance_kg < 0.0:
-            raise DomainError("Mass-closure tolerance must be finite and non-negative.")
-        return abs(self.residual_kg) <= absolute_tolerance_kg
-
-
-def _normalized_with_norm(
-    vector: tuple[float, float, float],
-) -> tuple[tuple[float, float, float], float]:
-    vector = vector3(vector, "Thrust direction")
-    norm = sqrt(sum(value * value for value in vector))
-    if norm <= 0.0:
-        raise DomainError("Thrust direction must be non-zero.")
-    return tuple(value / norm for value in vector), norm  # type: ignore[return-value]
+        absolute_tolerance_kg = real(absolute_tolerance_kg, "Mass-closure tolerance")
+        if absolute_tolerance_kg < 0.0:
+            raise DomainError("Mass-closure tolerance must be non-negative.", field="Mass-closure tolerance")
+        exact_residual = Fraction(int(self.residual_ratio[0]), int(self.residual_ratio[1]))
+        return abs(exact_residual) <= _fraction(absolute_tolerance_kg)
 
 
 def _validated_states(additional_states: Mapping[str, float] | None) -> dict[str, float]:
     return real_mapping(additional_states, "Additional states")
+
+
+def _mass_profile(segment: TabulatedBurnSegment, time_s: float, hold: bool):
+    """Evaluate the mass profile exactly before grouping/scaling its channels."""
+    start, end = _fraction(segment.start_time_s), _fraction(segment.end_time_s)
+    duration = end - start
+    fraction = Fraction(0) if hold else (_fraction(time_s) - start) / duration
+
+    def channel(first, last):
+        initial, final = _fraction(first), _fraction(last)
+        return (initial + fraction * (final - initial),
+                Fraction(0) if hold else (final - initial) / duration)
+
+    total, slope = channel(segment.start_total_mass_flow_kg_s, segment.end_total_mass_flow_kg_s)
+    initial = dict(segment.start_stream_mass_flows_kg_s)
+    final = dict(segment.end_stream_mass_flows_kg_s)
+    samples = {name: channel(initial.get(name, 0.0), final.get(name, 0.0))
+               for name in sorted(initial.keys() | final.keys())}
+    return total, {name: pair[0] for name, pair in samples.items()}, slope, {
+        name: pair[1] for name, pair in samples.items()}
 
 
 @dataclass(frozen=True, slots=True)
@@ -536,7 +570,12 @@ class PropagatorPropulsionBridge:
             ),
             "force_semantics": "net_axial_thrust_along_resolved_direction",
             "mass_semantics": "negative_total_and_bound_stream_tank_drain",
+            "mass_flow_numerics": "exact_linear_mass_sampling_and_grouped_outputs_v1",
+            "tabulated_state_numerics": "exact_binary_axial_and_grouped_flow_channels_v1",
+            "mass_closure_numerics": _MASS_CLOSURE_POLICY,
+            "direction_numerics": "scaled_hypot_rational_projection_and_signed_tangents_v1",
             "time_semantics": "relative_seconds_with_global_ignition_bias",
+            "time_numerics": _TIME_POLICY,
             "stream_bindings": [
                 {"stream_id": item.stream_id, "state_name": item.state_name}
                 for item in self.stream_bindings
@@ -665,6 +704,7 @@ class PropagatorPropulsionBridge:
             raise InputError("Malformed propagator bridge document.") from error
         if payload.get("model_hash") != bridge.model_hash:
             raise InputError("Propagator bridge model hash does not match its contents.")
+        _require_numerical_policies(payload, bridge.manifest(include_hash=False))
         return bridge
 
     @classmethod
@@ -783,14 +823,10 @@ class PropagatorPropulsionBridge:
         missing = set(bound_states) - set(states)
         if missing:
             raise DomainError("Missing bound propulsion states: " + ", ".join(sorted(missing)))
-        tracked = sum(states[name] for name in bound_states)
-        residual = vehicle_mass_kg - non_propellant_mass_kg - tracked
         return PropellantMassClosure(
-            vehicle_mass_kg=vehicle_mass_kg,
-            non_propellant_mass_kg=non_propellant_mass_kg,
-            tracked_propellant_kg=tracked,
-            residual_kg=residual,
-            relative_residual=residual / vehicle_mass_kg,
+            vehicle_mass_kg, non_propellant_mass_kg,
+            *_inventory_ledger(vehicle_mass_kg, non_propellant_mass_kg,
+                               (states[name] for name in bound_states)),
         )
 
     def time_event_jump(
@@ -826,6 +862,27 @@ class PropagatorPropulsionBridge:
         }
         left = self.evaluate(side="left", **common)  # type: ignore[arg-type]
         right = self.evaluate(side="right", **common)  # type: ignore[arg-type]
+        return self._jump_from_evaluations(left, right)
+
+    def time_event_jump_at_epoch(self, *, time_s: float, ignition_time_s: float,
+                                  **kwargs) -> PropulsionDerivativeJump:
+        """Return the saltation jump at a represented canonical epoch event.
+
+        Inventory limits are excluded, as for :meth:`time_event_jump`.
+        References: NASA-20180003657,
+        https://ntrs.nasa.gov/citations/20180003657; docs/TABULATED_TIME_CONTRACT_REVIEW.md.
+        """
+        kwargs = dict(kwargs)
+        kwargs['apply_inventory_limits'] = False
+        left = self.evaluate_at_epoch(time_s=time_s, ignition_time_s=ignition_time_s,
+                                      side='left', **kwargs)
+        right = self.evaluate_at_epoch(time_s=time_s, ignition_time_s=ignition_time_s,
+                                       side='right', **kwargs)
+        return self._jump_from_evaluations(left, right)
+
+    @staticmethod
+    def _jump_from_evaluations(left, right) -> PropulsionDerivativeJump:
+        """Use identical output subtraction for relative and epoch saltation APIs."""
         right_states = dict(right.additional_state_derivatives)
         return PropulsionDerivativeJump(
             relative_time_s=left.relative_time_s,
@@ -862,25 +919,65 @@ class PropagatorPropulsionBridge:
         self, effective_time_s: float, side: str
     ) -> tuple[TabulatedBurnSegment | None, bool]:
         artifact = self.artifact
-        tolerance = artifact.boundary_tolerance_s
-        at_boundary = artifact.is_boundary_time(effective_time_s)
+        effective_time_s = _fraction(effective_time_s)
+        at_boundary = artifact._is_boundary_time(effective_time_s)
         if effective_time_s < 0.0 or effective_time_s > artifact.duration_s:
             return None, at_boundary
-        if abs(effective_time_s) <= tolerance and side == "left":
+        if effective_time_s == 0.0 and side == "left":
             return None, True
-        if abs(effective_time_s - artifact.duration_s) <= tolerance and side == "right":
+        if effective_time_s == artifact.duration_s and side == "right":
             return None, True
-        index = artifact.segment_index_at(effective_time_s, side=side)
+        index = artifact._segment_index_at(effective_time_s, side=side)
         segments = artifact.segments
         if (
             side == "left"
             and index + 1 < len(segments)
-            and abs(effective_time_s - segments[index + 1].start_time_s) <= tolerance
+            and effective_time_s == segments[index + 1].start_time_s
         ):
             at_boundary = True
         return segments[index], at_boundary
 
-    def evaluate(
+    def evaluate(self, *, relative_time_s: float, vehicle_mass_kg: float,
+                 direction: tuple[float, float, float],
+                 additional_states: Mapping[str, float] | None = None,
+                 operating_conditions: Mapping[str, float] | None = None,
+                 parameter_overrides: Mapping[str, float] | None = None,
+                 side: str = 'right', apply_inventory_limits: bool = True,
+                 ambient_pressure_pa: float | None = None,
+                 boundary_tolerance_s: float | None = None) -> PropulsionDynamicsEvaluation:
+        """Evaluate supplied relative coordinates; only exact boundaries select limits.
+
+        Optional fields and explicit snapping follow :meth:`_evaluate`.
+        References: docs/TABULATED_TIME_CONTRACT_REVIEW.md; Orekit PropulsionModel,
+        https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+        """
+        arguments = locals().copy()
+        arguments.pop('self')
+        return self._evaluate(**arguments)
+
+    def evaluate_at_epoch(self, *, time_s: float, ignition_time_s: float,
+                          vehicle_mass_kg: float, direction: tuple[float,float,float],
+                          **kwargs) -> PropulsionDynamicsEvaluation:
+        """Resolve a binary absolute clock without an arbitrary snap window.
+
+        Distinct profile boundaries require distinct once-rounded absolute
+        dates. Unambiguous addition-order aliases retain one-sided limits.
+        References: docs/TABULATED_TIME_CONTRACT_REVIEW.md; Python Fraction,
+        https://docs.python.org/3.12/library/fractions.html.
+        """
+        time_s = real(time_s, 'Absolute propagation time')
+        if '_resolved_profile_time' in kwargs or 'relative_time_s' in kwargs:
+            raise DomainError('Epoch evaluation resolves its own profile coordinate.')
+        ignition_time_s = real(ignition_time_s, 'Ignition time')
+        parameters = self.resolved_parameters(kwargs.get('parameter_overrides'))
+        effective = _epoch_profile_time(self.artifact.segments, time_s, ignition_time_s,
+                                        parameters['ignition_time_bias_s'])
+        relative = _finite_rational(_fraction(time_s)-_fraction(ignition_time_s),
+                                    'Relative propagation time')
+        return self._evaluate(relative_time_s=relative, vehicle_mass_kg=vehicle_mass_kg,
+                              direction=direction, _resolved_profile_time=effective, **kwargs)
+
+    def _evaluate(
         self,
         *,
         relative_time_s: float,
@@ -893,6 +990,7 @@ class PropagatorPropulsionBridge:
         apply_inventory_limits: bool = True,
         ambient_pressure_pa: float | None = None,
         boundary_tolerance_s: float | None = None,
+        _resolved_profile_time: Fraction | None = None,
     ) -> PropulsionDynamicsEvaluation:
         """Evaluate force, drains, event-safe activity, and analytic partials.
 
@@ -920,13 +1018,12 @@ class PropagatorPropulsionBridge:
         the burn is firing (``None`` otherwise), so the consumer enables that
         root between the burn's start and stop events.
 
-        ``boundary_tolerance_s`` widens the window within which the effective
-        time is snapped to a profile boundary (start, segment end, stop)
-        before ``side`` is applied.  A consumer forming ``relative_time_s`` from
-        large absolute epochs should pass
-        ``epoch_time_tolerance(t, t_ignition)``; otherwise the rounding of
-        ``t`` can put a requested left limit just past the stop and return
-        zero thrust.  :class:`PropulsionTimeline` does this itself.
+        ``boundary_tolerance_s`` is an explicit caller-owned snap window;
+        the default is exact relative coordinates. Absolute-clock consumers
+        use :meth:`evaluate_at_epoch`; :class:`PropulsionTimeline` does so.
+        Shifted coordinates retain their exact rational position through
+        ownership and interpolation, even when the displayed time rounds onto
+        a boundary. Numerical clock rules do not establish sensor accuracy.
 
         References
         ----------
@@ -945,7 +1042,7 @@ class PropagatorPropulsionBridge:
             raise DomainError("Relative propagation time must be finite.")
         if not isfinite(vehicle_mass_kg) or vehicle_mass_kg <= 0.0:
             raise DomainError("Vehicle mass must be finite and greater than zero.")
-        unit_direction, direction_norm = _normalized_with_norm(direction)
+        geometry = _direction_geometry(direction)
         states = _validated_states(additional_states)
         required_states = {binding.state_name for binding in self.stream_bindings}
         missing_states = required_states - set(states)
@@ -977,10 +1074,11 @@ class PropagatorPropulsionBridge:
         thrust_scale = parameter_values["thrust_scale"]
         flow_scale = parameter_values["mass_flow_scale"]
         time_bias = parameter_values["ignition_time_bias_s"]
-        effective_time = self.artifact.snap_to_boundary(
-            relative_time_s - time_bias, boundary_tolerance_s
-        )
-        segment, at_boundary = self._segment_at(effective_time, side)
+        exact_time = (_fraction(relative_time_s) - _fraction(time_bias)
+                      if _resolved_profile_time is None else _resolved_profile_time)
+        exact_time = self.artifact._snap_to_boundary(exact_time, boundary_tolerance_s)
+        segment, at_boundary = self._segment_at(exact_time, side)
+        effective_time = _finite_rational(exact_time, 'Effective profile time')
 
         inhibited: list[str] = []
         if apply_inventory_limits:
@@ -1042,14 +1140,15 @@ class PropagatorPropulsionBridge:
                 else 1.0
             )
         )
-        sample = segment.state_at(
-            min(max(effective_time, segment.start_time_s), segment.end_time_s)
+        base_thrust = segment._axial_at(
+            min(max(exact_time, segment.start_time_s), segment.end_time_s)
         )
-        base_thrust = float(sample["axial_thrust_n"])
-        base_flow = float(sample["total_mass_flow_kg_s"])
-        stream_flows = dict(sample["stream_mass_flows_kg_s"])
+        base_flow, stream_flows, flow_slope, stream_slopes = _mass_profile(
+            segment, min(max(exact_time, segment.start_time_s), segment.end_time_s),
+            self.artifact.interpolation is InterpolationPolicy.HOLD)
+        flow_driver = _fraction(flow_scale)
         common_surface_flow_scale = (
-            1.0 if surface_evaluation is None else surface_evaluation.mass_flow_scale
+            _fraction(1.0 if surface_evaluation is None else surface_evaluation.mass_flow_scale)
         )
         stream_surface_scales = (
             {}
@@ -1057,16 +1156,19 @@ class PropagatorPropulsionBridge:
             else dict(stream_surface_evaluation.stream_flow_scales)
         )
         stream_scale_by_id = {
-            stream_id: stream_surface_scales.get(stream_id, common_surface_flow_scale)
+            stream_id: _fraction(stream_surface_scales.get(stream_id, common_surface_flow_scale))
             for stream_id in stream_flows
         }
         surface_scaled_total_flow = (
-            sum(flow * stream_scale_by_id[stream_id] for stream_id, flow in stream_flows.items())
+            sum((flow * stream_scale_by_id[stream_id] for stream_id, flow in stream_flows.items()),
+                Fraction(0))
             if stream_flows
             else base_flow * common_surface_flow_scale
         )
-        surface_flow_scale = surface_scaled_total_flow / base_flow if base_flow > 0.0 else 1.0
-        vacuum_thrust = base_thrust * thrust_scale * surface_force_scale
+        surface_flow_scale = (_finite_rational(surface_scaled_total_flow / base_flow,
+                                               "Performance mass-flow scale")
+                              if base_flow > 0 else 1.0)
+        vacuum_thrust = _fraction(base_thrust) * _fraction(thrust_scale) * _fraction(surface_force_scale)
         pressure_loss = 0.0
         if self.nozzle_exit_area_m2 is not None:
             if ambient_pressure_pa is None:
@@ -1074,68 +1176,58 @@ class PropagatorPropulsionBridge:
                     "This bridge has a nozzle exit area; ambient pressure is required "
                     "while the burn is active."
                 )
-            pressure_loss = ambient_pressure_pa * self.nozzle_exit_area_m2
+            pressure_loss = _fraction(ambient_pressure_pa) * _fraction(self.nozzle_exit_area_m2)
         # Kept on the linear branch even when negative: a consumer stops the burn
         # at the net_thrust_margin_n root instead of seeing a clamp inside a step.
-        thrust = vacuum_thrust - pressure_loss
-        total_flow = surface_scaled_total_flow * flow_scale
-        force = tuple(thrust * value for value in unit_direction)
-        # da/dd = (|F|/m)(I - u u^T)/|d| for the supplied, unnormalized d.
-        direction_gain = thrust / (vehicle_mass_kg * direction_norm)
-        acceleration = tuple(value / vehicle_mass_kg for value in force)
+        exact_thrust = vacuum_thrust - pressure_loss
+        thrust = _finite_rational(exact_thrust, "Axial thrust")
+        pressure_loss = _finite_rational(_fraction(pressure_loss), "Pressure thrust loss")
+        total_flow = _finite_rational(surface_scaled_total_flow * flow_driver, "Total mass flow")
+        force = geometry.project(exact_thrust, label="Force")
+        acceleration = geometry.project(exact_thrust, vehicle_mass_kg, label="Acceleration")
 
         binding_by_stream = {
             binding.stream_id: binding.state_name for binding in self.stream_bindings
         }
-        state_drains = {state_name: 0.0 for state_name in required_states}
+        state_drains = {state_name: Fraction(0) for state_name in required_states}
         for stream_id, flow in stream_flows.items():
             if stream_id in binding_by_stream:
                 state_drains[binding_by_stream[stream_id]] -= (
-                    flow * flow_scale * stream_scale_by_id[stream_id]
+                    flow * flow_driver * stream_scale_by_id[stream_id]
                 )
 
         duration = segment.duration_s
         if self.artifact.interpolation is InterpolationPolicy.HOLD:
             thrust_slope = 0.0
-            flow_slope = 0.0
-            stream_slopes = {stream_id: 0.0 for stream_id in stream_flows}
         else:
             thrust_slope = (segment.end_axial_thrust_n - segment.start_axial_thrust_n) / duration
-            flow_slope = (
-                segment.end_total_mass_flow_kg_s - segment.start_total_mass_flow_kg_s
-            ) / duration
-            start_streams = dict(segment.start_stream_mass_flows_kg_s)
-            end_streams = dict(segment.end_stream_mass_flows_kg_s)
-            stream_slopes = {
-                stream_id: (end_streams.get(stream_id, 0.0) - start_streams.get(stream_id, 0.0))
-                / duration
-                for stream_id in start_streams.keys() | end_streams.keys()
-            }
         surface_scaled_flow_slope = (
-            sum(slope * stream_scale_by_id[stream_id] for stream_id, slope in stream_slopes.items())
+            sum((slope * stream_scale_by_id[stream_id] for stream_id, slope in stream_slopes.items()),
+                Fraction(0))
             if stream_slopes
             else flow_slope * common_surface_flow_scale
         )
 
         zero = (0.0, 0.0, 0.0)
-        thrust_scale_partial = tuple(
-            base_thrust * surface_force_scale * value / vehicle_mass_kg for value in unit_direction
-        )
-        time_partial = tuple(
-            -thrust_scale * surface_force_scale * thrust_slope * value / vehicle_mass_kg
-            for value in unit_direction
-        )
+        thrust_scale_partial = geometry.project(
+            _fraction(base_thrust) * _fraction(surface_force_scale), vehicle_mass_kg,
+            label="Thrust scale acceleration partial")
+        time_partial = geometry.project(
+            -_fraction(thrust_scale) * _fraction(surface_force_scale) * _fraction(thrust_slope),
+            vehicle_mass_kg, label="Ignition time acceleration partial")
         mass_partials = (
             ("thrust_scale", 0.0),
-            ("mass_flow_scale", -surface_scaled_total_flow),
+            ("mass_flow_scale", _finite_rational(-surface_scaled_total_flow,
+                                                "Total mass-flow scale partial")),
             (
                 "ignition_time_bias_s",
-                flow_scale * surface_scaled_flow_slope,
+                _finite_rational(flow_driver * surface_scaled_flow_slope,
+                                 "Total ignition-time flow partial"),
             ),
         )
 
         def state_parameter_partials(parameter_name: str) -> tuple[tuple[str, float], ...]:
-            values = {state_name: 0.0 for state_name in required_states}
+            values = {state_name: Fraction(0) for state_name in required_states}
             if parameter_name == "mass_flow_scale":
                 for stream_id, flow in stream_flows.items():
                     if stream_id in binding_by_stream:
@@ -1144,9 +1236,10 @@ class PropagatorPropulsionBridge:
                 for stream_id, slope in stream_slopes.items():
                     if stream_id in binding_by_stream:
                         values[binding_by_stream[stream_id]] += (
-                            flow_scale * stream_scale_by_id[stream_id] * slope
+                            flow_driver * stream_scale_by_id[stream_id] * slope
                         )
-            return tuple(sorted(values.items()))
+            return tuple((name, _finite_rational(value, f"Tank {parameter_name} partial: {name}"))
+                         for name, value in sorted(values.items()))
 
         force_condition_gradients = (
             dict(surface_evaluation.force_scale_gradient)
@@ -1173,20 +1266,18 @@ class PropagatorPropulsionBridge:
         condition_names = tuple(force_condition_gradients)
         total_flow_condition_derivatives = {
             name: (
-                base_flow * common_flow_condition_gradients[name]
-                if surface_evaluation is not None
-                else sum(
-                    flow * stream_flow_condition_gradients[stream_id][name]
-                    for stream_id, flow in stream_flows.items()
-                )
+                sum((flow * _fraction(common_flow_condition_gradients[name]
+                     if surface_evaluation is not None else stream_flow_condition_gradients[stream_id][name])
+                     for stream_id, flow in stream_flows.items()), Fraction(0))
+                if stream_flows else base_flow * _fraction(common_flow_condition_gradients[name])
             )
             for name in condition_names
         }
         stream_flow_condition_derivative = {
             (stream_id, name): (
-                common_flow_condition_gradients[name]
-                if surface_evaluation is not None
-                else stream_flow_condition_gradients[stream_id][name]
+                _fraction(common_flow_condition_gradients[name]
+                          if surface_evaluation is not None
+                          else stream_flow_condition_gradients[stream_id][name])
             )
             for stream_id in stream_flows
             for name in condition_names
@@ -1194,42 +1285,46 @@ class PropagatorPropulsionBridge:
         acceleration_condition_partials = tuple(
             (
                 name,
-                tuple(
-                    base_thrust * thrust_scale * gradient * value / vehicle_mass_kg
-                    for value in unit_direction
-                ),
+                geometry.project(_fraction(base_thrust) * _fraction(thrust_scale) * _fraction(gradient),
+                                 vehicle_mass_kg, label=f"Condition acceleration partial: {name}"),
             )
             for name, gradient in force_condition_gradients.items()
         )
         mass_condition_partials = tuple(
-            (name, -flow_scale * total_flow_condition_derivatives[name]) for name in condition_names
+            (name, _finite_rational(-flow_driver * total_flow_condition_derivatives[name],
+                                   f"Total mass-flow condition partial: {name}"))
+            for name in condition_names
         )
 
         def state_condition_partials(condition_name: str) -> tuple[tuple[str, float], ...]:
-            values = {state_name: 0.0 for state_name in required_states}
+            values = {state_name: Fraction(0) for state_name in required_states}
             for stream_id, flow in stream_flows.items():
                 if stream_id in binding_by_stream:
                     values[binding_by_stream[stream_id]] -= (
                         flow
-                        * flow_scale
+                        * flow_driver
                         * stream_flow_condition_derivative[(stream_id, condition_name)]
                     )
-            return tuple(sorted(values.items()))
+            return tuple((name, _finite_rational(value, f"Tank condition partial: {name}"))
+                         for name, value in sorted(values.items()))
 
         return PropulsionDynamicsEvaluation(
             relative_time_s=relative_time_s,
             effective_profile_time_s=effective_time,
             active=True,
-            phase=str(sample["phase"]),
+            phase=segment.phase,
             axial_thrust_n=thrust,
             force_vector_n=force,  # type: ignore[arg-type]
             acceleration_m_s2=acceleration,  # type: ignore[arg-type]
             mass_derivative_kg_s=-total_flow,
-            additional_state_derivatives=tuple(sorted(state_drains.items())),
+            additional_state_derivatives=tuple(
+                (name, _finite_rational(value, f"Tank mass drain: {name}"))
+                for name, value in sorted(state_drains.items())),
             parameters=tuple(parameter_values.items()),
             inhibited_by=(),
             partials=PropulsionPartials(
-                acceleration_wrt_mass=tuple(-value / vehicle_mass_kg for value in acceleration),  # type: ignore[arg-type]
+                acceleration_wrt_mass=geometry.project(
+                    -exact_thrust, _fraction(vehicle_mass_kg)**2, label="Mass acceleration partial"),
                 acceleration_wrt_parameters=(
                     ("thrust_scale", thrust_scale_partial),  # type: ignore[arg-type]
                     ("mass_flow_scale", zero),
@@ -1245,24 +1340,12 @@ class PropagatorPropulsionBridge:
                     (name, state_condition_partials(name)) for name in condition_names
                 ),
                 nonsmooth_parameters=("ignition_time_bias_s",) if at_boundary else (),
-                acceleration_wrt_direction=tuple(
-                    tuple(
-                        direction_gain
-                        * (
-                            (1.0 if row == column else 0.0)
-                            - unit_direction[row] * unit_direction[column]
-                        )
-                        for column in range(3)
-                    )
-                    for row in range(3)
-                ),  # type: ignore[arg-type]
+                acceleration_wrt_direction=geometry.jacobian(exact_thrust, vehicle_mass_kg),
                 acceleration_wrt_ambient_pressure=(
                     (0.0, 0.0, 0.0)
                     if self.nozzle_exit_area_m2 is None
-                    else tuple(
-                        -self.nozzle_exit_area_m2 * value / vehicle_mass_kg
-                        for value in unit_direction
-                    )
+                    else geometry.project(-self.nozzle_exit_area_m2, vehicle_mass_kg,
+                                          label="Ambient pressure acceleration partial")
                 ),  # type: ignore[arg-type]
             ),
             operating_conditions=(

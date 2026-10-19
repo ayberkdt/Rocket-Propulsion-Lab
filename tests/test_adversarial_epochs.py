@@ -143,17 +143,17 @@ class OneSidedLimitAttackTests(unittest.TestCase):
                     self.assertEqual(snapped, time_s)
 
     def test_resolution_coarser_than_the_profile_fails_closed(self) -> None:
-        # At 1e9 s a time is only known to ~3.6e-6 s; a 2 µs segment can then
-        # not be told apart from its neighbours.  Refuse instead of guessing.
+        # A real binary-clock collision, rather than a heuristic 16-epsilon
+        # window: these two distinct relative dates round to the same epoch.
         segments = (
             TabulatedBurnSegment(0.0, 1.0, 100.0, 100.0, 100.0, 100.0, 0.1, 0.1),
-            TabulatedBurnSegment(1.0, 1.000002, 500.0, 500.0, 500.0, 500.0, 0.5, 0.5),
-            TabulatedBurnSegment(1.000002, 2.0, 100.0, 100.0, 100.0, 100.0, 0.1, 0.1),
+            TabulatedBurnSegment(1.0, 1.00000001, 500.0, 500.0, 500.0, 500.0, 0.5, 0.5),
+            TabulatedBurnSegment(1.00000001, 2.0, 100.0, 100.0, 100.0, 100.0, 0.1, 0.1),
         )
         artifact = TabulatedBurnArtifact(segments=segments, source_id="short",
                                          source_sha256="e" * 64)
         timeline = timeline_for(artifact, 1e9)
-        self.assertGreater(epoch_time_tolerance(1e9), 0.5 * 2e-6)
+        self.assertEqual(1e9+1.,1e9+1.00000001)
         with self.assertRaises(DomainError):
             thrust_and_flow(timeline, 1e9 + 1.0, "right", 0.0)
         # The same profile at a small epoch is resolved normally.

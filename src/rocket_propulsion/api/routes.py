@@ -9,6 +9,8 @@ from math import isfinite, log
 from pathlib import Path
 from typing import Any
 
+from .capabilities import SideraCapabilityProbe
+
 from rocket_propulsion.compressible import (
     calculate_fanno,
     calculate_ideal_nozzle,
@@ -672,11 +674,14 @@ def export_sidera_burn_route(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+_SIDERA_CAPABILITY_PROBE = SideraCapabilityProbe(lambda: inspect_sidera_capabilities())
+
+
 def sidera_capabilities_route(payload: dict[str, Any]) -> dict[str, Any]:
-    """Return the installed Sidera capability record without changing state."""
+    """Return pending/completed inspection without blocking on optional imports."""
 
     del payload
-    return asdict(inspect_sidera_capabilities())
+    return _SIDERA_CAPABILITY_PROBE.snapshot()
 
 
 def calculate_loss_budget_route(payload: dict[str, Any]) -> dict[str, Any]:
@@ -1492,8 +1497,10 @@ ROUTE_METADATA = {
     ),
     "/api/v1/integrations/sidera/capabilities": ModelMetadata(
         model="Sidera public finite-burn capability probe",
-        version="1.0",
-        assumptions=("only installed public modules are inspected",),
+        version="1.1",
+        assumptions=("only installed public modules are inspected",
+                     "checking means unknown; flags are omitted until inspection completes",
+                     "process-local snapshot; restart server after installation changes"),
         units={},
     ),
     "/api/v1/loss-budget": ModelMetadata(

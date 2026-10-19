@@ -1,7 +1,7 @@
 """Strict input coercion for public numerical boundaries.
 
-Every public constructor and evaluation that receives numbers from outside
-the package passes them through these helpers.  They guarantee two things:
+These helpers validate external values at the constructors and evaluations
+that call them. Their numerical coercion provides two properties:
 
 * malformed input (``None``, text, ``bool``, containers, NaN, infinity) fails
   closed with :class:`DomainError` naming the field, never with a bare

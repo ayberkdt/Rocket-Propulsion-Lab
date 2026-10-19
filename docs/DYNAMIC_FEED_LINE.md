@@ -41,6 +41,18 @@ dm_tank/dt + dm_stored/dt - dm_vehicle/dt = 0.
 `DynamicFeedLineEvaluation.external_mass_closure_error_kg_s` reports the
 absolute residual of this identity at every evaluation.
 
+In the coupled single- and dual-feed models, negative line states remain
+available to bracket the zero-flow cutoff. The regulated tank then uses the
+same signed flow in its mass and ullage-work equations. Such a result exposes
+`reverse_flow_event_extension=True`; it is a mathematical event-location
+continuation, not sustained reverse hardware operation. The propagator must
+terminate physical propagation at the zero-flow event. Direct regulated-feed
+calls reject negative flow unless `for_event_location=True` is explicitly set,
+and that extension requires zero static line resistance. The dual-feed vehicle
+closure uses the actual returned tank derivatives. See
+[the conservation review](COUPLED_FEED_REVIEW.md) for reproduced failures and
+an integrated cutoff-root check.
+
 The uncoupled local modal diagnostics are
 
 ```text

@@ -20,6 +20,8 @@ Oracles written in this file:
 """
 
 import json
+import copy
+import pickle
 import random
 import unittest
 from dataclasses import replace
@@ -174,6 +176,42 @@ class DeltaVPlanAttackTests(unittest.TestCase):
                 self.assertLessEqual(abs(plan.residual), nearest + 1e-9 * request, request)
         self.assertEqual(thruster.plan_delta_v(7000.0, 10.0, propellant_budget_kg=9.76)
                          .pulse_count, 3)
+
+    def test_repeated_requests_preserve_budget_mass_and_model_independence(self) -> None:
+        first = PulseModeThruster(
+            on_times_s=(0.02, 0.05), impulse_bits_n_s=(6000.0, 9000.0),
+            propellant_per_pulse_kg=(2.4, 3.0), steady_thrust_n=1e5,
+            steady_mass_flow_kg_s=40.0, minimum_off_time_s=0.0, source_id="big",
+            source_sha256="b" * 64)
+        second = replace(first, propellant_per_pulse_kg=(2.0, 3.5))
+        hashes = (first.model_hash, second.model_hash)
+        for _repeat in range(2):
+            for thruster in (first, second, first):
+                for budget in (9.76, 5.1, 7.3, 9.76):
+                    for mass in (10.0, 15.0):
+                        intervals = delta_v_intervals(thruster, mass, budget)
+                        for fraction in (0.25, 0.6, 0.95):
+                            request = fraction * max(high for _, _, high in intervals)
+                            exact, nearest, below = oracle(intervals, request)
+                            for policy in (NEAREST, SAFE):
+                                plan = thruster.plan_delta_v(
+                                    request, mass, propellant_budget_kg=budget, quantization=policy)
+                                self.assertLessEqual(plan.propellant_kg, budget * (1 + 1e-12))
+                                if exact is not None:
+                                    self.assertEqual(plan.pulse_count, exact)
+                                    self.assertLessEqual(abs(plan.residual), 1e-9 * request)
+                                elif policy == NEAREST:
+                                    self.assertLessEqual(abs(plan.residual), nearest + 1e-9 * request)
+                                else:
+                                    self.assertGreaterEqual(plan.residual, -1e-12 * request)
+                                    self.assertGreaterEqual(plan.delivered, below - 1e-9 * request)
+        self.assertEqual((first.model_hash, second.model_hash), hashes)
+        # Fresh construction and normal dataclass copying/serialization must
+        # preserve plans; cache execution state is not exchange data.
+        reopened = replace(first)
+        for model in (reopened, copy.deepcopy(first), pickle.loads(pickle.dumps(first))):
+            self.assertEqual(first.plan_delta_v(8500, 10, propellant_budget_kg=9.76),
+                             model.plan_delta_v(8500, 10, propellant_budget_kg=9.76))
 
     def test_budget_must_leave_dry_mass(self) -> None:
         thruster = random_thruster(random.Random(1))

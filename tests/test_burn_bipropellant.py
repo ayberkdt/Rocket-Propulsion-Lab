@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import unittest
-from dataclasses import replace
+from dataclasses import astuple, replace
+from math import fsum
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.propulsion.burns import (
@@ -12,11 +13,13 @@ from rocket_propulsion.propulsion.burns import (
     BipropellantDynamicFeedCoupling,
     BipropellantDynamicFeedState,
     BipropellantMixtureRatioEventKind,
+    BipropellantMixtureRatioEventSurface,
     DynamicFeedLine,
     DynamicFeedLineConfiguration,
     DynamicFeedLineState,
     PropagatorPropulsionBridge,
     RegulatedFeedSystem,
+    RegulatedFeedState,
     StreamStateBinding,
 )
 from tests.test_burn_feed_system import example_feed_system
@@ -169,6 +172,88 @@ class BipropellantDynamicFeedTests(unittest.TestCase):
         self.assertFalse(inactive.propulsion.active)
         self.assertIsNone(inactive.engine_mixture_ratio)
         self.assertTrue(all(surface.value(None) > 0.0 for surface in surfaces))
+
+    def test_returned_tank_line_ledger_closes_across_reverse_event_trials(self) -> None:
+        # Derive storage from the propagated pressure RHS, independently of
+        # both the reported storage and the reported vehicle closure.
+        flows = ((self.oxidizer_engine_flow, self.fuel_engine_flow), (0.0, 0.0),
+                 (-0.1, 0.0), (0.0, -0.2), (-0.1, -0.2), (-0.1, 0.3),
+                 (0.2, -0.1), (-1e-100, self.fuel_engine_flow))
+        for time in (0.5, 3.0):
+            for ox, fuel in flows:
+                with self.subTest(time=time, oxidizer=ox, fuel=fuel):
+                    state = replace(
+                        self.state,
+                        oxidizer_line=replace(self.state.oxidizer_line, mass_flow_kg_s=ox),
+                        fuel_line=replace(self.state.fuel_line, mass_flow_kg_s=fuel),
+                    )
+                    value = self.evaluate(state, relative_time_s=time)
+                    for flow, feed, line, model, engine in (
+                        (ox, value.oxidizer_feed, value.oxidizer_line, self.oxidizer_line,
+                         value.oxidizer_engine_flow_kg_s),
+                        (fuel, value.fuel_feed, value.fuel_line, self.fuel_line,
+                         value.fuel_engine_flow_kg_s),
+                    ):
+                        self.assertEqual(feed.derivative.propellant_mass_kg_s, -flow)
+                        storage = (model.configuration.compliance_kg_pa
+                                   * line.derivative.manifold_pressure_pa_s)
+                        self.assertAlmostEqual(
+                            fsum((feed.derivative.propellant_mass_kg_s, storage, engine)),
+                            0.0, delta=1e-12)
+                        self.assertEqual(feed.reverse_flow_event_extension, flow < 0.0)
+                    actual = abs(fsum((
+                        value.oxidizer_feed.derivative.propellant_mass_kg_s,
+                        value.fuel_feed.derivative.propellant_mass_kg_s,
+                        value.stored_liquid_mass_rate_kg_s,
+                        -value.propulsion.mass_derivative_kg_s,
+                    )))
+                    self.assertEqual(value.vehicle_mass_closure_error_kg_s, actual)
+                    self.assertLessEqual(actual, 1e-12)
+                    self.assertEqual(value.reverse_flow_event_extension, ox < 0.0 or fuel < 0.0)
+
+    def test_reverse_cutoff_root_remains_locatable_with_conservative_trial_rhs(self) -> None:
+        from scipy.integrate import solve_ivp
+
+        initial = replace(
+            self.state,
+            oxidizer_line=replace(self.state.oxidizer_line, mass_flow_kg_s=0.01,
+                                  manifold_pressure_pa=2.1e6),
+        )
+        y0 = (*astuple(initial.oxidizer_feed), *astuple(initial.oxidizer_line),
+              *astuple(initial.fuel_feed), *astuple(initial.fuel_line))
+        reverse_trials = []
+
+        def rhs(time, vector):
+            state = BipropellantDynamicFeedState(
+                RegulatedFeedState(*vector[:6]), DynamicFeedLineState(*vector[6:8]),
+                RegulatedFeedState(*vector[8:14]), DynamicFeedLineState(*vector[14:16]))
+            result = self.evaluate(state, relative_time_s=3.0 + time)
+            reverse_trials.append(result.reverse_flow_event_extension)
+            return (*result.oxidizer_feed.derivative.as_tuple(),
+                    *result.oxidizer_line.derivative.as_tuple(),
+                    *result.fuel_feed.derivative.as_tuple(),
+                    *result.fuel_line.derivative.as_tuple())
+
+        def cutoff(_time, vector):
+            return vector[6]
+
+        cutoff.terminal = True
+        cutoff.direction = -1
+        result = solve_ivp(rhs, (0.0, 0.3), y0, events=cutoff,
+                           max_step=0.025, rtol=1e-8, atol=1e-10)
+        self.assertTrue(result.success, result.message)
+        self.assertEqual(result.status, 1)
+        self.assertEqual(len(result.t_events[0]), 1)
+        self.assertGreater(result.t_events[0][0], 0.0)
+        self.assertLess(result.t_events[0][0], 0.3)
+        self.assertAlmostEqual(result.y_events[0][0][6], 0.0, delta=1e-14)
+        self.assertTrue(any(reverse_trials), "The event must bracket negative trial states.")
+        # With the engine off, tank liquid + compliant line inventory is
+        # constant through every accepted step, including the zero-flow root.
+        compliance = self.oxidizer_line.configuration.compliance_kg_pa
+        expected = y0[0] + compliance * y0[7]
+        for column in result.y.T:
+            self.assertAlmostEqual(column[0] + compliance * column[7], expected, delta=2e-12)
 
     def test_four_state_and_mixture_ratio_partials_match_finite_differences(self) -> None:
         nominal = self.evaluate()
@@ -337,6 +422,63 @@ class BipropellantDynamicFeedTests(unittest.TestCase):
                 self.fuel_feed,
                 self.fuel_line,
             )
+
+    def test_configuration_names_and_numeric_limits_have_typed_failures(self) -> None:
+        for field in ("oxidizer_state_name", "fuel_state_name",
+                      "oxidizer_pressure_condition_name", "fuel_pressure_condition_name", "model_id"):
+            for value in (None, True, 0, [], {}, "", " "):
+                with self.subTest(field=field, value=value), self.assertRaises(DomainError):
+                    replace(self.configuration, **{field: value})
+        for field in ("minimum_engine_mixture_ratio", "maximum_engine_mixture_ratio",
+                      "mass_closure_absolute_tolerance_kg_s"):
+            for value in (None, "2.0", [], {}, object(), float("nan"), float("inf"),
+                          -float("inf"), 10**500):
+                with self.subTest(field=field, value=value), self.assertRaises(DomainError):
+                    replace(self.configuration, **{field: value})
+
+    def test_boolean_limits_are_rejected_and_numeric_identity_is_canonical(self) -> None:
+        base = replace(self.configuration, minimum_engine_mixture_ratio=0.5,
+                       maximum_engine_mixture_ratio=2.0)
+        for field in ("minimum_engine_mixture_ratio", "maximum_engine_mixture_ratio",
+                      "mass_closure_absolute_tolerance_kg_s"):
+            with self.subTest(field=field), self.assertRaises(DomainError):
+                replace(base, **{field: True})
+        integer_config = replace(self.configuration, minimum_engine_mixture_ratio=1,
+                                 maximum_engine_mixture_ratio=3)
+        float_config = replace(self.configuration, minimum_engine_mixture_ratio=1.0,
+                               maximum_engine_mixture_ratio=3.0)
+        self.assertEqual(replace(self.coupling, configuration=integer_config).model_hash,
+                         replace(self.coupling, configuration=float_config).model_hash)
+
+    def test_incomplete_state_and_coupling_records_are_rejected_at_construction(self) -> None:
+        for field in ("oxidizer_feed", "oxidizer_line", "fuel_feed", "fuel_line"):
+            for value in (None, True, object(), self.configuration):
+                with self.subTest(state_field=field), self.assertRaises(DomainError):
+                    replace(self.state, **{field: value})
+        for field in ("configuration", "bridge", "oxidizer_feed", "oxidizer_line",
+                      "fuel_feed", "fuel_line"):
+            for value in (None, True, object(), self.state):
+                with self.subTest(coupling_field=field), self.assertRaises(DomainError):
+                    replace(self.coupling, **{field: value})
+
+    def test_event_boundary_kind_and_flags_cannot_silently_change_cutoff_semantics(self) -> None:
+        minimum = BipropellantMixtureRatioEventSurface(
+            "minimum", "minimum_engine_mixture_ratio", 2.5)
+        with self.subTest(case="registered string minimum"):
+            self.assertEqual(minimum.value(3.0), 0.5)
+        for kind in (None, True, 1, "", "typo", [], {}):
+            with self.subTest(kind=kind), self.assertRaises(DomainError):
+                BipropellantMixtureRatioEventSurface("event", kind, 2.5)
+        for flag in (None, 1, "false", []):
+            with self.subTest(flag=flag), self.assertRaises(DomainError):
+                replace(self.coupling.mixture_ratio_surfaces()[0], stops_burn=flag)
+        for boundary in (None, True, "2.5", [], float("nan"), float("inf"), 0.0, -1.0):
+            with self.subTest(boundary=boundary), self.assertRaises(DomainError):
+                replace(self.coupling.mixture_ratio_surfaces()[0], boundary_value=boundary)
+        for ratio in (True, False, "3.0", [], float("nan"), float("inf"), 0.0, -1.0):
+            with self.subTest(ratio=ratio), self.assertRaises(DomainError):
+                minimum.value(ratio)
+        self.assertEqual(minimum.value(None), 1.0)
 
 
 if __name__ == "__main__":

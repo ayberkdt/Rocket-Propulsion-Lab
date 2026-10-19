@@ -1,5 +1,8 @@
 # Rocket Propulsion Lab
 
+Motor and feed hardware assurance review: [evidence and open TRL5 gates](docs/PROPULSION_ASSURANCE.md).
+The SASS study outputs are preliminary design screens; hardware readiness is not assessed.
+
 A dependency-free Python toolkit for preliminary rocket-propulsion analysis,
 and a propulsion provider for astrodynamics software.
 
@@ -38,6 +41,18 @@ core never imports an astrodynamics package.
 
 ## Highlights
 
+### UZM 508E / SASS propulsion project preparation
+
+The source-cited `rocket_propulsion.studies.sass` package adds preliminary
+mission delta-v allocation, residual-closed propellant sizing, tank and bus
+resource budgets, five field-cited hardware records, explicit feasibility
+screens, fixed-scale trade studies and deterministic design sensitivities.
+It preserves assumptions, missing data and differing manufacturer claims;
+catalogue extrapolation is disabled. A strict JSON request produces a fully
+cited JSON/HTML study. Course identity is verified; the assignment scope is
+still provisional. See [the research and preparation guide](docs/SASS_PROJECT_PREPARATION.md)
+and [`examples/sass_mission.json`](examples/sass_mission.json).
+
 ### Propagation interface for astrodynamics
 
 | Capability | What a propagator gets |
@@ -56,13 +71,13 @@ core never imports an astrodynamics package.
 | **Thrust allocation** | Bounded least squares (0 ≤ T ≤ T_max, Lawson–Hanson / Stark–Parker) with an optional minimum-effort balance term, dependency-free, checked by brute force and KKT certificates. |
 | **Optimization-ready engine** | Throttle as a control with ∂a/∂u, smooth monotone (PCHIP) throttle characteristics, deep-throttle gap enforced. |
 | **Pulse-mode thrusters** | Measured impulse-bit tables, minimum impulse bit, fewest-pulse plans for an impulse or Δv with reported quantization residual (nearest or no-overshoot), and propagator-ready pulse-train artifacts. |
-| **Impulsive equivalents** | Free-space Δv, effective exhaust velocity and impulse placement time t* of any tabulated burn (Gauss–Legendre with error estimate). |
+| **Impulsive equivalents** | Free-space Δv, effective exhaust velocity and impulse placement time t* for supported tabulated histories, with numerical enclosures and explicit output-range errors. See [numerical scope](docs/FREE_SPACE_TABULATED_NUMERICS_REVIEW.md). |
 | **Verified sensitivities** | Variational equations with saltation at burn events reproduce finite differences of whole propagations; `time_event_jump` supplies the jump. |
 | **Multi-burn timelines** | Several bridges on one clock with overlap checks, stage/fairing jettison events, summed concurrent burns and one verified document. |
 | **Robust by construction** | Fail-closed input validation at every boundary, canonical numbers for stable hashes, and reopenable model documents for bridges, electric models and timelines. Every document reader refuses or reproduces each of 1 500+ generated mutants. |
 | **Adversarial tests with independent oracles** | Attack suites for large-epoch boundary rounding, dry-mass cuts, pulse quantization and hostile JSON, each checked against oracles written in the test (enumeration, closed forms, SciPy integration), with mutation checks that the tests catch the bugs they target. See [Adversarial testing](docs/ADVERSARIAL_TESTING.md). |
 | **Traceable constants** | Every physical constant lives in `core.constants` with its defining source; a test refuses bare copies, and every model page cites its equations. |
-| **Partials** | Acceleration and mass-rate partials with respect to mass, direction, ambient pressure, available power, operating conditions and bounded estimator drivers, all checked against finite differences. |
+| **Partials** | Acceleration and mass-rate partials for mass, direction, ambient pressure, power, conditions and estimator drivers, with targeted finite-difference and independent checks; complete coverage is not established. |
 
 ### Propulsion physics and studies
 

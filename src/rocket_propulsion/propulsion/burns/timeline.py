@@ -28,8 +28,9 @@ from .propagator import (
     PropagatorPropulsionBridge,
     PropulsionDynamicsEvaluation,
 )
-from .serialization import canonical_sha256
-from .tabulated import epoch_time_tolerance
+from .serialization import canonical_sha256, _require_numerical_policies
+from .numeric_outputs import _fraction, _finite_rational
+from .time_coordinates import _TIME_POLICY, _epoch_profile_time, _epoch_table
 
 PROPULSION_TIMELINE_SCHEMA = "rocket_propulsion_propulsion_timeline_v1"
 
@@ -70,7 +71,8 @@ class ScheduledBurn:
     def cutoff_time_s(self) -> float:
         """Return the nominal timeline time of the profile end."""
 
-        return self.ignition_time_s + self.bridge.artifact.duration_s
+        return _finite_rational(_fraction(self.ignition_time_s)+_fraction(self.bridge.artifact.duration_s),
+                                'Scheduled cutoff time')
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,7 +204,8 @@ class PropulsionTimeline:
         )
         if not self.allow_overlapping_burns:
             for earlier, later in zip(self.burns, self.burns[1:], strict=False):
-                if later.ignition_time_s < earlier.cutoff_time_s - 1e-12:
+                if _fraction(later.ignition_time_s) < (_fraction(earlier.ignition_time_s)
+                                                     + _fraction(earlier.bridge.artifact.duration_s)):
                     raise DomainError(
                         f"Burns {earlier.burn_id!r} and {later.burn_id!r} overlap; "
                         "set allow_overlapping_burns to sum concurrent burns."
@@ -246,6 +249,9 @@ class PropulsionTimeline:
         timed: list[TimelineEvent] = []
         state: list[TimelineEvent] = []
         for burn in self.burns:
+            canonical, _ = _epoch_table(burn.bridge.artifact.segments, burn.ignition_time_s, 0.0)
+            boundaries = (0.0,) + tuple(s.end_time_s for s in burn.bridge.artifact.segments)
+            dates = dict(zip(boundaries, canonical, strict=True))
             for surface in burn.bridge.event_surfaces():
                 if surface.relative_time_s is not None:
                     timed.append(
@@ -253,7 +259,7 @@ class PropulsionTimeline:
                             f"{burn.burn_id}/{surface.event_id}",
                             TimelineEventKind.BURN_TIME,
                             burn.burn_id,
-                            time_s=burn.ignition_time_s + surface.relative_time_s,
+                            time_s=dates[surface.relative_time_s],
                             surface=surface,
                             stops_burn=surface.stops_burn,
                         )
@@ -365,7 +371,6 @@ class PropulsionTimeline:
         for burn in self.burns:
             if burn.burn_id in stopped_burns:
                 continue
-            relative = time_s - burn.ignition_time_s
             burn_overrides = real_mapping(
                 overrides_by_burn.get(burn.burn_id), f"Parameter overrides for {burn.burn_id!r}"
             )
@@ -379,19 +384,15 @@ class PropulsionTimeline:
             bias = timing.validate(
                 burn_overrides.get("ignition_time_bias_s", timing.reference_value)
             )
-            effective = relative - bias
-            # ``time_s - ignition`` carries the rounding of the absolute epochs,
-            # so activity and boundary snapping use an epoch-scaled tolerance.
-            tolerance = max(
-                epoch_time_tolerance(time_s, burn.ignition_time_s, bias),
-                burn.bridge.artifact.boundary_tolerance_s,
-            )
-            if effective < -tolerance or effective > burn.bridge.artifact.duration_s + tolerance:
+            effective = _epoch_profile_time(burn.bridge.artifact.segments, time_s,
+                                            burn.ignition_time_s, bias)
+            if effective < 0 or effective > _fraction(burn.bridge.artifact.duration_s):
                 continue
             if burn.burn_id not in directions:
                 raise DomainError(f"Burn {burn.burn_id!r} is active but has no direction.")
-            value = burn.bridge.evaluate(
-                relative_time_s=relative,
+            value = burn.bridge.evaluate_at_epoch(
+                time_s=time_s,
+                ignition_time_s=burn.ignition_time_s,
                 vehicle_mass_kg=vehicle_mass_kg,
                 direction=directions[burn.burn_id],
                 additional_states=states,
@@ -402,7 +403,6 @@ class PropulsionTimeline:
                 ambient_pressure_pa=(
                     ambient_pressure_pa if burn.bridge.nozzle_exit_area_m2 is not None else None
                 ),
-                boundary_tolerance_s=tolerance,
             )
             evaluations.append((burn.burn_id, value))
             if not value.active:
@@ -435,6 +435,7 @@ class PropulsionTimeline:
 
         payload: dict[str, object] = {
             "schema": self.schema,
+            "time_numerics": _TIME_POLICY,
             "timeline_id": self.timeline_id,
             "allow_overlapping_burns": self.allow_overlapping_burns,
             "burns": [
@@ -490,6 +491,7 @@ class PropulsionTimeline:
 
         if not isinstance(payload, Mapping):
             raise InputError("Propulsion timeline document root must be an object.")
+        _require_numerical_policies(payload, {'time_numerics':_TIME_POLICY})
         try:
             bridges = payload["bridges"]
             timeline = cls(

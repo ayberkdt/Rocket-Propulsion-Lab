@@ -11,8 +11,9 @@ import json
 from bisect import bisect_right
 from collections.abc import Mapping
 from dataclasses import dataclass
+from fractions import Fraction
 from itertools import product
-from math import isfinite, prod
+from math import isfinite
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import (
@@ -31,7 +32,9 @@ from .performance_surface import (
     PerformanceGridLineSurface,
     PerformanceValiditySurface,
 )
-from .serialization import canonical_sha256
+from .interpolation import _MULTILINEAR_POLICY, _multilinear_terms
+from .numeric_outputs import _finite_rational, _fraction
+from .serialization import _require_numerical_policies, canonical_sha256
 
 STREAM_PERFORMANCE_SURFACE_SCHEMA = "rocket_propulsion_stream_performance_surface_v1"
 STREAM_PERFORMANCE_SURFACE_REFERENCE_IDS = (
@@ -115,8 +118,8 @@ class RectilinearStreamPerformanceSurface:
 
     Every Cartesian node is required exactly once and every node must expose
     the same stream identifiers.  Multilinear interpolation is performed on
-    force and each stream independently.  Values outside the declared domain
-    are refused rather than extrapolated.
+    force and each stream independently. Values beyond the endpoint tolerance
+    are refused; accepted round-off offsets are snapped to the endpoint.
 
     References
     ----------
@@ -236,6 +239,7 @@ class RectilinearStreamPerformanceSurface:
                 for point in sorted(self.points, key=lambda item: item.coordinates)
             ],
             "reference_ids": list(self.reference_ids),
+            "interpolation_numerics": _MULTILINEAR_POLICY,
         }
         if include_hash:
             payload["surface_hash"] = canonical_sha256(payload)
@@ -299,6 +303,7 @@ class RectilinearStreamPerformanceSurface:
             raise InputError("Malformed stream-performance artifact.") from error
         if payload.get("surface_hash") != surface.surface_hash:
             raise InputError("Stream-performance hash does not match its contents.")
+        _require_numerical_policies(payload, surface.to_dict(include_hash=False))
         return surface
 
     @classmethod
@@ -388,7 +393,7 @@ class RectilinearStreamPerformanceSurface:
             )
 
         normalized: dict[str, float] = {}
-        brackets: list[tuple[int, int, float, float]] = []
+        brackets: list[tuple[int, int, Fraction, Fraction]] = []
         boundary_axes: list[str] = []
         for axis in self.axes:
             value = supplied[axis.name]
@@ -406,35 +411,26 @@ class RectilinearStreamPerformanceSurface:
             lower = max(0, upper - 1)
             if upper == lower:
                 lower = max(0, upper - 1)
-            width = axis.values[upper] - axis.values[lower]
-            brackets.append((lower, upper, (value - axis.values[lower]) / width, width))
+            width = _fraction(axis.values[upper]) - _fraction(axis.values[lower])
+            brackets.append((lower, upper, (_fraction(value) - _fraction(axis.values[lower])) / width, width))
 
         point_by_coordinate = {point.coordinates: point for point in self.points}
-        force_scale = 0.0
-        stream_scales = {name: 0.0 for name in self.stream_ids}
-        force_gradient = [0.0] * len(self.axes)
-        stream_gradients = {name: [0.0] * len(self.axes) for name in self.stream_ids}
-        for corner in product((0, 1), repeat=len(self.axes)):
+        force_scale = Fraction(0)
+        stream_scales = {name: Fraction(0) for name in self.stream_ids}
+        force_gradient = [Fraction(0)] * len(self.axes)
+        stream_gradients = {name: [Fraction(0)] * len(self.axes) for name in self.stream_ids}
+        for corner, weight, derivative_weights in _multilinear_terms(brackets):
             coordinate = tuple(
                 axis.values[brackets[index][corner[index]]] for index, axis in enumerate(self.axes)
             )
             point = point_by_coordinate[coordinate]
-            point_streams = dict(point.stream_flow_scales)
-            factors = tuple(
-                fraction if corner[index] else 1.0 - fraction
-                for index, (_, _, fraction, _) in enumerate(brackets)
-            )
-            weight = prod(factors)
-            force_scale += weight * point.force_scale
+            point_streams = {name: _fraction(value) for name, value in point.stream_flow_scales}
+            point_force = _fraction(point.force_scale)
+            force_scale += weight * point_force
             for stream_id in self.stream_ids:
                 stream_scales[stream_id] += weight * point_streams[stream_id]
-            for derivative_axis, (_, _, _, width) in enumerate(brackets):
-                sign = 1.0 if corner[derivative_axis] else -1.0
-                other_weight = prod(
-                    factor for index, factor in enumerate(factors) if index != derivative_axis
-                )
-                derivative_weight = sign * other_weight / width
-                force_gradient[derivative_axis] += derivative_weight * point.force_scale
+            for derivative_axis, derivative_weight in enumerate(derivative_weights):
+                force_gradient[derivative_axis] += derivative_weight * point_force
                 for stream_id in self.stream_ids:
                     stream_gradients[stream_id][derivative_axis] += (
                         derivative_weight * point_streams[stream_id]
@@ -442,16 +438,19 @@ class RectilinearStreamPerformanceSurface:
 
         return StreamPerformanceSurfaceEvaluation(
             conditions=tuple((axis.name, normalized[axis.name]) for axis in self.axes),
-            force_scale=force_scale,
-            stream_flow_scales=tuple(stream_scales.items()),
+            force_scale=_finite_rational(force_scale, "Multilinear force scale"),
+            stream_flow_scales=tuple((name, _finite_rational(value, f"Multilinear stream scale: {name}"))
+                                    for name, value in stream_scales.items()),
             force_scale_gradient=tuple(
-                (axis.name, force_gradient[index]) for index, axis in enumerate(self.axes)
+                (axis.name, _finite_rational(force_gradient[index], f"Multilinear force gradient: {axis.name}"))
+                for index, axis in enumerate(self.axes)
             ),
             stream_flow_scale_gradients=tuple(
                 (
                     stream_id,
                     tuple(
-                        (axis.name, stream_gradients[stream_id][index])
+                        (axis.name, _finite_rational(stream_gradients[stream_id][index],
+                         f"Multilinear stream gradient: {stream_id} / {axis.name}"))
                         for index, axis in enumerate(self.axes)
                     ),
                 )

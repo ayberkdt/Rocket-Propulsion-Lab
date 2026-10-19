@@ -34,10 +34,22 @@ def jumpy_artifact() -> TabulatedBurnArtifact:
 
     return TabulatedBurnArtifact(
         segments=(
-            TabulatedBurnSegment(0.0, 2.0, 80.0, 160.0, 80.0, 160.0, 0.40, 0.70,
-                                 streams(0.40), streams(0.70), "ramp"),
-            TabulatedBurnSegment(2.0, 5.0, 120.0, 120.0, 120.0, 120.0, 0.55, 0.55,
-                                 streams(0.55), streams(0.55), "throttled"),
+            TabulatedBurnSegment(
+                0.0, 2.0, 80.0, 160.0, 80.0, 160.0, 0.40, 0.70, streams(0.40), streams(0.70), "ramp"
+            ),
+            TabulatedBurnSegment(
+                2.0,
+                5.0,
+                120.0,
+                120.0,
+                120.0,
+                120.0,
+                0.55,
+                0.55,
+                streams(0.55),
+                streams(0.55),
+                "throttled",
+            ),
         ),
         source_id="variational",
         source_sha256="5" * 64,
@@ -53,21 +65,25 @@ class BridgeVariationalTests(unittest.TestCase):
         )
 
     def rhs(self, t, y, p, side):
-        value = self.bridge.evaluate(
-            relative_time_s=t, vehicle_mass_kg=y[1], direction=(1.0, 0.0, 0.0),
+        value = self.bridge.evaluate_at_epoch(
+            time_s=t,
+            ignition_time_s=0.0,
+            vehicle_mass_kg=y[1],
+            direction=(1.0, 0.0, 0.0),
             additional_states={"m_ox": y[2], "m_fu": y[3]},
-            parameter_overrides=dict(zip(PARAMETERS, p, strict=True)), side=side,
+            parameter_overrides=dict(zip(PARAMETERS, p, strict=True)),
+            side=side,
         )
         drains = dict(value.additional_state_derivatives)
-        f = [value.acceleration_m_s2[0], value.mass_derivative_kg_s, drains["m_ox"],
-             drains["m_fu"]]
+        f = [value.acceleration_m_s2[0], value.mass_derivative_kg_s, drains["m_ox"], drains["m_fu"]]
         partials = value.partials
         dfdy = [[0.0] * 4 for _ in range(4)]
         dfdy[0][1] = partials.acceleration_wrt_mass[0]
         acc_p = dict(partials.acceleration_wrt_parameters)
         mass_p = dict(partials.mass_rate_wrt_parameters)
-        state_p = {name: dict(rates) for name, rates in
-                   partials.additional_state_rates_wrt_parameters}
+        state_p = {
+            name: dict(rates) for name, rates in partials.additional_state_rates_wrt_parameters
+        }
         dfdp = [
             [acc_p[name][0] for name in PARAMETERS],
             [mass_p[name] for name in PARAMETERS],
@@ -81,19 +97,24 @@ class BridgeVariationalTests(unittest.TestCase):
         y = [0.0, 120.0, 30.0, 12.0]
         s = [[0.0] * 3 for _ in range(4)]
         bias = p[2]
-        events = sorted(e.relative_time_s + bias for e in self.bridge.event_surfaces()
-                        if e.relative_time_s is not None)
+        events = sorted(
+            e.relative_time_s + bias
+            for e in self.bridge.event_surfaces()
+            if e.relative_time_s is not None
+        )
 
         def combined(tt, yy, ss, side):
             f, dfdy, dfdp = self.rhs(tt, yy, p, side)
-            ds = [[sum(dfdy[i][k] * ss[k][j] for k in range(4)) + dfdp[i][j]
-                   for j in range(3)] for i in range(4)]
+            ds = [
+                [sum(dfdy[i][k] * ss[k][j] for k in range(4)) + dfdp[i][j] for j in range(3)]
+                for i in range(4)
+            ]
             return f, ds
 
-        while t < end - 1e-12:
+        while t < end:
             target = min(end, t + step)
             for event in events:
-                if t + 1e-12 < event < target:
+                if t < event < target:
                     target = event
                     break
             h = target - t
@@ -107,23 +128,35 @@ class BridgeVariationalTests(unittest.TestCase):
             f1, s1 = combined(t, y, s, "right")
             f2, s2 = combined(t + h / 2, add(y, f1, h / 2), add_s(s, s1, h / 2), "right")
             f3, s3 = combined(t + h / 2, add(y, f2, h / 2), add_s(s, s2, h / 2), "right")
-            f4, s4 = combined(t + h, add(y, f3, h), add_s(s, s3, h), "left")
-            y = [a + h / 6 * (b + 2 * c + 2 * d + e)
-                 for a, b, c, d, e in zip(y, f1, f2, f3, f4, strict=True)]
-            s = [[a + h / 6 * (b + 2 * c + 2 * d + e)
-                  for a, b, c, d, e in zip(*rows, strict=True)]
-                 for rows in zip(s, s1, s2, s3, s4, strict=True)]
+            f4, s4 = combined(target, add(y, f3, h), add_s(s, s3, h), "left")
+            y = [
+                a + h / 6 * (b + 2 * c + 2 * d + e)
+                for a, b, c, d, e in zip(y, f1, f2, f3, f4, strict=True)
+            ]
+            s = [
+                [a + h / 6 * (b + 2 * c + 2 * d + e) for a, b, c, d, e in zip(*rows, strict=True)]
+                for rows in zip(s, s1, s2, s3, s4, strict=True)
+            ]
             t = target
-            if with_sensitivity and any(abs(t - event) <= 1e-12 for event in events):
+            if with_sensitivity and t in events:
                 # Saltation: every profile event time moves one-for-one with the bias.
-                jump = self.bridge.time_event_jump(
-                    relative_time_s=t, vehicle_mass_kg=y[1], direction=(1.0, 0.0, 0.0),
+                jump = self.bridge.time_event_jump_at_epoch(
+                    time_s=t,
+                    ignition_time_s=0.0,
+                    vehicle_mass_kg=y[1],
+                    direction=(1.0, 0.0, 0.0),
                     additional_states={"m_ox": y[2], "m_fu": y[3]},
                     parameter_overrides=dict(zip(PARAMETERS, p, strict=True)),
                 )
                 rates = dict(jump.additional_state_derivatives)
-                for i, value in enumerate((jump.acceleration_m_s2[0], jump.mass_derivative_kg_s,
-                                           rates["m_ox"], rates["m_fu"])):
+                for i, value in enumerate(
+                    (
+                        jump.acceleration_m_s2[0],
+                        jump.mass_derivative_kg_s,
+                        rates["m_ox"],
+                        rates["m_fu"],
+                    )
+                ):
                     s[i][2] += value
         return y, s
 
@@ -142,7 +175,9 @@ class BridgeVariationalTests(unittest.TestCase):
                 finite = (y_plus[row] - y_minus[row]) / (2 * h)
                 scale = max(1.0, abs(finite))
                 self.assertAlmostEqual(
-                    sensitivity[row][column] / scale, finite / scale, places=6,
+                    sensitivity[row][column] / scale,
+                    finite / scale,
+                    places=6,
                     msg=f"d{row}/d{PARAMETERS[column]}",
                 )
 
@@ -153,6 +188,19 @@ class BridgeVariationalTests(unittest.TestCase):
         _, with_jump = self.propagate(nominal, with_sensitivity=True)
         _, without_jump = self.propagate(nominal, with_sensitivity=False)
         self.assertGreater(abs(with_jump[0][2] - without_jump[0][2]), 1e-3)
+
+    def test_free_space_clock_translation_preserves_state_and_zero_bias_sensitivity(self) -> None:
+        """Time-homogeneous free flight is invariant to shifting the complete burn."""
+        reference, sensitivity = self.propagate((1.0, 1.0, 0.0), with_sensitivity=True)
+        # Independent exact trapezoid ledger: 1.1 + 1.65 kg, with 70/30 streams.
+        for actual, expected in zip(reference[1:], (117.25, 28.075, 11.175), strict=True):
+            self.assertLess(abs(actual - expected), 1e-10)
+        for row in sensitivity:
+            self.assertLess(abs(row[2]), 1e-9)
+        for bias in (-0.125, 0.125):
+            shifted, _ = self.propagate((1.0, 1.0, bias), with_sensitivity=False)
+            for actual, expected in zip(shifted, reference, strict=True):
+                self.assertLess(abs(actual - expected), 1e-9)
 
 
 class ElectricVariationalTests(unittest.TestCase):
@@ -166,17 +214,23 @@ class ElectricVariationalTests(unittest.TestCase):
             s = [[0.0, 0.0] for _ in range(3)]  # d/dP0, d/dthrust_scale
             t, end, h = 0.0, 3000.0, 25.0
             while t < end - 1e-9:
+
                 def rhs(tt, yy):
                     value = model.evaluate(
-                        level_index=0, available_power_w=p0 - 0.5 * tt, vehicle_mass_kg=yy[1],
-                        direction=(1.0, 0.0, 0.0), additional_states={"xenon_mass_kg": yy[2]},
+                        level_index=0,
+                        available_power_w=p0 - 0.5 * tt,
+                        vehicle_mass_kg=yy[1],
+                        direction=(1.0, 0.0, 0.0),
+                        additional_states={"xenon_mass_kg": yy[2]},
                         parameter_overrides={"thrust_scale": thrust_scale},
                     )
                     partials = value.partials
-                    f = [value.acceleration_m_s2[0], value.mass_derivative_kg_s,
-                         value.mass_derivative_kg_s]
-                    dfdy = [[0.0, partials.acceleration_wrt_mass[0], 0.0],
-                            [0.0] * 3, [0.0] * 3]
+                    f = [
+                        value.acceleration_m_s2[0],
+                        value.mass_derivative_kg_s,
+                        value.mass_derivative_kg_s,
+                    ]
+                    dfdy = [[0.0, partials.acceleration_wrt_mass[0], 0.0], [0.0] * 3, [0.0] * 3]
                     acc = dict(partials.acceleration_wrt_parameters)
                     flow = dict(partials.mass_rate_wrt_parameters)
                     dfdp = [
@@ -188,25 +242,43 @@ class ElectricVariationalTests(unittest.TestCase):
 
                 def step(tt, yy, ss):
                     f, dfdy, dfdp = rhs(tt, yy)
-                    ds = [[sum(dfdy[i][k] * ss[k][j] for k in range(3)) + dfdp[i][j]
-                           for j in range(2)] for i in range(3)]
+                    ds = [
+                        [
+                            sum(dfdy[i][k] * ss[k][j] for k in range(3)) + dfdp[i][j]
+                            for j in range(2)
+                        ]
+                        for i in range(3)
+                    ]
                     return f, ds
 
                 def add(base, k, factor):
                     return [a + factor * b for a, b in zip(base, k, strict=True)]
 
                 f1, s1 = step(t, y, s)
-                f2, s2 = step(t + h / 2, add(y, f1, h / 2),
-                              [add(r, k, h / 2) for r, k in zip(s, s1, strict=True)])
-                f3, s3 = step(t + h / 2, add(y, f2, h / 2),
-                              [add(r, k, h / 2) for r, k in zip(s, s2, strict=True)])
-                f4, s4 = step(t + h, add(y, f3, h),
-                              [add(r, k, h) for r, k in zip(s, s3, strict=True)])
-                y = [a + h / 6 * (b + 2 * c + 2 * d + e)
-                     for a, b, c, d, e in zip(y, f1, f2, f3, f4, strict=True)]
-                s = [[a + h / 6 * (b + 2 * c + 2 * d + e)
-                      for a, b, c, d, e in zip(*rows, strict=True)]
-                     for rows in zip(s, s1, s2, s3, s4, strict=True)]
+                f2, s2 = step(
+                    t + h / 2,
+                    add(y, f1, h / 2),
+                    [add(r, k, h / 2) for r, k in zip(s, s1, strict=True)],
+                )
+                f3, s3 = step(
+                    t + h / 2,
+                    add(y, f2, h / 2),
+                    [add(r, k, h / 2) for r, k in zip(s, s2, strict=True)],
+                )
+                f4, s4 = step(
+                    t + h, add(y, f3, h), [add(r, k, h) for r, k in zip(s, s3, strict=True)]
+                )
+                y = [
+                    a + h / 6 * (b + 2 * c + 2 * d + e)
+                    for a, b, c, d, e in zip(y, f1, f2, f3, f4, strict=True)
+                ]
+                s = [
+                    [
+                        a + h / 6 * (b + 2 * c + 2 * d + e)
+                        for a, b, c, d, e in zip(*rows, strict=True)
+                    ]
+                    for rows in zip(s, s1, s2, s3, s4, strict=True)
+                ]
                 t += h
             return y, s
 

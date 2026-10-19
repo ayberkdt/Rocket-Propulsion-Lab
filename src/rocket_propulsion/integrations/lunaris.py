@@ -39,11 +39,13 @@ from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError
 from rocket_propulsion.core.validation import real, text, vector3
 from rocket_propulsion.propulsion.burns import (
     PropulsionTimeline,
-    epoch_time_tolerance,
     free_space_burn_metrics,
 )
 from rocket_propulsion.propulsion.burns.propagator import INVENTORY_LIMIT_TOLERANCE
+from rocket_propulsion.propulsion.burns.numeric_outputs import _fraction, _finite_rational
+from rocket_propulsion.propulsion.burns.time_coordinates import _epoch_table, _epoch_profile_time
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
+from .direction import _directed_vector
 
 LUNARIS_FRAMES = ("inertial", "ric")
 
@@ -152,9 +154,6 @@ def lunaris_impulsive_equivalents(
         frame = text(entry[1], "Direction frame").strip().lower()
         if frame not in LUNARIS_FRAMES:
             raise DomainError(f"Lunaris supports frames {LUNARIS_FRAMES}, not {frame!r}.")
-        norm = sqrt(sum(value * value for value in vector))
-        if norm <= 0.0:
-            raise DomainError("Direction must be non-zero.")
         drivers = bridge.resolved_parameters(overrides.get(burn.burn_id))
         metrics = free_space_burn_metrics(
             bridge.artifact,
@@ -176,7 +175,7 @@ def lunaris_impulsive_equivalents(
             LunarisImpulsiveEquivalent(
                 burn_id=burn.burn_id,
                 t_burn_s=ignition + metrics.impulsive_equivalent_time_s,
-                dv_mps=tuple(metrics.delta_v_m_s * value / norm for value in vector),  # type: ignore[arg-type]
+                dv_mps=_directed_vector(vector, metrics.delta_v_m_s, label="Lunaris impulse delta-v"),
                 frame=frame,
                 isp_s=metrics.effective_exhaust_velocity_m_s / STANDARD_GRAVITY_M_S2,
                 delta_v_m_s=metrics.delta_v_m_s,
@@ -323,16 +322,18 @@ def lunaris_burn_windows(
     resolved = []
     for burn in timeline.burns:
         drivers = burn.bridge.resolved_parameters(overrides.get(burn.burn_id))
-        resolved.append((burn.ignition_time_s + drivers["ignition_time_bias_s"], burn, drivers))
+        resolved.append((_fraction(burn.ignition_time_s) + _fraction(drivers["ignition_time_bias_s"]), burn, drivers))
     resolved.sort(key=lambda item: item[0])
     windows: list[LunarisBurnWindow] = []
     previous_cutoff = None
     for ignition, burn, drivers in resolved:
         bridge = burn.bridge
+        epoch_dates, _ = _epoch_table(bridge.artifact.segments, burn.ignition_time_s,
+                                     drivers['ignition_time_bias_s'])
         if (
             not timeline.allow_overlapping_burns
             and previous_cutoff is not None
-            and ignition < previous_cutoff - epoch_time_tolerance(ignition, previous_cutoff)
+            and ignition < previous_cutoff
         ):
             raise DomainError(
                 f"Burn {burn.burn_id!r} starts before the previous burn ends once the "
@@ -343,24 +344,17 @@ def lunaris_burn_windows(
         cutoff_relative = bridge.artifact.duration_s
         if mass is not None and bridge.protected_dry_mass_kg is not None:
             reached = _time_to_consume(bridge, flow_scale, mass - bridge.protected_dry_mass_kg)
-            # A cut within the profile's boundary tolerance of the stop is the
-            # stop itself (the two sums differ only by rounding).
-            if reached is not None and reached < (
-                bridge.artifact.duration_s - bridge.artifact.boundary_tolerance_s
-            ):
-                depletion = ignition + reached
+            if reached is not None and reached < bridge.artifact.duration_s:
+                depletion = _finite_rational(ignition + _fraction(reached), 'Depletion time')
                 cutoff_relative = reached
-        events = tuple(
-            ignition + surface.relative_time_s
-            for surface in bridge.event_surfaces()
-            if surface.relative_time_s is not None
-            and surface.relative_time_s <= cutoff_relative + bridge.artifact.boundary_tolerance_s
-        ) + ((depletion,) if depletion is not None else ())
+        relative_dates = (0.0,) + tuple(segment.end_time_s for segment in bridge.artifact.segments)
+        events = tuple(date for relative, date in zip(relative_dates, epoch_dates, strict=True)
+                       if relative <= cutoff_relative) + ((depletion,) if depletion is not None else ())
         windows.append(
             LunarisBurnWindow(
                 burn_id=burn.burn_id,
-                ignition_time_s=ignition,
-                cutoff_time_s=ignition + cutoff_relative,
+                ignition_time_s=epoch_dates[0],
+                cutoff_time_s=_finite_rational(ignition + _fraction(cutoff_relative), 'Cutoff time'),
                 mass_at_ignition_kg=mass,
                 depletion_time_s=depletion,
                 time_events_s=tuple(sorted(events)),
@@ -368,7 +362,7 @@ def lunaris_burn_windows(
         )
         if mass is not None:
             mass -= _consumed_by(bridge, flow_scale, cutoff_relative)
-        previous_cutoff = ignition + cutoff_relative
+        previous_cutoff = ignition + _fraction(cutoff_relative)
     return tuple(windows)
 
 
@@ -394,17 +388,12 @@ def lunaris_segmentation_times(
     windows = lunaris_burn_windows(
         timeline, parameter_overrides=parameter_overrides, initial_mass_kg=initial_mass_kg
     )
-    floor = max((burn.bridge.artifact.boundary_tolerance_s for burn in timeline.burns),
-                default=0.0)
-    return _merged_times((value for window in windows for value in window.time_events_s), floor)
+    return _merged_times(value for window in windows for value in window.time_events_s)
 
 
-def _merged_times(values: Iterator[float] | Any, floor: float = 0.0) -> tuple[float, ...]:
-    merged: list[float] = []
-    for value in sorted(values):
-        if not merged or value - merged[-1] > max(epoch_time_tolerance(value), floor):
-            merged.append(value)
-    return tuple(merged)
+def _merged_times(values: Iterator[float] | Any) -> tuple[float, ...]:
+    """Deduplicate identical dates; never merge distinct representable events."""
+    return tuple(sorted(set(values)))
 
 
 def _window(start_s: float | None, end_s: float | None) -> tuple[float, float]:
@@ -580,12 +569,8 @@ class LunarisFiniteBurnDynamics:
         )
         self._ids = tuple(burn.burn_id for burn in timeline.burns)
         self._windows = windows
-        self._artifact_tolerance = max(
-            burn.bridge.artifact.boundary_tolerance_s for burn in timeline.burns
-        ) if timeline.burns else 0.0
         self._boundaries = _merged_times(
-            (value for window in windows for value in window.time_events_s),
-            self._artifact_tolerance,
+            value for window in windows for value in window.time_events_s
         )
         self._initial_mass = None if initial_mass_kg is None else real(initial_mass_kg, "Mass")
         self._mass_tolerance = tolerance
@@ -636,7 +621,10 @@ class LunarisFiniteBurnDynamics:
             drivers = burn.bridge.resolved_parameters(
                 (self._overrides or {}).get(window.burn_id)
             )
-            relative = min(time_s, window.cutoff_time_s) - window.ignition_time_s
+            relative_exact = _epoch_profile_time(burn.bridge.artifact.segments,
+                min(time_s, window.cutoff_time_s), burn.ignition_time_s,
+                drivers['ignition_time_bias_s'])
+            relative = _finite_rational(relative_exact, 'Mass prediction profile time')
             mass -= _consumed_by(burn.bridge, drivers["mass_flow_scale"], relative)
         return mass
 
@@ -646,9 +634,8 @@ class LunarisFiniteBurnDynamics:
             cut = window.depletion_time_s
             if cut is None:
                 continue
-            tolerance = max(epoch_time_tolerance(time_s, cut), self._artifact_tolerance)
-            if time_s > cut + tolerance or (
-                abs(time_s - cut) <= tolerance and side == "right"
+            if time_s > cut or (
+                time_s == cut and side == "right"
             ):
                 stopped.add(window.burn_id)
         return frozenset(stopped)
@@ -673,18 +660,11 @@ class LunarisFiniteBurnDynamics:
                             f"timeline prediction {expected!r} kg; the dry-mass cut would be "
                             "wrong. Start from initial_mass_kg and add no other mass changes."
                         )
-            # Same tolerance as the bridge's boundary snapping: a time the bridge
-            # treats as a boundary must also get the boundary's side here.
-            on_boundary = any(
-                abs(time_s - value)
-                <= max(epoch_time_tolerance(time_s, value), self._artifact_tolerance)
-                for value in boundaries
-            )
+            on_boundary = time_s in boundaries
             side = (
                 "left"
                 if on_boundary
-                and abs(time_s - first_time[0])
-                > max(epoch_time_tolerance(time_s, first_time[0]), self._artifact_tolerance)
+                and time_s != first_time[0]
                 else "right"
             )
             value = timeline.evaluate(

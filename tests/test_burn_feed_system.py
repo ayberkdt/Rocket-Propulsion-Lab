@@ -69,6 +69,35 @@ class RegulatedFeedSystemTests(unittest.TestCase):
         self.assertAlmostEqual(result.feed_line_pressure_drop_pa, 2.5)
         self.assertAlmostEqual(result.injector_pressure_pa, 1_999_997.5)
 
+    def test_signed_event_continuation_conserves_compression_work_and_is_explicit(self) -> None:
+        model = RegulatedFeedSystem(replace(
+            self.system.configuration, feed_line_resistance_pa_s2_kg2=0.0))
+        self.assertEqual(model.manifest()["event_location_policy"]["physical_cutoff"],
+                         "zero_liquid_flow")
+        state = replace(self.state, regulator_opening=0.0)
+        for flow in (-0.05, -1e-100, 0.0, 0.05):
+            with self.subTest(flow=flow):
+                value = model.evaluate(state, flow, for_event_location=True)
+                self.assertEqual(value.derivative.propellant_mass_kg_s, -flow)
+                self.assertEqual(value.reverse_flow_event_extension, flow < 0.0)
+                self.assertEqual(value.regulator_mass_flow_kg_s, 0.0)
+                dvolume = flow / model.configuration.propellant_density_kg_m3
+                gas = model.configuration.gas
+                actual = (gas.specific_heat_cv_j_kg_k
+                          * state.tank_pressurant_mass_kg
+                          * value.derivative.tank_gas_temperature_k_s)
+                expected = -value.tank_pressure_pa * dvolume
+                self.assertAlmostEqual(actual, expected, delta=abs(expected) * 2e-15)
+                if flow < 0.0:
+                    self.assertGreater(value.derivative.tank_gas_temperature_k_s, 0.0)
+        with self.assertRaises(DomainError):
+            model.evaluate(state, -0.05)
+        with self.assertRaisesRegex(DomainError, "zero static line resistance"):
+            self.system.evaluate(state, -0.05, for_event_location=True)
+        for flag in (None, 1, "true", []):
+            with self.subTest(flag=flag), self.assertRaises(DomainError):
+                model.evaluate(state, 0.05, for_event_location=flag)
+
     def test_mass_and_open_system_energy_balances_close(self) -> None:
         result = self.system.evaluate(self.state, 0.05)
         derivative = result.derivative

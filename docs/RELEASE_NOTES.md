@@ -1,6 +1,213 @@
 # Release notes
 
-## Unreleased — standalone burn vertical slice
+Repaired relative-time boundary ownership, early bridge cutoff, shifted-time
+rounding and native event merging. Exact origins/endpoints and zero implicit
+snap windows preserve arbitrarily short representable relative profiles.
+Epoch events are rounded once from complete sums; actual collisions fail
+explicitly while distinct one-ULP events remain valid. Added 26 independent
+adversarial methods and 16 selected faults, including time-translation invariance
+and a shared epoch saltation path. Artifact/bridge/timeline documents
+require a new hashed time policy; regenerate older documents. Full raw-document
+and native reserve/consumption arithmetic reviews remain separate.
+See `TABULATED_TIME_CONTRACT_REVIEW.md`.
+
+Repaired free-space Δv/centroid erasure and tabulated integral/moment range loss.
+Exact ledgers and mass partitions precede normalized quadrature; independent
+directed Bernstein enclosures include final output rounding, with exact identity
+and boundary-refinement paths. Added centroid/exhaust numerical bound metadata,
+38 adversarial methods and 21 selected faults. Tabulated artifacts and bridge
+documents require new hashed numerical-policy fields; regenerate older documents
+from their source samples. See `FREE_SPACE_TABULATED_NUMERICS_REVIEW.md`.
+
+Burn v1/v2 records now normalize valid physical scalars and recognized enums,
+snapshot nested collections and reject malformed flags, counts, inventories
+and UTF-8 identities. Artifact readers reject unknown/duplicate fields and
+type-changing coercions; writers also verify solver reproduction. Range-safe
+closure/budget comparisons preserve the existing declared thresholds. Added
+25 record/artifact methods, two explicit AST inventory methods and 15 selected
+faults. See `BURN_RECORD_CONTRACT_REVIEW.md` for compatibility and scope.
+
+Direct constant-flow inventory helpers now reject missing/ambiguous tank
+coverage, malformed time inputs and actual reserve crossings. Exact grouped
+stream ledgers preserve small paths before decisions; the duration helper
+returns the greatest safe binary64 horizon with an unrounded binding decision.
+Added 16 adversarial methods and eight selected faults. See
+`DIRECT_INVENTORY_HELPERS_REVIEW.md` for sentinel and output-range semantics.
+
+## Unreleased â€” motor/feed assurance review
+
+- Applied a byte-bound native Lunaris impulse correction: norm and mass-law
+  factors stay in Decimal96 through final export, recoverable exponential range
+  loss is preserved, and true norm/mass/velocity output range errors fail clearly.
+  Added 15 native adversarial methods, six native fault injections and a stale
+  dependency-evidence attack. Candidate/live application status and scope are in
+  `NATIVE_LUNARIS_IMPULSE_REVIEW.md` and its patch manifest.
+
+- Repaired raw-norm overflow/underflow in Sidera constant/ensemble directions and
+  Lunaris impulse projections. Shared checked final-vector arithmetic retains
+  signed components and recoverable small delta-v components. Ensemble reopening
+  validates and preserves serialized coordinates instead of normalizing them
+  again; its hashed numerical-policy field changes the handoff identity. Added
+  14 adversarial methods and five selected faults, including pinned native
+  constant-burn/impulse boundary checks. See `ADAPTER_DIRECTION_NUMERICS_REVIEW.md`.
+
+- Repaired L1 positive-target zero-output success, dimensional slope clipping,
+  near-boundary cutoff overrides and erased consumption. Exact command integrals
+  and exposure decisions precede Decimal1100 nonlinear roots and checked exports.
+  Impulse closure includes rounded output-time error; exact constant export now
+  requires genuinely equal command values. Added 25 adversarial methods and nine
+  selected faults. See `PROFILE_BURN_NUMERICS_REVIEW.md` for scope and limits.
+
+- Repaired L0 small-delta-v inversion/forward errors, target-tolerance cutoff
+  overrides and erased tank consumption. Rational ledgers and Decimal1100
+  transcendentals precede checked exports; zero inventory is a finite cutoff.
+  Added 16 adversarial methods and six selected faults with independent series
+  references. Method/result identities change; the L1 profile path remains a
+  separate review. See `CONSTANT_BURN_NUMERICS_REVIEW.md`.
+
+- Repaired bridge/electric inventory residual cancellation and rounded-residual
+  false closure decisions across all three models. Shared exact ledgers retain
+  a JSON-portable residual ratio; public records validate finite fields and
+  relative consistency. Added 13 adversarial methods and five selected faults;
+  two existing inventory faults now target the shared helper. Model policies
+  and identities change. See `INVENTORY_CLOSURE_NUMERICS_REVIEW.md`.
+
+- Repaired width/fraction range loss, erased corner contributions and
+  non-finite/cancelled gradients in both multilinear surface classes. Shared
+  rational weights and per-channel ledgers precede checked output conversion.
+  Added 14 adversarial methods and six selected faults, with downstream bridge
+  conservation checks; changed surface identities bind numerical policies.
+  See `MULTILINEAR_NUMERICS_REVIEW.md`.
+
+- Repaired small-secant flattening, intermediate range loss and cancellation
+  in the shared PCHIP kernel, throttle curves and cubic tensor performance
+  surfaces. Rational nodal/mixed derivatives and polynomial sums precede
+  checked field exports. Added 19 adversarial methods and seven selected faults;
+  numerical policy fields bind changed identities. See `PCHIP_NUMERICS_REVIEW.md`.
+  Exact power coefficients are compiled once for repeated curve queries;
+  pulse searches skip unused derivatives and retain final PulseBit slopes.
+
+- Repaired throttle flow/tank ledgers, command/driver derivatives, subnormal
+  Isp errors and inventory residual cancellation. Accepted stream fractions
+  normalize by their exact binary sum; final outputs fail explicitly when
+  genuinely unrepresentable. Added 14 methods and seven curated faults.
+  Bridge/throttle/electric readers now verify known numerical policy fields;
+  see `THROTTLE_FLOW_NUMERICS_REVIEW.md` for verification limits.
+
+- Repaired scale-dependent direction normalization in the bridge, throttleable
+  and electric models. Scaled norm estimation and checked rational projections
+  preserve representable force and signed direction tangents; near-axis
+  diagonal cancellation no longer erases sensitivity. Added nine adversarial
+  methods and five curated faults; the integrated transverse-speed oracle now
+  uses a cross product with its original tolerance. See `DIRECTION_NUMERICS_REVIEW.md`.
+
+- Repaired upstream bridge flow/tangent erasure, order-dependent grouped
+  cancellation and recoverable intermediate overflow. Mass profiles, stream
+  scaling and tank/total ledgers now remain exact through grouping and export
+  once with explicit range failures. Added seven public-bridge oracle methods
+  and five curated faults; force/direction arithmetic has a separate scoped review.
+
+- Repaired lost/undefined mixture-ratio pressure derivatives at small common
+  flow scales and cancellation in correlated tangents. Exact arithmetic on
+  supplied binary values precedes one finite output conversion. Composed
+  sensitivity records now reject non-finite/malformed values and copy mutable
+  vectors. Added analytical scaled-map and independent Decimal path oracles
+  with four curated fault injections; physical uncertainty remains unassessed.
+- Overall software-check status now requires the complete declared mutation
+  registries as well as pytest success. Survivors, invalid experiments and
+  inconsistent/omitted outcomes cannot produce a successful overall report;
+  the pytest result remains separately visible. Archived the prior green run
+  with repository input bytes and JUnit/log evidence before this review.
+- Test-collection timeouts/errors now retain partial output and replace old
+  successful manifests with current failing state. Collection/module deadlines
+  remain 30/120 seconds with four workers; startup latency variability and
+  startup latency variability remains open. The later bridge-flow review
+  addresses the previously observed component-gradient loss.
+
+- Repaired signed tank/line conservation through zero-flow event-location
+  trials in single and bipropellant couplings. Negative trial results are
+  explicitly marked; physical propagation must stop at zero. The vehicle
+  closure now uses the actual returned tank derivatives. Added independent
+  mass/energy ledgers, an integrated cutoff-root check and three targeted faults.
+- Hardened bipropellant configuration, state and event boundaries. Boolean
+  physical limits and malformed records now fail with typed domain errors;
+  known string event kinds retain the correct minimum/maximum semantics and
+  unknown kinds are rejected. Added four hostile methods and two targeted faults.
+- Reduced redundant pulse width-search interpolation with mass-only sampling,
+  a bounded per-model mass inverse cache and per-call pulse reuse. The random
+  enumeration workload, tolerances and regression deadline are retained.
+
+- Reproduced a native diagnostic crash in a propulsion-free control process;
+  replaced the C watchdog snapshot with a GIL-held Python callback while
+  retaining fatal handlers, test cases and the 120-second process deadline.
+- Incomplete/crashed evidence can no longer leave an earlier green summary;
+  current incomplete/failed reports exit nonzero and module exit codes are recorded.
+
+- Repaired inward-rounded residual bounds in measurement/model comparisons.
+  Exact intervals now publish outward endpoints and a conservative numerical
+  review guard. Independent corner checks exercise 256 fixed-seed cases plus
+  extreme output limits; numerical agreement still makes no physical/TRL claim.
+
+- Repaired spurious ordering of equal affine decision scores and lost summed
+  contributions using exact weighted arithmetic. Positive scenario scaling
+  can no longer silently erase a mission allocation. Ranking robustness under
+  physical input/model uncertainty remains explicitly unassessed.
+
+- Repaired the HTTP capability timeout at its cause: optional Sidera imports
+  now run once in a background inspection. API metadata v1.1 exposes checking
+  with unknown flags omitted, then a cached terminal record. Added actual HTTP
+  gated-import/concurrency/failure tests and restored the fully parallel run.
+
+- Repaired cold-gas and regulated-pressurant intermediate overflow/underflow
+  and silent positive ullage loss. Storage and power ledgers share exact
+  rational arithmetic/final conversion; independent endpoint-inventory roots
+  and two additional curated semantic mutations exercise the repaired limits.
+
+- Repaired doubled/lost standby energy near continuous duty and lost summed
+  subnormal phase energy using exact rational evaluation before final output
+  rounding. Both reproduced defects are included in curated mutations.
+
+- Repaired residual-boundary propellant errors, overflowing intermediate mass
+  ratios and silent positive-burn underflow. Mass sizing now records isolated
+  Decimal precision agreement, conditioning and separate binary/working
+  closure residuals. Added independent forward-root boundary checks.
+- Curated mutation reports now reject stale source/test/tool snapshots.
+
+- Hardened regulator flow near equilibrium and gamma=1, gas heat capacities,
+  thermal energy evaluation, dynamic-line frequencies, finite ODE/Jacobian
+  outputs and rounded-zero ullage handling. Added independent Decimal and
+  conservation oracles with eight additional curated physics mutations.
+- Verification summaries now derive results from collected test identities,
+  JUnit and current source/data/dependency digests; stale or omitted evidence
+  cannot silently preserve an earlier passing summary.
+
+- Reproduced and repaired nine numerical/input integrity defect classes in
+  the SASS addition. Added a 75-digit independent mass/orbit oracle and eight
+  curated semantic mutation experiments with recorded assertion failures.
+- Added reviewed holdout/uncertainty comparisons, source byte digests,
+  staged artifact writes and a per-symbol audit inventory. Experimental
+  measurements remain distinct from simulations and corrected estimates.
+- Reassessed five catalogue entries; none provides validated joint operating
+  data for qualification. JSON/HTML now carry explicit hardware/uncertainty
+  limitations. Hardware design is unselected and TRL5 evidence gates are open.
+- See `PROPULSION_ASSURANCE.md` and generated `output/assurance/` records for
+  scope, unresolved checks and independent-data research.
+
+## Unreleased â€” cited UZM 508E propulsion project preparation
+
+- Researched the official UZM 508E course record and separated verified
+  course identity from inferred project scope. The public course description
+  does not provide an assignment brief.
+- Added evidence-bearing quantities, field-level thruster specifications,
+  ordered mission/residual propellant closure, impulsive/low-thrust analytic
+  budgets, storage/pressurant inventories and phase-based bus energy budgets.
+- Added explicit requirement screens, fixed-anchor weighted trades and
+  deterministic mission-input sensitivity studies; missing data stays unknown.
+- Added a strict citation-bearing JSON request, printable offline HTML/JSON
+  report, synthetic example and source/function audit tests. Catalogue ranges
+  and maxima cannot create nominal points, and extrapolation is disabled.
+
+## Unreleased â€” standalone burn vertical slice
 
 - Consolidated the advanced propulsion work on one Sidera-first branch while
   retaining Lunaris only as a tested legacy compatibility adapter.
@@ -127,7 +334,7 @@
   transfer, propellant inventory and quadratic feed-line loss ODEs.
 - Added positive-safe feed cutoff roots, conservation/energy evidence, analytic
   inlet-pressure derivatives and a fail-closed iterative engine/feed closure.
-- Added implicit coupled Jacobians through the pressure↔mass-flow algebraic
+- Added implicit coupled Jacobians through the pressureâ†”mass-flow algebraic
   loop, including an exposed singularity denominator for estimator safety.
 - Added `rocket_propulsion_dynamic_feed_line_v1`, a propagated two-state
   inertance/compliance liquid-line model with quadratic damping, compliant
@@ -226,7 +433,7 @@
   directions/conditions/drivers, concurrent-burn summation and a verified
   timeline document.
 - Added `ThrusterLayout.allocate`: bounded-variable least squares
-  (0 ≤ T ≤ T_max) by an active-set Lawson–Hanson / Stark–Parker method with
+  (0 â‰¤ T â‰¤ T_max) by an active-set Lawsonâ€“Hanson / Starkâ€“Parker method with
   Householder QR, reporting residuals and binding limits.
 - New tests: fuzzing, integer round trips, bool rejection, property tests on
   random profiles/tables/geometries, persistence tamper tests, a two-burn
@@ -326,7 +533,7 @@
   (removes a ~3e-5 pressure jump at layer bases) and documents geopotential
   altitude.
 
-## 0.9.0 — engineering preview
+## 0.9.0 â€” engineering preview
 
 - Added variable-property thermochemistry, external CEA adaptation, and an
   experimental local equilibrium provider.

@@ -1,0 +1,4 @@
+# Preserve reviewed bytes used by the native patch manifest's SHA-256 checks.
+scripts/native_lunaris_candidate/plans.py -text whitespace=cr-at-eol
+# A unified diff uses a single space to represent an empty context line.
+docs/assurance/lunaris_impulse.patch -text whitespace=-blank-at-eol

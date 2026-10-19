@@ -222,6 +222,20 @@ class DynamicFeedPropulsionCouplingTests(unittest.TestCase):
             self.line_state.manifold_pressure_pa,
         )
 
+    def test_single_leg_signed_cutoff_trials_conserve_tank_and_line_inventory(self) -> None:
+        for time in (0.5, 3.0):
+            for flow in (-0.1, -1e-100, 0.0, 0.1):
+                with self.subTest(time=time, flow=flow):
+                    value = self.evaluate(
+                        replace(self.line_state, mass_flow_kg_s=flow), relative_time_s=time)
+                    self.assertEqual(value.regulated_feed.derivative.propellant_mass_kg_s, -flow)
+                    storage = (self.line.configuration.compliance_kg_pa
+                               * value.feed_line.derivative.manifold_pressure_pa_s)
+                    ledger = (value.regulated_feed.derivative.propellant_mass_kg_s
+                              + storage - value.propulsion.mass_derivative_kg_s)
+                    self.assertAlmostEqual(ledger, 0.0, delta=1e-12)
+                    self.assertEqual(value.reverse_flow_event_extension, flow < 0.0)
+
     def test_composed_line_and_acceleration_jacobians_match_finite_differences(self) -> None:
         nominal = self.evaluate()
         jacobian = nominal.partials.line_state_jacobian

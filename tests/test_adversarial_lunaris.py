@@ -244,11 +244,11 @@ class DryMassBatteryTests(unittest.TestCase):
                 parameter_overrides={"b": {"mass_flow_scale": scale}},
             )
             # Contract: the cut is the first time the mass is within 1e-12 kg of
-            # the protected dry mass (the bridge clamp's margin); a cut within
-            # the profile's boundary tolerance of the stop is the stop.
-            expected = first_crossing_oracle(rows, scale, budget - 1e-12)
+            # the protected dry mass (the bridge clamp's margin). A real cut
+            # before the stop is retained; no time tolerance deletes it.
+            expected = first_crossing_oracle(rows, scale, (m0-dry) - 1e-12)
             duration = sum(d for d, *_ in rows)
-            if expected is None or expected >= duration * (1 - 1e-12):
+            if expected is None or expected >= duration:
                 # Reaching dry mass only at (or after) the stop is not a cut.
                 self.assertIsNone(window.depletion_time_s, (case, mode))
                 continue

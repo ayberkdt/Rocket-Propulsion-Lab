@@ -12,10 +12,21 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
-from math import inf, isfinite
+from fractions import Fraction
+from math import fsum, inf, isfinite
 
 from rocket_propulsion.core.errors import DomainError
-from rocket_propulsion.core.validation import real_mapping
+from rocket_propulsion.core.validation import (
+    coerce_fields,
+    name_value_pairs,
+    real,
+    real_mapping,
+    real_matrix,
+    real_tuple,
+    records,
+    strings,
+    text,
+)
 
 from .feed_line import (
     DynamicFeedLine,
@@ -28,6 +39,7 @@ from .feed_system import (
     RegulatedFeedSystem,
 )
 from .propagator import PropagatorPropulsionBridge, PropulsionDynamicsEvaluation
+from .numeric_outputs import _finite_rational
 from .serialization import canonical_sha256
 
 BIPROPELLANT_DYNAMIC_FEED_SCHEMA = "rocket_propulsion_bipropellant_dynamic_feed_v1"
@@ -38,6 +50,56 @@ BIPROPELLANT_DYNAMIC_FEED_REFERENCE_IDS = (
     "NASA-19740028545",
     "OREKIT-13.1.5-PROPULSION-MODEL",
 )
+
+
+def _finite_quotient(numerator: float, denominator: float, label: str) -> float:
+    """Evaluate a signed ratio with a positive denominator in its output domain."""
+    top = real(numerator, label + " numerator")
+    bottom = real(denominator, label + " denominator")
+    if bottom <= 0.0:
+        raise DomainError(f"{label} denominator must be positive.", field=label)
+    return _finite_rational(Fraction(top) / Fraction(bottom), label)
+
+
+def _mixture_ratio_partial(oxidizer: float, fuel: float,
+                           d_oxidizer: float, d_fuel: float) -> float:
+    """Differentiate O/F without rounding intermediate products or differences.
+
+    These are exact operations on the supplied binary values, followed by one
+    output conversion. This controls numerical loss, not physical uncertainty.
+    """
+    ox = Fraction(real(oxidizer, "Oxidizer engine flow"))
+    fu = Fraction(real(fuel, "Fuel engine flow"))
+    dox = Fraction(real(d_oxidizer, "Oxidizer flow partial"))
+    dfu = Fraction(real(d_fuel, "Fuel flow partial"))
+    if fu <= 0:
+        raise DomainError("Mixture-ratio partial requires positive fuel flow.")
+    exact = (dox * fu - ox * dfu) / (fu * fu)
+    return _finite_rational(exact, "Engine mixture-ratio partial")
+
+
+def _finite_columns(value, size: int, label: str):
+    """Normalize named finite sensitivity vectors without duplicate coordinates."""
+    columns = []
+    for item in records(value, (list, tuple), label):
+        if len(item) != 2:
+            raise DomainError(f"{label} requires named vectors.")
+        name = text(item[0], label + " name")
+        vector = real_tuple(item[1], label)
+        if len(vector) != size:
+            raise DomainError(f"{label} vectors require {size} components.")
+        columns.append((name, vector))
+    if len({name for name, _ in columns}) != len(columns):
+        raise DomainError(f"{label} names must be unique.")
+    return tuple(columns)
+
+
+def _finite_pairs(value, label: str):
+    """Normalize finite scalar sensitivities with unique coordinate names."""
+    pairs = name_value_pairs(value, label)
+    if len({name for name, _ in pairs}) != len(pairs):
+        raise DomainError(f"{label} names must be unique.")
+    return pairs
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +130,7 @@ class BipropellantDynamicFeedConfiguration:
     schema: str = BIPROPELLANT_DYNAMIC_FEED_SCHEMA
 
     def __post_init__(self) -> None:
+        coerce_fields(self, "Bipropellant configuration")
         if self.schema != BIPROPELLANT_DYNAMIC_FEED_SCHEMA:
             raise DomainError("Unsupported bipropellant dynamic-feed schema.")
         names = (
@@ -113,6 +176,15 @@ class BipropellantDynamicFeedState:
     oxidizer_line: DynamicFeedLineState
     fuel_feed: RegulatedFeedState
     fuel_line: DynamicFeedLineState
+
+    def __post_init__(self) -> None:
+        """Require complete tank/line records before any equation is evaluated."""
+        for name, kind in (("oxidizer_feed", RegulatedFeedState),
+                           ("fuel_feed", RegulatedFeedState),
+                           ("oxidizer_line", DynamicFeedLineState),
+                           ("fuel_line", DynamicFeedLineState)):
+            if not isinstance(getattr(self, name), kind):
+                raise DomainError(f"Bipropellant {name} requires a {kind.__name__}.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,6 +236,19 @@ class BipropellantMixtureRatioEventSurface:
     boundary_value: float
     stops_burn: bool = True
 
+    def __post_init__(self) -> None:
+        """Normalize known event kinds and reject malformed cutoff metadata."""
+        coerce_fields(self, "Bipropellant mixture-ratio event")
+        try:
+            kind = BipropellantMixtureRatioEventKind(self.kind)
+        except (TypeError, ValueError) as error:
+            raise DomainError("Unknown bipropellant mixture-ratio event kind.") from error
+        object.__setattr__(self, "kind", kind)
+        if self.boundary_value <= 0.0:
+            raise DomainError("Mixture-ratio event boundary must be positive.")
+        if not isinstance(self.stops_burn, bool):
+            raise DomainError("Mixture-ratio event stops_burn must be a boolean.")
+
     def value(self, engine_mixture_ratio: float | None) -> float:
         """Evaluate the root; inactive engines remain safely positive.
 
@@ -175,7 +260,8 @@ class BipropellantMixtureRatioEventSurface:
 
         if engine_mixture_ratio is None:
             return 1.0
-        if not isfinite(engine_mixture_ratio) or engine_mixture_ratio <= 0.0:
+        engine_mixture_ratio = real(engine_mixture_ratio, "Active engine mixture ratio")
+        if engine_mixture_ratio <= 0.0:
             raise DomainError("Active engine mixture ratio must be finite and positive.")
         if self.kind is BipropellantMixtureRatioEventKind.MINIMUM:
             return engine_mixture_ratio - self.boundary_value
@@ -209,6 +295,33 @@ class BipropellantCoupledPartials:
     engine_mixture_ratio_wrt_conditions: tuple[tuple[str, float], ...]
     acceleration_wrt_line_state: tuple[tuple[str, tuple[float, float, float]], ...]
 
+    def __post_init__(self) -> None:
+        """Keep composed sensitivity outputs finite, named and dimensionally shaped."""
+        order = strings(self.line_state_order, "Coupled line state order")
+        if len(order) != 4 or len(set(order)) != 4:
+            raise DomainError("Coupled line state order requires four distinct names.")
+        object.__setattr__(self, "line_state_order", order)
+        matrix = real_matrix(self.line_state_jacobian, "Coupled line Jacobian")
+        if len(matrix) != 4 or any(len(row) != 4 for row in matrix):
+            raise DomainError("Coupled line Jacobian must have shape 4 by 4.")
+        object.__setattr__(self, "line_state_jacobian", matrix)
+        object.__setattr__(self, "line_derivative_wrt_feed_state", _finite_columns(
+            self.line_derivative_wrt_feed_state, 4, "Coupled feed-state partials"))
+        object.__setattr__(self, "acceleration_wrt_line_state", _finite_columns(
+            self.acceleration_wrt_line_state, 3, "Coupled acceleration partials"))
+        object.__setattr__(self, "engine_mixture_ratio_wrt_conditions", _finite_pairs(
+            self.engine_mixture_ratio_wrt_conditions, "Mixture-ratio condition partials"))
+        components = []
+        for item in records(self.engine_component_flow_wrt_conditions, (list, tuple),
+                            "Engine component partials"):
+            if len(item) != 2:
+                raise DomainError("Engine component partials require named condition tables.")
+            components.append((text(item[0], "Engine partial component"),
+                               _finite_pairs(item[1], "Engine component condition partials")))
+        if len({name for name, _ in components}) != len(components):
+            raise DomainError("Engine partial component names must be unique.")
+        object.__setattr__(self, "engine_component_flow_wrt_conditions", tuple(components))
+
 
 @dataclass(frozen=True, slots=True)
 class BipropellantDynamicFeedEvaluation:
@@ -236,6 +349,16 @@ class BipropellantDynamicFeedEvaluation:
     vehicle_mass_closure_error_kg_s: float
     depletion: ComponentDepletionPrediction
     partials: BipropellantCoupledPartials
+
+    def __post_init__(self) -> None:
+        """Reject non-finite scalar flow, ratio and conservation diagnostics."""
+        coerce_fields(self, "Bipropellant evaluation")
+
+    @property
+    def reverse_flow_event_extension(self) -> bool:
+        """Whether either feed leg is beyond its physical zero-flow cutoff."""
+        return (self.oxidizer_feed.reverse_flow_event_extension
+                or self.fuel_feed.reverse_flow_event_extension)
 
 
 @dataclass(frozen=True, slots=True)
@@ -267,6 +390,14 @@ class BipropellantDynamicFeedCoupling:
     fuel_line: DynamicFeedLine
 
     def __post_init__(self) -> None:
+        for name, kind in (("configuration", BipropellantDynamicFeedConfiguration),
+                           ("bridge", PropagatorPropulsionBridge),
+                           ("oxidizer_feed", RegulatedFeedSystem),
+                           ("fuel_feed", RegulatedFeedSystem),
+                           ("oxidizer_line", DynamicFeedLine),
+                           ("fuel_line", DynamicFeedLine)):
+            if not isinstance(getattr(self, name), kind):
+                raise DomainError(f"Bipropellant {name} requires a {kind.__name__}.")
         config = self.configuration
         if self.bridge.stream_performance_surface is None:
             raise DomainError(
@@ -339,6 +470,7 @@ class BipropellantDynamicFeedCoupling:
                 "fuel_mass_flow_kg_s",
                 "fuel_manifold_pressure_pa",
             ],
+            "mixture_ratio_numerics": "exact_binary_rational_then_finite_output_v1",
             "reference_ids": list(BIPROPELLANT_DYNAMIC_FEED_REFERENCE_IDS),
         }
         if include_hash:
@@ -417,6 +549,10 @@ class BipropellantDynamicFeedCoupling:
     ) -> BipropellantDynamicFeedEvaluation:
         """Evaluate both feeds, stream-resolved engine, and composed Jacobian.
 
+        Negative line states are conservative mathematical continuations for
+        locating the zero-flow cutoff, marked ``reverse_flow_event_extension``.
+        They are not predictions of sustained reverse hardware operation.
+
         References
         ----------
         NASA computer-controlled mixture-ratio study:
@@ -477,14 +613,17 @@ class BipropellantDynamicFeedCoupling:
         if propulsion.active and fuel_engine_flow <= 0.0:
             raise DomainError("An active bipropellant engine requires positive fuel flow.")
         engine_mixture_ratio = (
-            oxidizer_engine_flow / fuel_engine_flow if propulsion.active else None
+            _finite_quotient(oxidizer_engine_flow, fuel_engine_flow, "Engine mixture ratio")
+            if propulsion.active else None
         )
 
         oxidizer_feed = self.oxidizer_feed.evaluate(
-            state.oxidizer_feed, max(0.0, state.oxidizer_line.mass_flow_kg_s)
+            state.oxidizer_feed, state.oxidizer_line.mass_flow_kg_s,
+            for_event_location=state.oxidizer_line.mass_flow_kg_s < 0.0,
         )
         fuel_feed = self.fuel_feed.evaluate(
-            state.fuel_feed, max(0.0, state.fuel_line.mass_flow_kg_s)
+            state.fuel_feed, state.fuel_line.mass_flow_kg_s,
+            for_event_location=state.fuel_line.mass_flow_kg_s < 0.0,
         )
         oxidizer_line = self.oxidizer_line.evaluate(
             state.oxidizer_line,
@@ -497,19 +636,20 @@ class BipropellantDynamicFeedCoupling:
             engine_mass_flow_kg_s=fuel_engine_flow,
         )
         line_mixture_ratio = (
-            state.oxidizer_line.mass_flow_kg_s / state.fuel_line.mass_flow_kg_s
+            _finite_quotient(state.oxidizer_line.mass_flow_kg_s,
+                             state.fuel_line.mass_flow_kg_s, "Line mixture ratio")
             if state.fuel_line.mass_flow_kg_s > 0.0
             else None
         )
         stored_rate = (
             oxidizer_line.stored_liquid_mass_rate_kg_s + fuel_line.stored_liquid_mass_rate_kg_s
         )
-        vehicle_closure = abs(
-            -state.oxidizer_line.mass_flow_kg_s
-            - state.fuel_line.mass_flow_kg_s
-            + stored_rate
-            + total_engine_flow
-        )
+        vehicle_closure = abs(fsum((
+            oxidizer_feed.derivative.propellant_mass_kg_s,
+            fuel_feed.derivative.propellant_mass_kg_s,
+            stored_rate,
+            total_engine_flow,
+        )))
         if vehicle_closure > config.mass_closure_absolute_tolerance_kg_s:
             raise DomainError("Bipropellant tank, line-storage, and vehicle mass do not close.")
 
@@ -593,11 +733,8 @@ class BipropellantDynamicFeedCoupling:
             mixture_ratio_partials = tuple(
                 (
                     name,
-                    (
-                        oxidizer_demand[name] * fuel_engine_flow
-                        - oxidizer_engine_flow * fuel_demand[name]
-                    )
-                    / fuel_engine_flow**2,
+                    _mixture_ratio_partial(oxidizer_engine_flow, fuel_engine_flow,
+                                           oxidizer_demand[name], fuel_demand[name]),
                 )
                 for name in condition_names
             )

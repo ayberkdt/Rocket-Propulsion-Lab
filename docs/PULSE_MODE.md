@@ -14,7 +14,9 @@ that.
 
 ## Model
 
-Inputs are **measured** tables. The library provides no generic pulse
+Inputs are user-supplied tables intended to characterize hardware. The class
+does not authenticate their measurement provenance or empirical validity.
+The test tables are synthetic. The library provides no generic physical pulse
 coefficients.
 
 | Field | Meaning |
@@ -40,7 +42,16 @@ rocket equation holds exactly:
   \Delta v_n(t) = \frac{I(t)}{m(t)}\,\ln\frac{m_0}{m_0 - n\,m(t)} .
 \]
 
-\(\Delta v_n\) increases strictly with `t` and with `n`.
+In ideal arithmetic, \(\Delta v_n\) increases strictly with `t` and with `n`.
+
+Budget-limited width inversion evaluates only the propellant curve. A model
+owns at most 512 cached scalar inverse solutions, keyed by the complete
+per-pulse mass budget; a short lock protects cache access without retaining
+models globally. Full pulse values are reused only within one planning call.
+Caches do not enter the model manifest, hash, equality or JSON exchange.
+Tests interleave budgets, initial masses, policies and distinct models against
+enumerated feasible intervals, and preserve normal copying and persistence.
+These optimizations do not change search bounds or request tolerances.
 
 - `plan_impulse(I)` and `plan_delta_v(Δv, m0, propellant_budget_kg=...)`
   return the **fewest** equal

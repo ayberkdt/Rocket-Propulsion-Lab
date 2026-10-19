@@ -59,15 +59,17 @@ from rocket_propulsion.core.validation import (
 )
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
+from .direction import _direction_geometry
+from .mass_closure import _MASS_CLOSURE_POLICY, _inventory_ledger
+from .numeric_outputs import _finite_rational, _fraction
 from .propagator import (
     BurnEventKind,
     BurnEventSurface,
     EstimableParameter,
     PropellantMassClosure,
-    _normalized_with_norm,
     _validated_states,
 )
-from .serialization import canonical_sha256
+from .serialization import _require_numerical_policies, canonical_sha256
 
 ELECTRIC_THROTTLE_TABLE_SCHEMA = "rocket_propulsion_electric_throttle_table_v1"
 POWER_LIMITED_PROPULSION_SCHEMA = "rocket_propulsion_power_limited_propulsion_v1"
@@ -873,6 +875,8 @@ class PowerLimitedPropulsionModel:
             "schema": self.schema,
             "model_id": self.model_id,
             "throttle_law": self.throttle_law.manifest(),
+            "mass_closure_numerics": _MASS_CLOSURE_POLICY,
+            "direction_numerics": "scaled_hypot_rational_projection_and_signed_tangents_v1",
             "propellant_state_name": self.propellant_state_name,
             "propellant_reserve_kg": self.propellant_reserve_kg,
             "protected_dry_mass_kg": self.protected_dry_mass_kg,
@@ -983,6 +987,7 @@ class PowerLimitedPropulsionModel:
             raise InputError("Malformed power-limited model document.") from error
         if payload.get("model_hash") != model.model_hash:
             raise InputError("Power-limited model hash does not match its contents.")
+        _require_numerical_policies(payload, model.manifest(include_hash=False))
         return model
 
     @classmethod
@@ -1016,14 +1021,10 @@ class PowerLimitedPropulsionModel:
         states = _validated_states(additional_states)
         if self.propellant_state_name not in states:
             raise DomainError(f"Missing propellant state {self.propellant_state_name!r}.")
-        tracked = states[self.propellant_state_name]
-        residual = vehicle_mass_kg - non_propellant_mass_kg - tracked
         return PropellantMassClosure(
-            vehicle_mass_kg=vehicle_mass_kg,
-            non_propellant_mass_kg=non_propellant_mass_kg,
-            tracked_propellant_kg=tracked,
-            residual_kg=residual,
-            relative_residual=residual / vehicle_mass_kg,
+            vehicle_mass_kg, non_propellant_mass_kg,
+            *_inventory_ledger(vehicle_mass_kg, non_propellant_mass_kg,
+                               (states[self.propellant_state_name],)),
         )
 
     def evaluate(
@@ -1060,7 +1061,7 @@ class PowerLimitedPropulsionModel:
         if not isinstance(apply_inventory_limits, bool):
             raise DomainError("apply_inventory_limits must be a boolean.")
         effective_power = self.effective_power_w(available_power_w)
-        unit, norm = _normalized_with_norm(direction)
+        geometry = _direction_geometry(direction)
         states = _validated_states(additional_states)
         if self.propellant_state_name not in states:
             raise DomainError(f"Missing propellant state {self.propellant_state_name!r}.")
@@ -1107,14 +1108,15 @@ class PowerLimitedPropulsionModel:
 
         point = self.throttle_law.operating_point(level_index, effective_power)
         duty = self.duty_cycle
-        base_thrust = point.thrust_n * duty
+        base_thrust = _fraction(point.thrust_n) * _fraction(duty)
         base_flow = point.mass_flow_kg_s * duty
-        thrust = base_thrust * thrust_scale
+        exact_thrust = base_thrust * _fraction(thrust_scale)
+        thrust = _finite_rational(exact_thrust, "Axial thrust")
         flow = base_flow * flow_scale
-        force = tuple(thrust * value for value in unit)
-        acceleration = tuple(value / vehicle_mass_kg for value in force)
-        direction_gain = thrust / (vehicle_mass_kg * norm)
-        thrust_power_slope = point.thrust_wrt_available_power * duty * thrust_scale
+        force = geometry.project(exact_thrust, label="Force")
+        acceleration = geometry.project(exact_thrust, vehicle_mass_kg, label="Acceleration")
+        thrust_power_slope = (_fraction(point.thrust_wrt_available_power)
+                              * _fraction(duty) * _fraction(thrust_scale))
         flow_power_slope = point.mass_flow_wrt_available_power * duty * flow_scale
         return ElectricPropulsionEvaluation(
             active=True,
@@ -1134,25 +1136,17 @@ class PowerLimitedPropulsionModel:
             parameters=tuple(parameters.items()),
             inhibited_by=(),
             partials=ElectricPropulsionPartials(
-                acceleration_wrt_mass=tuple(
-                    -value / vehicle_mass_kg for value in acceleration
-                ),  # type: ignore[arg-type]
-                acceleration_wrt_direction=tuple(
-                    tuple(
-                        direction_gain
-                        * ((1.0 if row == column else 0.0) - unit[row] * unit[column])
-                        for column in range(3)
-                    )
-                    for row in range(3)
-                ),  # type: ignore[arg-type]
-                acceleration_wrt_available_power=tuple(
-                    thrust_power_slope * value / vehicle_mass_kg for value in unit
-                ),  # type: ignore[arg-type]
+                acceleration_wrt_mass=geometry.project(
+                    -exact_thrust, _fraction(vehicle_mass_kg)**2, label="Mass acceleration partial"),
+                acceleration_wrt_direction=geometry.jacobian(exact_thrust, vehicle_mass_kg),
+                acceleration_wrt_available_power=geometry.project(
+                    thrust_power_slope, vehicle_mass_kg, label="Power acceleration partial"),
                 mass_rate_wrt_available_power=-flow_power_slope,
                 acceleration_wrt_parameters=(
                     (
                         "thrust_scale",
-                        tuple(base_thrust * value / vehicle_mass_kg for value in unit),
+                        geometry.project(base_thrust, vehicle_mass_kg,
+                                         label="Thrust scale acceleration partial"),
                     ),  # type: ignore[arg-type]
                     ("mass_flow_scale", _ZERO3),
                 ),

@@ -137,15 +137,13 @@ and reference identifiers from `references.py`. Re-opening a modified artifact
 fails. Store the `model_hash` with every trajectory result so a propulsion
 change can never pass silently into an orbit product.
 
-## 7. Robustness guarantees
+## 7. Robustness checks and their limits
 
-- **Fail-closed inputs:** every public boundary of these modules, including
-  the regulated feed system, dynamic feed line, Sidera and Lunaris adapters,
-  validates its
-  inputs through `core/validation.py`. `None`, text, `bool`, containers, NaN
-  and infinity raise `DomainError` or `InputError` naming the field, never a
-  bare `TypeError`. A seeded fuzz test (`tests/test_burn_input_robustness.py`)
-  enforces this.
+- **Input rejection:** shared `core/validation.py` checks and seeded hostile
+  tests cover `None`, text, `bool`, containers, NaN and infinity in selected
+  regulated-feed, line, Sidera and Lunaris boundaries. They check for typed
+  `DomainError`/`InputError` responses in those cases. This is bounded evidence,
+  not a guarantee that every possible public input avoids a bare exception.
 - **Canonical numbers:** integers are normalized to floats at construction, so
   an artifact built with `1000` hashes exactly like one reopened from JSON.
   Before this, such artifacts could be written but not reopened.
@@ -153,11 +151,13 @@ change can never pass silently into an orbit product.
   `PowerLimitedPropulsionModel` and `PropulsionTimeline` serialize to complete
   JSON documents. Reopening re-verifies every nested hash. Ship the document
   with a trajectory product so the exact propulsion model can be reproduced.
-- **Code review:** a systematic review of the whole interface found ten
-  issues. Each is fixed and has a regression test (`ReviewRegressionTests`),
+- **Code review:** an earlier interface review recorded ten
+  issues with regression tests (`ReviewRegressionTests`),
   for example readers that coerced `"1.0"` to a number, event-id namespace
   collisions in timelines, and a quadrature error estimate that could be a
-  fake zero.
+  fake zero. The current per-symbol scope and unreviewed portions are recorded
+  in `output/assurance/audit.json`; the earlier review does not prove complete
+  library correctness.
 - **Property tests:** random multi-segment profiles, throttle tables and
   geometries are checked for continuity, drain closure, linearity, RK4
   propellant and mass closure, monotone throttle paths and bounded-allocation

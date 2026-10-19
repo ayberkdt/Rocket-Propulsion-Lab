@@ -5,12 +5,11 @@ from __future__ import annotations
 import inspect
 from dataclasses import asdict
 from importlib import import_module
-from math import sqrt
 from typing import Any, Literal
 
 from rocket_propulsion import __version__
 from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError
-from rocket_propulsion.core.validation import real, text, vector3
+from rocket_propulsion.core.validation import real, text
 from rocket_propulsion.propulsion.burns import (
     BurnResult,
     ProfiledBurnResult,
@@ -20,6 +19,7 @@ from rocket_propulsion.propulsion.burns import (
 from rocket_propulsion.propulsion.burns.serialization import burn_result_from_dict
 
 from .contracts import SideraCapabilities
+from .direction import _ADAPTER_DIRECTION_POLICY, _directed_vector
 
 _FINITE_BURN_FIELDS = {
     "t_start_s",
@@ -122,11 +122,7 @@ def inspect_sidera_capabilities() -> SideraCapabilities:
 
 
 def _normalized_direction(direction: tuple[float, float, float]) -> tuple[float, float, float]:
-    direction = vector3(direction, "Sidera direction")
-    norm = sqrt(sum(value * value for value in direction))
-    if norm <= 0.0:
-        raise DomainError("Sidera direction must be non-zero.")
-    return tuple(value / norm for value in direction)
+    return _directed_vector(direction, 1., label="Sidera unit direction")
 
 
 def _validated_export_inputs(
@@ -196,6 +192,7 @@ def export_sidera_artifact(
         "source_result_hash": result.result_hash,
         "rocket_propulsion_version": __version__,
         "mapping": "exact_constant" if mode == "exact" else "equivalent_constant",
+        "direction_numerics": _ADAPTER_DIRECTION_POLICY,
         "mass_flow_semantics": "total_tank_drain_via_system_isp",
         "force_semantics": "net_axial_thrust_after_hardware_cant",
         "source_delivered_impulse_n_s": result.summary.delivered_total_impulse_n_s,

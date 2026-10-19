@@ -8,12 +8,16 @@ and there is a smallest pulse the valve can command, the **minimum impulse
 bit** (MIB).  A trajectory tool therefore cannot ask for an arbitrary small
 Δv: it gets an integer number of pulses whose total differs from the request.
 
-:class:`PulseModeThruster` takes *measured* data, an impulse-bit table
+:class:`PulseModeThruster` takes user-supplied data, an impulse-bit table
 ``I(t_on)`` and a propellant-per-pulse table ``m(t_on)``, and never invents
 generic pulse coefficients.  Between table nodes it uses shape-preserving
 PCHIP interpolation (monotone, no overshoot).  Beyond the last node the pulse
 is fully developed, and extra on-time adds steady-state impulse and flow
 linearly.
+
+The tables are intended to represent characterized hardware. This class does
+not authenticate measurements or establish empirical validity; tests use
+explicitly synthetic tables.
 
 For ``n`` identical pulses of on-time ``t`` from mass ``m0`` in free space,
 every pulse has the same exhaust velocity ``c = I/m``, so the rocket equation
@@ -21,7 +25,7 @@ holds exactly for the whole train:
 
     Δv_n(t) = (I(t) / m(t)) * ln(m0 / (m0 - n m(t))).
 
-``Δv_n`` is strictly increasing in ``t`` (``I`` strictly increasing, ``m``
+In ideal arithmetic, ``Δv_n`` is strictly increasing in ``t`` (``I`` strictly increasing, ``m``
 non-decreasing) and in ``n``, so a requested Δv is met by the smallest ``n``
 whose longest permitted pulse reaches it, and then by bisection on ``t``.
 When even ``n`` minimum impulse bits overshoot, the request is quantized and
@@ -40,8 +44,10 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from functools import lru_cache
 from itertools import pairwise
 from math import ceil, floor, log1p
+from threading import Lock
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import (
@@ -54,7 +60,7 @@ from rocket_propulsion.core.validation import (
 )
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
-from .serialization import canonical_sha256
+from .serialization import _require_numerical_policies, canonical_sha256
 from .tabulated import InterpolationPolicy, TabulatedBurnArtifact, TabulatedBurnSegment
 from .throttleable import MonotoneCubicCurve
 
@@ -65,6 +71,7 @@ QUANTIZATION_POLICIES = ("nearest", "no_overshoot")
 # request counts as meeting it (``quantized`` is ``False``).
 _RELATIVE_TOLERANCE = 1e-9
 _MAX_PULSES = 10_000_000
+_WIDTH_CACHE_LOCK = Lock()
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,7 +136,7 @@ class PulsePlan:
 
 @dataclass(frozen=True, slots=True)
 class PulseModeThruster:
-    """Measured pulse-mode characteristics of one thruster.
+    """User-supplied pulse-mode characteristics of one thruster.
 
     ``on_times_s`` are electrical pulse widths, strictly increasing; the first
     is the minimum on-time, so ``impulse_bits_n_s[0]`` is the minimum impulse
@@ -159,6 +166,8 @@ class PulseModeThruster:
     schema: str = PULSE_MODE_SCHEMA
     _impulse: MonotoneCubicCurve = field(init=False, repr=False, compare=False)
     _propellant: MonotoneCubicCurve = field(init=False, repr=False, compare=False)
+    _width_cache: dict[float, float] = field(default_factory=dict, init=False,
+                                           repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if self.schema != PULSE_MODE_SCHEMA:
@@ -200,6 +209,39 @@ class PulseModeThruster:
             raise DomainError("Maximum on-time must not be shorter than the last table node.")
         object.__setattr__(self, "_impulse", MonotoneCubicCurve(times, impulses))
         object.__setattr__(self, "_propellant", MonotoneCubicCurve(times, masses))
+
+    def _solve_budget_width(self, share: float) -> float:
+        """Largest feasible width for a validated per-pulse mass budget.
+
+        The inverse depends only on this immutable model and ``share``.
+        Repeated requests may reuse it; the cache is excluded from manifests,
+        hashes and equality. It holds at most 512 scalar solutions per model.
+        """
+        with _WIDTH_CACHE_LOCK:
+            cached = self._width_cache.get(share)
+            if cached is not None:
+                return cached
+        shortest, longest = self.minimum_on_time_s, self.longest_on_time_s
+        low, high = shortest, longest
+        last = self.on_times_s[-1]
+        for _ in range(200):
+            middle = 0.5 * (low + high)
+            if middle in (low, high):
+                break
+            if middle <= last:
+                mass = self._propellant._value_checked(middle)
+            else:
+                mass = (self.propellant_per_pulse_kg[-1]
+                        + self.steady_mass_flow_kg_s * (middle - last))
+            if mass <= share:
+                low = middle
+            else:
+                high = middle
+        with _WIDTH_CACHE_LOCK:
+            if len(self._width_cache) >= 512:
+                self._width_cache.pop(next(iter(self._width_cache)))
+            self._width_cache[share] = low
+        return low
 
     @property
     def minimum_on_time_s(self) -> float:
@@ -272,6 +314,15 @@ class PulseModeThruster:
             self.steady_thrust_n,
             self.steady_mass_flow_kg_s,
         )
+
+    def _raw_values(self, on_time: float) -> tuple[float, float]:
+        """Internal planning values; final PulseBit still evaluates both slopes."""
+        last = self.on_times_s[-1]
+        if on_time <= last:
+            return self._impulse._value_checked(on_time), self._propellant._value_checked(on_time)
+        extra = on_time - last
+        return (self.impulse_bits_n_s[-1] + self.steady_thrust_n * extra,
+                self.propellant_per_pulse_kg[-1] + self.steady_mass_flow_kg_s * extra)
 
     def on_time_for_impulse(self, impulse_n_s: float) -> float:
         """Invert the impulse-bit curve (bisection on a monotone function).
@@ -407,32 +458,18 @@ class PulseModeThruster:
             raise DomainError("The propellant budget is below one minimum pulse.")
         at_longest = min(most, floor(budget / longest_mass * (1.0 + 1e-12)))
 
-        raw = self._raw
+        # Full pulse values are reused only within this planning call.
+        raw = lru_cache(maxsize=256)(self._raw_values)
 
         def delta_v(count: int, on_time: float) -> float:
-            impulse, propellant, _, _ = raw(on_time)
+            impulse, propellant = raw(on_time)
             used = min(count * propellant, budget)
             return impulse / propellant * -log1p(-used / mass)
-
-        widths: dict[int, float] = {}
 
         def widest(count: int) -> float:
             if count <= at_longest:
                 return longest
-            if count in widths:
-                return widths[count]
-            share = budget / count
-            low, high = shortest, longest
-            for _ in range(200):
-                middle = 0.5 * (low + high)
-                if middle in (low, high):
-                    break
-                if raw(middle)[1] <= share:
-                    low = middle
-                else:
-                    high = middle
-            widths[count] = low
-            return low
+            return self._solve_budget_width(budget / count)
 
         def low_end(count: int) -> float:
             return delta_v(count, shortest)
@@ -605,6 +642,7 @@ class PulseModeThruster:
             "schema": self.schema,
             "model_id": self.model_id,
             "on_times_s": list(self.on_times_s),
+            "curve_numerics": "rational_pchip_and_hermite_export_v1",
             "impulse_bits_n_s": list(self.impulse_bits_n_s),
             "propellant_per_pulse_kg": list(self.propellant_per_pulse_kg),
             "steady_thrust_n": self.steady_thrust_n,
@@ -659,6 +697,7 @@ class PulseModeThruster:
             raise InputError("Malformed pulse-mode document.") from error
         if payload.get("model_hash") != model.model_hash:
             raise InputError("Pulse-mode hash does not match its contents.")
+        _require_numerical_policies(payload, model.manifest(include_hash=False))
         return model
 
     @classmethod

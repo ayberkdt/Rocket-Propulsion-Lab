@@ -1,5 +1,33 @@
 # Engineering references
 
+- **PYTHON-3.12-JSON**: Python JSON encoder/decoder hooks, duplicate-member and nonstandard numeric token behavior. Accessed 2026-10-19. <https://docs.python.org/3.12/library/json.html>
+
+- **SCIPY-1.14.1-REGULAR-GRID**: SciPy, RegularGridInterpolator, rectilinear grids and linear interpolation. Accessed 2026-10-18. <https://docs.scipy.org/doc/scipy-1.14.1/reference/generated/scipy.interpolate.RegularGridInterpolator.html>
+
+- **SCIPY-1.14.1-PCHIP**: SciPy, PchipInterpolator algorithm and implementation. Accessed 2026-10-18. <https://docs.scipy.org/doc/scipy-1.14.1/reference/generated/scipy.interpolate.PchipInterpolator.html>, <https://raw.githubusercontent.com/scipy/scipy/v1.14.1/scipy/interpolate/_cubic.py>.
+
+- **PYTHON-3.12-HYPOT**: Python 3.12, `math.hypot`, Euclidean norm and floating-point accuracy. Accessed 2026-10-18. <https://docs.python.org/3.12/library/math.html#math.hypot>
+
+- Python 3.12 faulthandler and CPython 3.12.1 implementation (test diagnostics):
+  <https://docs.python.org/3.12/library/faulthandler.html>,
+  <https://raw.githubusercontent.com/python/cpython/v3.12.1/Modules/faulthandler.c>.
+- CPython native traceback race reports (diagnostic context, not propulsion validation):
+  <https://github.com/python/cpython/issues/116008>,
+  <https://github.com/python/cpython/issues/131580>.
+
+- Python 3.12 threading: Thread, Lock, Event and daemon shutdown semantics,
+  <https://docs.python.org/3.12/library/threading.html> (HTTP capability probe
+  implementation only; no propulsion or physical validation claim).
+
+- NASA Glenn, **Specific Heats**, ideal-gas cp=cv+R and gamma=cp/cv. <https://www.grc.nasa.gov/www/k-12/airplane/specheat.html>
+
+- **NASA-TRL**: NASA ESTO, hardware TRL definitions and exit criteria. <https://esto.nasa.gov/trl/>
+- **NASA-7009B**: NASA-STD-7009B, approved 2024-03-05; verification, empirical validation, uncertainty and reporting. <https://standards.nasa.gov/sites/default/files/standards/NASA/B/1/NASA-STD-7009B-Final-3-5-2024.pdf>
+- **SAMSON-2019**: Zaberchik et al., Aerospace 2019, 6(8), 91; measured cold-gas performance and component/system testing of their hardware. <https://www.mdpi.com/2226-4310/6/8/91>
+- **NASA-GFSSP6**: NASA/TP-2016-218218, fluid network examples and comparisons; not an executed comparison against this library. <https://ntrs.nasa.gov/citations/20160005401>
+- NASA/JSC, 20170000809, one-page cold-gas system abstract; not raw data. <https://ntrs.nasa.gov/citations/20170000809>
+- DLR, DX2025 benchmark, section 4.3 distinguishes simulated trajectories from experimental measurements. <https://elib.dlr.de/219953/1/DX2025benchmark.pdf>
+
 The equations in this repository are standard perfect-gas and ideal rocket
 relations. These primary NASA resources anchor terminology and screening values:
 
@@ -212,3 +240,51 @@ their hashed content.
   implementation does not transfer coefficients from a cited test article to
   unrelated engines and refuses pressure extrapolation.
 
+
+## UZM 508E / SASS study sources (reviewed 2026-10-18)
+
+Sources below support the provisional study package; ITU course identity is not an assignment brief. Product records retain source-specific variants and missing-data semantics.
+
+- **ITU-UZM508**: Istanbul Technical University, *UZM 508E - Spacecraft Architecture and Subsystems Design*. Course title and coordinator; public description contains only 'Sassd'. Accessed 2026-10-18. <https://ninova.itu.edu.tr/en/courses/faculty-of-aeronautics-and-astronautics/37923/uzm-508e/>
+
+- **ITU-UZM-GROUP**: ITU, *Graduate course group: Zorunlu Secmeli Ders III*. UZM 508E row: 3 credits, 7.5 ECTS, 3 theoretical hours. Accessed 2026-10-18. <https://obs.itu.edu.tr/public/DersPlan/_DersGrupSearch?grupId=13265>
+
+- **ITU-UZB419**: ITU, *Spacecraft Systems Design I course catalog*. Related undergraduate course ONLY: objectives, course plan weeks 1-5 and final project. Accessed 2026-10-18. <https://obs.itu.edu.tr/public/DersKatalog/DersKatalogBilgiBransDersKodu?bransKodu=UZB&dersNo=419>
+
+- **NASA-SE-APP**: NASA, *Systems Engineering Handbook: Appendix*. Appendix B: Trade Study Report; Appendix D: Requirements Verification Matrix. Accessed 2026-10-18. <https://www.nasa.gov/reference/system-engineering-handbook-appendix/>
+
+- **NASA-SE-6**: NASA, *Systems Engineering Handbook: Crosscutting Technical Management*. Sections 6.3 (interfaces), 6.6 (technical data), 6.8 (decision analysis). Accessed 2026-10-18. <https://www.nasa.gov/reference/6-0-crosscutting-technical-management/>
+
+- **NASA-ROCKET**: NASA Glenn Research Center, *Ideal Rocket Equation*. Delta u = Isp g0 ln(MR), inverse mass ratio; ideal external-force-free assumptions. Accessed 2026-10-18. <https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/>
+
+- **NASA-ISP**: NASA Glenn Research Center, *Specific Impulse*. Total Impulse and Specific Impulse sections: I = integral F dt; Isp = F/(mdot g0). Accessed 2026-10-18. <https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/>
+
+- **NASA-GAS**: NASA Glenn Research Center, *Equation of State (Ideal Gas)*. Deriving an Equation: pV=nRT and p=rho R T; absolute temperature and ideal-gas limit. Accessed 2026-10-18. <https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/equation-of-state-ideal-gas-2/>
+
+- **NASA-SP8112**: NASA, *Pressurization Systems for Liquid Rockets*. NASA SP-8112 (1975): preliminary blowdown and regulated pressurization design. Accessed 2026-10-18. <https://ntrs.nasa.gov/citations/19760015212>
+
+- **MIT-522-L5**: MIT OCW, *16.522 Session 5: Review of Classical Astrodynamics*. Equation (11), specific orbital energy; equation (19), thrust acceleration F/m. Accessed 2026-10-18. <https://ocw.mit.edu/courses/16-522-space-propulsion-spring-2015/6127948308ccbe73c1c44751e2509ae0_MIT16_522S15_Lecture5.pdf>
+
+- **MIT-522-L6**: MIT OCW, *16.522 Session 6: Analytical Approximations for Low Thrust Maneuvers*. Pages 1-2, equations (4)-(8): near-circular tangential spiral and Hohmann transfer. Accessed 2026-10-18. <https://ocw.mit.edu/courses/16-522-space-propulsion-spring-2015/7f725e54b9be201164d56ebbd5e08023_MIT16_522S15_Lecture6.pdf>
+
+- **MIT-512-L35**: MIT OCW, *16.512 Rocket Propulsion, Lectures 35-36*. Page 5, equation (2): transfer coast time is half the ellipse period, pi*a^(3/2)/sqrt(mu). Accessed 2026-10-18. <https://ocw.mit.edu/courses/16-512-rocket-propulsion-fall-2005/b0b082753985a3c02eb408af4d5a46a4_lecture_35_36.pdf>
+
+- **NASA-SOA26**: NASA, *State-of-the-Art of Small Spacecraft Technology: In-Space Propulsion*. 2026 web edition: Table 4-1 technology envelopes; ECAPS 1 N HPGP device row. Accessed 2026-10-18. <https://www.nasa.gov/smallsat-institute/sst-soa/in-space_propulsion/>
+
+- **MOOG-COLD**: Moog, *Cold Gas Thrusters: Performance Characteristics*. Model 058E151 column: nominal thrust/Isp/inlet pressure; thruster mass and valve power. Accessed 2026-10-18. <https://www.moog.com/products/propulsion/space-propulsion/spacecraft-propulsion/thrusters/cold-gas-thruster.html>
+
+- **ARIANE-1N**: ArianeGroup, *1 N Monopropellant Hydrazine Thruster*. 1N Monopropellant Thruster Characteristics: nominal thrust, Isp, reported flow and mass. Accessed 2026-10-18. <https://www.space-propulsion.com/spacecraft-propulsion/hydrazine-thrusters/1n-hydrazine-thruster.html>
+
+- **ARIANE-10N**: ArianeGroup, *10 N Bipropellant Thruster*. 10N characteristics: nominal thrust/Isp, nominal mixture-ratio interval, valve-specific mass. Accessed 2026-10-18. <https://www.space-propulsion.com/spacecraft-propulsion/bipropellant-thrusters/10-bipropellant-thrusters.html>
+
+- **BUSEK-BIT3**: Busek, *BIT-3 RF Ion Thruster product page*. Performance panel: 56-75 W, up to 1.1 mN, up to 2150 s, system dry mass 1.40 kg with gimbal. Accessed 2026-10-18. <https://www.busek.com/bit3>
+
+- **BUSEK-RF**: Busek, *RF Ion Thrusters product family page*. BIT-3 panel differs from /bit3: 56-80 W, up to 1.25 mN and 2300 s. No silent merge. Accessed 2026-10-18. <https://www.busek.com/rf-ion-thrusters>
+
+- **BIPM-SI**: BIPM, *SI Brochure, 9th edition*. Conventional standard gravity and defining molar-gas constant; see core.constants. Accessed 2026-10-18. <https://www.bipm.org/en/publications/si-brochure>
+
+- **SCIPY-1.14.1-IVP**: SciPy, *solve_ivp*. Event sign-change detection, terminal and direction attributes; multiple roots within one step may be missed. Accessed 2026-10-18. <https://docs.scipy.org/doc/scipy-1.14.1/reference/generated/scipy.integrate.solve_ivp.html>
+
+- **PYTHON-3.12-FRACTION**: Python, *fractions*. Float inputs retain their exact binary value as a rational. Accessed 2026-10-18. <https://docs.python.org/3.12/library/fractions.html>
+- **PYTHON-3.12-NEXTAFTER**: Python, *math.nextafter*. Adjacent representable floating-point values for the direct inventory helper's safe time horizon. Accessed 2026-10-19. <https://docs.python.org/3.12/library/math.html#math.nextafter>
+- **PYTHON-3.12-DECIMAL**: Python, *decimal*. Precision contexts and exact float conversion for independent numerical checks. Accessed 2026-10-18. <https://docs.python.org/3.12/library/decimal.html>

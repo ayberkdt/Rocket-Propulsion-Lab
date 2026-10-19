@@ -68,11 +68,15 @@ burn in free space:
 \]
 
 Thrust and flow are piecewise linear, so \(m(t)\) is piecewise quadratic and
-each segment is integrated by Gauss–Legendre quadrature at \(n\) and \(2n\)
-points. The difference is reported as `delta_v_error_estimate_m_s`; \(n\) is
-limited to 100 so that the refinement is always a different rule. \(t^\ast\)
-is where an equivalent impulse is placed. Because mass falls during the burn,
-it lies after the thrust midpoint.
+exact mass partitions precede a normalized \(2n\)-point Gauss–Legendre rule,
+with exact polynomial identities where applicable. Independent directed
+Bernstein enclosures bound Δv and moment; output rounding and mass-logarithm
+enclosures are included in the reported numerical bounds. `quadrature_points`
+is the configured refined order, not a total evaluation count. See
+`FREE_SPACE_TABULATED_NUMERICS_REVIEW.md` for limits and range refinement.
+\(t^\ast\) places the equivalent impulse. For constant positive thrust and
+positive drain it lies after the time midpoint; varied profiles require the
+actual acceleration-weighted moment.
 
 The tests check the quadrature rule (exact for polynomials up to degree
 \(2n-1\)), the closed forms for constant thrust (\(\Delta v\) and \(t^\ast\) to
