@@ -28,8 +28,9 @@ and typed input rejection. The legacy clamped RK integration regression accepts
 an explicit domain rejection or requires the original mass and velocity accuracy
 when integration succeeds; it no longer requires a particular rounding failure.
 
-This is a publication checkpoint. The broader native reserve review, historical
-replay of its final test set and additional curated mutations remain ongoing.
+This records the original `cf31f56` publication checkpoint. Follow-up arithmetic,
+RHS retry, normalization and adversarial checks are documented in
+[NATIVE_RESERVE_NUMERICS_REVIEW.md](NATIVE_RESERVE_NUMERICS_REVIEW.md).
 Repository-wide review is partial. These numerical checks do not demonstrate
 physical validation, hardware readiness or TRL 5. The hardware configuration,
 mission requirements and nine hardware evidence gates remain unresolved.

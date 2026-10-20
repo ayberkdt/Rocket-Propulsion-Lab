@@ -5,8 +5,9 @@ from dataclasses import replace
 from decimal import Decimal, localcontext
 from fractions import Fraction
 from math import inf, ldexp, nextafter, ulp
+from sys import float_info
 
-from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.integrations import lunaris as native
 from rocket_propulsion.propulsion.burns import (
     PropagatorPropulsionBridge,
@@ -50,6 +51,236 @@ class ZeroDynamics:
 
 
 class NativeReserveAttacks(unittest.TestCase):
+    def test_exact_inventory_clamp_policy_is_required_by_bridge_documents(self):
+        value = model(((0.0, 1.0, 1.0, 1.0),), 1.5)
+        payload = value.to_dict()
+        policy = "exact_binary_state_and_limit_plus_declared_margin_v1"
+        self.assertEqual(payload.get("inventory_clamp_numerics"), policy)
+        self.assertEqual(PropagatorPropulsionBridge.from_dict(payload).model_hash, value.model_hash)
+        for operation in ("missing", "changed"):
+            changed = dict(payload)
+            if operation == "missing":
+                changed.pop("inventory_clamp_numerics")
+            else:
+                changed["inventory_clamp_numerics"] = "unknown_policy"
+            with self.subTest(operation=operation), self.assertRaises(InputError):
+                PropagatorPropulsionBridge.from_dict(changed)
+
+    def test_public_initial_mass_normalization_matches_the_dynamics_ledger(self):
+        initial = Fraction(2**53) + Fraction(3, 4)
+        binary_initial = float(initial)
+        dry = binary_initial - 1.0
+        timeline = timeline_for(model(((0.0, 2.0, 1.0, 1.0),), dry))
+        from_fraction = native.lunaris_burn_windows(timeline, initial_mass_kg=initial)[0]
+        from_binary = native.lunaris_burn_windows(timeline, initial_mass_kg=binary_initial)[0]
+        self.assertEqual(from_fraction, from_binary)
+        dynamics = native.LunarisFiniteBurnDynamics(
+            ZeroDynamics(), timeline, lambda *args: (1.0, 0.0, 0.0), initial_mass_kg=initial
+        )
+        self.assertGreaterEqual(dynamics.predicted_mass_kg(2.0), dry)
+        self.assertEqual(dynamics.burn_windows[0], from_binary)
+
+    def test_lattice_inverse_returns_the_last_safe_signed_float(self):
+        from rocket_propulsion.integrations import native_mass
+
+        for lower, upper, target in (
+            (-float_info.max, float_info.max, Fraction(1, 3)),
+            (-1e9, 1e9, Fraction(-1, 3)),
+            (-1.0, 0.0, Fraction(-1, 3)),
+            (0.0, 1.0, Fraction(1, 3)),
+        ):
+            calls = []
+
+            def safe(date):
+                calls.append(date)
+                return Fraction(date) <= target
+
+            cut = native_mass._greatest_safe(lower, upper, safe)
+            self.assertLessEqual(Fraction(cut), target)
+            self.assertGreater(Fraction(nextafter(cut, inf)), target)
+            self.assertLessEqual(len(calls), 65)
+
+    def test_base_failure_does_not_initialize_the_segment_clock(self):
+        class FailsOnce:
+            calls = 0
+
+            def build_rhs(self):
+                def rhs(t, y):
+                    self.calls += 1
+                    if self.calls == 1:
+                        raise RuntimeError("synthetic base failure")
+                    return [0.0] * 7
+
+                return rhs
+
+        artifact = TabulatedBurnArtifact(
+            (
+                TabulatedBurnSegment(0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.25, 0.25),
+                TabulatedBurnSegment(1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 0.25, 0.25),
+            ),
+            "base failure oracle",
+            "6" * 64,
+        )
+        bridge = PropagatorPropulsionBridge(artifact, require_complete_stream_binding=False)
+        dynamics = native.LunarisFiniteBurnDynamics(
+            FailsOnce(), timeline_for(bridge), lambda *args: (1.0, 0.0, 0.0), initial_mass_kg=3.0
+        )
+        rhs = dynamics.build_rhs()
+        with self.assertRaisesRegex(RuntimeError, "synthetic base failure"):
+            rhs(0.25, [0.0] * 6 + [2.9375])
+        self.assertEqual(rhs(1.0, [0.0] * 6 + [2.75])[3], 2.0 / 2.75)
+
+    def test_initial_consistency_uses_unrounded_mass_difference(self):
+        initial = ldexp(1.0, 53)
+        timeline = timeline_for(model(((0.0, 1.0, 0.25, 0.25),)))
+        dynamics = native.LunarisFiniteBurnDynamics(
+            ZeroDynamics(),
+            timeline,
+            lambda *args: (1.0, 0.0, 0.0),
+            initial_mass_kg=initial,
+            mass_tolerance=ldexp(1.0, -56),
+        )
+        self.assertEqual(dynamics.predicted_mass_kg(1.0), initial)
+        self.assertGreater(Fraction(1, 4), Fraction(ldexp(1.0, -56)) * Fraction(initial))
+        with self.assertRaises(DomainError):
+            dynamics.build_rhs()(1.0, [0.0] * 6 + [initial])
+        tolerant = native.LunarisFiniteBurnDynamics(
+            ZeroDynamics(),
+            timeline,
+            lambda *args: (1.0, 0.0, 0.0),
+            initial_mass_kg=initial,
+            mass_tolerance=ldexp(1.0, -54),
+        )
+        self.assertEqual(tolerant.build_rhs()(1.0, [0.0] * 6 + [initial])[6], 0.0)
+
+    def test_signed_epoch_cutoffs_bracket_consumption_and_publish_exact_coordinates(self):
+        rows = ((0.0, 1.0, 1.0, 1.0),)
+        target = Fraction(0.5) - Fraction(1e-12)
+        for ignition in (-1e9, -0.375, 0.0, 0.375, 1e9):
+            with self.subTest(ignition=ignition):
+                window = native.lunaris_burn_windows(
+                    timeline_for(model(rows, 1.5), ignition), initial_mass_kg=2.0
+                )[0]
+                point = Fraction(window.depletion_time_s) - Fraction(ignition)
+                used = mass_used(rows, point)
+                self.assertEqual(Fraction(*window.cutoff_profile_time_ratio), point)
+                self.assertLessEqual(used, target)
+                self.assertGreater(
+                    mass_used(
+                        rows, Fraction(nextafter(window.depletion_time_s, inf)) - Fraction(ignition)
+                    ),
+                    target,
+                )
+                self.assertGreaterEqual(
+                    Fraction(window.depletion_mass_shortfall_bound_kg), target - used
+                )
+                self.assertEqual(window.mass_at_cutoff_kg, float(Fraction(2) - used))
+                self.assertEqual(
+                    window.cutoff_numerics, "exact_mass_ledger_guarded_epoch_cutoff_v1"
+                )
+
+    def test_outward_mass_deficit_bounds_never_round_inwards(self):
+        from rocket_propulsion.integrations import native_mass
+
+        tiny = Fraction(nextafter(0.0, 1.0))
+        for exact in (
+            Fraction(0),
+            tiny / 2,
+            tiny * Fraction(5, 4),
+            Fraction(1) + Fraction(1, 2**54),
+            Fraction(7, 3),
+        ):
+            with self.subTest(exact=exact):
+                bound = native_mass._upper_bound(exact)
+                self.assertGreaterEqual(Fraction(bound), exact)
+                if exact > 0:
+                    self.assertLess(Fraction(nextafter(bound, -inf)), exact)
+        for exact in (Fraction(-1), Fraction(float_info.max) * 2):
+            with self.assertRaises(DomainError):
+                native_mass._upper_bound(exact)
+
+    def test_custom_zero_flow_scale_is_a_valid_closed_flow_control(self):
+        value = model(((0.0, 1.0, 1.0, 1.0),), 1.5)
+        value = replace(
+            value,
+            parameters=tuple(
+                replace(p, minimum=0.0) if p.name == "mass_flow_scale" else p
+                for p in value.parameters
+            ),
+        )
+        dynamics = native.LunarisFiniteBurnDynamics(
+            ZeroDynamics(),
+            timeline_for(value),
+            lambda *args: (1.0, 0.0, 0.0),
+            initial_mass_kg=3.0,
+            parameter_overrides={"burn": {"mass_flow_scale": 0.0}},
+        )
+        self.assertIsNone(dynamics.burn_windows[0].depletion_time_s)
+        self.assertEqual(dynamics.predicted_mass_kg(1.0), 3.0)
+        self.assertEqual(dynamics.build_rhs()(0.5, [0.0] * 6 + [3.0])[6], 0.0)
+
+    def test_finite_cut_prefix_survives_a_nominal_end_beyond_clock_range(self):
+        ignition = float_info.max / 2
+        rows = ((0.0, float_info.max, 1e-308, 1e-308),)
+        window = native.lunaris_burn_windows(
+            timeline_for(model(rows, 1.5), ignition), initial_mass_kg=2.0
+        )[0]
+        cut = window.depletion_time_s
+        self.assertIsNotNone(cut)
+        self.assertLess(cut, float_info.max)
+        used = mass_used(rows, Fraction(cut) - Fraction(ignition))
+        self.assertLessEqual(used, Fraction(0.5) - Fraction(1e-12))
+        self.assertGreater(
+            mass_used(rows, Fraction(nextafter(cut, inf)) - Fraction(ignition)),
+            Fraction(0.5) - Fraction(1e-12),
+        )
+
+    def test_actual_depletion_beyond_finite_clock_range_is_rejected(self):
+        rows = ((0.0, float_info.max, 1e-308, 1e-308),)
+        with self.assertRaises(DomainError):
+            native.lunaris_burn_windows(
+                timeline_for(model(rows, 1.5), float_info.max / 2), initial_mass_kg=3.0
+            )
+
+    def test_rejected_first_state_cannot_disable_consistency_validation(self):
+        class CountingDynamics:
+            calls = 0
+
+            def build_rhs(self):
+                def rhs(t, y):
+                    self.calls += 1
+                    return [0.0] * 7
+
+                return rhs
+
+        base = CountingDynamics()
+        dynamics = native.LunarisFiniteBurnDynamics(
+            base,
+            timeline_for(model(((0.0, 1.0, 1.0, 1.0),))),
+            lambda *args: (1.0, 0.0, 0.0),
+            initial_mass_kg=3.0,
+        )
+        rhs = dynamics.build_rhs()
+        for attempt in range(2):
+            with self.subTest(attempt=attempt), self.assertRaises(DomainError):
+                rhs(0.25, [0.0] * 6 + [2.0])
+        self.assertEqual(base.calls, 0)
+        self.assertEqual(rhs(0.25, [0.0] * 6 + [2.75])[6], -1.0)
+
+    def test_failed_call_does_not_choose_the_first_successful_boundary_side(self):
+        first = TabulatedBurnSegment(0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.25, 0.25)
+        second = TabulatedBurnSegment(1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 0.25, 0.25)
+        artifact = TabulatedBurnArtifact((first, second), "restart oracle", "7" * 64)
+        value = PropagatorPropulsionBridge(artifact, require_complete_stream_binding=False)
+        dynamics = native.LunarisFiniteBurnDynamics(
+            ZeroDynamics(), timeline_for(value), lambda *args: (1.0, 0.0, 0.0), initial_mass_kg=3.0
+        )
+        rhs = dynamics.build_rhs()
+        with self.assertRaises(DomainError):
+            rhs(0.25, [0.0] * 6 + [2.0])
+        # The first accepted evaluation starts a new segment at the jump.
+        self.assertEqual(rhs(1.0, [0.0] * 6 + [2.75])[3], 2.0 / 2.75)
+
     def test_window_copies_nested_inputs_and_rejects_inconsistent_records(self):
         dates = [0.0, 1.0]
         ratio = [2, 2]
@@ -62,6 +293,7 @@ class NativeReserveAttacks(unittest.TestCase):
         self.assertEqual(window.cutoff_profile_time_ratio, (1, 1))
         for change in (
             {"cutoff_time_s": -1.0},
+            {"time_events_s": {0.0: "zero", 1.0: "one"}},
             {"time_events_s": (0.0, 0.0, 1.0)},
             {"depletion_time_s": 0.5},
             {"mass_at_cutoff_kg": 0.0},

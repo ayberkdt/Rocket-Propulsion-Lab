@@ -146,8 +146,45 @@ FREE_SPACE_REVIEW = {
     '_range_output', '_range_output.rounded',
     'FreeSpaceBurnMetrics.__post_init__', 'free_space_burn_metrics',
 }
+CORE_NORMALIZATION_REVIEW = {
+    'core/validation.py': {'real', 'integer', '_text_value', 'text', '_ordered_items',
+        'vector3', 'real_tuple', 'real_mapping', 'records', 'strings', 'name_value_pairs',
+        'real_matrix', '_scalar_kind', 'coerce_fields', 'json_text', 'finite_float_text'},
+    'propulsion/burns/tabulated_documents.py': {'_utf8'},
+    'propulsion/burns/tabulated.py': {'TabulatedBurnSegment.__post_init__',
+        'TabulatedBurnArtifact.__post_init__', 'TabulatedBurnArtifact.from_dict',
+        'tabulated_artifact_from_csv'},
+    'propulsion/burns/models.py': {'_enum', 'PropellantFlow.__post_init__', 'BurnSummary.__post_init__'},
+}
+TABULATED_DOCUMENT_REVIEW = {
+    'core/validation.py': {'finite_float_text', '_document_float', '_unique_document_object',
+        '_reject_document_constant', '_check_document_values', 'read_json_document'},
+    'propulsion/burns/tabulated_documents.py': {'_utf8', '_object', '_array', '_number',
+                                               '_validate_document'},
+    'propulsion/burns/tabulated.py': {'_flow_pairs', '_canonical_json_bytes',
+        'TabulatedBurnSegment.__post_init__', 'TabulatedBurnArtifact.__post_init__',
+        'TabulatedBurnArtifact._history_dict', 'TabulatedBurnArtifact.to_dict',
+        'TabulatedBurnArtifact.to_json', 'TabulatedBurnArtifact.from_dict',
+        'TabulatedBurnArtifact.from_json', '_csv_point', '_csv_point.number',
+        'tabulated_artifact_from_csv'},
+}
+NATIVE_RESERVE_REVIEW = {
+    'integrations/native_mass.py': {'_scale', '_consumption', '_ordered', '_from_ordered',
+        '_greatest_safe', '_upper_bound', '_Cut', '_cutoff', '_cutoff.coordinate', '_cutoff.safe'},
+    'integrations/lunaris.py': {'LunarisBurnWindow', 'LunarisBurnWindow.__post_init__',
+        '_consumed_by', '_time_to_consume', 'lunaris_burn_windows',
+        'lunaris_burn_windows.consumed_at', 'lunaris_burn_windows.mass_at',
+        'LunarisFiniteBurnDynamics.__init__', 'LunarisFiniteBurnDynamics.predicted_mass_kg',
+        'LunarisFiniteBurnDynamics._predicted_mass', 'LunarisFiniteBurnDynamics._stopped',
+        'LunarisFiniteBurnDynamics._wrap', 'LunarisFiniteBurnDynamics._wrap.rhs'},
+    'propulsion/burns/time_coordinates.py': {'_profile_boundaries', '_clock_table', '_epoch_profile_time'},
+    'propulsion/burns/timeline.py': {'PropulsionTimeline._evaluate'},
+    'propulsion/burns/propagator.py': {'PropagatorPropulsionBridge._evaluate',
+                                    'PropagatorPropulsionBridge.manifest'},
+}
 TIME_COORDINATE_REVIEW = {
-    'propulsion/burns/time_coordinates.py': {'_epoch_table','_epoch_profile_time'},
+    'propulsion/burns/time_coordinates.py': {'_epoch_table','_epoch_profile_time',
+                                          '_profile_boundaries','_clock_table'},
     'propulsion/burns/tabulated.py': {'TabulatedBurnArtifact.__post_init__',
         'TabulatedBurnArtifact.boundary_tolerance_s','TabulatedBurnArtifact.segment_index_at',
         'TabulatedBurnArtifact._segment_index_at','TabulatedBurnArtifact._snap_to_boundary',
@@ -160,7 +197,8 @@ TIME_COORDINATE_REVIEW = {
         'PropagatorPropulsionBridge.time_event_jump',
         'PropagatorPropulsionBridge._segment_at','PropagatorPropulsionBridge.manifest'},
     'propulsion/burns/timeline.py': {'ScheduledBurn.cutoff_time_s', 'PropulsionTimeline.__post_init__',
-        'PropulsionTimeline.events','PropulsionTimeline.evaluate','PropulsionTimeline.manifest',
+        'PropulsionTimeline.events','PropulsionTimeline.evaluate','PropulsionTimeline._evaluate',
+        'PropulsionTimeline.manifest',
         'PropulsionTimeline.from_dict'},
     'integrations/lunaris.py': {'lunaris_burn_windows','lunaris_segmentation_times','_merged_times',
         'LunarisFiniteBurnDynamics.__init__','LunarisFiniteBurnDynamics.predicted_mass_kg',
@@ -205,6 +243,12 @@ def _review_scopes(path, name):
     scopes = (["source_trace_and_software_verification_only"]
               if "studies/sass/" in path.as_posix() else [])
     groups = (
+        (CORE_NORMALIZATION_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_programmatic_scalar_container_and_literal_record_normalization_only'),
+        (TABULATED_DOCUMENT_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_tabulated_raw_schema_csv_and_shared_json_text_boundary_only'),
+        (NATIVE_RESERVE_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_native_mass_ledger_guarded_cutoff_and_accepted_rhs_start_only'),
         (TIME_COORDINATE_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
          'targeted_time_coordinate_ownership_and_epoch_event_mapping_only'),
         (FREE_SPACE_REVIEW if path.name == 'burn_metrics.py' else set(),

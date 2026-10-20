@@ -341,6 +341,10 @@ class BurnRecordContractAttacks(unittest.TestCase):
                                   (self.profiled.profile[0], 'phase', '\udfff')):
             with self.subTest(field=field):
                 self.rejects(lambda: replace(record, **{field:bad}))
+        # Non-depleting streams permit an empty tank identifier, but its text
+        # must still be encodable; this branch has no nonblank-name shortcut.
+        self.rejects(lambda: replace(self.point.streams[0], tank_depleting=False,
+                                     tank_id='\ud800'))
         payload = json.loads(s.burn_result_to_json(self.constant))
         payload['operating_point']['name'] = '\ud800'
         with self.assertRaises(InputError):

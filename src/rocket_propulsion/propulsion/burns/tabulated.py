@@ -25,6 +25,7 @@ from typing import Any
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import (
     name_value_pairs,
+    finite_float_text,
     read_json_document,
     real,
     records,
@@ -38,6 +39,7 @@ from .profiles import resolved_schedule_intervals
 from .serialization import burn_result_to_dict, canonical_json_bytes
 from .numeric_outputs import _finite_rational, _fraction
 from .time_coordinates import _TIME_POLICY
+from .tabulated_documents import _utf8, _validate_document
 
 _TABULATED_LEDGER_NUMERICS = "exact_binary_segment_aggregate_ledger_v1"
 
@@ -109,6 +111,8 @@ def _flow_pairs(value: tuple[tuple[str, float], ...], label: str) -> None:
         raise DomainError(f"{label} identifiers must be unique.")
     for _, flow in value:
         _nonnegative(flow, label)
+    for identifier, _ in value:
+        _utf8(identifier, label)
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,7 +154,7 @@ class TabulatedBurnSegment:
             object.__setattr__(
                 self, name, _normalized_pairs(getattr(self, name), f"Tabulated segment {name}")
             )
-        text(self.phase, "Tabulated segment phase")
+        object.__setattr__(self, 'phase', _utf8(self.phase, "Tabulated segment phase"))
         if not isfinite(self.start_time_s) or self.start_time_s < 0.0:
             raise DomainError("Tabulated segment start time must be finite and non-negative.")
         if not isfinite(self.end_time_s) or self.end_time_s <= self.start_time_s:
@@ -324,9 +328,9 @@ def _canonical_json_bytes(value: Any) -> bytes:
 class TabulatedBurnArtifact:
     """Immutable propulsion history ready for a future dynamics consumer.
 
-    ``reference_ids`` records the reviewed engineering sources supporting the
-    producer model. It is included in the content hash, so citations cannot be
-    changed without changing artifact identity.
+    ``reference_ids`` records caller-supplied source identifiers for the
+    producer model. It is included in the model hash. Its presence does not
+    establish source review or physical model validity.
 
     References
     ----------
@@ -343,21 +347,25 @@ class TabulatedBurnArtifact:
     schema: str = "rocket_propulsion_tabulated_burn_v1"
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, 'schema', _utf8(self.schema, 'Tabulated schema'))
         if self.schema != "rocket_propulsion_tabulated_burn_v1":
             raise DomainError("Unsupported tabulated burn schema.")
         object.__setattr__(
             self, "segments", records(self.segments, TabulatedBurnSegment, "Tabulated segments")
         )
         try:
-            object.__setattr__(self, "interpolation", InterpolationPolicy(self.interpolation))
+            object.__setattr__(self, "interpolation", InterpolationPolicy(
+                _utf8(self.interpolation, 'Tabulated interpolation')))
         except ValueError as error:
             raise DomainError("Unknown tabulated interpolation policy.") from error
-        text(self.source_id, "Tabulated burn source identifier")
-        text(self.source_sha256, "Tabulated burn source hash")
+        object.__setattr__(self, 'source_id', _utf8(self.source_id, "Tabulated burn source identifier"))
+        object.__setattr__(self, 'source_sha256', _utf8(self.source_sha256, "Tabulated burn source hash"))
         for name in ("reference_ids", "warnings"):
             object.__setattr__(
                 self, name, strings(getattr(self, name), f"Tabulated burn {name}", allow_blank=True)
             )
+            for item in getattr(self, name):
+                _utf8(item, name, allow_blank=True)
         if not self.segments:
             raise DomainError("A tabulated burn requires at least one segment.")
         if self.segments[0].start_time_s != 0.0:
@@ -614,6 +622,7 @@ class TabulatedBurnArtifact:
 
         if not isinstance(payload, dict):
             raise InputError("Tabulated burn artifact root must be an object.")
+        _validate_document(payload)
         if payload.get("integral_numerics") != _TABULATED_LEDGER_NUMERICS:
             raise InputError(
                 "Tabulated integral numerical policy is missing or unsupported.",
@@ -627,7 +636,7 @@ class TabulatedBurnArtifact:
                 schema=payload["schema"],
                 source_id=payload["source_id"],
                 source_sha256=payload["source_sha256"],
-                interpolation=InterpolationPolicy(payload["interpolation"]),
+                interpolation=payload["interpolation"],
                 reference_ids=payload.get("reference_ids", ()),
                 segments=tuple(
                     TabulatedBurnSegment(
@@ -877,17 +886,42 @@ def tabulated_artifact_from_profiled_burn(result: ProfiledBurnResult) -> Tabulat
     return artifact
 
 
+def _csv_point(row, stream_columns):
+    """Validate every sample, including the terminal sample in a held trace."""
+    def number(name):
+        return finite_float_text(row[name], f'CSV {name}')
+
+    delivered = number('delivered_thrust_n')
+    axial = number('axial_thrust_n') if 'axial_thrust_n' in row else delivered
+    flow = number('total_mass_flow_kg_s')
+    streams = tuple((column.removeprefix('stream:'), number(column)) for column in stream_columns)
+    for value, label in ((delivered, 'Delivered thrust'), (axial, 'Axial thrust'),
+                         (flow, 'Total flow')):
+        _nonnegative(value, label)
+    if _fraction(axial) > _fraction(delivered)*_fraction(1.0+1e-12):
+        raise InputError('CSV axial thrust cannot exceed delivered thrust.')
+    _flow_pairs(streams, 'CSV streams')
+    TabulatedBurnSegment._validate_stream_closure(streams, flow, 'CSV')
+    phase = _utf8(row['phase'], 'CSV phase') if 'phase' in row else 'imported-trace'
+    return {'time': number('time_s'), 'delivered': delivered, 'axial': axial,
+            'flow': flow, 'streams': streams, 'phase': phase}
+
+
 def tabulated_artifact_from_csv(
     text: str,
     *,
     source_id: str,
     interpolation: InterpolationPolicy = InterpolationPolicy.LINEAR,
 ) -> TabulatedBurnArtifact:
-    """Import an SI trace without smoothing or silently changing its samples.
+    """Import a strictly declared SI trace with explicit interpolation semantics.
 
     Required columns are ``time_s``, ``delivered_thrust_n`` and
     ``total_mass_flow_kg_s``. ``axial_thrust_n`` defaults to delivered thrust.
     Any column named ``stream:<tank-id>`` is preserved as an explicit drain.
+    Optional defaults apply only to absent columns. Declared cells must be
+    present and valid; duplicate/unknown columns and ragged records are errors.
+    HOLD applies row i to [t_i,t_(i+1)); the terminal row is validated and its
+    literal source bytes are hashed, but it defines no subsequent interval.
 
     References
     ----------
@@ -896,41 +930,38 @@ def tabulated_artifact_from_csv(
     """
 
     try:
-        interpolation = InterpolationPolicy(interpolation)
+        interpolation = InterpolationPolicy(_utf8(interpolation, 'CSV interpolation'))
     except (ValueError, TypeError) as error:
         raise InputError("Unknown CSV interpolation policy.", field="interpolation") from error
     if not isinstance(text, str) or not text.strip():
         raise InputError("Imported burn trace must not be empty.")
-    source_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
-    reader = csv.DictReader(io.StringIO(text))
+    try:
+        source_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    except UnicodeError as error:
+        raise InputError('Imported CSV must be UTF-8 encodable.') from error
+    reader = csv.DictReader(io.StringIO(text), strict=True)
     required = {"time_s", "delivered_thrust_n", "total_mass_flow_kg_s"}
-    if reader.fieldnames is None or not required.issubset(reader.fieldnames):
-        raise InputError(
-            "Imported trace requires time_s, delivered_thrust_n, and total_mass_flow_kg_s columns."
-        )
-    stream_columns = sorted(name for name in reader.fieldnames if name.startswith("stream:"))
     points: list[dict[str, Any]] = []
     try:
+        names = reader.fieldnames
+        if names is None or not required.issubset(names):
+            raise InputError('Imported trace requires time_s, delivered_thrust_n, and total_mass_flow_kg_s.')
+        if len(names) != len(set(names)):
+            raise InputError('CSV column names must be unique.')
+        stream_columns = sorted(name for name in names if name.startswith('stream:'))
+        if set(names)-required-{'axial_thrust_n', 'phase'}-set(stream_columns):
+            raise InputError('CSV contains unsupported columns; declare supported SI fields explicitly.')
+        for column in stream_columns:
+            _utf8(column.removeprefix('stream:'), 'CSV stream identifier')
         for row in reader:
-            delivered = float(row["delivered_thrust_n"])
-            points.append(
-                {
-                    "time": float(row["time_s"]),
-                    "delivered": delivered,
-                    "axial": float(row.get("axial_thrust_n") or delivered),
-                    "flow": float(row["total_mass_flow_kg_s"]),
-                    "streams": tuple(
-                        (column.removeprefix("stream:"), float(row[column] or 0.0))
-                        for column in stream_columns
-                    ),
-                    "phase": str(row.get("phase") or "imported-trace"),
-                }
-            )
-    except (TypeError, ValueError) as error:
-        raise InputError("Imported trace contains a non-numeric physical value.") from error
+            if None in row or any(value is None for value in row.values()):
+                raise InputError('CSV record width does not match its header.')
+            points.append(_csv_point(row, stream_columns))
+    except csv.Error as error:
+        raise InputError('Malformed CSV quoting or record.', field='CSV') from error
     if len(points) < 2:
         raise InputError("Imported trace requires at least two samples.")
-    if abs(points[0]["time"]) > 1e-12:
+    if points[0]["time"] != 0.0:
         raise InputError("Imported trace must begin at time_s = 0.")
     if any(right["time"] <= left["time"] for left, right in pairwise(points)):
         raise InputError("Imported trace times must be strictly increasing.")
@@ -958,5 +989,5 @@ def tabulated_artifact_from_csv(
         source_id=source_id,
         source_sha256=source_hash,
         interpolation=interpolation,
-        warnings=("Imported trace samples were preserved without smoothing.",),
+        warnings=("Imported SI samples were validated without smoothing; interval values follow declared interpolation.",),
     )

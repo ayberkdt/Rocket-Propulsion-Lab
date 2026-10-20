@@ -50,7 +50,7 @@ def _from_ordered(key):
 
 
 def _greatest_safe(lower, upper, safe):
-    """Use at most 64 lattice probes, without magnitude-based iteration bounds."""
+    """Use at most 65 predicate calls across the finite binary64 lattice."""
     if safe(upper):
         return upper
     lo, hi = _ordered(lower), _ordered(upper)

@@ -256,7 +256,7 @@ class LunarisBurnWindow:
         if self.depletion_mass_shortfall_bound_kg is not None and (
                 self.depletion_mass_shortfall_bound_kg < 0 or self.depletion_time_s is None):
             raise DomainError('A native depletion deficit requires a nonnegative bound and cut.')
-        if isinstance(self.time_events_s,(str,bytes)):
+        if isinstance(self.time_events_s,(str,bytes,Mapping)):
             raise DomainError('Native event dates must be a sequence of real scalars.')
         try:
             dates=tuple(real(t,'Native event date') for t in self.time_events_s)
@@ -336,7 +336,7 @@ def lunaris_burn_windows(
         raise DomainError("Parameter overrides for unknown burns: " + ", ".join(sorted(unknown)))
     initial = None
     if initial_mass_kg is not None:
-        initial = _fraction(initial_mass_kg, "Initial mass")
+        initial = _fraction(real(initial_mass_kg, "Initial mass"))
         if initial <= 0:
             raise DomainError("Initial mass must be greater than zero.")
     protected = any(burn.bridge.protected_dry_mass_kg is not None for burn in timeline.burns)
@@ -709,9 +709,7 @@ class LunarisFiniteBurnDynamics:
             mass_value = real(y[6],'Native RHS vehicle mass')
             if mass_value <= 0:
                 raise DomainError('Native RHS vehicle mass must be positive.')
-            out = base_rhs(time_s, y)
             if not first_time:
-                first_time.append(time_s)
                 if self._initial_mass is not None:
                     exact_expected = self._predicted_mass(time_s)
                     expected = _finite_rational(exact_expected, 'Native predicted vehicle mass')
@@ -726,6 +724,7 @@ class LunarisFiniteBurnDynamics:
             side = (
                 "left"
                 if on_boundary
+                and first_time
                 and time_s != first_time[0]
                 else "right"
             )
@@ -740,10 +739,15 @@ class LunarisFiniteBurnDynamics:
                 _clock_horizons=self._horizons,
                 _canonical_epoch=True,
             )
+            out = base_rhs(time_s, y)
             out[3] += value.acceleration_m_s2[0]
             out[4] += value.acceleration_m_s2[1]
             out[5] += value.acceleration_m_s2[2]
             out[6] += value.mass_derivative_kg_s
+            # A rejected/failed evaluation must not initialize the segment's
+            # clock or suppress the next initial-mass consistency check.
+            if not first_time:
+                first_time.append(time_s)
             return out
 
         return rhs

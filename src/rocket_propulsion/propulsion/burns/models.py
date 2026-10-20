@@ -79,7 +79,7 @@ def _enum(value, kind, label):
     if not isinstance(value, str):
         raise DomainError(f"{label} must be a recognized {kind.__name__}.", field=label)
     try:
-        return kind(value)
+        return kind(text(value, label))
     except ValueError as error:
         raise DomainError(f"{label} must be a recognized {kind.__name__}.", field=label) from error
 
@@ -152,14 +152,12 @@ class PropellantFlow:
     contributes_to_delivered_thrust: bool = True
 
     def __post_init__(self) -> None:
-        text(self.stream_id, 'stream_id')
-        text(self.propellant_key, 'propellant_key')
+        object.__setattr__(self, 'stream_id', text(self.stream_id, 'stream_id'))
+        object.__setattr__(self, 'propellant_key', text(self.propellant_key, 'propellant_key'))
         _boolean(self.tank_depleting, 'tank_depleting')
         _boolean(self.contributes_to_delivered_thrust, 'contributes_to_delivered_thrust')
-        if not isinstance(self.tank_id, str):
-            raise DomainError('tank_id must be a string.', field='tank_id')
-        if self.tank_depleting:
-            text(self.tank_id, 'tank_id')
+        object.__setattr__(self, 'tank_id', strings((self.tank_id,), 'tank_id',
+                           allow_blank=not self.tank_depleting)[0])
         for name in ('stream_id', 'propellant_key', 'tank_id'):
             _utf8(getattr(self, name), name)
         object.__setattr__(self, 'role', _enum(self.role, PropellantRole, 'role'))
@@ -513,7 +511,8 @@ class BurnSummary:
         _boolean(self.target_achieved, 'target_achieved')
         _boolean(self.exact_constant_sidera_export_available, 'exact_constant_sidera_export_available')
         if self.binding_constraint is not None:
-            text(self.binding_constraint, 'binding_constraint')
+            object.__setattr__(self, 'binding_constraint',
+                               text(self.binding_constraint, 'binding_constraint'))
         for item in fields(self):
             if item.type == 'float':
                 _finite_nonnegative(getattr(self, item.name), item.name)
