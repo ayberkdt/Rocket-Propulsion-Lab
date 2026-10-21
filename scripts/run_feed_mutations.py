@@ -4,18 +4,13 @@ References: NASA-STD-7009B implementation verification. Curated semantic faults,
 not an exhaustive mutation assessment. Repository source files remain unchanged.
 """
 
-import ast
 import hashlib
 import inspect
-import io
 import json
-import textwrap
-import unittest
 import sys
-from contextlib import ExitStack
+import time
 from pathlib import Path
 from types import ModuleType
-from unittest.mock import patch
 
 from rocket_propulsion.propulsion.burns import (
     BipropellantDynamicFeedConfiguration,
@@ -58,6 +53,13 @@ from rocket_propulsion.propulsion.burns import ensemble_documents as ensemble_do
 from rocket_propulsion.propulsion.burns import ensemble_serialization as ensemble_reader
 from rocket_propulsion.propulsion.burns import ensemble as ensemble_model
 from rocket_propulsion.propulsion.burns import probability_numerics as probability_model
+from rocket_propulsion.propulsion.burns import marginal_numerics as marginal_model
+from rocket_propulsion.propulsion.burns import uncertainty as uncertainty_model
+from rocket_propulsion.propulsion.burns import sample_statistics as summary_model
+from tests.test_uncertainty_summary_contract import SummaryNumericalAttacks, SummaryRecordAttacks
+from tests.test_uncertainty_marginal_contract import (
+    MarginalNumericalAttacks, CorrelationAndSamplerAttacks, SamplingIdentityAttacks,
+)
 from tests.test_ensemble_probability_numerics import WeightedKernelAttacks, PublicProbabilityAttacks
 from rocket_propulsion.integrations import sidera_ensemble as ensemble_adapter
 from tests.test_ensemble_document_contract import EnsembleDocumentAttacks
@@ -91,12 +93,198 @@ from tests.test_power_document_contract import (
 from tests.test_source_review_inventory import SourceInventoryAttacks
 from scripts import assurance_audit
 from scripts.run_bounded_regression import ROOT, verification_inputs
+from scripts.mutation_runtime import compile_fault, evaluate_fault, MUTATION_RUNTIME_POLICY
 
 
 # Two model-local UTF-8 deletion variants were retired after shared literal
 # normalization and the non-depleting-stream branch audit. They are not kills.
 # Evidence and active replacement coverage: CORE_VALIDATION_CONTRACT_REVIEW.md.
 MUTATIONS = (
+    ('round_sample_center_before_variance', summary_model, '_sample_ledger',
+     '(x-mean)**2', '(x-_fraction(float(mean)))**2', SummaryNumericalAttacks,
+     'test_tiny_and_huge_dispersion_match_independent_decimal_moments'),
+    ('use_population_denominator_for_sample_dispersion', summary_model, '_sample_ledger',
+     '/(len(rows)-1)', '/len(rows)', SummaryNumericalAttacks,
+     'test_tiny_and_huge_dispersion_match_independent_decimal_moments'),
+    ('export_sample_variance_before_standard_deviation', uncertainty_model, '_statistics',
+     '_sqrt_output(ledger.variance,"Sample standard deviation")',
+     '_sqrt_output(_fraction(float(ledger.variance)),"Sample standard deviation")', SummaryNumericalAttacks,
+     'test_tiny_and_huge_dispersion_match_independent_decimal_moments'),
+    ('derive_standard_error_from_rounded_deviation', uncertainty_model, '_statistics',
+     '_sqrt_output(ledger.variance/len(ledger.values),"Mean standard-error proxy")',
+     'deviation/(len(ledger.values)**.5)', SummaryNumericalAttacks,
+     'test_standard_error_is_not_computed_from_an_already_rounded_deviation'),
+    ('use_binary_proxy_multiplier_instead_of_declared_decimal', uncertainty_model, '_statistics',
+     'ledger.variance/len(ledger.values)*_NORMAL_PROXY_MULTIPLIER**2',
+     'ledger.variance/len(ledger.values)*_fraction(1.96)**2', SummaryNumericalAttacks,
+     'test_tiny_and_huge_dispersion_match_independent_decimal_moments'),
+    ('center_mean_interval_on_rounded_mean', uncertainty_model, '_statistics',
+     '_affine_sqrt_output(ledger.mean,width_squared,-1,"Mean proxy lower endpoint")',
+     '_affine_sqrt_output(_fraction(mean),width_squared,-1,"Mean proxy lower endpoint")', SummaryNumericalAttacks,
+     'test_tiny_and_huge_dispersion_match_independent_decimal_moments'),
+    ('silently_saturate_unrepresentable_affine_interval', summary_model, '_affine_sqrt_output',
+     'if compare(boundary)<=0 or compare(-boundary)>=0:', 'if False:', SummaryNumericalAttacks,
+     'test_true_zero_is_retained_and_unrepresentable_mandatory_outputs_fail_typed'),
+    ('erase_unrepresentable_affine_interval_endpoint', summary_model, '_affine_sqrt_output',
+     "raise DomainError(f'{label} is outside the nonzero finite output range.',field=label) from error",
+     'return 0.', SummaryNumericalAttacks,
+     'test_true_zero_is_retained_and_unrepresentable_mandatory_outputs_fail_typed'),
+    ('overflow_interpolated_quantile_span', summary_model, '_linear_quantile',
+     '(1-fraction)*rows[low]+fraction*rows[high]',
+     'rows[low]+fraction*_fraction(float(rows[high]-rows[low]))', SummaryNumericalAttacks,
+     'test_linear_percentiles_recover_opposite_extremes_and_subnormal_endpoints'),
+    ('use_binary_five_percent_sample_position', uncertainty_model, '_statistics',
+     'Fraction(1,20)', '_fraction(.05)', SummaryNumericalAttacks,
+     'test_named_percentiles_use_rational_five_and_ninetyfive_percent_positions'),
+    ('floor_small_nonconstant_pearson_dispersion', summary_model, '_pearson',
+     'if not xx or not yy:return None',
+     'if xx<Fraction(1,10**30) or yy<Fraction(1,10**30):return None', SummaryNumericalAttacks,
+     'test_pearson_recovers_scale_invariance_and_signed_unit_correlations'),
+    ('report_constant_vector_pearson_as_zero', summary_model, '_pearson',
+     'if not xx or not yy:return None', 'if not xx or not yy:return 0.', SummaryNumericalAttacks,
+     'test_undefined_pearson_is_not_reported_as_zero_linear_relationship'),
+    ('drop_negative_pearson_sign', summary_model, '_pearson',
+     'return magnitude if covariance>0 else -magnitude', 'return magnitude', SummaryNumericalAttacks,
+     'test_pearson_recovers_scale_invariance_and_signed_unit_correlations'),
+    ('export_pearson_variance_factors_before_ratio', summary_model, '_pearson',
+     'covariance*covariance/(xx*yy)',
+     'covariance*covariance/(_fraction(float(xx))*_fraction(float(yy)))', SummaryNumericalAttacks,
+     'test_pearson_recovers_scale_invariance_and_signed_unit_correlations'),
+    ('restore_absolute_blowdown_relative_floor', summary_model, '_relative_exact',
+     'scale=max(abs(left),abs(right))', 'scale=max(abs(left),abs(right),Fraction(1,10**15))',
+     SummaryNumericalAttacks, 'test_relative_diagnostics_are_symmetric_scale_invariant_and_finite'),
+    ('hide_all_deviation_stability_changes', summary_model, '_deviation_relative_change',
+     'ratio=min(left_variance,right_variance)/scale', 'ratio=max(left_variance,right_variance)/scale',
+     SummaryNumericalAttacks, 'test_stability_threshold_uses_exact_values_even_at_a_display_tie'),
+    ('round_half_full_means_before_stability_difference', uncertainty_model, '_sampling_convergence',
+     'mean_ratio=abs(half.mean-full.mean)/scale if scale else Fraction(0)',
+     'mean_ratio=abs(_fraction(float(half.mean))-_fraction(float(full.mean)))/scale if scale else Fraction(0)',
+     SummaryNumericalAttacks, 'test_half_full_diagnostic_retains_changes_hidden_by_rounded_means'),
+    ('decide_stability_from_rounded_display', uncertainty_model, '_sampling_convergence',
+     'mean_ratio<=exact_tolerance and deviation_pass',
+     'max(float(mean_ratio),_deviation_relative_change(half.variance,full.variance))<=tolerance',
+     SummaryNumericalAttacks, 'test_stability_threshold_uses_exact_values_even_at_a_display_tie'),
+    ('skip_sample_metric_scalar_normalization', uncertainty_model.PropulsionMetricStatistics, '__post_init__',
+     'coerce_fields(self,"Sample metric statistics")', 'pass', SummaryRecordAttacks,
+     'test_metric_records_refuse_booleans_negative_dispersion_and_inverted_quantiles'),
+    ('skip_uncertainty_sample_scalar_normalization', uncertainty_model.BlowdownUncertaintySample, '__post_init__',
+     'coerce_fields(self,"Blowdown uncertainty sample")', 'pass', SummaryRecordAttacks,
+     'test_retained_samples_snapshot_input_pairs_and_reproduce_artifact_metrics'),
+    ('skip_sample_artifact_metric_reproduction', uncertainty_model.BlowdownUncertaintySample, '__post_init__',
+     'if (self.duration_s,self.delivered_impulse_n_s,self.consumed_propellant_kg,self.thrust_centroid_time_s)!=expected:',
+     'if False:', SummaryRecordAttacks,
+     'test_retained_samples_snapshot_input_pairs_and_reproduce_artifact_metrics'),
+    ('skip_result_statistic_reproduction', uncertainty_model, '_validate_uncertainty_result',
+     'if len(actual_statistics)!=len(result.statistics) or actual_statistics!={row.metric:row for row in expected_statistics}:',
+     'if False:', SummaryRecordAttacks,
+     'test_result_recomputes_statistics_and_sensitivities_from_retained_samples'),
+    ('skip_result_sensitivity_reproduction', uncertainty_model, '_validate_uncertainty_result',
+     'if len(actual_sensitivity)!=len(result.sensitivity) or actual_sensitivity!={(row.metric,row.parameter):row for row in expected_sensitivity}:',
+     'if False:', SummaryRecordAttacks,
+     'test_result_recomputes_statistics_and_sensitivities_from_retained_samples'),
+    ('skip_result_container_snapshot', uncertainty_model.BlowdownUncertaintyResult, '__post_init__',
+     'object.__setattr__(self,name,records(getattr(self,name),kind,f"Blowdown {name}"))',
+     'pass', SummaryRecordAttacks,
+     'test_result_snapshots_samples_and_refuses_incomplete_or_duplicate_records'),
+    ('allow_unknown_blowdown_result_parameter', uncertainty_model, '_validate_uncertainty_result',
+     'not set(names)<=_BLOWDOWN_INPUT_NAMES', 'False', SummaryRecordAttacks,
+     'test_consistently_relabelled_unknown_blowdown_parameter_is_not_accepted'),
+    ('canonicalize_result_samples_in_storage_order', uncertainty_model, '_validate_uncertainty_result',
+     "object.__setattr__(result,'samples',samples)", 'pass', SummaryRecordAttacks,
+     'test_result_reordering_preserves_semantic_indices_rank_order_and_stability'),
+    ('ignore_nominal_configuration_mismatch', uncertainty_model, 'simulate_blowdown_uncertainty',
+     'if parameter.nominal != nominal[parameter.name]:', 'if False:', SummaryRecordAttacks,
+     'test_one_ulp_nominal_configuration_mismatch_is_rejected_before_solving'),
+    ('overflow_uniform_affine_span', marginal_model, 'marginal_value',
+     "_finite_rational((1-target)*lower+target*upper,'Marginal value')",
+     'item.lower+float(target)*(item.upper-item.lower)', MarginalNumericalAttacks,
+     'test_uniform_finite_opposite_extremes_recover_exact_affine_values'),
+    ('silently_erase_uniform_subnormal_output', marginal_model, 'marginal_value',
+     "_finite_rational((1-target)*lower+target*upper,'Marginal value')",
+     'float((1-target)*lower+target*upper)', MarginalNumericalAttacks,
+     'test_uniform_subnormal_grid_distinguishes_exact_zero_from_erased_positive'),
+    ('round_triangular_radicand_in_binary_float', marginal_model, 'marginal_value',
+     'target*width*(mode-lower)', '_fraction(float(target)*float(width)*float(mode-lower))',
+     MarginalNumericalAttacks, 'test_triangular_wide_and_tiny_spans_match_decimal_root_ledger'),
+    ('choose_odd_hint_midpoint_destination', marginal_model, '_inverse_grid',
+     "even = unpack('>Q', pack('>d', hint))[0] % 2 == 0",
+     "even = unpack('>Q', pack('>d', hint))[0] % 2 == 1", MarginalNumericalAttacks,
+     'test_triangular_subnormal_midpoint_ties_choose_the_even_destination'),
+    ('choose_odd_grid_midpoint_destination', marginal_model, '_inverse_grid',
+     "unpack('>Q',pack('>d',lo))[0] % 2 == 0",
+     "unpack('>Q',pack('>d',lo))[0] % 2 == 1", MarginalNumericalAttacks,
+     'test_triangular_subnormal_midpoint_ties_choose_the_even_destination'),
+    ('erase_nonzero_inverse_grid_output', marginal_model, '_checked_inverse_result',
+     'value == 0.0 and compare(Fraction(0)) != 0', 'False', MarginalNumericalAttacks,
+     'test_triangular_subnormal_midpoint_ties_choose_the_even_destination'),
+    ('bias_log_uniform_exact_cdf_power', marginal_model, '_log_compare',
+     'lower**(b-a)*upper**a', 'lower**(b-a)*upper**(a+1)', MarginalNumericalAttacks,
+     'test_log_uniform_geometric_median_has_no_log_roundtrip_drift'),
+    ('omit_gaussian_series_exponential', marginal_model, '_gaussian_series_point',
+     'result = math.mul((total[0],upper),exponential)',
+     'result = (total[0],upper)', MarginalNumericalAttacks,
+     'test_bounded_normal_quantiles_match_independent_mpmath_reference'),
+    ('halve_positive_gaussian_series_terms', marginal_model, '_gaussian_series_point',
+     'total = math.add(total,following)',
+     "total = math.add(total,math.mul(following,(Decimal('.5'),)*2))", MarginalNumericalAttacks,
+     'test_bounded_normal_quantiles_match_independent_mpmath_reference'),
+    ('restore_absolute_correlation_pivot_floor', uncertainty_model, '_cholesky',
+     'if residual <= 0:', 'if residual <= Fraction(1,10**12):', CorrelationAndSamplerAttacks,
+     'test_true_near_singular_positive_definite_matrix_has_no_absolute_pivot_floor'),
+    ('ignore_small_correlation_asymmetry', uncertainty_model.CorrelationModel, '__post_init__',
+     'self.matrix[index][other] != self.matrix[other][index]',
+     'abs(self.matrix[index][other]-self.matrix[other][index]) > 1e-12', CorrelationAndSamplerAttacks,
+     'test_unit_diagonal_and_symmetry_are_not_silently_ignored_within_tolerance'),
+    ('ignore_small_correlation_diagonal_error', uncertainty_model.CorrelationModel, '__post_init__',
+     'self.matrix[index][index] != 1.0', 'abs(self.matrix[index][index]-1.0) > 1e-12',
+     CorrelationAndSamplerAttacks,
+     'test_unit_diagonal_and_symmetry_are_not_silently_ignored_within_tolerance'),
+    ('floor_small_open_random_variates', uncertainty_model, '_open_random',
+     'if 0 < value < 1:return value', 'if 0 < value < 1:return max(value,1e-14)',
+     CorrelationAndSamplerAttacks, 'test_smallest_positive_jitter_stays_in_the_first_open_stratum'),
+    ('export_stratum_intermediate_before_directed_rounding', uncertainty_model, '_stratum_probability',
+     'point=float(exact)', 'point=_finite_rational(exact,"Unit stratum probability")',
+     CorrelationAndSamplerAttacks, 'test_smallest_positive_jitter_stays_in_the_first_open_stratum'),
+    ('allow_lhs_upper_cell_spill', uncertainty_model, '_stratum_probability',
+     'if _fraction(point) >= upper or point >= 1:point=nextafter(point,-inf)', 'pass',
+     CorrelationAndSamplerAttacks, 'test_last_latin_hypercube_cells_cannot_round_into_the_next_stratum'),
+    ('clip_independent_copula_tail', uncertainty_model, 'sample_uncertain_parameters',
+     '_normal_quantile(value)', '_normal_quantile(min(1-1e-14,max(1e-14,value)))',
+     CorrelationAndSamplerAttacks, 'test_copula_does_not_clip_independent_tail_probabilities'),
+    ('export_correlated_tail_as_rounded_cdf', uncertainty_model, 'sample_uncertain_parameters',
+     '[_GaussianProbability(value) for value in correlated]',
+     '[NormalDist().cdf(value) for value in correlated]', CorrelationAndSamplerAttacks,
+     'test_correlated_gaussian_tail_is_not_exported_as_an_endpoint_probability'),
+    ('ignore_copula_cholesky_coefficients', uncertainty_model, 'sample_uncertain_parameters',
+     '_fraction(lower[index][column])*_fraction(independent[column])',
+     '_fraction(independent[column])', CorrelationAndSamplerAttacks,
+     'test_correlated_gaussian_tail_is_not_exported_as_an_endpoint_probability'),
+    ('skip_uncertain_parameter_scalar_normalization', uncertainty_model.UncertainParameter, '__post_init__',
+     'coerce_fields(self, "Uncertain parameter")', 'pass', MarginalNumericalAttacks,
+     'test_probability_and_parameter_numeric_controls_are_typed'),
+    ('skip_uncertainty_draw_scalar_normalization', uncertainty_model.UncertaintyDraw, '__post_init__',
+     'coerce_fields(self,"Uncertainty draw")', 'pass', CorrelationAndSamplerAttacks,
+     'test_draw_records_reject_duplicate_names_and_copy_pairs'),
+    ('ignore_unsupported_ensemble_sampling_policy', ensemble_reader, 'hierarchical_ensemble_from_dict',
+     '_require_numerical_policies(payload, {"sampling_numerics": _SAMPLING_POLICY})',
+     'pass', SamplingIdentityAttacks,
+     'test_missing_or_rehashed_unsupported_sampling_policy_cannot_claim_current_identity'),
+    ('omit_sampler_policy_from_conditional_artifact_identity', ensemble_model, '_perturb_artifact',
+     '"sampling_numerics": _SAMPLING_POLICY,', '', SamplingIdentityAttacks,
+     'test_sampling_policy_changes_conditional_artifact_identity'),
+    ('trust_uncertified_independent_normal_hint', marginal_model, '_normal_quantile',
+     'return _inverse_grid(-64.,64.,compare,hint)', 'return hint', CorrelationAndSamplerAttacks,
+     'test_independent_copula_inverse_uses_reference_rounding_at_both_tails'),
+    ('coerce_custom_marginal_strings_and_booleans', uncertainty_model, '_custom_parameter_value',
+     'real(parameter.value_at_probability(probability),"Custom marginal value")',
+     'float(parameter.value_at_probability(probability))', CorrelationAndSamplerAttacks,
+     'test_custom_marginal_outputs_are_real_finite_and_within_declared_bounds'),
+    ('ignore_custom_marginal_declared_bounds', uncertainty_model, '_custom_parameter_value',
+     'if not parameter.lower <= value <= parameter.upper:', 'if False:', CorrelationAndSamplerAttacks,
+     'test_custom_marginal_outputs_are_real_finite_and_within_declared_bounds'),
+    ('send_rounded_endpoint_to_custom_marginal', uncertainty_model, '_custom_parameter_value',
+     'if not 0 < value < 1:', 'if False:', CorrelationAndSamplerAttacks,
+     'test_custom_float_callback_cannot_receive_a_silently_clipped_copula_endpoint'),
     ('omit_weight_total_from_normalized_mean', probability_model, '_weight_ledger',
      'mean = sum((x * w for x, w in rows), Fraction(0)) / total',
      'mean = sum((x * w for x, w in rows), Fraction(0))', WeightedKernelAttacks,
@@ -1059,52 +1247,37 @@ def main():
     fingerprints = verification_inputs(ROOT)
     outcomes = []
     for name, owner, symbol, before, after, test_class, test_name in MUTATIONS:
+        started = time.monotonic()
         descriptor = inspect.getattr_static(owner, symbol)
         function = descriptor.fget if isinstance(descriptor, property) else getattr(owner, symbol)
-        source = textwrap.dedent(inspect.getsource(function))
-        if source.count(before) != 1:
-            raise RuntimeError(f"Mutation {name} must identify exactly one source expression.")
-        namespace = dict(inspect.unwrap(function).__globals__)
-        exec(compile(ast.parse(source.replace(before, after)), f"<feed-mutation:{name}>", "exec"),
-             namespace)
-        replacement = namespace[symbol]
+        source,replacement = compile_fault(function,before,after,f"<feed-mutation:{name}>")
         if isinstance(descriptor, property):
             if not isinstance(replacement, property):
                 raise RuntimeError(f"Mutation {name} lost its property descriptor.")
             replacement = property(replacement.fget, descriptor.fset, descriptor.fdel,
                                    descriptor.__doc__)
-        bindings = [(owner, symbol)]
-        if isinstance(owner, ModuleType):
-            bindings += [(loaded, key) for module_name, loaded in list(sys.modules.items())
-                        if module_name.startswith(("rocket_propulsion.", "tests.", "test_"))
-                        and loaded is not None for key, value in list(vars(loaded).items())
-                        if value is function and (loaded is not owner or key != symbol)]
-        if not bindings:
-            raise RuntimeError(f"Mutation {name} has no live callable bindings.")
-        with ExitStack() as stack:
-            for target, key in bindings:
-                stack.enter_context(patch.object(target, key, replacement))
-            # Immutable numerical caches are valid only for the implementation
-            # that populated them. Every injected variant must execute afresh.
-            for module in (tabulated_model, metrics_model, time_model):
-                for cached in vars(module).values():
-                    clear = getattr(cached, 'cache_clear', None)
-                    if callable(clear):
-                        clear()
-            suite = unittest.TestSuite((test_class(test_name),))
-            result = unittest.TextTestRunner(stream=io.StringIO()).run(suite)
-        status = "invalid" if result.errors else "killed" if result.failures else "survived"
-        outcomes.append({"mutation": name, "status": status,
+        def bindings():
+            targets=[(owner,symbol)]
+            if isinstance(owner,ModuleType):
+                targets += [(loaded,key) for module_name,loaded in list(sys.modules.items())
+                            if module_name.startswith(("rocket_propulsion.","tests.","test_"))
+                            and loaded is not None for key,value in list(vars(loaded).items())
+                            if value is function and (loaded is not owner or key!=symbol)]
+            return targets
+        trial=evaluate_fault(bindings,function,replacement,test_class,test_name)
+        outcomes.append({"mutation": name, **trial,
                          "symbol": owner.__name__ + "." + symbol,
                          "source_sha256": hashlib.sha256(source.encode()).hexdigest(),
                          "test": test_class.__name__ + "." + test_name,
-                         "assertion_failures": len(result.failures), "errors": len(result.errors)})
+                         "seconds": round(time.monotonic()-started,3)})
+        print(name, trial['status'], flush=True)
     output = Path("output/assurance/feed_mutations.json")
     output.parent.mkdir(parents=True, exist_ok=True)
     if verification_inputs(ROOT) != fingerprints:
         raise RuntimeError("Mutation inputs changed during the run.")
     output.write_text(json.dumps({"scope": f"{len(MUTATIONS)} curated feed/bridge/direction/throttle/interpolation/inventory/constant/profile/adapter/API/numerical faults; not exhaustive",
                                   "source_sha256": fingerprints,
+                                  "runtime_policy": MUTATION_RUNTIME_POLICY,
                                   "mutations": outcomes}, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(outcomes, indent=2))
     return int(any(row["status"] != "killed" for row in outcomes))

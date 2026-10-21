@@ -78,15 +78,21 @@ class VerificationEvidenceAttacks(unittest.TestCase):
                 '<testsuites><testsuite><testcase classname="tests.test_model.Checks" '
                 'name="test_physics"/></testsuite></testsuites>', encoding="utf-8")
             killed = {"mutation": "fixture_fault", "status": "killed",
-                      "assertion_failures": 1, "errors": 0}
+                      "assertion_failures": 1, "errors": 0,
+                      "baseline_passed":True,"post_control_passed":True,"execution_valid":True}
             for status, row, expected_exit in (
                 ("survived", {**killed, "status": "survived", "assertion_failures": 0}, 1),
                 ("invalid", {**killed, "status": "invalid", "errors": 1}, 1),
+                ("failed_baseline", {**killed,"status":"invalid","baseline_passed":False},1),
+                ("failed_post_control", {**killed,"status":"invalid","post_control_passed":False},1),
+                ("invalid_execution", {**killed,"status":"invalid","execution_valid":False},1),
+                ("forged_kill_after_failed_baseline", {**killed,"baseline_passed":False},1),
                 ("killed", killed, 0),
             ):
                 with self.subTest(status=status):
                     for name in ("mutations.json", "feed_mutations.json", "native_lunaris_mutations.json"):
-                        data = {"scope": "synthetic report fixture", "source_sha256": snapshot, "mutations": [row]}
+                        data = {"scope": "synthetic report fixture", "source_sha256": snapshot, "mutations": [row],
+                                "runtime_policy":reporting.MUTATION_RUNTIME_POLICY}
                         if name == "native_lunaris_mutations.json":
                             data.update(external_dependency_roots=[str(native_root)],
                                         external_dependency_sha256=runner.dependency_inputs([native_root]))
@@ -95,10 +101,11 @@ class VerificationEvidenceAttacks(unittest.TestCase):
                         exit_status = reporting.main()
                     self.assertEqual(exit_status, expected_exit)
                     current = json.loads((root / "verification_summary.json").read_text())
-                    self.assertTrue(current["complete_suite_passed"], "Pytest evidence is unchanged.")
+                    self.assertEqual(current["complete_suite_passed"],status!='forged_kill_after_failed_baseline')
                     self.assertEqual(current.get("software_checks_passed", False), expected_exit == 0)
                     self.assertEqual(current["verification_status"],
-                                     "complete" if expected_exit == 0 else "failed")
+                                     'incomplete_or_invalid' if status=='forged_kill_after_failed_baseline'
+                                     else "complete" if expected_exit == 0 else "failed")
             # Another valid native-copy report must not silently qualify a
             # different dependency context from the one used by regression.
             other = root / "other_provider"
@@ -115,11 +122,13 @@ class VerificationEvidenceAttacks(unittest.TestCase):
             self.assertIn("regression dependency context", json.loads(
                 (root / "verification_summary.json").read_text())["reason"])
             for rows in ([], [killed, killed], [{**killed, "mutation": "unconfigured"}],
-                         [{**killed, "assertion_failures": 0}], [{**killed, "status": "unknown"}]):
+                         [{**killed, "assertion_failures": 0}], [{**killed, "status": "unknown"}],
+                         [{**killed,"baseline_passed":1}], [{**killed,"execution_valid":"true"}]):
                 with self.subTest(rows=rows):
                     path = root / "mutations.json"
                     path.write_text(json.dumps({"scope": "synthetic report fixture",
-                        "source_sha256": snapshot, "mutations": rows}), encoding="utf-8")
+                        "source_sha256": snapshot, "mutations": rows,
+                        "runtime_policy":reporting.MUTATION_RUNTIME_POLICY}), encoding="utf-8")
                     with self.assertRaises(ValueError):
                         summarize_mutations(root, path)
 
@@ -137,9 +146,11 @@ class VerificationEvidenceAttacks(unittest.TestCase):
             module.write_text("original")
             snapshot = verification_inputs(root)
             report = {"scope":"synthetic provider fixture", "source_sha256":snapshot,
+                      "runtime_policy":reporting.MUTATION_RUNTIME_POLICY,
                       "external_dependency_roots":[str(native)],
                       "external_dependency_sha256":runner.dependency_inputs([native]),
-                      "mutations":[{"mutation":"fixture_fault", "status":"killed", "assertion_failures":1,"errors":0}]}
+                      "mutations":[{"mutation":"fixture_fault", "status":"killed", "assertion_failures":1,"errors":0,
+                                    "baseline_passed":True,"post_control_passed":True,"execution_valid":True}]}
             path = root / "native_lunaris_mutations.json"
             path.write_text(json.dumps(report))
             self.assertTrue(summarize_mutations(root, path)['passed'])
@@ -204,8 +215,14 @@ class VerificationEvidenceAttacks(unittest.TestCase):
             path = root / "mutations.json"
             path.write_text(json.dumps({"scope": "synthetic fixture", "mutations": [
                 {"mutation": "fixture_fault", "status": "killed", "assertion_failures": 1,
-                 "errors": 0}], "source_sha256": verification_inputs(root)}), encoding="utf-8")
+                 "errors": 0,"baseline_passed":True,"post_control_passed":True,"execution_valid":True}],
+                 "runtime_policy":reporting.MUTATION_RUNTIME_POLICY,
+                 "source_sha256": verification_inputs(root)}), encoding="utf-8")
             self.assertEqual(summarize_mutations(root, path)["killed"], 1)
+            valid=path.read_text();missing=json.loads(valid);missing.pop('runtime_policy')
+            path.write_text(json.dumps(missing))
+            with self.assertRaisesRegex(ValueError,'runtime policy'):summarize_mutations(root,path)
+            path.write_text(valid)
             source.write_text("changed", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "stale"):
                 summarize_mutations(root, path)

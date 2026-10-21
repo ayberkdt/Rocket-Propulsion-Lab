@@ -1,16 +1,9 @@
 """Source-bound native impulse faults; only assertion failures count as kills."""
 
-import ast
-from contextlib import ExitStack
 import hashlib
-import inspect
-import io
 import json
 from pathlib import Path
 import sys
-import textwrap
-import unittest
-from unittest.mock import patch
 
 from lunaris.core.propagation import plans
 
@@ -71,15 +64,9 @@ def main():
     outcomes = []
     for name, symbol, before, after, test in MUTATIONS:
         function = getattr(plans, symbol)
-        source = textwrap.dedent(inspect.getsource(function))
-        if source.count(before) != 1:
-            raise ValueError(f"{name} does not identify exactly one expression.")
-        namespace = dict(function.__globals__)
-        exec(
-            compile(ast.parse(source.replace(before, after)), f"<native-mutation:{name}>", "exec"),
-            namespace,
-        )
-        bindings = [
+        from scripts.mutation_runtime import compile_fault, evaluate_fault, MUTATION_RUNTIME_POLICY
+        source,replacement = compile_fault(function,before,after,f"<native-mutation:{name}>")
+        def bindings():return [
             (module, key)
             for module_name, module in list(sys.modules.items())
             if module_name.startswith(("lunaris.", "rocket_propulsion.", "tests."))
@@ -87,33 +74,26 @@ def main():
             for key, value in list(vars(module).items())
             if value is function
         ]
-        if not bindings:
-            raise ValueError(f"{name} has no live bindings.")
-        with ExitStack() as stack:
-            for module, key in bindings:
-                stack.enter_context(patch.object(module, key, namespace[symbol]))
-            suite = unittest.TestSuite((NativeLunarisImpulseAttacks(test),))
-            result = unittest.TextTestRunner(stream=io.StringIO()).run(suite)
-        status = "invalid" if result.errors else "killed" if result.failures else "survived"
+        trial=evaluate_fault(bindings,function,replacement,NativeLunarisImpulseAttacks,test)
         outcomes.append(
             {
                 "mutation": name,
-                "status": status,
+                **trial,
                 "symbol": f"{plans.__name__}.{symbol}",
                 "source_sha256": hashlib.sha256(source.encode()).hexdigest(),
                 "test": f"NativeLunarisImpulseAttacks.{test}",
-                "assertion_failures": len(result.failures),
-                "errors": len(result.errors),
             }
         )
     if inputs != verification_inputs(ROOT) or external != dependency_inputs(dependency_roots):
         raise ValueError("Native mutation inputs changed during evaluation.")
     output = ROOT / "output/assurance/native_lunaris_mutations.json"
+    output.parent.mkdir(parents=True,exist_ok=True)
     output.write_text(
         json.dumps(
             {
                 "scope": "six curated native impulse numerical/trace faults; not exhaustive",
                 "source_sha256": inputs,
+                "runtime_policy": MUTATION_RUNTIME_POLICY,
                 "external_dependency_roots": [str(path) for path in dependency_roots],
                 "external_dependency_sha256": external,
                 "mutations": outcomes,

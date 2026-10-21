@@ -146,6 +146,38 @@ FREE_SPACE_REVIEW = {
     '_range_output', '_range_output.rounded',
     'FreeSpaceBurnMetrics.__post_init__', 'free_space_burn_metrics',
 }
+SAMPLE_SUMMARY_REVIEW = {
+    'propulsion/burns/sample_statistics.py': {'_SampleLedger', '_sample_ledger',
+        '_linear_quantile', '_affine_sqrt_output', '_affine_sqrt_output.compare',
+        '_pearson', '_relative_exact', '_deviation_relative_change'},
+    'propulsion/burns/uncertainty.py': {'PropulsionMetricStatistics.__post_init__',
+        'PropulsionSensitivity.__post_init__', 'SamplingConvergenceEvidence.__post_init__',
+        'BlowdownUncertaintySample.__post_init__', 'BlowdownUncertaintyResult.__post_init__',
+        '_percentile', '_statistics', '_correlation', '_relative_change',
+        '_sampling_convergence', '_sensitivity_records', '_validate_uncertainty_result',
+        'simulate_blowdown_uncertainty'},
+}
+MARGINAL_SAMPLER_REVIEW = {
+    'propulsion/burns/marginal_numerics.py': {'_sign', '_key', '_from_key',
+        '_checked_inverse_result', '_inverse_grid', '_Intervals', '_Intervals.__init__',
+        '_Intervals.rational', '_Intervals.add', '_Intervals.sub', '_Intervals.mul',
+        '_Intervals.div', '_log_interval', '_certified_sign', '_gaussian_series_point',
+        '_gaussian_limit', '_gaussian_primitive', '_GaussianProbability',
+        '_GaussianProbability.__init__', '_GaussianProbability.interval',
+        '_target_interval', '_compare_rational_probability', '_normal_quantile',
+        '_normal_quantile.compare', '_hint_float',
+        '_normal_compare', '_normal_compare.difference', '_log_compare',
+        '_log_compare.difference', 'marginal_value', 'marginal_value.compare'},
+    'propulsion/burns/uncertainty.py': {'UncertainParameter.__post_init__',
+        'UncertainParameter.value_at_probability', 'CorrelationModel.__post_init__',
+        'UncertaintyDraw.__post_init__', '_cholesky', '_open_random',
+        '_stratum_probability', '_unit_samples', 'sample_uncertain_parameters',
+        '_custom_parameter_value'},
+    'propulsion/burns/ensemble.py': {'_perturb_artifact'},
+    'propulsion/burns/ensemble_serialization.py': {'hierarchical_ensemble_to_dict',
+        'hierarchical_ensemble_from_dict'},
+    'propulsion/burns/ensemble_documents.py': {'_ensemble_document'},
+}
 PROBABILITY_NUMERICS_REVIEW = {
     'propulsion/burns/probability_numerics.py': {'_sqrt_output', '_WeightedLedger',
         '_WeightedLedger.quantile', '_weight_ledger', '_quantiles', '_sample_moments',
@@ -319,6 +351,10 @@ def _review_scopes(path, name):
     scopes = (["source_trace_and_software_verification_only"]
               if "studies/sass/" in path.as_posix() else [])
     groups = (
+        (SAMPLE_SUMMARY_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_blowdown_sample_summary_arithmetic_retained_records_and_stability_only_no_coverage_claim'),
+        (MARGINAL_SAMPLER_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_bounded_quantile_references_sampler_boundaries_and_policy_identity_only_extreme_tails_open'),
         (PROBABILITY_NUMERICS_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
          'targeted_normalized_probability_moments_quantiles_and_checked_statistical_exports_only'),
         (ENSEMBLE_DOCUMENT_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),

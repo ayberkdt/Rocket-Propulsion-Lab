@@ -295,3 +295,12 @@ Sources below support the provisional study package; ITU course identity is not 
 - **NIST-WEIGHTED-MEAN**: NIST Dataplot, *Weighted Mean*, equation 2-20, normalized weighted mean. Accessed 2026-10-21. <https://www.itl.nist.gov/div898/software/dataplot/refman2/ch2/weigmean.pdf>
 - **MIT-TOTAL-VARIANCE**: MIT RES.6-012 Spring 2018, lecture 13.7 derivation transcript, conditional and between-group variance identity. Accessed 2026-10-21. <https://ocw.mit.edu/courses/res-6-012-introduction-to-probability-spring-2018/c025b4baa48ff7801b96c3915ee62e5c_mHonq7Gjjqg.pdf>
 - **PYTHON-3.12-MATH**: Python 3.12 math, isqrt and ldexp primitives for local binary64 statistical exports. Accessed 2026-10-21. <https://docs.python.org/3.12/library/math.html>
+- **NIST-DLMF-7.6**: NIST DLMF, positive error-function power series, equation 7.6.2. Accessed 2026-10-21. <https://dlmf.nist.gov/7.6#E2>
+- **NIST-DLMF-7.8**: NIST DLMF, error-function and Mills ratio bounds. Accessed 2026-10-21. <https://dlmf.nist.gov/7.8>
+- **NIST-TRIPPF**: NIST Dataplot, triangular percent point function. Accessed 2026-10-21. <https://www.itl.nist.gov/div898/software/dataplot/refman2/ch8/trippf.pdf>
+- **SCIPY-1.14.1-LOGUNIFORM**: SciPy, log-uniform CDF and quantile formulas. Accessed 2026-10-21. <https://docs.scipy.org/doc/scipy-1.14.1/tutorial/stats/continuous_loguniform.html>
+- **NIST-MEAN-INTERVAL**: NIST, confidence limits for the mean and long-run interpretation. Accessed 2026-10-21. <https://www.itl.nist.gov/div898/handbook/eda/section3/eda352.htm>
+- **NIST-KNOWN-SIGMA-INTERVAL**: NIST, known and estimated population deviation in confidence intervals. Accessed 2026-10-21. <https://www.itl.nist.gov/div898/handbook/prc/section1/prc14.htm>
+- **NUMPY-2.2-LINEAR-QUANTILE**: NumPy, linear/Hyndman-Fan type-7 sample quantile definition. Accessed 2026-10-21. <https://numpy.org/doc/2.2/reference/generated/numpy.quantile.html>
+- **NIST-PEARSON**: NIST Dataplot, centered-product correlation definition. Accessed 2026-10-21. <https://www.itl.nist.gov/div898/software/dataplot/refman2/auxillar/correlat.htm>
+- **SCIPY-1.14.1-PEARSON**: SciPy, Pearson coefficient and undefined constant-input behavior. Accessed 2026-10-21. <https://docs.scipy.org/doc/scipy-1.14.1/reference/generated/scipy.stats.pearsonr.html>

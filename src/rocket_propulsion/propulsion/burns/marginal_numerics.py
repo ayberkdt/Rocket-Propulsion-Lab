@@ -43,13 +43,19 @@ def _checked_inverse_result(value, compare):
 def _inverse_grid(lower, upper, compare, hint=None):
     """Invert a monotone sign oracle; midpoint ties use the even significand."""
     if hint is not None and isfinite(hint) and lower <= hint <= upper:
-        before, after = nextafter(hint, -inf), nextafter(hint, inf)
-        left = -1 if not isfinite(before) else compare((_fraction(before)+_fraction(hint))/2)
-        right = 1 if not isfinite(after) else compare((_fraction(hint)+_fraction(after))/2)
-        if left <= 0 <= right:
-            even = unpack('>Q', pack('>d', hint))[0] % 2 == 0
-            chosen = before if left == 0 and not even else after if right == 0 and not even else hint
-            return _checked_inverse_result(chosen, compare)
+        # A useful hint can be off by a few ULPs. Certify adjacent cells before
+        # falling back to the full grid; no accuracy bound on the hint is assumed.
+        for _ in range(4):
+            before, after = nextafter(hint, -inf), nextafter(hint, inf)
+            left = -1 if not isfinite(before) else compare((_fraction(before)+_fraction(hint))/2)
+            right = 1 if not isfinite(after) else compare((_fraction(hint)+_fraction(after))/2)
+            if left <= 0 <= right:
+                even = unpack('>Q', pack('>d', hint))[0] % 2 == 0
+                chosen = before if left == 0 and not even else after if right == 0 and not even else hint
+                return _checked_inverse_result(chosen, compare)
+            hint = before if left > 0 else after
+            if not isfinite(hint) or not lower <= hint <= upper:
+                break
     a, b = _key(lower), _key(upper)
     while b-a > 1:
         middle = (a+b)//2
@@ -86,6 +92,8 @@ class _Intervals:
         return self.down.subtract(a[0],b[1]), self.up.subtract(a[1],b[0])
 
     def mul(self, a, b):
+        if a[0] >= 0 and b[0] >= 0:
+            return self.down.multiply(a[0],b[0]), self.up.multiply(a[1],b[1])
         return (min(self.down.multiply(x,y) for x in a for y in b),
                 max(self.up.multiply(x,y) for x in a for y in b))
 
@@ -114,26 +122,32 @@ def _certified_sign(evaluate):
 
 
 def _gaussian_series_point(x, precision):
-    """Enclose integral_0^x exp(-t^2/2) dt by its alternating series."""
+    """Enclose G(x) using the positive series in NIST DLMF 7.6.2.
+
+    G(x) = exp(-x*x/2) * sum(x**(2*n+1)/(2*n+1)!!).
+    Once successive ratios are below one, their decreasing geometric majorant
+    bounds the entire omitted tail. No large alternating terms cancel.
+    """
     if x == 0:return Decimal(0), Decimal(0)
-    extra = int(Fraction(x)**2/2)+80
-    math = _Intervals(precision+extra)
+    math = _Intervals(precision+32)
     square = math.mul((x,x),(x,x))
     term = x,x
-    total = Decimal(0),Decimal(0)
-    goal = math.down.multiply(min(x,Decimal(1)),Decimal((0,(1,),-precision-12)))
-    for index in range(12*(precision+extra)+2000):
-        total = math.add(total,term) if index % 2 == 0 else math.sub(total,term)
-        numerator = math.mul(square,(Decimal(2*index+1),)*2)
-        denominator = (Decimal(2*(index+1)*(2*index+3)),)*2
-        ratio = math.div(numerator,denominator)
+    total = term
+    epsilon = Decimal((0,(1,),-precision-12))
+    exponent = math.div(math.sub((Decimal(0),)*2,square),(Decimal(2),)*2)
+    exponential = (math.near.next_minus(math.near.exp(exponent[0])),
+                   math.near.next_plus(math.near.exp(exponent[1])))
+    for index in range(12*(precision+32)+2000):
+        ratio = (math.down.divide(square[0],Decimal(2*index+3)),
+                 math.up.divide(square[1],Decimal(2*index+3)))
         following = math.mul(term,ratio)
-        if ratio[1] < 1 and following[1] <= goal:
-            if index % 2 == 0:
-                result = math.down.subtract(total[0],following[1]), total[1]
-            else:
-                result = total[0], math.up.add(total[1],following[1])
-            return max(Decimal(0),result[0]), min(x,result[1])
+        if ratio[1] < 1:
+            remaining = math.up.divide(following[1],math.down.subtract(Decimal(1),ratio[1]))
+            if remaining <= math.down.multiply(total[0],epsilon):
+                upper = math.up.add(total[1],remaining)
+                result = math.mul((total[0],upper),exponential)
+                return max(Decimal(0),result[0]), min(x,result[1])
+        total = math.add(total,following)
         term = following
     raise ConvergenceError("Gaussian integral series did not certify its remainder.", field="Marginal enclosure")
 
@@ -153,7 +167,7 @@ def _gaussian_primitive(value, precision):
     radius = isqrt(6*(precision+14))+1
     if value > radius:return _gaussian_limit(precision)
     # Evaluate the monotone primitive at two exact decimal bounding points.
-    math = _Intervals(precision+int(value*value/2)+80)
+    math = _Intervals(precision+32)
     lo,hi = math.rational(value)
     low = _gaussian_series_point(lo,precision)[0]
     high = _gaussian_series_point(hi,precision)[1]
@@ -183,6 +197,22 @@ def _compare_rational_probability(value, target):
     if isinstance(target,Fraction):return _sign(value-target)
     return _certified_sign(lambda precision:_Intervals(precision).sub(
         _Intervals(precision).rational(value),_target_interval(target,precision)))
+
+
+def _normal_quantile(probability):
+    """Invert the standard normal for an open binary64 probability.
+
+    Mills' bound puts both tails outside [-64,64] below the smallest binary64
+    probability. NormalDist is only a hint; directed CDF cells certify export.
+    """
+    target = _fraction(probability)
+    if not 0 < target < 1:
+        raise DomainError("Normal sampling probability must be in (0, 1).",field="Sampling probability")
+    def compare(point):
+        return _certified_sign(lambda precision:_Intervals(precision).sub(
+            _GaussianProbability(point).interval(precision),_Intervals(precision).rational(target)))
+    hint = NormalDist().inv_cdf(float(target))
+    return _inverse_grid(-64.,64.,compare,hint)
 
 
 def _hint_float(value, lower, upper):

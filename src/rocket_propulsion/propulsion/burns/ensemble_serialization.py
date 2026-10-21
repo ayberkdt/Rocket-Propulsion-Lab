@@ -36,6 +36,7 @@ from .ensemble import (
 )
 from .ensemble_documents import _ensemble_document
 from .probability_numerics import _PROBABILITY_POLICY, _weight_ledger
+from .marginal_numerics import _SAMPLING_POLICY
 from .numeric_outputs import _finite_rational, _fraction
 from fractions import Fraction
 from .serialization import _require_numerical_policies
@@ -161,6 +162,7 @@ def hierarchical_ensemble_to_dict(
     payload: dict[str, Any] = {
         "schema": HIERARCHICAL_ENSEMBLE_SCHEMA,
         "statistics_numerics": _PROBABILITY_POLICY,
+        "sampling_numerics": _SAMPLING_POLICY,
         "method": ensemble.method,
         "base_seed": ensemble.base_seed,
         "scenario_count": ensemble.scenario_count,
@@ -451,6 +453,7 @@ def hierarchical_ensemble_from_dict(
 
     _ensemble_document(payload)
     _require_numerical_policies(payload, {"statistics_numerics": _PROBABILITY_POLICY})
+    _require_numerical_policies(payload, {"sampling_numerics": _SAMPLING_POLICY})
     if payload.get("schema") != HIERARCHICAL_ENSEMBLE_SCHEMA:
         raise InputError("Unsupported hierarchical ensemble schema.")
     try:

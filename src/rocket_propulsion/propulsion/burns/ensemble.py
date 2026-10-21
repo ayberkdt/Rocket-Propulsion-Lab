@@ -26,6 +26,7 @@ from rocket_propulsion.core.validation import coerce_fields, name_value_pairs, r
 from .scenarios import PropulsionScenarioEnsemble
 from fractions import Fraction
 from .numeric_outputs import _finite_rational, _fraction
+from .marginal_numerics import _SAMPLING_POLICY
 from .probability_numerics import _weight_ledger, _quantiles, _sqrt_output, _sample_moments, _relative_change, _joint_weight
 from .tabulated import TabulatedBurnArtifact, scale_tabulated_artifact
 from .uncertainty import (
@@ -392,6 +393,7 @@ def _perturb_artifact(
             "inputs": draw.values,
             "primary_seed": primary_seed,
             "method": method,
+            "sampling_numerics": _SAMPLING_POLICY,
         },
         reference_ids=tuple(dict.fromkeys(HIERARCHICAL_ENSEMBLE_REFERENCE_IDS)),
         warnings=(

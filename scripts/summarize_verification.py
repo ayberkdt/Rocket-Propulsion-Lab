@@ -14,6 +14,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from scripts.run_bounded_regression import dependency_inputs, verification_inputs
+from scripts.mutation_runtime import MUTATION_RUNTIME_POLICY
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "output/assurance"
@@ -120,6 +121,8 @@ def summarize_mutations(root: Path, path: Path) -> dict:
     """Require current sources and one coherent outcome per configured curated fault."""
     raw = path.read_bytes()
     data = json.loads(raw)
+    if data.get('runtime_policy')!=MUTATION_RUNTIME_POLICY:
+        raise ValueError('Mutation runtime policy is missing or unsupported.')
     if not data.get("source_sha256") or data["source_sha256"] != verification_inputs(root):
         raise ValueError("Mutation evidence is stale: input file set/content changed.")
     if path.name == "native_lunaris_mutations.json":
@@ -137,7 +140,10 @@ def summarize_mutations(root: Path, path: Path) -> dict:
         failures, errors = row.get("assertion_failures"), row.get("errors")
         if type(failures) is not int or type(errors) is not int or min(failures, errors) < 0:
             raise ValueError("Curated outcome counts must be nonnegative integers.")
-        expected = "invalid" if errors else "killed" if failures else "survived"
+        controls=[row.get(key) for key in ('baseline_passed','post_control_passed','execution_valid')]
+        if any(type(value) is not bool for value in controls):
+            raise ValueError('Mutation control outcomes must be explicit booleans.')
+        expected = "invalid" if not all(controls) or errors else "killed" if failures else "survived"
         if row.get("status") != expected:
             raise ValueError("Curated status contradicts its assertion/error evidence.")
         names.append(row["mutation"])

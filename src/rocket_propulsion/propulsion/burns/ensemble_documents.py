@@ -76,7 +76,7 @@ def _ensemble_document(payload):
     _record(
         payload,
         "Hierarchical ensemble",
-        texts=("schema", "method", "ensemble_hash", "statistics_numerics"),
+        texts=("schema", "method", "ensemble_hash", "statistics_numerics", "sampling_numerics"),
         integers=("base_seed", "scenario_count", "realization_count"),
         numbers=(
             "zero_thrust_probability",

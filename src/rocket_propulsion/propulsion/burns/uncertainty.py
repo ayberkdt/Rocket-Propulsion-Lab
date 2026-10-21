@@ -15,16 +15,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
-from math import isfinite, sqrt, nextafter, inf
+from math import isfinite, nextafter, inf
 from fractions import Fraction
 from random import Random
-from statistics import NormalDist, fmean
+from statistics import NormalDist
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
 from rocket_propulsion.core.validation import coerce_fields, integer, real, records, strings, real_matrix, name_value_pairs, text
-from .marginal_numerics import marginal_value, _GaussianProbability, _SAMPLING_POLICY
+from .marginal_numerics import marginal_value, _GaussianProbability, _SAMPLING_POLICY, _normal_quantile
 from .numeric_outputs import _finite_rational, _fraction
 from .probability_numerics import _sqrt_output
+from .sample_statistics import (
+    _SUMMARY_POLICY, _INTERVAL_KIND, _NORMAL_PROXY_MULTIPLIER,
+    _sample_ledger, _linear_quantile, _affine_sqrt_output, _pearson,
+    _relative_exact, _deviation_relative_change,
+)
 
 from .blowdown import (
     BlowdownTankModel,
@@ -211,10 +216,10 @@ class UncertaintyDraw:
 
 @dataclass(frozen=True, slots=True)
 class PropulsionMetricStatistics:
-    """Empirical statistics and a mean standard-error interval for one metric.
+    """Empirical statistics and an unqualified IID-normal formula proxy.
 
-    The 95% interval is a normal-approximation interval for the sample mean; it
-    is not a tolerance interval for individual engine realizations.
+    The legacy ci95 fields contain mean +/- 1.96*s/sqrt(n). Their nominal
+    multiplier establishes neither coverage nor a design-specific LHS error.
 
     References
     ----------
@@ -232,6 +237,21 @@ class PropulsionMetricStatistics:
     p50: float
     p95: float
     maximum: float
+    mean_interval_kind: str = _INTERVAL_KIND
+    coverage_established: bool = False
+
+    def __post_init__(self) -> None:
+        coerce_fields(self,"Sample metric statistics")
+        if self.standard_deviation<0 or self.mean_standard_error<0:
+            raise DomainError("Sample dispersion must be nonnegative.")
+        if not self.minimum<=self.p05<=self.p50<=self.p95<=self.maximum:
+            raise DomainError("Sample percentiles must be ordered within the extrema.")
+        if not self.minimum<=self.mean<=self.maximum:
+            raise DomainError("Sample mean must lie within the extrema.")
+        if not self.mean_ci95_lower<=self.mean<=self.mean_ci95_upper:
+            raise DomainError("Mean proxy endpoints must bracket the mean.")
+        if self.mean_interval_kind!=_INTERVAL_KIND or self.coverage_established is not False:
+            raise DomainError("Sample summary does not establish confidence coverage.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -248,9 +268,24 @@ class PropulsionSensitivity:
 
     metric: str
     parameter: str
-    correlation: float
-    absolute_correlation: float
-    rank: int
+    correlation: float | None
+    absolute_correlation: float | None
+    rank: int | None
+    undefined_reason: str | None = None
+
+    def __post_init__(self) -> None:
+        coerce_fields(self,"Propulsion sensitivity")
+        if self.undefined_reason is not None:
+            object.__setattr__(self,"undefined_reason",text(self.undefined_reason,"Undefined sensitivity reason"))
+        if self.correlation is None:
+            if self.absolute_correlation is not None or self.rank is not None or self.undefined_reason!='constant_input_or_output':
+                raise DomainError("Undefined Pearson sensitivity requires null magnitude/rank and a constant-vector reason.")
+        else:
+            object.__setattr__(self,"rank",integer(self.rank,"Sensitivity rank"))
+            if not -1<=self.correlation<=1 or self.absolute_correlation!=abs(self.correlation):
+                raise DomainError("Pearson coefficient and absolute magnitude disagree.")
+            if self.rank<1 or self.undefined_reason is not None:
+                raise DomainError("Defined sensitivity needs a positive rank and no undefined reason.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -274,6 +309,21 @@ class SamplingConvergenceEvidence:
     requested_tolerance: float
     converged: bool
 
+    def __post_init__(self) -> None:
+        coerce_fields(self,"Sampling stability")
+        if self.full_sample_count<4 or self.half_sample_count!=self.full_sample_count//2:
+            raise DomainError("Sampling stability requires half/full sample counts of at least two/four.")
+        changes=(self.mean_relative_change,self.standard_deviation_relative_change)
+        if any(not 0<=value<=2 for value in changes) or self.requested_tolerance<=0:
+            raise DomainError("Sampling stability requires bounded nonnegative changes and positive tolerance.")
+        if type(self.converged) is not bool:
+            raise DomainError("Sampling stability flag must be boolean.")
+        # Display equality can hide either exact threshold side; the owning
+        # result replays the decision from its retained sample values.
+        shown=max(changes)
+        if self.converged and shown>self.requested_tolerance or not self.converged and shown<self.requested_tolerance:
+            raise DomainError("Sampling stability flag contradicts its displayed evidence.")
+
 
 @dataclass(frozen=True, slots=True)
 class BlowdownUncertaintySample:
@@ -294,6 +344,18 @@ class BlowdownUncertaintySample:
     final_supply_pressure_pa: float
     cutoff_reason: str
     artifact: TabulatedBurnArtifact
+
+    def __post_init__(self) -> None:
+        coerce_fields(self,"Blowdown uncertainty sample")
+        object.__setattr__(self,"inputs",name_value_pairs(self.inputs,"Blowdown sample inputs"))
+        if self.index<0 or len(dict(self.inputs))!=len(self.inputs):
+            raise DomainError("Blowdown sample needs a nonnegative index and unique inputs.")
+        if not isinstance(self.artifact,TabulatedBurnArtifact) or self.final_supply_pressure_pa<=0:
+            raise DomainError("Blowdown sample requires an artifact and positive final pressure.")
+        expected=(self.artifact.duration_s,self.artifact.delivered_total_impulse_n_s,
+                  self.artifact.consumed_propellant_kg,self.artifact.thrust_centroid_time_s)
+        if (self.duration_s,self.delivered_impulse_n_s,self.consumed_propellant_kg,self.thrust_centroid_time_s)!=expected:
+            raise DomainError("Blowdown sample metrics do not reproduce its artifact.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -320,6 +382,19 @@ class BlowdownUncertaintyResult:
     convergence: SamplingConvergenceEvidence
     reference_ids: tuple[str, ...]
     warnings: tuple[str, ...]
+    sampling_numerics: str = _SAMPLING_POLICY
+    summary_numerics: str = _SUMMARY_POLICY
+
+    def __post_init__(self) -> None:
+        coerce_fields(self,"Blowdown uncertainty result")
+        for name,kind in (("parameters",UncertainParameter),("samples",BlowdownUncertaintySample),
+                          ("statistics",PropulsionMetricStatistics),("sensitivity",PropulsionSensitivity)):
+            object.__setattr__(self,name,records(getattr(self,name),kind,f"Blowdown {name}"))
+        for name in ("reference_ids","warnings"):
+            object.__setattr__(self,name,strings(getattr(self,name),f"Blowdown {name}"))
+        if self.sampling_numerics!=_SAMPLING_POLICY or self.summary_numerics!=_SUMMARY_POLICY:
+            raise DomainError("Unsupported blowdown uncertainty numerical policy.")
+        _validate_uncertainty_result(self)
 
 
 def _cholesky(matrix: tuple[tuple[float, ...], ...]) -> tuple[tuple[float, ...], ...]:
@@ -350,7 +425,8 @@ def _open_random(random):
 def _stratum_probability(index, value, count):
     lower,upper=Fraction(index,count),Fraction(index+1,count)
     exact=(index+_fraction(value))/count
-    point=_finite_rational(exact,"Unit stratum probability")
+    # This is an intermediate; zero may need one directed step into the cell.
+    point=float(exact)
     if _fraction(point) >= upper or point >= 1:point=nextafter(point,-inf)
     if _fraction(point) < lower or point <= 0:point=nextafter(point,inf)
     if not 0 < point < 1 or not lower <= _fraction(point) < upper:
@@ -415,10 +491,9 @@ def sample_uncertain_parameters(
         if correlation.parameter_names != expected_names:
             raise DomainError("Correlation parameter order must match uncertainty parameters.")
         lower = _cholesky(correlation.matrix)
-        standard_normal = NormalDist()
         for row_index, row in enumerate(unit_rows):
             independent = [
-                standard_normal.inv_cdf(value)
+                _normal_quantile(value)
                 for value in row
             ]
             correlated = [
@@ -452,48 +527,111 @@ def _custom_parameter_value(parameter, probability):
 
 
 def _percentile(values: list[float], probability: float) -> float:
-    ordered = sorted(values)
-    position = probability * (len(ordered) - 1)
-    lower = int(position)
-    upper = min(lower + 1, len(ordered) - 1)
-    fraction = position - lower
-    return ordered[lower] + fraction * (ordered[upper] - ordered[lower])
+    return _linear_quantile(values,probability)
 
 
 def _statistics(metric: str, values: list[float]) -> PropulsionMetricStatistics:
-    mean = fmean(values)
-    deviation = sqrt(sum((value - mean) ** 2 for value in values) / (len(values) - 1))
-    standard_error = deviation / sqrt(len(values))
+    ledger=_sample_ledger(values)
+    mean = _finite_rational(ledger.mean,"Sample mean")
+    deviation = _sqrt_output(ledger.variance,"Sample standard deviation")
+    standard_error = _sqrt_output(ledger.variance/len(ledger.values),"Mean standard-error proxy")
+    width_squared = ledger.variance/len(ledger.values)*_NORMAL_PROXY_MULTIPLIER**2
     return PropulsionMetricStatistics(
         metric=metric,
         mean=mean,
         standard_deviation=deviation,
         mean_standard_error=standard_error,
-        mean_ci95_lower=mean - 1.96 * standard_error,
-        mean_ci95_upper=mean + 1.96 * standard_error,
-        minimum=min(values),
-        p05=_percentile(values, 0.05),
-        p50=_percentile(values, 0.50),
-        p95=_percentile(values, 0.95),
-        maximum=max(values),
+        mean_ci95_lower=_affine_sqrt_output(ledger.mean,width_squared,-1,"Mean proxy lower endpoint"),
+        mean_ci95_upper=_affine_sqrt_output(ledger.mean,width_squared,1,"Mean proxy upper endpoint"),
+        minimum=float(min(ledger.values)),
+        p05=_percentile(ledger.values,Fraction(1,20)),
+        p50=_percentile(ledger.values,Fraction(1,2)),
+        p95=_percentile(ledger.values,Fraction(19,20)),
+        maximum=float(max(ledger.values)),
     )
 
 
-def _correlation(left: list[float], right: list[float]) -> float:
-    left_mean = fmean(left)
-    right_mean = fmean(right)
-    numerator = sum(
-        (x - left_mean) * (y - right_mean) for x, y in zip(left, right, strict=True)
-    )
-    denominator = sqrt(
-        sum((value - left_mean) ** 2 for value in left)
-        * sum((value - right_mean) ** 2 for value in right)
-    )
-    return 0.0 if denominator == 0.0 else numerator / denominator
+def _correlation(left: list[float], right: list[float]) -> float | None:
+    return _pearson(left,right)
 
 
 def _relative_change(previous: float, current: float) -> float:
-    return abs(current - previous) / max(abs(current), 1e-15)
+    return _relative_exact(previous,current)
+
+
+def _sampling_convergence(values,tolerance):
+    tolerance=real(tolerance,"Sampling convergence tolerance")
+    full=_sample_ledger(values)
+    if len(full.values)<4 or tolerance<=0:
+        raise DomainError("Sampling stability needs at least four values and positive tolerance.")
+    half=_sample_ledger(full.values[:len(full.values)//2])
+    scale=max(abs(half.mean),abs(full.mean))
+    mean_ratio=abs(half.mean-full.mean)/scale if scale else Fraction(0)
+    variance_scale=max(half.variance,full.variance)
+    variance_ratio=min(half.variance,full.variance)/variance_scale if variance_scale else Fraction(1)
+    exact_tolerance=_fraction(tolerance)
+    deviation_pass=exact_tolerance>=1 or variance_ratio>=(1-exact_tolerance)**2
+    return SamplingConvergenceEvidence('delivered_impulse_n_s',len(half.values),len(full.values),
+        _finite_rational(mean_ratio,'Relative sample difference'),
+        _deviation_relative_change(half.variance,full.variance),tolerance,
+        mean_ratio<=exact_tolerance and deviation_pass)
+
+
+_BLOWDOWN_METRICS=('duration_s','delivered_impulse_n_s','consumed_propellant_kg',
+                   'thrust_centroid_time_s','final_supply_pressure_pa')
+_BLOWDOWN_INPUT_NAMES={
+    'initial_pressure_pa','initial_ullage_volume_m3','initial_propellant_mass_kg',
+    'propellant_density_kg_m3','polytropic_exponent','rated_delivered_thrust_n',
+    'rated_system_specific_impulse_s','minimum_supply_pressure_pa',
+    'thrust_pressure_exponent','specific_impulse_pressure_exponent','chamber_pressure_exponent',
+    'reserve_mass_kg','cant_efficiency',
+}
+
+
+def _sensitivity_records(samples,parameters):
+    result=[]
+    for metric in _BLOWDOWN_METRICS:
+        output=[getattr(row,metric) for row in samples]
+        ranked=[(p.name,_correlation([dict(row.inputs)[p.name] for row in samples],output)) for p in parameters]
+        ranked.sort(key=lambda item:abs(item[1]) if item[1] is not None else -1,reverse=True)
+        for rank,(name,value) in enumerate(ranked,start=1):
+            result.append(PropulsionSensitivity(metric,name,value,None if value is None else abs(value),
+                None if value is None else rank,'constant_input_or_output' if value is None else None))
+    return tuple(result)
+
+
+def _validate_uncertainty_result(result):
+    if result.method not in {'latin-hypercube','monte-carlo'} or not 4<=result.sample_count<=10000:
+        raise DomainError("Unsupported blowdown sampling method or sample count.")
+    names=tuple(p.name for p in result.parameters)
+    if not names or len(set(names))!=len(names) or not set(names)<=_BLOWDOWN_INPUT_NAMES or len(result.samples)!=result.sample_count:
+        raise DomainError("Blowdown result needs unique parameters and complete sample coverage.")
+    if result.correlation is not None:
+        if not isinstance(result.correlation,CorrelationModel) or result.correlation.parameter_names!=names:
+            raise DomainError("Blowdown correlation order does not match the parameters.")
+    if result.aleatory_parameter_count!=sum(p.uncertainty_class is UncertaintyClass.ALEATORY for p in result.parameters) or result.epistemic_parameter_count!=sum(p.uncertainty_class is UncertaintyClass.EPISTEMIC for p in result.parameters):
+        raise DomainError("Blowdown uncertainty class counts do not reproduce.")
+    samples=tuple(sorted(result.samples,key=lambda row:row.index))
+    if tuple(row.index for row in samples)!=tuple(range(result.sample_count)):
+        raise DomainError("Blowdown sample indices must cover each realization exactly once.")
+    for row in samples:
+        values=dict(row.inputs)
+        if set(values)!=set(names) or any(not p.lower<=values[p.name]<=p.upper for p in result.parameters):
+            raise DomainError("Blowdown sample inputs do not match their declared bounded parameters.")
+    expected_statistics=tuple(_statistics(metric,[getattr(row,metric) for row in samples]) for metric in _BLOWDOWN_METRICS)
+    actual_statistics={row.metric:row for row in result.statistics}
+    if len(actual_statistics)!=len(result.statistics) or actual_statistics!={row.metric:row for row in expected_statistics}:
+        raise DomainError("Blowdown statistics do not reproduce the retained samples.")
+    expected_sensitivity=_sensitivity_records(samples,result.parameters)
+    actual_sensitivity={(row.metric,row.parameter):row for row in result.sensitivity}
+    if len(actual_sensitivity)!=len(result.sensitivity) or actual_sensitivity!={(row.metric,row.parameter):row for row in expected_sensitivity}:
+        raise DomainError("Blowdown sensitivities do not reproduce the retained samples.")
+    if not isinstance(result.convergence,SamplingConvergenceEvidence) or result.convergence!=_sampling_convergence(
+            [row.delivered_impulse_n_s for row in samples],result.convergence.requested_tolerance):
+        raise DomainError("Blowdown stability evidence does not reproduce the retained samples.")
+    object.__setattr__(result,'samples',samples)
+    object.__setattr__(result,'statistics',expected_statistics)
+    object.__setattr__(result,'sensitivity',expected_sensitivity)
 
 
 def simulate_blowdown_uncertainty(
@@ -535,7 +673,22 @@ def simulate_blowdown_uncertainty(
     NASA-CR-131400: https://ntrs.nasa.gov/citations/19730012094
     """
 
-    if not isfinite(convergence_tolerance) or convergence_tolerance <= 0.0:
+    if not isinstance(tank,BlowdownTankModel) or not isinstance(rated_point,EngineOperatingPoint) or not isinstance(pressure_law,PressurePerformanceLaw):
+        raise DomainError("Blowdown uncertainty requires declared tank, operating point and pressure-law records.")
+    parameters=records(parameters,UncertainParameter,"Blowdown uncertainty parameters")
+    sample_count=integer(sample_count,"Blowdown sample count")
+    seed=integer(seed,"Blowdown seed")
+    method=text(method,"Blowdown sampling method").strip().lower()
+    if method not in {'latin-hypercube','monte-carlo'} or not 4<=sample_count<=10000:
+        raise DomainError("Unsupported blowdown sampling method or sample count.")
+    convergence_tolerance=real(convergence_tolerance,"Uncertainty convergence tolerance")
+    reserve_mass_kg=real(reserve_mass_kg,"Uncertainty reserve mass")
+    cant_efficiency=real(cant_efficiency,"Uncertainty cant efficiency")
+    maximum_mass_step_kg=real(maximum_mass_step_kg,"Uncertainty maximum mass step")
+    integration_relative_tolerance=real(integration_relative_tolerance,"Uncertainty integration tolerance")
+    if reserve_mass_kg<0 or not 0<cant_efficiency<=1 or maximum_mass_step_kg<=0 or integration_relative_tolerance<=0:
+        raise DomainError("Blowdown uncertainty controls are outside their physical domains.")
+    if convergence_tolerance <= 0.0:
         raise DomainError("Uncertainty convergence tolerance must be positive.")
     nominal = {
         "initial_pressure_pa": tank.initial_pressure_pa,
@@ -569,8 +722,7 @@ def simulate_blowdown_uncertainty(
     for parameter in parameters:
         if parameter.name not in nominal:
             raise DomainError(f"Unsupported blowdown uncertainty input: {parameter.name}.")
-        scale = max(1.0, abs(nominal[parameter.name]))
-        if abs(parameter.nominal - nominal[parameter.name]) > 1e-10 * scale:
+        if parameter.nominal != nominal[parameter.name]:
             raise DomainError(
                 f"Uncertainty nominal for {parameter.name} does not match the model input."
             )
@@ -700,53 +852,15 @@ def simulate_blowdown_uncertainty(
     statistics = tuple(
         _statistics(metric, values) for metric, values in metric_values.items()
     )
-    sensitivity: list[PropulsionSensitivity] = []
-    for metric, outputs in metric_values.items():
-        ranked = sorted(
-            (
-                (
-                    parameter.name,
-                    _correlation(
-                        [dict(sample.inputs)[parameter.name] for sample in realizations],
-                        outputs,
-                    ),
-                )
-                for parameter in parameters
-            ),
-            key=lambda item: abs(item[1]),
-            reverse=True,
-        )
-        sensitivity.extend(
-            PropulsionSensitivity(metric, name, value, abs(value), rank)
-            for rank, (name, value) in enumerate(ranked, start=1)
-        )
-
-    primary = metric_values["delivered_impulse_n_s"]
-    half_count = len(primary) // 2
-    half_mean = fmean(primary[:half_count])
-    full_mean = fmean(primary)
-    half_deviation = sqrt(
-        sum((value - half_mean) ** 2 for value in primary[:half_count])
-        / (half_count - 1)
-    )
-    full_deviation = sqrt(
-        sum((value - full_mean) ** 2 for value in primary) / (len(primary) - 1)
-    )
-    mean_change = _relative_change(half_mean, full_mean)
-    deviation_change = _relative_change(half_deviation, full_deviation)
-    convergence = SamplingConvergenceEvidence(
-        metric="delivered_impulse_n_s",
-        half_sample_count=half_count,
-        full_sample_count=len(primary),
-        mean_relative_change=mean_change,
-        standard_deviation_relative_change=deviation_change,
-        requested_tolerance=convergence_tolerance,
-        converged=max(mean_change, deviation_change) <= convergence_tolerance,
-    )
+    sensitivity = _sensitivity_records(tuple(realizations),parameters)
+    convergence = _sampling_convergence(metric_values["delivered_impulse_n_s"],convergence_tolerance)
     warnings = [
         "Ensemble statistics are engineering uncertainty estimates, not flight certification.",
         "Pearson sensitivity is a screening measure and can miss nonlinear interactions.",
+        "The reported mean interval is an IID normal-formula proxy; 95% coverage is not established.",
     ]
+    if method=='latin-hypercube':
+        warnings.append("Latin-hypercube rows are dependent; the IID-formula interval is not a design-specific confidence interval.")
     if not convergence.converged:
         warnings.append(
             "Half/full ensemble stability did not meet the requested tolerance; increase sample count."
