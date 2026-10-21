@@ -21,7 +21,9 @@ from math import isclose, isfinite
 from typing import Any, Literal
 
 from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError, InputError
-from rocket_propulsion.core.validation import integer, read_json_document, real, text
+from rocket_propulsion.core.validation import integer, read_json_document, real, text, records, strings
+from rocket_propulsion.propulsion.burns.ensemble_documents import _handoff_document
+from rocket_propulsion.propulsion.burns.numeric_outputs import _finite_rational, _fraction
 from rocket_propulsion.propulsion.burns import HierarchicalPropulsionEnsemble
 from rocket_propulsion.propulsion.burns.ensemble_serialization import (
     HIERARCHICAL_ENSEMBLE_SCHEMA,
@@ -79,7 +81,7 @@ class SideraEnsembleBurnJob:
     artifact: TabulatedBurnArtifact
 
     def __post_init__(self) -> None:
-        text(self.scenario_id, "Sidera ensemble scenario ID")
+        object.__setattr__(self, "scenario_id", text(self.scenario_id, "Sidera ensemble scenario ID"))
         object.__setattr__(
             self, "conditional_index", integer(self.conditional_index, "Conditional index")
         )
@@ -124,7 +126,7 @@ class SideraEnsembleBurnJob:
         CCSDS-502.0-B-3: https://ccsds.org/Pubs/502x0b3e1.pdf
         """
 
-        return self.t_start_s + self.artifact.duration_s
+        return _finite_rational(_fraction(self.t_start_s) + _fraction(self.artifact.duration_s), "Sidera job end time")
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,6 +147,11 @@ class SideraEnsembleHandoff:
     schema: str = SIDERA_ENSEMBLE_HANDOFF_SCHEMA
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "schema", text(self.schema, "Sidera handoff schema"))
+        object.__setattr__(self, "jobs", records(self.jobs, SideraEnsembleBurnJob, "Sidera jobs"))
+        object.__setattr__(self, "warnings", strings(self.warnings, "Sidera warnings"))
+        object.__setattr__(self, "required_capabilities", strings(self.required_capabilities, "Sidera capabilities"))
+        object.__setattr__(self, "joint_probability_sum", real(self.joint_probability_sum, "Sidera probability sum"))
         if self.schema != SIDERA_ENSEMBLE_HANDOFF_SCHEMA:
             raise DomainError("Unsupported Sidera ensemble hand-off schema.")
         object.__setattr__(
@@ -171,6 +178,8 @@ class SideraEnsembleHandoff:
             raise DomainError("Declared Sidera ensemble probability sum does not reproduce.")
         for scenario_id in dict.fromkeys(item.scenario_id for item in self.jobs):
             selected = tuple(item for item in self.jobs if item.scenario_id == scenario_id)
+            if tuple(sorted(item.conditional_index for item in selected)) != tuple(range(len(selected))):
+                raise DomainError("Sidera conditional indices must be complete.", field="conditional_index")
             if not isclose(
                 sum(item.conditional_probability for item in selected),
                 1.0,
@@ -263,8 +272,7 @@ class SideraEnsembleHandoff:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        if not isinstance(payload, dict):
-            raise InputError("Sidera ensemble hand-off root must be an object.")
+        _handoff_document(payload)
         if payload.get("schema") != SIDERA_ENSEMBLE_HANDOFF_SCHEMA:
             raise InputError("Unsupported Sidera ensemble hand-off schema.")
         expected_semantics = {
@@ -314,12 +322,7 @@ class SideraEnsembleHandoff:
         for declared, job in zip(payload["jobs"], handoff.jobs, strict=True):
             if declared.get("artifact_hash") != job.artifact.artifact_hash:
                 raise InputError("Sidera job artifact hash does not reproduce.")
-            if not isclose(
-                float(declared.get("t_end_s")),
-                job.t_end_s,
-                rel_tol=0.0,
-                abs_tol=1e-12,
-            ):
+            if declared["t_end_s"] != job.t_end_s:
                 raise InputError("Sidera job end time does not reproduce.")
         if payload.get("handoff_hash") != handoff.handoff_hash:
             raise InputError("Sidera ensemble hand-off hash does not match its contents.")

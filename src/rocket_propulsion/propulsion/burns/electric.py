@@ -31,10 +31,12 @@ The discrete level index is a propagator-owned mode state, as in an
 event-driven maneuver model: the consumer initializes it with
 :meth:`PowerLimitedPropulsionModel.select_level`, registers
 :meth:`~PowerLimitedPropulsionModel.switching_surfaces` for the current level,
-and after locating a root switches to that surface's ``to_level``.  The target
-is fixed by the crossing direction, so a root located a round-off on either
-side of the threshold cannot leave the mode unchanged and re-trigger the same
-event.  ``evaluate`` never changes the level by itself, so Runge-Kutta
+and applies that surface's ``to_level`` after a directed crossing. Exact
+threshold ratios preserve signs when displayed thresholds coincide; targets
+coalesce levels crossed by the first representable input power beyond a root.
+The consumer must handle initial zeros, crossing direction and event resets.
+This does not certify its event clock or prevent roots missed within a step.
+``evaluate`` never changes the level by itself, so Runge-Kutta
 stages that probe slightly past a switching root stay on a smooth branch; the
 evaluation reports any ``power_deficit_w`` instead.
 """
@@ -339,11 +341,17 @@ class _ExactLevelPoint:
 class PowerSwitchSurface:
     """Signed root on available power that changes the throttle level.
 
-    ``value = available_power_w - threshold_w``.  A ``decreasing`` surface
+    ``value = available_power_w - threshold_exact_w`` with checked float
+    export. ``threshold_w`` is only the nearest-float display; the normalized
+    integer ``threshold_ratio`` retains the actual root. A ``decreasing`` surface
     fires when the value crosses zero from above (power fell below what the
     current level needs); an ``increasing`` surface fires when it crosses from
-    below (power now supports the next level plus hysteresis).  After the
-    root the consumer switches to ``to_level``.  An ``either`` surface has
+    below (power supports an upgrade plus hysteresis). The target can skip
+    intermediate levels when several thresholds share one representable
+    power guard. At upward equality a mode is eligible; downward equality
+    still sustains it until a strictly lower input. The consumer applies the
+    directed target, handles initial zero values and resets detectors rather
+    than treating a constant zero as a new crossing. An ``either`` surface has
     ``to_level == from_level``: it only marks a derivative kink, fires in both
     directions, and asks for an integrator restart.
 
@@ -397,7 +405,7 @@ class PowerSwitchSurface:
         return Fraction(*self.threshold_ratio)
 
     def value(self, available_power_w: float) -> float:
-        """Evaluate ``available_power_w - threshold_w``."""
+        """Export the exact input-minus-threshold residual, or fail typed."""
 
         return _finite_rational(_fraction(real(available_power_w, "Available power")) - self.threshold_exact_w,
                                 "Power-switch residual")

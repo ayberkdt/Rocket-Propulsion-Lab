@@ -15,11 +15,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
-from math import exp, isfinite, log, sqrt
+from math import isfinite, sqrt, nextafter, inf
+from fractions import Fraction
 from random import Random
 from statistics import NormalDist, fmean
 
-from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
+from rocket_propulsion.core.validation import coerce_fields, integer, real, records, strings, real_matrix, name_value_pairs, text
+from .marginal_numerics import marginal_value, _GaussianProbability, _SAMPLING_POLICY
+from .numeric_outputs import _finite_rational, _fraction
+from .probability_numerics import _sqrt_output
 
 from .blowdown import (
     BlowdownTankModel,
@@ -94,6 +99,9 @@ class UncertainParameter:
     standard_deviation: float | None = None
 
     def __post_init__(self) -> None:
+        coerce_fields(self, "Uncertain parameter")
+        if not isinstance(self.distribution, DistributionKind) or not isinstance(self.uncertainty_class, UncertaintyClass):
+            raise DomainError("Uncertain parameter requires declared distribution and uncertainty enums.")
         if not self.name.strip():
             raise DomainError("Uncertain parameter name must not be empty.")
         if not all(isfinite(value) for value in (self.nominal, self.lower, self.upper)):
@@ -124,28 +132,10 @@ class UncertainParameter:
         NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
         """
 
-        if not isfinite(probability) or not 0.0 < probability < 1.0:
+        probability = real(probability, "Sampling probability")
+        if not 0.0 < probability < 1.0:
             raise DomainError("Sampling probability must be finite and in (0, 1).")
-        span = self.upper - self.lower
-        if self.distribution is DistributionKind.UNIFORM:
-            return self.lower + probability * span
-        if self.distribution is DistributionKind.LOG_UNIFORM:
-            return exp(log(self.lower) + probability * (log(self.upper) - log(self.lower)))
-        if self.distribution is DistributionKind.TRIANGULAR:
-            mode_fraction = (self.nominal - self.lower) / span
-            if probability <= mode_fraction:
-                return self.lower + sqrt(probability * span * (self.nominal - self.lower))
-            return self.upper - sqrt(
-                (1.0 - probability) * span * (self.upper - self.nominal)
-            )
-        assert self.standard_deviation is not None
-        normal = NormalDist(mu=self.nominal, sigma=self.standard_deviation)
-        lower_probability = normal.cdf(self.lower)
-        upper_probability = normal.cdf(self.upper)
-        transformed = lower_probability + probability * (
-            upper_probability - lower_probability
-        )
-        return normal.inv_cdf(transformed)
+        return marginal_value(self, probability)
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,6 +158,9 @@ class CorrelationModel:
     rationale: str
 
     def __post_init__(self) -> None:
+        coerce_fields(self, "Correlation model")
+        object.__setattr__(self,"parameter_names",strings(self.parameter_names,"Correlation parameter names"))
+        object.__setattr__(self,"matrix",real_matrix(self.matrix,"Correlation matrix"))
         size = len(self.parameter_names)
         if size < 2 or len(set(self.parameter_names)) != size:
             raise DomainError("Correlation model needs at least two unique parameters.")
@@ -179,10 +172,10 @@ class CorrelationModel:
             if any(not isfinite(value) or abs(value) > 1.0 for value in row):
                 raise DomainError("Correlation coefficients must be finite and in [-1, 1].")
         for index in range(size):
-            if abs(self.matrix[index][index] - 1.0) > 1e-12:
+            if self.matrix[index][index] != 1.0:
                 raise DomainError("Correlation matrix diagonal must equal one.")
             for other in range(index):
-                if abs(self.matrix[index][other] - self.matrix[other][index]) > 1e-12:
+                if self.matrix[index][other] != self.matrix[other][index]:
                     raise DomainError("Correlation matrix must be symmetric.")
         _cholesky(self.matrix)
 
@@ -198,6 +191,12 @@ class UncertaintyDraw:
 
     index: int
     values: tuple[tuple[str, float], ...]
+
+    def __post_init__(self) -> None:
+        coerce_fields(self,"Uncertainty draw")
+        object.__setattr__(self,"values",name_value_pairs(self.values,"Uncertainty draw values"))
+        if self.index < 0 or len({name for name,value in self.values}) != len(self.values):
+            raise DomainError("Uncertainty draw requires a nonnegative index and unique names.")
 
     def as_dict(self) -> dict[str, float]:
         """Return this immutable draw as a fresh name/value mapping.
@@ -325,19 +324,38 @@ class BlowdownUncertaintyResult:
 
 def _cholesky(matrix: tuple[tuple[float, ...], ...]) -> tuple[tuple[float, ...], ...]:
     size = len(matrix)
-    lower = [[0.0 for _ in range(size)] for _ in range(size)]
+    # Exact LDL^T decisions; only the final Cholesky coefficients are rounded.
+    lower = [[Fraction(int(row == column)) for column in range(size)] for row in range(size)]
+    diagonal=[]
     for row in range(size):
-        for column in range(row + 1):
-            residual = matrix[row][column] - sum(
-                lower[row][index] * lower[column][index] for index in range(column)
-            )
-            if row == column:
-                if residual <= 1e-12:
-                    raise DomainError("Correlation matrix must be positive definite.")
-                lower[row][column] = sqrt(residual)
-            else:
-                lower[row][column] = residual / lower[column][column]
-    return tuple(tuple(row) for row in lower)
+        for column in range(row):
+            residual=_fraction(matrix[row][column])-sum((lower[row][k]*lower[column][k]*diagonal[k] for k in range(column)),Fraction(0))
+            lower[row][column]=residual/diagonal[column]
+        residual=_fraction(matrix[row][row])-sum((lower[row][k]**2*diagonal[k] for k in range(row)),Fraction(0))
+        if residual <= 0:raise DomainError("Correlation matrix must be positive definite.")
+        diagonal.append(residual)
+    return tuple(tuple(
+        (1 if lower[row][column] >= 0 else -1)*_sqrt_output(lower[row][column]**2*diagonal[column],"Cholesky coefficient")
+        if column <= row else 0. for column in range(size)) for row in range(size))
+
+
+def _open_random(random):
+    for _ in range(1024):
+        value=real(random.random(),"Unit random variate")
+        if 0 < value < 1:return value
+        if value != 0:raise DomainError("Random variate is outside [0, 1).")
+    raise ConvergenceError("Random source repeatedly returned the zero endpoint.",field="Unit random variate")
+
+
+def _stratum_probability(index, value, count):
+    lower,upper=Fraction(index,count),Fraction(index+1,count)
+    exact=(index+_fraction(value))/count
+    point=_finite_rational(exact,"Unit stratum probability")
+    if _fraction(point) >= upper or point >= 1:point=nextafter(point,-inf)
+    if _fraction(point) < lower or point <= 0:point=nextafter(point,inf)
+    if not 0 < point < 1 or not lower <= _fraction(point) < upper:
+        raise DomainError("Stratum has no representable open probability.",field="Unit stratum probability")
+    return point
 
 
 def _unit_samples(
@@ -347,12 +365,12 @@ def _unit_samples(
     if method == "latin-hypercube":
         columns: list[list[float]] = []
         for _ in range(dimension):
-            column = [(index + random.random()) / sample_count for index in range(sample_count)]
+            column = [_stratum_probability(index,_open_random(random),sample_count) for index in range(sample_count)]
             random.shuffle(column)
             columns.append(column)
         return [[columns[column][row] for column in range(dimension)] for row in range(sample_count)]
     if method == "monte-carlo":
-        return [[random.random() for _ in range(dimension)] for _ in range(sample_count)]
+        return [[_open_random(random) for _ in range(dimension)] for _ in range(sample_count)]
     raise DomainError("Uncertainty method must be latin-hypercube or monte-carlo.")
 
 
@@ -377,13 +395,18 @@ def sample_uncertain_parameters(
     NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
     """
 
+    parameters=records(parameters,UncertainParameter,"Uncertainty parameters")
+    sample_count=integer(sample_count,"Uncertainty sample count")
+    seed=integer(seed,"Uncertainty seed")
+    normalized_method=text(method,"Uncertainty method").strip().lower()
+    if correlation is not None and not isinstance(correlation,CorrelationModel):
+        raise DomainError("Uncertainty correlation requires a CorrelationModel.")
     if not parameters:
         raise DomainError("At least one propulsion uncertainty parameter is required.")
     if len({parameter.name for parameter in parameters}) != len(parameters):
         raise DomainError("Uncertainty parameter names must be unique.")
     if not 4 <= sample_count <= 10_000:
         raise DomainError("Propulsion uncertainty sample count must be between 4 and 10000.")
-    normalized_method = method.strip().lower()
     unit_rows = _unit_samples(
         len(parameters), sample_count=sample_count, seed=seed, method=normalized_method
     )
@@ -393,27 +416,39 @@ def sample_uncertain_parameters(
             raise DomainError("Correlation parameter order must match uncertainty parameters.")
         lower = _cholesky(correlation.matrix)
         standard_normal = NormalDist()
-        epsilon = 1e-14
         for row_index, row in enumerate(unit_rows):
             independent = [
-                standard_normal.inv_cdf(min(1.0 - epsilon, max(epsilon, value)))
+                standard_normal.inv_cdf(value)
                 for value in row
             ]
             correlated = [
-                sum(lower[index][column] * independent[column] for column in range(index + 1))
+                _finite_rational(sum((_fraction(lower[index][column])*_fraction(independent[column]) for column in range(index+1)),Fraction(0)),"Correlated Gaussian variate")
                 for index in range(len(parameters))
             ]
-            unit_rows[row_index] = [standard_normal.cdf(value) for value in correlated]
+            unit_rows[row_index] = [_GaussianProbability(value) for value in correlated]
     return tuple(
         UncertaintyDraw(
             index=index,
             values=tuple(
-                (parameter.name, parameter.value_at_probability(row[column]))
+                (parameter.name, marginal_value(parameter,row[column]) if type(parameter) is UncertainParameter else _custom_parameter_value(parameter,row[column]))
                 for column, parameter in enumerate(parameters)
             ),
         )
         for index, row in enumerate(unit_rows)
     )
+
+
+def _custom_parameter_value(parameter, probability):
+    if isinstance(probability,_GaussianProbability):
+        # Custom callbacks retain their public float interface; no silent tail clip.
+        value=NormalDist().cdf(float(probability.z))
+        if not 0 < value < 1:
+            raise DomainError("Custom marginal callback requires a representable open probability.",field="Sampling probability")
+        probability=value
+    value=real(parameter.value_at_probability(probability),"Custom marginal value")
+    if not parameter.lower <= value <= parameter.upper:
+        raise DomainError("Custom marginal value is outside its declared bounds.")
+    return value
 
 
 def _percentile(values: list[float], probability: float) -> float:

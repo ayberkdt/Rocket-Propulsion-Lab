@@ -1,5 +1,9 @@
 # Electric/throttle documents, literal metadata and arithmetic review
 
+Follow-up: ELECTRIC_MODE_POLICY_REVIEW.md records the subsequent bounded mode,
+hysteresis, event-coordinate and frontier review. Counts and open findings below
+describe this earlier arithmetic stage; later verification has its own archive.
+
 This is a bounded continuation of the exchange review. It covers the electric
 throttle table, discrete/fixed-efficiency model documents, throttleable model
 documents, their owned literal metadata, electric level ratios, continuous

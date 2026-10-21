@@ -146,6 +146,51 @@ FREE_SPACE_REVIEW = {
     '_range_output', '_range_output.rounded',
     'FreeSpaceBurnMetrics.__post_init__', 'free_space_burn_metrics',
 }
+PROBABILITY_NUMERICS_REVIEW = {
+    'propulsion/burns/probability_numerics.py': {'_sqrt_output', '_WeightedLedger',
+        '_WeightedLedger.quantile', '_weight_ledger', '_quantiles', '_sample_moments',
+        '_relative_change', '_joint_weight'},
+    'propulsion/burns/ensemble.py': {'ConditionalPropulsionRealization.__post_init__',
+        '_scale_ledger', '_scale_values', '_weighted_percentile', '_weighted_statistics',
+        '_variance_decomposition', '_mean_and_deviation', '_relative_difference',
+        '_impulses_for_draws', 'build_hierarchical_propulsion_ensemble'},
+    'propulsion/burns/scenarios.py': {'_weighted_percentile', '_metric_statistics',
+        'build_propulsion_scenario_ensemble'},
+    'propulsion/burns/ensemble_serialization.py': {'_validate_semantics',
+        'hierarchical_ensemble_to_dict', 'hierarchical_ensemble_from_dict'},
+    'propulsion/burns/ensemble_documents.py': {'_ensemble_document'},
+}
+ENSEMBLE_DOCUMENT_REVIEW = {
+    'propulsion/burns/ensemble_documents.py': {'_integer', '_record', '_definition',
+        '_ensemble_document', '_handoff_document'},
+    'propulsion/burns/ensemble_serialization.py': {'_parameter_from_dict', '_correlation_from_dict',
+        '_definition_from_dict', '_validate_semantics', 'hierarchical_ensemble_from_dict',
+        'hierarchical_ensemble_from_json', 'hierarchical_ensemble_to_dict',
+        'hierarchical_ensemble_to_json', 'hierarchical_ensemble_hash'},
+    'propulsion/burns/ensemble.py': {'ScenarioConditionalUncertainty.__post_init__',
+        'ConditionalPropulsionRealization.__post_init__', 'HierarchicalMetricStatistics.__post_init__',
+        'ScenarioMetricContribution.__post_init__', 'HierarchicalVarianceDecomposition.__post_init__',
+        'ConditionalSamplingEvidence.__post_init__', 'HierarchicalPropulsionEnsemble.__post_init__',
+        'build_hierarchical_propulsion_ensemble', '_derived_seed'},
+    'integrations/sidera_ensemble.py': {'SideraEnsembleBurnJob.__post_init__',
+        'SideraEnsembleBurnJob.t_end_s', 'SideraEnsembleHandoff.__post_init__',
+        'SideraEnsembleHandoff.from_dict', 'SideraEnsembleHandoff.from_json',
+        'SideraEnsembleHandoff.to_dict', 'SideraEnsembleHandoff.to_json'},
+}
+ELECTRIC_MODE_REVIEW = {
+    'propulsion/burns/power_modes.py': {'_mode_index', '_select_mode', '_ceil_power',
+        '_below_power', '_mode_roots'},
+    'propulsion/burns/electric.py': {'_mode_data', '_law_surfaces',
+        'PowerSwitchSurface.__post_init__', 'PowerSwitchSurface.threshold_exact_w',
+        'PowerSwitchSurface.value', 'DiscreteThrottlePath.from_table',
+        'DiscreteThrottlePath.from_table.score', 'DiscreteThrottlePath.select_level',
+        'DiscreteThrottlePath.switching_surfaces', 'FixedEfficiencyThrottle.select_level',
+        'FixedEfficiencyThrottle.switching_surfaces', 'FixedEfficiencyThrottle.kink_surfaces',
+        'PowerLimitedPropulsionModel.select_level', 'PowerLimitedPropulsionModel.switching_surfaces',
+        'PowerLimitedPropulsionModel.evaluate', 'PowerLimitedPropulsionModel.manifest',
+        '_operating_point_ledger'},
+    'propulsion/burns/power_documents.py': {'_power_document'},
+}
 POWER_CONTRACT_REVIEW = {
     'propulsion/burns/power_documents.py': {'_parameters', '_table_document', '_power_document',
                                          '_curve_document', '_throttle_document'},
@@ -274,6 +319,12 @@ def _review_scopes(path, name):
     scopes = (["source_trace_and_software_verification_only"]
               if "studies/sass/" in path.as_posix() else [])
     groups = (
+        (PROBABILITY_NUMERICS_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_normalized_probability_moments_quantiles_and_checked_statistical_exports_only'),
+        (ENSEMBLE_DOCUMENT_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_ensemble_raw_records_normalization_and_internal_identity_contracts_only'),
+        (ELECTRIC_MODE_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_exact_power_relay_roots_and_declared_frontier_policy_only'),
         (POWER_CONTRACT_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
          'targeted_power_throttle_raw_documents_literal_identity_and_electric_arithmetic_only'),
         (EXCHANGE_DOCUMENT_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),

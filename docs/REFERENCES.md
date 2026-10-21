@@ -291,3 +291,7 @@ Sources below support the provisional study package; ITU course identity is not 
 
 - **PYTHON-3.12-NUMBERS**: Python, *numbers — Numeric abstract base classes*. Real, Rational and Integral protocols; application-level physical exclusions remain local contracts. Accessed 2026-10-20. <https://docs.python.org/3.12/library/numbers.html>
 - **NASA-CR-2004-213099**: NASA, *Development and Characterization of High-Efficiency, High-Specific Impulse Xenon Hall Thrusters*. Printed page 14, equations (2-9)-(2-10): jet power and system efficiency referenced to spacecraft bus input power. Used for equations, not as validation data for an unselected motor. Accessed 2026-10-20. <https://ntrs.nasa.gov/api/citations/20040084644/downloads/20040084644.pdf>
+
+- **NIST-WEIGHTED-MEAN**: NIST Dataplot, *Weighted Mean*, equation 2-20, normalized weighted mean. Accessed 2026-10-21. <https://www.itl.nist.gov/div898/software/dataplot/refman2/ch2/weigmean.pdf>
+- **MIT-TOTAL-VARIANCE**: MIT RES.6-012 Spring 2018, lecture 13.7 derivation transcript, conditional and between-group variance identity. Accessed 2026-10-21. <https://ocw.mit.edu/courses/res-6-012-introduction-to-probability-spring-2018/c025b4baa48ff7801b96c3915ee62e5c_mHonq7Gjjqg.pdf>
+- **PYTHON-3.12-MATH**: Python 3.12 math, isqrt and ldexp primitives for local binary64 statistical exports. Accessed 2026-10-21. <https://docs.python.org/3.12/library/math.html>

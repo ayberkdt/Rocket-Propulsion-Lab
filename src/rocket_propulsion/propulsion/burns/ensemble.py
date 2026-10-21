@@ -18,12 +18,15 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass
-from math import isfinite, sqrt
-from statistics import fmean
+from math import isfinite
 
 from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.validation import coerce_fields, name_value_pairs, records, strings, integer, real, text
 
 from .scenarios import PropulsionScenarioEnsemble
+from fractions import Fraction
+from .numeric_outputs import _finite_rational, _fraction
+from .probability_numerics import _weight_ledger, _quantiles, _sqrt_output, _sample_moments, _relative_change, _joint_weight
 from .tabulated import TabulatedBurnArtifact, scale_tabulated_artifact
 from .uncertainty import (
     UNCERTAINTY_REFERENCE_IDS,
@@ -94,6 +97,10 @@ class ScenarioConditionalUncertainty:
     correlation: CorrelationModel | None = None
 
     def __post_init__(self) -> None:
+        coerce_fields(self, "Conditional definition")
+        object.__setattr__(self, "parameters", records(self.parameters, UncertainParameter, "Conditional parameters"))
+        if self.correlation is not None and not isinstance(self.correlation, CorrelationModel):
+            raise DomainError("Conditional correlation requires a CorrelationModel.")
         if not self.scenario_id.strip():
             raise DomainError("Conditional uncertainty scenario ID must not be empty.")
         if not self.source.strip() or not self.rationale.strip():
@@ -143,6 +150,16 @@ class ConditionalPropulsionRealization:
     inputs: tuple[tuple[str, float], ...]
     artifact: TabulatedBurnArtifact
 
+    def __post_init__(self) -> None:
+        coerce_fields(self, "Conditional realization")
+        object.__setattr__(self, "inputs", name_value_pairs(self.inputs, "Conditional inputs"))
+        if not isinstance(self.artifact, TabulatedBurnArtifact):
+            raise DomainError("Conditional realization requires a TabulatedBurnArtifact.")
+        if not 0 < self.scenario_probability <= 1 or not 0 < self.conditional_probability <= 1:
+            raise DomainError("Retained realization probabilities must lie in (0, 1].")
+        if self.joint_probability != _joint_weight(self.scenario_probability, self.conditional_probability):
+            raise DomainError("Joint probability does not match its checked binary product.", field="joint_probability")
+
 
 @dataclass(frozen=True, slots=True)
 class HierarchicalMetricStatistics:
@@ -162,6 +179,9 @@ class HierarchicalMetricStatistics:
     p95: float
     maximum: float
 
+    def __post_init__(self) -> None:
+        coerce_fields(self, "Hierarchical statistic")
+
 
 @dataclass(frozen=True, slots=True)
 class ScenarioMetricContribution:
@@ -177,6 +197,9 @@ class ScenarioMetricContribution:
     scenario_probability: float
     conditional_expected_value: float
     joint_expected_value_contribution: float
+
+    def __post_init__(self) -> None:
+        coerce_fields(self, "Scenario contribution")
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,6 +224,9 @@ class HierarchicalVarianceDecomposition:
     within_fraction: float
     between_fraction: float
 
+    def __post_init__(self) -> None:
+        coerce_fields(self, "Variance decomposition")
+
 
 @dataclass(frozen=True, slots=True)
 class ConditionalSamplingEvidence:
@@ -209,6 +235,10 @@ class ConditionalSamplingEvidence:
     Primary and audit samples use separate deterministically derived seeds but
     the same distributions and sample count. This is a diagnostic, not a proof
     that tail probabilities have converged.
+
+    Persisted diagnostics are supplied records: the reader checks identities,
+    seed links and flag consistency, but does not authenticate a campaign or
+    independently rerun the primary/audit physical histories.
 
     References
     ----------
@@ -224,6 +254,11 @@ class ConditionalSamplingEvidence:
     impulse_standard_deviation_relative_difference: float
     requested_tolerance: float
     converged: bool
+
+    def __post_init__(self) -> None:
+        coerce_fields(self, "Conditional sampling evidence")
+        if type(self.converged) is not bool:
+            raise DomainError("Conditional convergence must be boolean.", field="converged")
 
 
 @dataclass(frozen=True, slots=True)
@@ -253,6 +288,18 @@ class HierarchicalPropulsionEnsemble:
     reference_ids: tuple[str, ...]
     warnings: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        coerce_fields(self, "Hierarchical ensemble")
+        for name, kind in (("definitions", ScenarioConditionalUncertainty),
+                           ("realizations", ConditionalPropulsionRealization),
+                           ("statistics", HierarchicalMetricStatistics),
+                           ("variance_decomposition", HierarchicalVarianceDecomposition),
+                           ("contributions", ScenarioMetricContribution),
+                           ("sampling_evidence", ConditionalSamplingEvidence)):
+            object.__setattr__(self, name, records(getattr(self, name), kind, name))
+        object.__setattr__(self, "reference_ids", strings(self.reference_ids, "Ensemble references"))
+        object.__setattr__(self, "warnings", strings(self.warnings, "Ensemble warnings"))
+
 
 def _derived_seed(base_seed: int, scenario_id: str, channel: str) -> int:
     digest = hashlib.sha256(f"{base_seed}:{scenario_id}:{channel}".encode()).digest()
@@ -276,16 +323,21 @@ def _draws(
     )
 
 
-def _scale_values(draw: UncertaintyDraw) -> dict[str, float]:
+def _scale_ledger(draw: UncertaintyDraw):
     values = {
-        "thrust_scale": 1.0,
-        "specific_impulse_scale": 1.0,
-        "time_scale": 1.0,
-        "axial_efficiency_scale": 1.0,
+        "thrust_scale": Fraction(1),
+        "specific_impulse_scale": Fraction(1),
+        "time_scale": Fraction(1),
+        "axial_efficiency_scale": Fraction(1),
     }
     for component_name, value in draw.values:
-        values[_target_scale_name(component_name)] *= value
+        values[_target_scale_name(component_name)] *= _fraction(value)
     return values
+
+
+def _scale_values(draw: UncertaintyDraw) -> dict[str, float]:
+    return {name: _finite_rational(value, f"Artifact scale {name}")
+            for name, value in _scale_ledger(draw).items()}
 
 
 def _validate_axial_scale(
@@ -350,28 +402,21 @@ def _perturb_artifact(
 
 
 def _weighted_percentile(values: tuple[tuple[float, float], ...], probability: float) -> float:
-    cumulative = 0.0
-    for value, weight in sorted(values):
-        cumulative += weight
-        if cumulative + 1e-15 >= probability:
-            return value
-    return max(value for value, _ in values)
+    return _weight_ledger(values).quantile(probability)
 
 
 def _weighted_statistics(
     metric: str, values: tuple[tuple[float, float], ...]
 ) -> HierarchicalMetricStatistics:
-    mean = sum(value * weight for value, weight in values)
-    variance = sum(weight * (value - mean) ** 2 for value, weight in values)
+    ledger = _weight_ledger(values)
+    p05, p50, p95 = _quantiles(ledger)
     return HierarchicalMetricStatistics(
         metric=metric,
-        expected_value=mean,
-        standard_deviation=sqrt(max(0.0, variance)),
-        minimum=min(value for value, _ in values),
-        p05=_weighted_percentile(values, 0.05),
-        p50=_weighted_percentile(values, 0.50),
-        p95=_weighted_percentile(values, 0.95),
-        maximum=max(value for value, _ in values),
+        expected_value=_finite_rational(ledger.mean, "Weighted mean"),
+        standard_deviation=_sqrt_output(ledger.variance, "Weighted standard deviation"),
+        minimum=_finite_rational(ledger.rows[0][0], "Weighted minimum"),
+        p05=p05, p50=p50, p95=p95,
+        maximum=_finite_rational(ledger.rows[-1][0], "Weighted maximum"),
     )
 
 
@@ -380,61 +425,52 @@ def _variance_decomposition(
     realizations: tuple[ConditionalPropulsionRealization, ...],
     getter: Callable[[TabulatedBurnArtifact], float],
 ) -> HierarchicalVarianceDecomposition:
-    total_mean = sum(getter(item.artifact) * item.joint_probability for item in realizations)
-    total_variance = sum(
-        item.joint_probability * (getter(item.artifact) - total_mean) ** 2 for item in realizations
-    )
+    ledger = _weight_ledger((getter(item.artifact), item.joint_probability) for item in realizations)
     scenario_ids = tuple(dict.fromkeys(item.scenario_id for item in realizations))
-    within_variance = 0.0
-    between_variance = 0.0
+    within_variance = Fraction(0)
+    between_variance = Fraction(0)
     for scenario_id in scenario_ids:
         selected = tuple(item for item in realizations if item.scenario_id == scenario_id)
-        scenario_probability = sum(item.joint_probability for item in selected)
-        conditional_mean = (
-            sum(getter(item.artifact) * item.joint_probability for item in selected)
-            / scenario_probability
-        )
-        within_variance += sum(
-            item.joint_probability * (getter(item.artifact) - conditional_mean) ** 2
-            for item in selected
-        )
-        between_variance += scenario_probability * (conditional_mean - total_mean) ** 2
-    closure_error = abs(total_variance - within_variance - between_variance)
-    if total_variance > 0.0:
-        within_fraction = within_variance / total_variance
-        between_fraction = between_variance / total_variance
+        group = _weight_ledger((getter(item.artifact), item.joint_probability) for item in selected)
+        within_variance += group.total * group.variance / ledger.total
+        between_variance += group.total * (group.mean - ledger.mean)**2 / ledger.total
+    total_output = _finite_rational(ledger.variance, "Total variance")
+    within_output = _finite_rational(within_variance, "Within-scenario variance")
+    between_output = _finite_rational(between_variance, "Between-scenario variance")
+    closure_error = abs(_fraction(total_output)-_fraction(within_output)-_fraction(between_output))
+    if ledger.variance > 0:
+        within_fraction = within_variance / ledger.variance
+        between_fraction = between_variance / ledger.variance
     else:
         within_fraction = 0.0
         between_fraction = 0.0
     return HierarchicalVarianceDecomposition(
         metric=metric,
-        total_variance=total_variance,
-        within_scenario_variance=within_variance,
-        between_scenario_variance=between_variance,
-        closure_error=closure_error,
-        within_fraction=within_fraction,
-        between_fraction=between_fraction,
+        total_variance=total_output,
+        within_scenario_variance=within_output,
+        between_scenario_variance=between_output,
+        closure_error=_finite_rational(closure_error, "Variance display closure"),
+        within_fraction=_finite_rational(_fraction(within_fraction), "Within variance fraction"),
+        between_fraction=_finite_rational(_fraction(between_fraction), "Between variance fraction"),
     )
 
 
 def _mean_and_deviation(values: tuple[float, ...]) -> tuple[float, float]:
-    mean = fmean(values)
-    if len(values) == 1:
-        return mean, 0.0
-    return mean, sqrt(sum((value - mean) ** 2 for value in values) / (len(values) - 1))
+    return _sample_moments(values)
 
 
 def _relative_difference(left: float, right: float) -> float:
-    return abs(left - right) / max(abs(left), abs(right), 1e-15)
+    return _relative_change(left, right)
 
 
 def _impulses_for_draws(
     base_impulse_n_s: float, draws: tuple[UncertaintyDraw, ...]
 ) -> tuple[float, ...]:
-    return tuple(
-        base_impulse_n_s * _scale_values(draw)["thrust_scale"] * _scale_values(draw)["time_scale"]
-        for draw in draws
-    )
+    impulses = []
+    for draw in draws:
+        scales = _scale_ledger(draw)
+        impulses.append(_finite_rational(_fraction(base_impulse_n_s)*scales["thrust_scale"]*scales["time_scale"], "Audit impulse"))
+    return tuple(impulses)
 
 
 def build_hierarchical_propulsion_ensemble(
@@ -461,7 +497,12 @@ def build_hierarchical_propulsion_ensemble(
     NASA-20160007073: https://ntrs.nasa.gov/citations/20160007073
     """
 
-    normalized_method = method.strip().lower()
+    if not isinstance(scenarios, PropulsionScenarioEnsemble):
+        raise DomainError("Hierarchical builder requires a PropulsionScenarioEnsemble.")
+    definitions = records(definitions, ScenarioConditionalUncertainty, "Conditional definitions")
+    seed = integer(seed, "Hierarchical base seed")
+    replicate_tolerance = real(replicate_tolerance, "Replicate tolerance")
+    normalized_method = text(method, "Hierarchical method").strip().lower()
     if normalized_method not in {"latin-hypercube", "monte-carlo"}:
         raise DomainError("Hierarchical method must be latin-hypercube or monte-carlo.")
     if not isfinite(replicate_tolerance) or replicate_tolerance <= 0.0:
@@ -498,7 +539,7 @@ def build_hierarchical_propulsion_ensemble(
                     scenario_probability=scenario.probability,
                     conditional_index=draw.index,
                     conditional_probability=conditional_probability,
-                    joint_probability=scenario.probability * conditional_probability,
+                    joint_probability=_joint_weight(scenario.probability, conditional_probability),
                     inputs=draw.values,
                     artifact=artifact,
                 )
@@ -526,9 +567,11 @@ def build_hierarchical_propulsion_ensemble(
             )
         )
 
-    joint_probability_sum = sum(item.joint_probability for item in realizations)
-    closure_error = abs(joint_probability_sum - 1.0)
-    if closure_error > 1e-12:
+    total_weight = sum((_fraction(item.joint_probability) for item in realizations), Fraction(0))
+    exact_closure = abs(total_weight-1)
+    joint_probability_sum = _finite_rational(total_weight, "Joint probability sum")
+    closure_error = _finite_rational(exact_closure, "Probability closure error")
+    if exact_closure > _fraction(1e-12):
         raise DomainError("Hierarchical joint probabilities do not close to one.")
     metric_getters = {
         "duration_s": lambda artifact: artifact.duration_s,
@@ -545,14 +588,15 @@ def build_hierarchical_propulsion_ensemble(
     for scenario in scenarios.realizations:
         selected = tuple(item for item in realizations if item.scenario_id == scenario.scenario_id)
         for metric, getter in metric_getters.items():
-            conditional_mean = fmean(getter(item.artifact) for item in selected)
+            group = _weight_ledger((getter(item.artifact), item.joint_probability) for item in selected)
+            conditional_mean = _finite_rational(group.mean, "Conditional mean")
             contributions.append(
                 ScenarioMetricContribution(
                     scenario_id=scenario.scenario_id,
                     metric=metric,
                     scenario_probability=scenario.probability,
                     conditional_expected_value=conditional_mean,
-                    joint_expected_value_contribution=(scenario.probability * conditional_mean),
+                    joint_expected_value_contribution=_finite_rational(group.mean*group.total/total_weight, "Scenario mean contribution"),
                 )
             )
     warnings = [
@@ -579,11 +623,11 @@ def build_hierarchical_propulsion_ensemble(
         ),
         contributions=tuple(contributions),
         sampling_evidence=tuple(evidence),
-        zero_thrust_probability=sum(
-            item.joint_probability
+        zero_thrust_probability=_finite_rational(sum((
+            _fraction(item.joint_probability)
             for item in realizations
             if item.artifact.delivered_total_impulse_n_s == 0.0
-        ),
+        ), Fraction(0))/total_weight, "Zero-thrust probability"),
         joint_probability_sum=joint_probability_sum,
         joint_probability_closure_error=closure_error,
         reference_ids=HIERARCHICAL_ENSEMBLE_REFERENCE_IDS,
