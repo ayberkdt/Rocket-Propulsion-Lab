@@ -146,6 +146,37 @@ FREE_SPACE_REVIEW = {
     '_range_output', '_range_output.rounded',
     'FreeSpaceBurnMetrics.__post_init__', 'free_space_burn_metrics',
 }
+POWER_CONTRACT_REVIEW = {
+    'propulsion/burns/power_documents.py': {'_parameters', '_table_document', '_power_document',
+                                         '_curve_document', '_throttle_document'},
+    'propulsion/burns/electric.py': {'_level_efficiency', '_fixed_gain', '_ExactLevelPoint',
+        '_ExactLevelPoint.export', '_operating_point_ledger',
+        'ElectricThrottleLevel.__post_init__', 'ElectricThrottleLevel.specific_impulse_s',
+        'ElectricThrottleLevel.total_efficiency', 'ElectricThrottleTable.__post_init__',
+        'ElectricThrottleTable.from_dict', 'ElectricThrottleTable.to_dict',
+        'DiscreteThrottlePath.__post_init__', 'DiscreteThrottlePath.operating_point',
+        'FixedEfficiencyThrottle.__post_init__', 'FixedEfficiencyThrottle.thrust_per_watt_n_w',
+        'FixedEfficiencyThrottle.operating_point', 'PowerLimitedPropulsionModel.__post_init__',
+        'PowerLimitedPropulsionModel.effective_power_w', 'PowerLimitedPropulsionModel.evaluate',
+        'PowerLimitedPropulsionModel.from_dict', 'PowerLimitedPropulsionModel.to_dict',
+        'PowerLimitedPropulsionModel.manifest'},
+    'propulsion/burns/throttleable.py': {'ThrottleableEngineModel.__post_init__',
+        'ThrottleableEngineModel.from_dict', 'ThrottleableEngineModel.manifest'},
+    'propulsion/burns/exchange_documents.py': {'_metadata', '_bridge_document'},
+}
+EXCHANGE_DOCUMENT_REVIEW = {
+    'propulsion/burns/exchange_documents.py': {'_object', '_array', '_string', '_number',
+        '_strings', '_boolean', '_same', '_metadata', '_surface_document',
+        '_bridge_document', '_timeline_document'},
+    'propulsion/burns/propagator.py': {'PropagatorPropulsionBridge.from_dict',
+        'PropagatorPropulsionBridge.to_dict', 'PropagatorPropulsionBridge.manifest'},
+    'propulsion/burns/timeline.py': {'PropulsionTimeline.from_dict',
+        'PropulsionTimeline.to_dict', 'PropulsionTimeline.manifest'},
+    'propulsion/burns/performance_surface.py': {'RectilinearPerformanceSurface.from_dict',
+        'RectilinearPerformanceSurface.to_dict'},
+    'propulsion/burns/stream_performance.py': {'RectilinearStreamPerformanceSurface.from_dict',
+        'RectilinearStreamPerformanceSurface.to_dict'},
+}
 CORE_NORMALIZATION_REVIEW = {
     'core/validation.py': {'real', 'integer', '_text_value', 'text', '_ordered_items',
         'vector3', 'real_tuple', 'real_mapping', 'records', 'strings', 'name_value_pairs',
@@ -243,6 +274,10 @@ def _review_scopes(path, name):
     scopes = (["source_trace_and_software_verification_only"]
               if "studies/sass/" in path.as_posix() else [])
     groups = (
+        (POWER_CONTRACT_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_power_throttle_raw_documents_literal_identity_and_electric_arithmetic_only'),
+        (EXCHANGE_DOCUMENT_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_bridge_timeline_and_performance_map_raw_schema_and_metadata_consistency_only'),
         (CORE_NORMALIZATION_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
          'targeted_programmatic_scalar_container_and_literal_record_normalization_only'),
         (TABULATED_DOCUMENT_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),

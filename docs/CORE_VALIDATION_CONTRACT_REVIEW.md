@@ -139,6 +139,13 @@ evidence gates are unmet. Software results do not establish TRL 5 or certificati
 
 ## References
 
+- [Python 3.12 numeric abstract base classes](https://docs.python.org/3.12/library/numbers.html):
+  Real/Integral protocol background. Boolean exclusions and accepted annotation
+  spellings are repository contracts, not requirements imposed by that hierarchy.
+- [Python 3.12 fractions](https://docs.python.org/3.12/library/fractions.html):
+  exact rational representation of a supplied binary float, distinct from a
+  decimal approximation or measurement uncertainty.
+
 - src/rocket_propulsion/core/validation.py: shared normalization implementation.
 - src/rocket_propulsion/propulsion/burns/models.py, tabulated.py and
   tabulated_documents.py: related manual scalar/metadata boundaries.

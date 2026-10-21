@@ -28,7 +28,6 @@ Sources for the threat model:
 import json
 import random
 import unittest
-from copy import deepcopy
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.integrations import SideraEnsembleHandoff
@@ -141,20 +140,26 @@ def paths(node, prefix=()):
             yield from paths(value, (*prefix, index))
 
 
-def replaced(document, path, value):
-    copy = deepcopy(document)
+def _copy_mutation_path(document, path):
+    """Copy ancestors of one edit; JSON serialization only reads other branches."""
+    copy = document.copy()
     target = copy
+    source = document
     for step in path[:-1]:
+        source = source[step]
+        target[step] = source.copy()
         target = target[step]
+    return copy, target
+
+
+def replaced(document, path, value):
+    copy, target = _copy_mutation_path(document, path)
     target[path[-1]] = value
     return copy
 
 
 def deleted(document, path):
-    copy = deepcopy(document)
-    target = copy
-    for step in path[:-1]:
-        target = target[step]
+    copy, target = _copy_mutation_path(document, path)
     del target[path[-1]]
     return copy
 

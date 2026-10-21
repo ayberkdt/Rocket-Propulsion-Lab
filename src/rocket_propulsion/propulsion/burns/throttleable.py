@@ -52,6 +52,8 @@ from .propagator import (
     PropellantMassClosure,
 )
 from .serialization import _require_numerical_policies, canonical_sha256
+from .power_documents import _throttle_document
+from .exchange_documents import _metadata
 
 THROTTLEABLE_ENGINE_SCHEMA = "rocket_propulsion_throttleable_engine_v1"
 THROTTLEABLE_REFERENCE_IDS = ("NASA-20040000363", "OREKIT-13.1.5-PROPULSION-MODEL")
@@ -213,9 +215,10 @@ class ThrottleableEngineModel:
     schema: str = THROTTLEABLE_ENGINE_SCHEMA
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "schema", text(self.schema, "Throttleable model schema"))
         if self.schema != THROTTLEABLE_ENGINE_SCHEMA:
             raise DomainError("Unsupported throttleable engine schema.")
-        text(self.model_id, "Model identifier")
+        object.__setattr__(self, "model_id", text(self.model_id, "Model identifier"))
         for name in ("rated_thrust_n", "rated_mass_flow_kg_s", "minimum_throttle",
                      "maximum_throttle"):
             object.__setattr__(self, name, real(getattr(self, name), name))
@@ -568,8 +571,7 @@ class ThrottleableEngineModel:
     def from_dict(cls, payload: Mapping[str, object]) -> ThrottleableEngineModel:
         """Rebuild a model and verify its hash."""
 
-        if not isinstance(payload, Mapping):
-            raise InputError("Throttleable engine document root must be an object.")
+        _throttle_document(payload)
         try:
             def curve(item):
                 return None if item is None else MonotoneCubicCurve(item["x"], item["y"])
@@ -601,6 +603,7 @@ class ThrottleableEngineModel:
         if payload.get("model_hash") != model.model_hash:
             raise InputError("Throttleable engine hash does not match its contents.")
         _require_numerical_policies(payload, model.manifest(include_hash=False))
+        _metadata(payload, model.manifest(include_hash=False), ('reference_ids','parameters'))
         return model
 
     @classmethod

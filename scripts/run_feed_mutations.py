@@ -51,6 +51,8 @@ from rocket_propulsion.integrations import direction as adapter_direction
 from rocket_propulsion.integrations import native_mass
 from rocket_propulsion.core import validation as validation_model
 from rocket_propulsion.propulsion.burns import tabulated_documents as document_model
+from rocket_propulsion.propulsion.burns import exchange_documents as exchange_model
+from rocket_propulsion.propulsion.burns import electric as electric_model
 from tests.test_feed_physics_adversarial import FeedBoundaryAttacks, FeedConservationOracles
 from tests.test_burn_feed_system import RegulatedFeedSystemTests
 from tests.test_burn_bipropellant import BipropellantDynamicFeedTests
@@ -73,6 +75,10 @@ from tests.test_tabulated_time_contract import TabulatedTimeAttacks
 from tests.test_native_reserve_numerics import NativeReserveAttacks
 from tests.test_tabulated_document_contract import TabulatedDocumentAttacks
 from tests.test_core_validation_contract import CoreValidationAttacks
+from tests.test_exchange_document_contract import ExchangeDocumentAttacks
+from tests.test_power_document_contract import (
+    PowerDocumentAttacks, ElectricLevelNumericalAttacks, ContinuousPowerNumericalAttacks,
+)
 from tests.test_source_review_inventory import SourceInventoryAttacks
 from scripts import assurance_audit
 from scripts.run_bounded_regression import ROOT, verification_inputs
@@ -82,6 +88,95 @@ from scripts.run_bounded_regression import ROOT, verification_inputs
 # normalization and the non-depleting-stream branch audit. They are not kills.
 # Evidence and active replacement coverage: CORE_VALIDATION_CONTRACT_REVIEW.md.
 MUTATIONS = (
+    ('skip_electric_table_raw_schema', electric_model.ElectricThrottleTable, 'from_dict',
+     '_table_document(payload)', 'pass', PowerDocumentAttacks,
+     'test_unknown_table_level_fields_are_refused_standalone_and_nested'),
+    ('skip_power_model_raw_schema', electric_model.PowerLimitedPropulsionModel, 'from_dict',
+     '_power_document(payload)', 'pass', PowerDocumentAttacks,
+     'test_continuous_law_cannot_discard_a_supplied_table'),
+    ('skip_throttle_model_raw_schema', ThrottleableEngineModel, 'from_dict',
+     '_throttle_document(payload)', 'pass', PowerDocumentAttacks,
+     'test_positional_stream_pairs_are_not_reconstructed_from_mapping_keys'),
+    ('ignore_power_model_declared_metadata', electric_model.PowerLimitedPropulsionModel, 'from_dict',
+     '_metadata(payload, model.manifest(include_hash=False), _POWER_METADATA)', 'pass',
+     PowerDocumentAttacks, 'test_declared_references_and_power_semantics_are_checked'),
+    ('ignore_throttle_model_declared_metadata', ThrottleableEngineModel, 'from_dict',
+     "_metadata(payload, model.manifest(include_hash=False), ('reference_ids','parameters'))", 'pass',
+     PowerDocumentAttacks, 'test_declared_references_and_power_semantics_are_checked'),
+    ('invent_empty_persisted_driver_set', exchange_model, '_metadata',
+     'for key in keys:', "for key in keys:\n        if key == 'parameters':\n            continue",
+     PowerDocumentAttacks, 'test_empty_parameter_list_cannot_invent_drivers_in_any_model_family'),
+    ('retain_table_source_digest_callback', electric_model.ElectricThrottleTable, '__post_init__',
+     '_set(self, "source_sha256", text(self.source_sha256, "Throttle-table source hash"))', 'pass',
+     PowerDocumentAttacks, 'test_programmatic_digest_validation_reads_literal_characters'),
+    ('accept_forged_power_schema_comparison', electric_model.PowerLimitedPropulsionModel, '__post_init__',
+     '_set(self, "schema", text(self.schema, "Power-limited model schema"))', 'pass',
+     PowerDocumentAttacks, 'test_programmatic_forged_schema_comparisons_cannot_change_literal_identity'),
+    ('round_level_consistency_ratio_before_decision', electric_model.ElectricThrottleLevel, '__post_init__',
+     'if _level_efficiency(self) > _fraction(1.0 + 1e-12):',
+     'if float(_level_efficiency(self)) > 1.0 + 1e-12:', ElectricLevelNumericalAttacks,
+     'test_consistency_ceiling_neighbors_use_exact_binary_input_ratio'),
+    ('erase_positive_level_efficiency_output', electric_model.ElectricThrottleLevel, 'total_efficiency',
+     '_finite_rational(_level_efficiency(self), "Throttle level total efficiency")', '0.0',
+     ElectricLevelNumericalAttacks, 'test_efficiency_and_isp_are_invariant_under_exact_binary_unit_scaling'),
+    ('apply_gravity_twice_to_level_isp', electric_model.ElectricThrottleLevel, 'specific_impulse_s',
+     '_fraction(STANDARD_GRAVITY_M_S2) * _fraction(self.mass_flow_kg_s)',
+     '_fraction(STANDARD_GRAVITY_M_S2)**2 * _fraction(self.mass_flow_kg_s)', ElectricLevelNumericalAttacks,
+     'test_efficiency_and_isp_are_invariant_under_exact_binary_unit_scaling'),
+    ('differentiate_clipped_negative_power_as_active', electric_model, '_operating_point_ledger',
+     'saturated or available_power_w < 0', 'saturated', ContinuousPowerNumericalAttacks,
+     'test_clipped_negative_power_has_zero_local_derivatives'),
+    ('erase_unrepresentable_continuous_gain', electric_model.FixedEfficiencyThrottle, 'thrust_per_watt_n_w',
+     '_finite_rational(_fixed_gain(self), "Continuous thrust/power gain")', '0.0', ContinuousPowerNumericalAttacks,
+     'test_unrepresentable_gain_can_recover_at_saturation_before_export'),
+    ('round_continuous_gain_before_products', electric_model, '_fixed_gain',
+     'return 2 * _fraction(law.total_efficiency) / (\n        _fraction(STANDARD_GRAVITY_M_S2) * _fraction(law.specific_impulse_s))',
+     'return _fraction(2.0 * law.total_efficiency / (STANDARD_GRAVITY_M_S2 * law.specific_impulse_s))',
+     ContinuousPowerNumericalAttacks, 'test_continuous_large_isp_avoids_false_zero_thrust_and_mass_flow'),
+    ('alias_negative_throttle_indices', electric_model, '_operating_point_ledger',
+     'if not 0 <= level_index < law.level_count:', 'if False:', ContinuousPowerNumericalAttacks,
+     'test_negative_python_indices_do_not_select_last_thruster'),
+    ('round_electric_duty_flow_before_export', electric_model.PowerLimitedPropulsionModel, 'evaluate',
+     'base_flow = _fraction(point.mass_flow_kg_s) * _fraction(duty)',
+     'base_flow = _fraction(point.mass_flow_kg_s * duty)', ContinuousPowerNumericalAttacks,
+     'test_model_does_not_turn_positive_tank_drain_into_zero'),
+    ('double_gravity_in_electric_model_isp', electric_model.PowerLimitedPropulsionModel, 'evaluate',
+     'exact_thrust / (_fraction(STANDARD_GRAVITY_M_S2) * flow)',
+     'exact_thrust / (2 * _fraction(STANDARD_GRAVITY_M_S2) * flow)', ContinuousPowerNumericalAttacks,
+     'test_model_isp_uses_unrounded_flow_and_exhaust_denominator'),
+    ('premature_public_point_export_inside_model', electric_model.PowerLimitedPropulsionModel, 'evaluate',
+     'point = _operating_point_ledger(self.throttle_law, level_index, effective_power)',
+     'point = self.throttle_law.operating_point(level_index, effective_power)', ContinuousPowerNumericalAttacks,
+     'test_model_recovers_representable_outputs_across_private_point_boundary'),
+    ('ignore_exchange_unknown_fields', exchange_model, '_object',
+     'set(value) - set(required) - set(optional) or set(required) - set(value)',
+     'set(required) - set(value)', ExchangeDocumentAttacks,
+     'test_unknown_root_fields_cannot_disappear'),
+    ('accept_tuple_exchange_arrays', exchange_model, '_array',
+     'if type(value) is not list:', 'if type(value) not in (list, tuple):',
+     ExchangeDocumentAttacks, 'test_json_array_fields_are_not_programmatic_tuple_or_mapping_shortcuts'),
+    ('skip_bridge_raw_document_validation', PropagatorPropulsionBridge, 'from_dict',
+     '_bridge_document(payload)', 'pass', ExchangeDocumentAttacks,
+     'test_unknown_root_fields_cannot_disappear'),
+    ('skip_timeline_raw_document_validation', timeline_model.PropulsionTimeline, 'from_dict',
+     '_timeline_document(payload)', 'pass', ExchangeDocumentAttacks,
+     'test_timeline_bridge_registry_must_exactly_match_scheduled_burns'),
+    ('skip_total_map_raw_document_validation', RectilinearPerformanceSurface, 'from_dict',
+     '_surface_document(payload)', 'pass', ExchangeDocumentAttacks,
+     'test_surface_unknown_axis_and_point_fields_cannot_disappear'),
+    ('skip_stream_map_raw_document_validation', RectilinearStreamPerformanceSurface, 'from_dict',
+     '_surface_document(payload, streams=True)', 'pass', ExchangeDocumentAttacks,
+     'test_surface_unknown_axis_and_point_fields_cannot_disappear'),
+    ('ignore_bridge_declared_metadata_consistency', PropagatorPropulsionBridge, 'from_dict',
+     '_metadata(payload, bridge.manifest(include_hash=False), _BRIDGE_METADATA)', 'pass',
+     ExchangeDocumentAttacks, 'test_bridge_declared_semantics_and_reference_ids_are_checked'),
+    ('ignore_scheduled_bridge_hash_link', timeline_model.PropulsionTimeline, 'from_dict',
+     "item['bridge_model_hash'] != timeline.burn(item['burn_id']).bridge.model_hash", 'False',
+     ExchangeDocumentAttacks, 'test_timeline_burn_bridge_hash_link_is_checked'),
+    ('allow_unused_valid_timeline_bridges', exchange_model, '_timeline_document',
+     '_object(payload["bridges"], set(identifiers), "Timeline bridges")',
+     '_object(payload["bridges"], set(payload["bridges"]), "Timeline bridges")',
+     ExchangeDocumentAttacks, 'test_timeline_bridge_registry_must_exactly_match_scheduled_burns'),
     ('interpret_enum_input_through_subclass_comparisons', burn_models, '_enum',
      'return kind(text(value, label))', 'return kind(value)',
      CoreValidationAttacks, 'test_stream_metadata_uses_literal_normalization_for_non_depleting_paths'),
@@ -764,13 +859,20 @@ def main():
     fingerprints = verification_inputs(ROOT)
     outcomes = []
     for name, owner, symbol, before, after, test_class, test_name in MUTATIONS:
-        function = getattr(owner, symbol)
+        descriptor = inspect.getattr_static(owner, symbol)
+        function = descriptor.fget if isinstance(descriptor, property) else getattr(owner, symbol)
         source = textwrap.dedent(inspect.getsource(function))
         if source.count(before) != 1:
             raise RuntimeError(f"Mutation {name} must identify exactly one source expression.")
         namespace = dict(inspect.unwrap(function).__globals__)
         exec(compile(ast.parse(source.replace(before, after)), f"<feed-mutation:{name}>", "exec"),
              namespace)
+        replacement = namespace[symbol]
+        if isinstance(descriptor, property):
+            if not isinstance(replacement, property):
+                raise RuntimeError(f"Mutation {name} lost its property descriptor.")
+            replacement = property(replacement.fget, descriptor.fset, descriptor.fdel,
+                                   descriptor.__doc__)
         bindings = [(owner, symbol)]
         if isinstance(owner, ModuleType):
             bindings += [(loaded, key) for module_name, loaded in list(sys.modules.items())
@@ -781,7 +883,7 @@ def main():
             raise RuntimeError(f"Mutation {name} has no live callable bindings.")
         with ExitStack() as stack:
             for target, key in bindings:
-                stack.enter_context(patch.object(target, key, namespace[symbol]))
+                stack.enter_context(patch.object(target, key, replacement))
             # Immutable numerical caches are valid only for the implementation
             # that populated them. Every injected variant must execute afresh.
             for module in (tabulated_model, metrics_model, time_model):

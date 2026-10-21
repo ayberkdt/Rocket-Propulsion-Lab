@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from rocket_propulsion.core.errors import DomainError, InputError
+from .exchange_documents import _timeline_document
 from rocket_propulsion.core.validation import read_json_document, real, real_mapping, records, text
 
 from .propagator import (
@@ -511,8 +512,7 @@ class PropulsionTimeline:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        if not isinstance(payload, Mapping):
-            raise InputError("Propulsion timeline document root must be an object.")
+        _timeline_document(payload)
         _require_numerical_policies(payload, {'time_numerics':_TIME_POLICY})
         try:
             bridges = payload["bridges"]
@@ -539,6 +539,10 @@ class PropulsionTimeline:
             raise InputError("Malformed propulsion timeline document.") from error
         if payload.get("timeline_hash") != timeline.timeline_hash:
             raise InputError("Propulsion timeline hash does not match its contents.")
+        for item in payload['burns']:
+            if item['bridge_model_hash'] != timeline.burn(item['burn_id']).bridge.model_hash:
+                raise InputError("Scheduled burn bridge hash does not match its bridge.",
+                                 field='bridge_model_hash')
         return timeline
 
     @classmethod

@@ -27,6 +27,7 @@ from rocket_propulsion.core.validation import (
 )
 
 from .direction import _direction_geometry
+from .exchange_documents import _bridge_document, _metadata, _BRIDGE_METADATA
 from .mass_closure import _MASS_CLOSURE_POLICY, _closure_ratio, _inventory_ledger
 from .performance_surface import (
     PerformanceGridLineSurface,
@@ -655,8 +656,7 @@ class PropagatorPropulsionBridge:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        if not isinstance(payload, Mapping):
-            raise InputError("Propagator bridge document root must be an object.")
+        _bridge_document(payload)
         try:
             surface_payload = payload["performance_surface"]
             stream_surface_payload = payload.get("stream_performance_surface")
@@ -706,6 +706,7 @@ class PropagatorPropulsionBridge:
         if payload.get("model_hash") != bridge.model_hash:
             raise InputError("Propagator bridge model hash does not match its contents.")
         _require_numerical_policies(payload, bridge.manifest(include_hash=False))
+        _metadata(payload, bridge.manifest(include_hash=False), _BRIDGE_METADATA)
         return bridge
 
     @classmethod

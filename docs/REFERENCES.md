@@ -288,3 +288,6 @@ Sources below support the provisional study package; ITU course identity is not 
 - **PYTHON-3.12-FRACTION**: Python, *fractions*. Float inputs retain their exact binary value as a rational. Accessed 2026-10-18. <https://docs.python.org/3.12/library/fractions.html>
 - **PYTHON-3.12-NEXTAFTER**: Python, *math.nextafter*. Adjacent representable floating-point values for the direct inventory helper's safe time horizon. Accessed 2026-10-19. <https://docs.python.org/3.12/library/math.html#math.nextafter>
 - **PYTHON-3.12-DECIMAL**: Python, *decimal*. Precision contexts and exact float conversion for independent numerical checks. Accessed 2026-10-18. <https://docs.python.org/3.12/library/decimal.html>
+
+- **PYTHON-3.12-NUMBERS**: Python, *numbers — Numeric abstract base classes*. Real, Rational and Integral protocols; application-level physical exclusions remain local contracts. Accessed 2026-10-20. <https://docs.python.org/3.12/library/numbers.html>
+- **NASA-CR-2004-213099**: NASA, *Development and Characterization of High-Efficiency, High-Specific Impulse Xenon Hall Thrusters*. Printed page 14, equations (2-9)-(2-10): jet power and system efficiency referenced to spacecraft bus input power. Used for equations, not as validation data for an unselected motor. Accessed 2026-10-20. <https://ntrs.nasa.gov/api/citations/20040084644/downloads/20040084644.pdf>
