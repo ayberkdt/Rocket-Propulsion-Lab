@@ -87,7 +87,7 @@ in the function docstring rather than hidden.
 - reserve mass;
 - cant efficiency.
 
-The declared uncertain nominal must match the deterministic model input. This
+The declared uncertain nominal must exactly match the deterministic binary model input. This
 prevents a distribution centered on one engine definition from being silently
 applied to another.
 
@@ -108,12 +108,22 @@ The result reports, for duration, impulse, consumed mass, thrust centroid and
 final supply pressure:
 
 - sample mean and standard deviation;
-- standard error and normal-approximation 95% interval for the mean;
+- the IID-formula s/sqrt(n) proxy and mean +/- 1.96*s/sqrt(n), explicitly labelled
+  `iid_normal_formula_proxy_unqualified_coverage`, with `coverage_established=False`;
 - minimum, P05, P50, P95 and maximum.
 
 Pearson input/output correlations are ranked independently for every output.
 They are explicitly labelled screening sensitivities: they can miss nonlinear
 interactions and are not Sobol indices or evidence of causality.
+Constant input/output vectors have undefined coefficients, magnitudes and ranks
+(null fields with an explicit reason), rather than a misleading zero coefficient.
+
+The legacy mean-ci95 field names do not establish 95% coverage. In particular,
+LHS rows are dependent, so the IID formula is not a design-specific standard
+error or confidence interval. The result warns about this distinction. Calibrated
+inference and independent replicated designs remain separate work. Arithmetic,
+retained-record and fault-runtime boundaries are documented in
+[`BLOWDOWN_SUMMARY_AND_MUTATION_RUNTIME_REVIEW.md`](BLOWDOWN_SUMMARY_AND_MUTATION_RUNTIME_REVIEW.md).
 
 The first-half/full-ensemble change in impulse mean and standard deviation is
 recorded as a sampling-stability diagnostic. Failing this tolerance adds a

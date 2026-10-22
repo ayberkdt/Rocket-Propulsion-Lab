@@ -27,6 +27,7 @@ from rocket_propulsion.core.validation import (
 )
 
 from .direction import _direction_geometry
+from .exchange_documents import _bridge_document, _metadata, _BRIDGE_METADATA
 from .mass_closure import _MASS_CLOSURE_POLICY, _closure_ratio, _inventory_ledger
 from .performance_surface import (
     PerformanceGridLineSurface,
@@ -573,6 +574,7 @@ class PropagatorPropulsionBridge:
             "mass_flow_numerics": "exact_linear_mass_sampling_and_grouped_outputs_v1",
             "tabulated_state_numerics": "exact_binary_axial_and_grouped_flow_channels_v1",
             "mass_closure_numerics": _MASS_CLOSURE_POLICY,
+            "inventory_clamp_numerics": "exact_binary_state_and_limit_plus_declared_margin_v1",
             "direction_numerics": "scaled_hypot_rational_projection_and_signed_tangents_v1",
             "time_semantics": "relative_seconds_with_global_ignition_bias",
             "time_numerics": _TIME_POLICY,
@@ -654,8 +656,7 @@ class PropagatorPropulsionBridge:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        if not isinstance(payload, Mapping):
-            raise InputError("Propagator bridge document root must be an object.")
+        _bridge_document(payload)
         try:
             surface_payload = payload["performance_surface"]
             stream_surface_payload = payload.get("stream_performance_surface")
@@ -705,6 +706,7 @@ class PropagatorPropulsionBridge:
         if payload.get("model_hash") != bridge.model_hash:
             raise InputError("Propagator bridge model hash does not match its contents.")
         _require_numerical_policies(payload, bridge.manifest(include_hash=False))
+        _metadata(payload, bridge.manifest(include_hash=False), _BRIDGE_METADATA)
         return bridge
 
     @classmethod
@@ -1082,14 +1084,14 @@ class PropagatorPropulsionBridge:
 
         inhibited: list[str] = []
         if apply_inventory_limits:
-            if self.protected_dry_mass_kg is not None and vehicle_mass_kg <= (
-                self.protected_dry_mass_kg + INVENTORY_LIMIT_TOLERANCE
+            if self.protected_dry_mass_kg is not None and _fraction(vehicle_mass_kg) <= (
+                _fraction(self.protected_dry_mass_kg) + _fraction(INVENTORY_LIMIT_TOLERANCE)
             ):
                 inhibited.append("protected_dry_mass_kg")
             for constraint in self.state_constraints:
                 if (
-                    states[constraint.state_name]
-                    <= constraint.minimum_value + INVENTORY_LIMIT_TOLERANCE
+                    _fraction(states[constraint.state_name])
+                    <= _fraction(constraint.minimum_value) + _fraction(INVENTORY_LIMIT_TOLERANCE)
                 ):
                     inhibited.append(constraint.state_name)
         active = segment is not None and not inhibited

@@ -19,6 +19,7 @@ from rocket_propulsion.propulsion.burns import (
     TabulatedBurnArtifact,
     TabulatedBurnSegment,
 )
+from rocket_propulsion.propulsion.burns.time_coordinates import _epoch_table
 
 
 def profile(h=1.0):
@@ -117,6 +118,10 @@ class TabulatedTimeAttacks(unittest.TestCase):
                         )
                     )
             self.assertEqual(reference[0], reference[1])
+            # Check clock arithmetic before consumer record guards can reject
+            # a malformed date and mask the numerical assertion in mutations.
+            dates, _ = _epoch_table(profile(h).segments, ignition, bias)
+            self.assertEqual(dates, reference[0])
             timeline = schedule(profile(h), ignition, bias)
             actual = lunaris_segmentation_times(
                 timeline, parameter_overrides={"burn": {"ignition_time_bias_s": bias}}

@@ -1,0 +1,358 @@
+{
+  "scope": "Independent mpmath centered-erf inverse and log/exp reference values, exact binary float inputs; two precisions must agree on the exported binary value. This is finite reference evidence, not a universal rounding proof or physical validation.",
+  "generator": "mpmath 1.3.0",
+  "cases": [
+    {
+      "case": "log_wide_0.01",
+      "distribution": "log-uniform",
+      "lower_hex": "0x0.0000000000001p-1022",
+      "upper_hex": "0x1.fffffffffffffp+1023",
+      "nominal_hex": "0x1.0000000000000p+0",
+      "probability_hex": "0x1.47ae147ae147bp-7",
+      "sigma_hex": null,
+      "expected_float_hex": "0x0.00000001f8f38p-1022",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        400,
+        500
+      ]
+    },
+    {
+      "case": "normal_bounded_0.01",
+      "distribution": "truncated-normal",
+      "lower_hex": "-0x1.0000000000000p+0",
+      "upper_hex": "0x1.0000000000000p+0",
+      "nominal_hex": "0x0.0p+0",
+      "probability_hex": "0x1.47ae147ae147bp-7",
+      "sigma_hex": "0x1.0000000000000p+0",
+      "expected_float_hex": "-0x1.f1c0b5d09ef7ep-1",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        100,
+        180
+      ]
+    },
+    {
+      "case": "normal_shifted_0.01",
+      "distribution": "truncated-normal",
+      "lower_hex": "0x1.0000000000000p+0",
+      "upper_hex": "0x1.0000000000000p+2",
+      "nominal_hex": "0x1.0000000000000p+1",
+      "probability_hex": "0x1.47ae147ae147bp-7",
+      "sigma_hex": "0x1.0000000000000p-1",
+      "expected_float_hex": "0x1.13d8a30872180p+0",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        100,
+        180
+      ]
+    },
+    {
+      "case": "log_wide_0.25",
+      "distribution": "log-uniform",
+      "lower_hex": "0x0.0000000000001p-1022",
+      "upper_hex": "0x1.fffffffffffffp+1023",
+      "nominal_hex": "0x1.0000000000000p+0",
+      "probability_hex": "0x1.0000000000000p-2",
+      "sigma_hex": null,
+      "expected_float_hex": "0x1.6a09e667f3bccp-550",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        400,
+        500
+      ]
+    },
+    {
+      "case": "normal_bounded_0.25",
+      "distribution": "truncated-normal",
+      "lower_hex": "-0x1.0000000000000p+0",
+      "upper_hex": "0x1.0000000000000p+0",
+      "nominal_hex": "0x0.0p+0",
+      "probability_hex": "0x1.0000000000000p-2",
+      "sigma_hex": "0x1.0000000000000p+0",
+      "expected_float_hex": "-0x1.c45f7f896b6cfp-2",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        100,
+        180
+      ]
+    },
+    {
+      "case": "normal_shifted_0.25",
+      "distribution": "truncated-normal",
+      "lower_hex": "0x1.0000000000000p+0",
+      "upper_hex": "0x1.0000000000000p+2",
+      "nominal_hex": "0x1.0000000000000p+1",
+      "probability_hex": "0x1.0000000000000p-2",
+      "sigma_hex": "0x1.0000000000000p-1",
+      "expected_float_hex": "0x1.b06aa67058567p+0",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        100,
+        180
+      ]
+    },
+    {
+      "case": "log_wide_0.5",
+      "distribution": "log-uniform",
+      "lower_hex": "0x0.0000000000001p-1022",
+      "upper_hex": "0x1.fffffffffffffp+1023",
+      "nominal_hex": "0x1.0000000000000p+0",
+      "probability_hex": "0x1.0000000000000p-1",
+      "sigma_hex": null,
+      "expected_float_hex": "0x1.fffffffffffffp-26",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        400,
+        500
+      ]
+    },
+    {
+      "case": "normal_bounded_0.5",
+      "distribution": "truncated-normal",
+      "lower_hex": "-0x1.0000000000000p+0",
+      "upper_hex": "0x1.0000000000000p+0",
+      "nominal_hex": "0x0.0p+0",
+      "probability_hex": "0x1.0000000000000p-1",
+      "sigma_hex": "0x1.0000000000000p+0",
+      "expected_float_hex": "0x0.0p+0",
+      "exact_zero_by_symmetry": true,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        100,
+        180
+      ]
+    },
+    {
+      "case": "normal_shifted_0.5",
+      "distribution": "truncated-normal",
+      "lower_hex": "0x1.0000000000000p+0",
+      "upper_hex": "0x1.0000000000000p+2",
+      "nominal_hex": "0x1.0000000000000p+1",
+      "probability_hex": "0x1.0000000000000p-1",
+      "sigma_hex": "0x1.0000000000000p-1",
+      "expected_float_hex": "0x1.01d2921a56c40p+1",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        100,
+        180
+      ]
+    },
+    {
+      "case": "log_wide_0.75",
+      "distribution": "log-uniform",
+      "lower_hex": "0x0.0000000000001p-1022",
+      "upper_hex": "0x1.fffffffffffffp+1023",
+      "nominal_hex": "0x1.0000000000000p+0",
+      "probability_hex": "0x1.8000000000000p-1",
+      "sigma_hex": null,
+      "expected_float_hex": "0x1.6a09e667f3bccp+499",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        400,
+        500
+      ]
+    },
+    {
+      "case": "normal_bounded_0.75",
+      "distribution": "truncated-normal",
+      "lower_hex": "-0x1.0000000000000p+0",
+      "upper_hex": "0x1.0000000000000p+0",
+      "nominal_hex": "0x0.0p+0",
+      "probability_hex": "0x1.8000000000000p-1",
+      "sigma_hex": "0x1.0000000000000p+0",
+      "expected_float_hex": "0x1.c45f7f896b6cfp-2",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        100,
+        180
+      ]
+    },
+    {
+      "case": "normal_shifted_0.75",
+      "distribution": "truncated-normal",
+      "lower_hex": "0x1.0000000000000p+0",
+      "upper_hex": "0x1.0000000000000p+2",
+      "nominal_hex": "0x1.0000000000000p+1",
+      "probability_hex": "0x1.8000000000000p-1",
+      "sigma_hex": "0x1.0000000000000p-1",
+      "expected_float_hex": "0x1.2c50a3c86fad8p+1",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        100,
+        180
+      ]
+    },
+    {
+      "case": "log_wide_0.99",
+      "distribution": "log-uniform",
+      "lower_hex": "0x0.0000000000001p-1022",
+      "upper_hex": "0x1.fffffffffffffp+1023",
+      "nominal_hex": "0x1.0000000000000p+0",
+      "probability_hex": "0x1.fae147ae147aep-1",
+      "sigma_hex": null,
+      "expected_float_hex": "0x1.0392d9352ad3ap+1003",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        400,
+        500
+      ]
+    },
+    {
+      "case": "normal_bounded_0.99",
+      "distribution": "truncated-normal",
+      "lower_hex": "-0x1.0000000000000p+0",
+      "upper_hex": "0x1.0000000000000p+0",
+      "nominal_hex": "0x0.0p+0",
+      "probability_hex": "0x1.fae147ae147aep-1",
+      "sigma_hex": "0x1.0000000000000p+0",
+      "expected_float_hex": "0x1.f1c0b5d09ef7ep-1",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        100,
+        180
+      ]
+    },
+    {
+      "case": "normal_shifted_0.99",
+      "distribution": "truncated-normal",
+      "lower_hex": "0x1.0000000000000p+0",
+      "upper_hex": "0x1.0000000000000p+2",
+      "nominal_hex": "0x1.0000000000000p+1",
+      "probability_hex": "0x1.fae147ae147aep-1",
+      "sigma_hex": "0x1.0000000000000p-1",
+      "expected_float_hex": "0x1.955c81d0552cdp+1",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        100,
+        180
+      ]
+    },
+    {
+      "case": "normal_full_0x0.0000000000001p-1022",
+      "distribution": "truncated-normal",
+      "lower_hex": "-0x1.fffffffffffffp+1023",
+      "upper_hex": "0x1.fffffffffffffp+1023",
+      "nominal_hex": "0x0.0p+0",
+      "probability_hex": "0x0.0000000000001p-1022",
+      "sigma_hex": "0x1.0000000000000p+0",
+      "expected_float_hex": "-0x1.33bd3f27fcd03p+5",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        400,
+        500
+      ]
+    },
+    {
+      "case": "normal_full_0x1.0000000000000p-2",
+      "distribution": "truncated-normal",
+      "lower_hex": "-0x1.fffffffffffffp+1023",
+      "upper_hex": "0x1.fffffffffffffp+1023",
+      "nominal_hex": "0x0.0p+0",
+      "probability_hex": "0x1.0000000000000p-2",
+      "sigma_hex": "0x1.0000000000000p+0",
+      "expected_float_hex": "-0x1.5956b87528a49p-1",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        400,
+        500
+      ]
+    },
+    {
+      "case": "normal_full_0x1.8000000000000p-1",
+      "distribution": "truncated-normal",
+      "lower_hex": "-0x1.fffffffffffffp+1023",
+      "upper_hex": "0x1.fffffffffffffp+1023",
+      "nominal_hex": "0x0.0p+0",
+      "probability_hex": "0x1.8000000000000p-1",
+      "sigma_hex": "0x1.0000000000000p+0",
+      "expected_float_hex": "0x1.5956b87528a49p-1",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        400,
+        500
+      ]
+    },
+    {
+      "case": "normal_full_0x1.fffffffffffffp-1",
+      "distribution": "truncated-normal",
+      "lower_hex": "-0x1.fffffffffffffp+1023",
+      "upper_hex": "0x1.fffffffffffffp+1023",
+      "nominal_hex": "0x0.0p+0",
+      "probability_hex": "0x1.fffffffffffffp-1",
+      "sigma_hex": "0x1.0000000000000p+0",
+      "expected_float_hex": "0x1.06b48528cea52p+3",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        400,
+        500
+      ]
+    },
+    {
+      "case": "normal_narrow_0.25",
+      "distribution": "truncated-normal",
+      "lower_hex": "0x0.0p+0",
+      "upper_hex": "0x0.0000000000001p-1022",
+      "nominal_hex": "0x0.0p+0",
+      "probability_hex": "0x1.0000000000000p-2",
+      "sigma_hex": "0x1.fffffffffffffp+1023",
+      "expected_float_hex": "0x0.0p+0",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": true,
+      "reference_decimal_precisions": [
+        2200,
+        2400
+      ]
+    },
+    {
+      "case": "normal_narrow_0.5",
+      "distribution": "truncated-normal",
+      "lower_hex": "0x0.0p+0",
+      "upper_hex": "0x0.0000000000001p-1022",
+      "nominal_hex": "0x0.0p+0",
+      "probability_hex": "0x1.0000000000000p-1",
+      "sigma_hex": "0x1.fffffffffffffp+1023",
+      "expected_float_hex": "0x0.0p+0",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": true,
+      "reference_decimal_precisions": [
+        2200,
+        2400
+      ]
+    },
+    {
+      "case": "normal_narrow_0.75",
+      "distribution": "truncated-normal",
+      "lower_hex": "0x0.0p+0",
+      "upper_hex": "0x0.0000000000001p-1022",
+      "nominal_hex": "0x0.0p+0",
+      "probability_hex": "0x1.8000000000000p-1",
+      "sigma_hex": "0x1.fffffffffffffp+1023",
+      "expected_float_hex": "0x0.0000000000001p-1022",
+      "exact_zero_by_symmetry": false,
+      "positive_value_rounds_to_zero": false,
+      "reference_decimal_precisions": [
+        2200,
+        2400
+      ]
+    }
+  ]
+}

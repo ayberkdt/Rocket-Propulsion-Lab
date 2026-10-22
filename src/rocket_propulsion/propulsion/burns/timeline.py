@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from rocket_propulsion.core.errors import DomainError, InputError
+from .exchange_documents import _timeline_document
 from rocket_propulsion.core.validation import read_json_document, real, real_mapping, records, text
 
 from .propagator import (
@@ -316,7 +317,24 @@ class PropulsionTimeline:
                 return remaining
         raise DomainError(f"Unknown jettison event {event_id!r}.")
 
-    def evaluate(
+    def evaluate(self, *, time_s: float, vehicle_mass_kg: float,
+                 directions: Mapping[str, tuple[float,float,float]],
+                 additional_states: Mapping[str,float] | None = None,
+                 stopped_burns: frozenset[str] | set[str] = frozenset(),
+                 ambient_pressure_pa: float | None = None,
+                 operating_conditions: Mapping[str,Mapping[str,float]] | None = None,
+                 parameter_overrides: Mapping[str,Mapping[str,float]] | None = None,
+                 side: str = 'right', apply_inventory_limits: bool = True) -> TimelineEvaluation:
+        """Evaluate the public complete-profile clock.
+
+        References: docs/TABULATED_TIME_CONTRACT_REVIEW.md; Orekit Maneuver,
+        https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/Maneuver.html.
+        """
+        arguments=locals().copy()
+        arguments.pop('self')
+        return self._evaluate(**arguments)
+
+    def _evaluate(
         self,
         *,
         time_s: float,
@@ -329,6 +347,8 @@ class PropulsionTimeline:
         parameter_overrides: Mapping[str, Mapping[str, float]] | None = None,
         side: str = "right",
         apply_inventory_limits: bool = True,
+        _clock_horizons: Mapping[str, object] | None = None,
+        _canonical_epoch: bool = False,
     ) -> TimelineEvaluation:
         """Sum the dynamics of every burn that is firing at ``time_s``.
 
@@ -385,14 +405,17 @@ class PropulsionTimeline:
                 burn_overrides.get("ignition_time_bias_s", timing.reference_value)
             )
             effective = _epoch_profile_time(burn.bridge.artifact.segments, time_s,
-                                            burn.ignition_time_s, bias)
+                burn.ignition_time_s, bias,
+                horizon=None if _clock_horizons is None else _clock_horizons[burn.burn_id],
+                allow_aliases=not _canonical_epoch)
             if effective < 0 or effective > _fraction(burn.bridge.artifact.duration_s):
                 continue
             if burn.burn_id not in directions:
                 raise DomainError(f"Burn {burn.burn_id!r} is active but has no direction.")
-            value = burn.bridge.evaluate_at_epoch(
-                time_s=time_s,
-                ignition_time_s=burn.ignition_time_s,
+            value = burn.bridge._evaluate(
+                relative_time_s=_finite_rational(_fraction(time_s)-_fraction(burn.ignition_time_s),
+                                                 'Timeline relative time'),
+                _resolved_profile_time=effective,
                 vehicle_mass_kg=vehicle_mass_kg,
                 direction=directions[burn.burn_id],
                 additional_states=states,
@@ -489,8 +512,7 @@ class PropulsionTimeline:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        if not isinstance(payload, Mapping):
-            raise InputError("Propulsion timeline document root must be an object.")
+        _timeline_document(payload)
         _require_numerical_policies(payload, {'time_numerics':_TIME_POLICY})
         try:
             bridges = payload["bridges"]
@@ -517,6 +539,10 @@ class PropulsionTimeline:
             raise InputError("Malformed propulsion timeline document.") from error
         if payload.get("timeline_hash") != timeline.timeline_hash:
             raise InputError("Propulsion timeline hash does not match its contents.")
+        for item in payload['burns']:
+            if item['bridge_model_hash'] != timeline.burn(item['burn_id']).bridge.model_hash:
+                raise InputError("Scheduled burn bridge hash does not match its bridge.",
+                                 field='bridge_model_hash')
         return timeline
 
     @classmethod

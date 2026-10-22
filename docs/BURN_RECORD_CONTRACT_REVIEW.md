@@ -96,6 +96,15 @@ kuadratür/tabelalı moment aritmetiğinde yeni uç ölçek karşı örnekleri
 onarılmış sayılmaz. Dokuz donanım kanıtı kapısı açık kaldığından TRL 5
 sağlandığı veya sertifika alınabileceği sonucu çıkarılmaz.
 
+## Shared normalization follow-up
+
+[CORE_VALIDATION_CONTRACT_REVIEW.md](CORE_VALIDATION_CONTRACT_REVIEW.md) records
+the later shared scalar/text/container review. Its branch audit strengthened
+the non-depleting-stream Unicode case, corrected manual literal normalization,
+and then retired the now redundant model-local Unicode deletion variant from
+the active curated set. Earlier checkpoint results remain historical evidence;
+the retired variant is not reported as a new kill.
+
 ## References
 
 - [RFC 8259](https://www.rfc-editor.org/rfc/rfc8259): bölüm 4, 6, 8.1–8.2. Tekil ad için SHOULD ile projenin daha sıkı reddetme politikası ayrı tutulur.

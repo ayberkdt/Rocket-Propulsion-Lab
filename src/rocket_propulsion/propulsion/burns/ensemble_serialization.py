@@ -17,10 +17,9 @@ import hashlib
 import json
 from dataclasses import asdict
 from math import isclose, isfinite
-from statistics import fmean
 from typing import Any
 
-from rocket_propulsion.core.errors import InputError
+from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import read_json_document
 
 from .ensemble import (
@@ -33,7 +32,14 @@ from .ensemble import (
     ScenarioMetricContribution,
     _variance_decomposition,
     _weighted_statistics,
+    _derived_seed,
 )
+from .ensemble_documents import _ensemble_document
+from .probability_numerics import _PROBABILITY_POLICY, _weight_ledger
+from .marginal_numerics import _SAMPLING_POLICY
+from .numeric_outputs import _finite_rational, _fraction
+from fractions import Fraction
+from .serialization import _require_numerical_policies
 from .serialization import canonical_json_bytes
 from .tabulated import TabulatedBurnArtifact
 from .uncertainty import (
@@ -155,6 +161,8 @@ def hierarchical_ensemble_to_dict(
 
     payload: dict[str, Any] = {
         "schema": HIERARCHICAL_ENSEMBLE_SCHEMA,
+        "statistics_numerics": _PROBABILITY_POLICY,
+        "sampling_numerics": _SAMPLING_POLICY,
         "method": ensemble.method,
         "base_seed": ensemble.base_seed,
         "scenario_count": ensemble.scenario_count,
@@ -244,6 +252,10 @@ def _validate_semantics(ensemble: HierarchicalPropulsionEnsemble) -> None:
         raise InputError("Hierarchical ensemble scenario count does not reproduce.")
     if ensemble.realization_count != len(ensemble.realizations):
         raise InputError("Hierarchical ensemble realization count does not reproduce.")
+    if not ensemble.definitions or not ensemble.realizations:
+        raise InputError("Hierarchical ensemble must contain conditional realizations.")
+    if not 0.0 <= ensemble.zero_thrust_probability <= 1.0:
+        raise InputError("Hierarchical probability evidence has an invalid domain.")
     definition_map = {
         definition.scenario_id: definition for definition in ensemble.definitions
     }
@@ -282,6 +294,15 @@ def _validate_semantics(ensemble: HierarchicalPropulsionEnsemble) -> None:
             for _name, value in item.inputs
         ):
             raise InputError("Conditional realization inputs must be finite.")
+        parameters = {parameter.name: parameter for parameter in definition.parameters}
+        for item in selected:
+            inputs = dict(item.inputs)
+            if len(inputs) != len(item.inputs) or inputs.keys() != parameters.keys():
+                raise InputError("Conditional input identities do not match the definition.", field="inputs")
+            if any(not parameters[name].lower <= value <= parameters[name].upper for name, value in inputs.items()):
+                raise InputError("Conditional input lies outside its declared bounds.", field="inputs")
+            if item.conditional_probability != 1.0 / definition.sample_count:
+                raise InputError("Conditional draws must have the declared equal weight.", field="conditional_probability")
         if not _close(sum(item.conditional_probability for item in selected), 1.0):
             raise InputError("Conditional probabilities do not close to one.")
         for item in selected:
@@ -291,22 +312,18 @@ def _validate_semantics(ensemble: HierarchicalPropulsionEnsemble) -> None:
             ):
                 raise InputError("A joint realization probability does not reproduce.")
 
-    computed_joint_sum = sum(item.joint_probability for item in ensemble.realizations)
-    if not _close(computed_joint_sum, 1.0) or not _close(
-        computed_joint_sum, ensemble.joint_probability_sum
-    ):
+    total_weight = sum((_fraction(item.joint_probability) for item in ensemble.realizations), Fraction(0))
+    if abs(total_weight-1) > _fraction(1e-12) or ensemble.joint_probability_sum != _finite_rational(total_weight, "Joint probability sum"):
         raise InputError("Hierarchical joint probability does not reproduce.")
-    if not _close(
-        ensemble.joint_probability_closure_error,
-        abs(computed_joint_sum - 1.0),
-    ):
+    expected_closure = _finite_rational(abs(total_weight-1), "Probability closure error")
+    if ensemble.joint_probability_closure_error != expected_closure:
         raise InputError("Hierarchical probability closure evidence does not reproduce.")
-    zero_probability = sum(
-        item.joint_probability
+    zero_probability = _finite_rational(sum((
+        _fraction(item.joint_probability)
         for item in ensemble.realizations
         if item.artifact.delivered_total_impulse_n_s == 0.0
-    )
-    if not _close(zero_probability, ensemble.zero_thrust_probability):
+    ), Fraction(0))/total_weight, "Zero-thrust probability")
+    if zero_probability != ensemble.zero_thrust_probability:
         raise InputError("Zero-thrust probability does not reproduce.")
 
     statistic_map = {item.metric: item for item in ensemble.statistics}
@@ -314,6 +331,8 @@ def _validate_semantics(ensemble: HierarchicalPropulsionEnsemble) -> None:
         item.metric: item for item in ensemble.variance_decomposition
     }
     expected_metrics = set(_METRIC_GETTERS)
+    if len(statistic_map) != len(ensemble.statistics) or len(decomposition_map) != len(ensemble.variance_decomposition):
+        raise InputError("Hierarchical metric identities must be unique.", field="metric")
     if set(statistic_map) != expected_metrics or set(decomposition_map) != expected_metrics:
         raise InputError("Hierarchical metric coverage does not reproduce.")
     for metric, getter in _METRIC_GETTERS.items():
@@ -324,7 +343,7 @@ def _validate_semantics(ensemble: HierarchicalPropulsionEnsemble) -> None:
         expected_statistic = _weighted_statistics(metric, weighted_values)
         actual_statistic = statistic_map[metric]
         if any(
-            not _close(getattr(actual_statistic, field), getattr(expected_statistic, field))
+            getattr(actual_statistic, field) != getattr(expected_statistic, field)
             for field in (
                 "expected_value",
                 "standard_deviation",
@@ -340,11 +359,13 @@ def _validate_semantics(ensemble: HierarchicalPropulsionEnsemble) -> None:
             metric, ensemble.realizations, getter
         )
         actual_decomposition = decomposition_map[metric]
+        if any(getattr(actual_decomposition, name) < 0.0 for name in
+               ("total_variance", "within_scenario_variance", "between_scenario_variance", "closure_error")):
+            raise InputError("Hierarchical variance evidence must be nonnegative.", field="variance_decomposition")
+        if any(getattr(actual_decomposition, name) < 0.0 for name in ("within_fraction", "between_fraction")):
+            raise InputError("Hierarchical variance fractions must be nonnegative.", field="variance_decomposition")
         if any(
-            not _close(
-                getattr(actual_decomposition, field),
-                getattr(expected_decomposition, field),
-            )
+            getattr(actual_decomposition, field) != getattr(expected_decomposition, field)
             for field in (
                 "total_variance",
                 "within_scenario_variance",
@@ -361,6 +382,8 @@ def _validate_semantics(ensemble: HierarchicalPropulsionEnsemble) -> None:
     contribution_map = {
         (item.scenario_id, item.metric): item for item in ensemble.contributions
     }
+    if len(contribution_map) != len(ensemble.contributions):
+        raise InputError("Hierarchical contribution identities must be unique.", field="contributions")
     if len(contribution_map) != len(definition_map) * len(expected_metrics):
         raise InputError("Hierarchical scenario contribution coverage is incomplete.")
     for scenario_id in definition_map:
@@ -372,20 +395,21 @@ def _validate_semantics(ensemble: HierarchicalPropulsionEnsemble) -> None:
             actual = contribution_map.get((scenario_id, metric))
             if actual is None:
                 raise InputError("Hierarchical scenario contribution is missing.")
-            conditional_mean = fmean(getter(item.artifact) for item in selected)
+            group = _weight_ledger((getter(item.artifact), item.joint_probability) for item in selected)
+            total = _weight_ledger((0.0, item.joint_probability) for item in ensemble.realizations).total
+            conditional_mean = _finite_rational(group.mean, "Conditional mean")
             if not all(
                 (
-                    _close(actual.scenario_probability, scenario_probability),
-                    _close(actual.conditional_expected_value, conditional_mean),
-                    _close(
-                        actual.joint_expected_value_contribution,
-                        scenario_probability * conditional_mean,
-                    ),
+                    actual.scenario_probability == scenario_probability,
+                    actual.conditional_expected_value == conditional_mean,
+                    actual.joint_expected_value_contribution == _finite_rational(group.mean*group.total/total, "Scenario mean contribution"),
                 )
             ):
                 raise InputError("Hierarchical scenario contribution does not reproduce.")
 
     evidence_map = {item.scenario_id: item for item in ensemble.sampling_evidence}
+    if len(evidence_map) != len(ensemble.sampling_evidence):
+        raise InputError("Conditional evidence identities must be unique.", field="sampling_evidence")
     if set(evidence_map) != set(definition_map):
         raise InputError("Conditional sampling evidence coverage is incomplete.")
     for scenario_id, definition in definition_map.items():
@@ -398,6 +422,9 @@ def _validate_semantics(ensemble: HierarchicalPropulsionEnsemble) -> None:
             raise InputError("Conditional sampling evidence count does not reproduce.")
         if evidence.primary_seed == evidence.audit_seed:
             raise InputError("Conditional primary and audit seeds must differ.")
+        if (evidence.primary_seed != _derived_seed(ensemble.base_seed, scenario_id, "primary")
+                or evidence.audit_seed != _derived_seed(ensemble.base_seed, scenario_id, "audit")):
+            raise InputError("Conditional seeds do not match the base seed and scenario.", field="sampling_evidence")
         if (
             not isfinite(evidence.requested_tolerance)
             or evidence.requested_tolerance <= 0.0
@@ -424,8 +451,9 @@ def hierarchical_ensemble_from_dict(
     NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
     """
 
-    if not isinstance(payload, dict):
-        raise InputError("Hierarchical ensemble root must be an object.")
+    _ensemble_document(payload)
+    _require_numerical_policies(payload, {"statistics_numerics": _PROBABILITY_POLICY})
+    _require_numerical_policies(payload, {"sampling_numerics": _SAMPLING_POLICY})
     if payload.get("schema") != HIERARCHICAL_ENSEMBLE_SCHEMA:
         raise InputError("Unsupported hierarchical ensemble schema.")
     try:
@@ -523,7 +551,14 @@ def hierarchical_ensemble_from_dict(
         raise
     except (KeyError, TypeError, ValueError, IndexError) as error:
         raise InputError("Malformed hierarchical propulsion ensemble.") from error
-    _validate_semantics(ensemble)
+    try:
+        _validate_semantics(ensemble)
+    except InputError:
+        raise
+    except DomainError as error:
+        raise InputError(error.message, field=error.field) from error
+    except (TypeError, ValueError, OverflowError, ZeroDivisionError) as error:
+        raise InputError("Hierarchical semantic calculation could not be represented.") from error
     if payload.get("ensemble_hash") != hierarchical_ensemble_hash(ensemble):
         raise InputError("Hierarchical ensemble hash does not match its contents.")
     return ensemble

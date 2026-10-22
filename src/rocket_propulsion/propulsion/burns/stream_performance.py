@@ -16,6 +16,7 @@ from itertools import product
 from math import isfinite
 
 from rocket_propulsion.core.errors import DomainError, InputError
+from .exchange_documents import _surface_document
 from rocket_propulsion.core.validation import (
     name_value_pairs,
     read_json_document,
@@ -270,8 +271,7 @@ class RectilinearStreamPerformanceSurface:
         NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        if not isinstance(payload, Mapping):
-            raise InputError("Stream-performance artifact root must be an object.")
+        _surface_document(payload, streams=True)
         try:
             axes_payload = payload["axes"]
             points_payload = payload["points"]

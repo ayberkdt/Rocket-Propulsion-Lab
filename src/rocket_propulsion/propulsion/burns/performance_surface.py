@@ -19,6 +19,7 @@ from math import isfinite, prod
 from types import MappingProxyType
 
 from rocket_propulsion.core.errors import DomainError, InputError
+from .exchange_documents import _surface_document
 from rocket_propulsion.core.validation import (
     read_json_document,
     real,
@@ -458,8 +459,7 @@ class RectilinearPerformanceSurface:
         CCSDS-502.0-B-3: https://ccsds.org/Pubs/502x0b3e1.pdf
         """
 
-        if not isinstance(payload, Mapping):
-            raise InputError("Performance-surface artifact root must be an object.")
+        _surface_document(payload)
         try:
             axes_payload = payload["axes"]
             points_payload = payload["points"]

@@ -259,15 +259,24 @@ class BurnWindowTests(unittest.TestCase):
             # Thrust/flow ratio is constant (ramp included): c = 3000 m/s.
             self.assertTrue(isclose(final[3], 3000.0 * log(1000.0 / dry), rel_tol=1e-10))
             self.assertAlmostEqual(dynamics.predicted_mass_kg(600.0), dry + 1e-12, places=12)
-        # Forcing the internal clamp on lets RK stages next to the cut see the
-        # dry mass and stop the flow early: the documented bias, caught here.
+        # An internal clamp can bias RK stages beside the cut. With guarded
+        # epoch cutoffs and exact clamp comparisons this case can also finish
+        # without bias. Require either explicit rejection or the same mass
+        # and velocity accuracy as the unclamped propagation.
         clamped = LunarisFiniteBurnDynamics(
             _FreeSpaceDynamics(), timeline, lambda burn_id, t, y: (1.0, 0.0, 0.0),
             initial_mass_kg=1000.0, apply_inventory_limits=True,
         )
-        with self.assertRaises(DomainError):
-            integrate_like_lunaris(clamped, timeline, [0, 0, 0, 0, 0, 0, 1000.0], 0.0, 600.0,
-                                   0.5, times=clamped.segmentation_times)
+        try:
+            final = integrate_like_lunaris(
+                clamped, timeline, [0, 0, 0, 0, 0, 0, 1000.0], 0.0, 600.0,
+                0.5, times=clamped.segmentation_times,
+            )
+        except DomainError:
+            pass
+        else:
+            self.assertAlmostEqual(final[6], dry, places=9)
+            self.assertTrue(isclose(final[3], 3000.0 * log(1000.0 / dry), rel_tol=1e-10))
 
     def test_protected_dry_mass_needs_consistent_initial_mass(self) -> None:
         timeline = PropulsionTimeline(

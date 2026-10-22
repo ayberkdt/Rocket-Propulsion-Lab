@@ -6,18 +6,11 @@ These curated mutations are not an exhaustive mutation-coverage claim.
 References: NASA-7009B, implementation verification and documented limitations.
 """
 
-import ast
 import hashlib
 import sys
-from contextlib import ExitStack
 import importlib
-import inspect
-import io
 import json
-import textwrap
-import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 from scripts.run_bounded_regression import ROOT, verification_inputs
 
@@ -84,12 +77,8 @@ def main():
     for name, module_name, symbol, before, after, test_name, suite_name in MUTATIONS:
         module = importlib.import_module("rocket_propulsion.studies.sass." + module_name)
         function = getattr(module, symbol)
-        source = textwrap.dedent(inspect.getsource(function))
-        if source.count(before) != 1:
-            raise RuntimeError(f"Mutation {name} no longer identifies exactly one expression.")
-        mutated = source.replace(before, after)
-        namespace = dict(function.__globals__)
-        exec(compile(ast.parse(mutated), f"<mutation:{name}>", "exec"), namespace)
+        from scripts.mutation_runtime import compile_fault, evaluate_fault, MUTATION_RUNTIME_POLICY
+        source,replacement = compile_fault(function,before,after,f"<mutation:{name}>")
         tests = importlib.import_module("tests.test_sass_" + suite_name)
         cls = getattr(tests, {"adversarial": "HostileRegressionTests", "validation": "ValidationAttacks",
                               "power_boundaries": "PowerBoundaryAttacks",
@@ -98,27 +87,21 @@ def main():
         # Patch every imported binding of the exact original callable. Patching
         # only its defining module misses helpers imported into a consumer's
         # globals, creating a false survivor without exercising the mutant.
-        aliases = [(loaded, key) for name, loaded in list(sys.modules.items())
+        def aliases():return [(loaded, key) for name, loaded in list(sys.modules.items())
                    if name.startswith(("rocket_propulsion.studies.sass", "tests.test_sass_"))
                    and loaded is not None for key, value in list(vars(loaded).items())
                    if value is function]
-        if not aliases:
-            raise RuntimeError(f"Mutation {name} has no live callable bindings.")
-        with ExitStack() as stack:
-            for owner, key in aliases:
-                stack.enter_context(patch.object(owner, key, namespace[symbol], create=False))
-            result = unittest.TextTestRunner(stream=io.StringIO()).run(cls(test_name))
-        status = "invalid" if result.errors else "killed" if result.failures else "survived"
-        outcomes.append({"mutation": name, "status": status,
+        trial=evaluate_fault(aliases,function,replacement,cls,test_name)
+        outcomes.append({"mutation": name, **trial,
                          "source_sha256": hashlib.sha256(source.encode()).hexdigest(),
-                         "test": cls.__module__ + "." + cls.__name__ + "." + test_name,
-                         "assertion_failures": len(result.failures), "errors": len(result.errors)})
+                         "test": cls.__module__ + "." + cls.__name__ + "." + test_name})
     output = Path("output/assurance/mutations.json")
     output.parent.mkdir(parents=True, exist_ok=True)
     if verification_inputs(ROOT) != fingerprints:
         raise RuntimeError("Mutation inputs changed during the run.")
     output.write_text(json.dumps({"scope": "sixteen curated semantic defects; not exhaustive",
                                   "source_sha256": fingerprints,
+                                  "runtime_policy": MUTATION_RUNTIME_POLICY,
                                   "mutations": outcomes}, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(outcomes, indent=2))
     return int(any(item["status"] != "killed" for item in outcomes))

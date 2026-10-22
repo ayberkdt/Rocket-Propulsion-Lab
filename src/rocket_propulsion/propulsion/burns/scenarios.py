@@ -14,6 +14,9 @@ NASA-20160007073: https://ntrs.nasa.gov/citations/20160007073
 
 from __future__ import annotations
 
+from fractions import Fraction
+from .numeric_outputs import _finite_rational, _fraction
+
 import hashlib
 from dataclasses import dataclass, replace
 from enum import Enum
@@ -261,25 +264,23 @@ def _schedule_after_cutoff(
 def _weighted_percentile(
     values: tuple[tuple[float, float], ...], probability: float
 ) -> float:
-    cumulative = 0.0
-    for value, weight in sorted(values):
-        cumulative += weight
-        if cumulative + 1e-15 >= probability:
-            return value
-    return max(value for value, _ in values)
+    from .probability_numerics import _weight_ledger
+    return _weight_ledger(values).quantile(probability)
 
 
 def _metric_statistics(
     metric: str, values: tuple[tuple[float, float], ...]
 ) -> ScenarioMetricStatistics:
+    from .probability_numerics import _weight_ledger, _quantiles
+    from .numeric_outputs import _finite_rational
+    ledger = _weight_ledger(values)
+    p05, p50, p95 = _quantiles(ledger)
     return ScenarioMetricStatistics(
         metric=metric,
-        expected_value=sum(value * probability for value, probability in values),
-        minimum=min(value for value, _ in values),
-        p05=_weighted_percentile(values, 0.05),
-        p50=_weighted_percentile(values, 0.50),
-        p95=_weighted_percentile(values, 0.95),
-        maximum=max(value for value, _ in values),
+        expected_value=_finite_rational(ledger.mean, "Discrete weighted mean"),
+        minimum=_finite_rational(ledger.rows[0][0], "Discrete weighted minimum"),
+        p05=p05, p50=p50, p95=p95,
+        maximum=_finite_rational(ledger.rows[-1][0], "Discrete weighted maximum"),
     )
 
 
@@ -527,11 +528,11 @@ def build_propulsion_scenario_ensemble(
         statistics=tuple(
             _metric_statistics(metric, values) for metric, values in metric_values.items()
         ),
-        zero_thrust_probability=sum(
-            item.probability
+        zero_thrust_probability=_finite_rational(sum((
+            _fraction(item.probability)
             for item in realizations
             if item.artifact.delivered_total_impulse_n_s == 0.0
-        ),
+        ), Fraction(0))/sum((_fraction(item.probability) for item in realizations), Fraction(0)), "Discrete zero-thrust probability"),
         reference_ids=SCENARIO_REFERENCE_IDS,
         warnings=(
             "Scenario probabilities are analyst-supplied and are not inferred by this library.",

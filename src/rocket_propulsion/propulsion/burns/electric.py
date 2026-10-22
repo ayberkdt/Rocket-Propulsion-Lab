@@ -31,10 +31,12 @@ The discrete level index is a propagator-owned mode state, as in an
 event-driven maneuver model: the consumer initializes it with
 :meth:`PowerLimitedPropulsionModel.select_level`, registers
 :meth:`~PowerLimitedPropulsionModel.switching_surfaces` for the current level,
-and after locating a root switches to that surface's ``to_level``.  The target
-is fixed by the crossing direction, so a root located a round-off on either
-side of the threshold cannot leave the mode unchanged and re-trigger the same
-event.  ``evaluate`` never changes the level by itself, so Runge-Kutta
+and applies that surface's ``to_level`` after a directed crossing. Exact
+threshold ratios preserve signs when displayed thresholds coincide; targets
+coalesce levels crossed by the first representable input power beyond a root.
+The consumer must handle initial zeros, crossing direction and event resets.
+This does not certify its event clock or prevent roots missed within a step.
+``evaluate`` never changes the level by itself, so Runge-Kutta
 stages that probe slightly past a switching root stay on a smooth branch; the
 evaluation reports any ``power_deficit_w`` instead.
 """
@@ -44,6 +46,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from fractions import Fraction
 from itertools import pairwise
 from math import isfinite
 
@@ -62,6 +65,9 @@ from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 from .direction import _direction_geometry
 from .mass_closure import _MASS_CLOSURE_POLICY, _inventory_ledger
 from .numeric_outputs import _finite_rational, _fraction
+from .power_documents import _table_document, _power_document, _POWER_METADATA
+from .exchange_documents import _metadata
+from .power_modes import _POWER_MODE_POLICY, _mode_roots, _select_mode
 from .propagator import (
     BurnEventKind,
     BurnEventSurface,
@@ -79,7 +85,6 @@ ELECTRIC_PROPULSION_REFERENCE_IDS = (
 )
 
 OFF_LEVEL = -1
-_POWER_TOLERANCE_W = 1e-9
 
 
 
@@ -114,15 +119,23 @@ def _sha256_hex(value: str, label: str) -> None:
         raise DomainError(f"{label} must be a lower-case SHA-256 hex digest.")
 
 
+def _level_efficiency(level):
+    """Exact jet/input power ratio of already validated binary level scalars."""
+    return _fraction(level.thrust_n)**2 / (
+        2 * _fraction(level.mass_flow_kg_s) * _fraction(level.input_power_w))
+
+
 @dataclass(frozen=True, slots=True)
 class ElectricThrottleLevel:
-    """One qualified electric-thruster operating point.
+    """One supplied electric-thruster operating point.
 
     ``input_power_w`` is the power drawn from the spacecraft bus by the
     thruster string (power-processing unit input), which is the quantity the
     power model must supply.  The derived total efficiency
     ``T^2 / (2 mdot P)`` is the ratio of jet power to input power and must not
-    exceed one; a table that violates this is rejected as inconsistent.
+    exceed the retained numerical consistency ceiling ``1.0 + 1e-12``.
+    This check is not a calibrated efficiency uncertainty or qualification
+    record. Ratios use exact binary-input arithmetic before checked output.
 
     References
     ----------
@@ -135,11 +148,11 @@ class ElectricThrottleLevel:
     mass_flow_kg_s: float
 
     def __post_init__(self) -> None:
-        text(self.level_id, "Throttle level identifier")
+        _set(self, "level_id", text(self.level_id, "Throttle level identifier"))
         _set(self, "input_power_w", _positive(self.input_power_w, "Throttle level input power"))
         _set(self, "thrust_n", _positive(self.thrust_n, "Throttle level thrust"))
         _set(self, "mass_flow_kg_s", _positive(self.mass_flow_kg_s, "Throttle level mass flow"))
-        if self.total_efficiency > 1.0 + 1e-12:
+        if _level_efficiency(self) > _fraction(1.0 + 1e-12):
             raise DomainError(
                 f"Throttle level {self.level_id!r} implies jet power above input power."
             )
@@ -148,22 +161,24 @@ class ElectricThrottleLevel:
     def specific_impulse_s(self) -> float:
         """Return ``T / (g0 mdot)`` in seconds."""
 
-        return self.thrust_n / (STANDARD_GRAVITY_M_S2 * self.mass_flow_kg_s)
+        return _finite_rational(
+            _fraction(self.thrust_n) / (_fraction(STANDARD_GRAVITY_M_S2) * _fraction(self.mass_flow_kg_s)),
+            "Throttle level specific impulse")
 
     @property
     def total_efficiency(self) -> float:
         """Return jet power over input power, ``T^2 / (2 mdot P)``."""
 
-        return self.thrust_n**2 / (2.0 * self.mass_flow_kg_s * self.input_power_w)
+        return _finite_rational(_level_efficiency(self), "Throttle level total efficiency")
 
 
 @dataclass(frozen=True, slots=True)
 class ElectricThrottleTable:
-    """Hash-verified tabulated throttle table with source provenance.
+    """Tabulated points with caller-supplied source identifiers and digest.
 
-    The table is evidence: values come from a qualification or acceptance
-    test campaign identified by ``source_id`` and ``source_sha256``.  No level
-    is interpolated or extrapolated.
+    Content identities support reproducible reopening. Source metadata alone
+    does not authenticate data or prove a qualification/acceptance campaign.
+    No level is interpolated or extrapolated.
 
     References
     ----------
@@ -178,11 +193,13 @@ class ElectricThrottleTable:
     schema: str = ELECTRIC_THROTTLE_TABLE_SCHEMA
 
     def __post_init__(self) -> None:
+        _set(self, "schema", text(self.schema, "Throttle-table schema"))
         if self.schema != ELECTRIC_THROTTLE_TABLE_SCHEMA:
             raise DomainError("Unsupported electric throttle-table schema.")
         _set(self, "levels", records(self.levels, ElectricThrottleLevel, "Throttle levels"))
         _set(self, "reference_ids", _strings_blank(self.reference_ids, "Throttle-table references"))
-        text(self.source_id, "Throttle-table source identifier")
+        _set(self, "source_id", text(self.source_id, "Throttle-table source identifier"))
+        _set(self, "source_sha256", text(self.source_sha256, "Throttle-table source hash"))
         if not self.levels:
             raise DomainError("An electric throttle table requires at least one level.")
         identifiers = [level.level_id for level in self.levels]
@@ -243,8 +260,7 @@ class ElectricThrottleTable:
     def from_dict(cls, payload: Mapping[str, object]) -> ElectricThrottleTable:
         """Reopen a table and reject malformed or hash-altered content."""
 
-        if not isinstance(payload, Mapping):
-            raise InputError("Throttle-table artifact root must be an object.")
+        _table_document(payload)
         try:
             levels_payload = payload["levels"]
             if not isinstance(levels_payload, list):
@@ -297,14 +313,45 @@ class LevelOperatingPoint:
 
 
 @dataclass(frozen=True, slots=True)
+class _ExactLevelPoint:
+    """Private binary-input ledger; export only at a public record boundary."""
+
+    level_index: int
+    level_id: str
+    thrust_n: Fraction
+    mass_flow_kg_s: Fraction
+    input_power_w: Fraction
+    required_power_w: Fraction
+    thrust_wrt_available_power: Fraction
+    mass_flow_wrt_available_power: Fraction
+
+    def export(self) -> LevelOperatingPoint:
+        return LevelOperatingPoint(
+            self.level_index, self.level_id,
+            _finite_rational(self.thrust_n, "Continuous thrust"),
+            _finite_rational(self.mass_flow_kg_s, "Continuous mass flow"),
+            _finite_rational(self.input_power_w, "Throttle input power"),
+            _finite_rational(self.required_power_w, "Throttle required power"),
+            _finite_rational(self.thrust_wrt_available_power, "Continuous thrust/power slope"),
+            _finite_rational(self.mass_flow_wrt_available_power, "Continuous flow/power slope"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class PowerSwitchSurface:
     """Signed root on available power that changes the throttle level.
 
-    ``value = available_power_w - threshold_w``.  A ``decreasing`` surface
+    ``value = available_power_w - threshold_exact_w`` with checked float
+    export. ``threshold_w`` is only the nearest-float display; the normalized
+    integer ``threshold_ratio`` retains the actual root. A ``decreasing`` surface
     fires when the value crosses zero from above (power fell below what the
     current level needs); an ``increasing`` surface fires when it crosses from
-    below (power now supports the next level plus hysteresis).  After the
-    root the consumer switches to ``to_level``.  An ``either`` surface has
+    below (power supports an upgrade plus hysteresis). The target can skip
+    intermediate levels when several thresholds share one representable
+    power guard. At upward equality a mode is eligible; downward equality
+    still sustains it until a strictly lower input. The consumer applies the
+    directed target, handles initial zero values and resets detectors rather
+    than treating a constant zero as a new crossing. An ``either`` surface has
     ``to_level == from_level``: it only marks a derivative kink, fires in both
     directions, and asks for an integrator restart.
 
@@ -319,11 +366,11 @@ class PowerSwitchSurface:
     crossing: str
     from_level: int
     to_level: int
+    threshold_ratio: tuple[int, int] | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
-        text(self.event_id, "Power-switch event identifier")
-        if not isinstance(self.crossing, str):
-            raise DomainError("Power-switch crossing must be a string.")
+        _set(self, "event_id", text(self.event_id, "Power-switch event identifier"))
+        _set(self, "crossing", text(self.crossing, "Power-switch crossing"))
         _set(self, "threshold_w", real(self.threshold_w, "Power-switch threshold"))
         _set(self, "from_level", integer(self.from_level, "Power-switch from_level"))
         _set(self, "to_level", integer(self.to_level, "Power-switch to_level"))
@@ -335,11 +382,50 @@ class PowerSwitchSurface:
             raise DomainError("Power-switch crossing must be increasing, decreasing or either.")
         if self.crossing == "either" and self.to_level != self.from_level:
             raise DomainError("Only a mode-preserving kink surface may fire in either direction.")
+        if self.crossing == "increasing" and self.to_level <= self.from_level:
+            raise DomainError("An increasing power event must raise the mode index.", field="Power-switch target")
+        if self.crossing == "decreasing" and self.to_level >= self.from_level:
+            raise DomainError("A decreasing power event must lower the mode index.", field="Power-switch target")
+        if self.threshold_ratio is None:
+            exact = _fraction(self.threshold_w)
+        else:
+            if type(self.threshold_ratio) is not tuple or len(self.threshold_ratio) != 2:
+                raise DomainError("Power-switch threshold ratio requires two integers.", field="Power-switch threshold ratio")
+            numerator, denominator = (integer(value, "Power-switch threshold ratio") for value in self.threshold_ratio)
+            if denominator <= 0:
+                raise DomainError("Power-switch threshold denominator must be positive.", field="Power-switch threshold ratio")
+            exact = Fraction(numerator, denominator)
+            if _finite_rational(exact, "Power-switch threshold") != self.threshold_w:
+                raise DomainError("Power-switch display does not match its exact threshold.", field="Power-switch threshold")
+        _set(self, "threshold_ratio", (exact.numerator, exact.denominator))
+
+    @property
+    def threshold_exact_w(self) -> Fraction:
+        """Exact threshold; threshold_w is its nearest-float display."""
+        return Fraction(*self.threshold_ratio)
 
     def value(self, available_power_w: float) -> float:
-        """Evaluate ``available_power_w - threshold_w``."""
+        """Export the exact input-minus-threshold residual, or fail typed."""
 
-        return real(available_power_w, "Available power") - self.threshold_w
+        return _finite_rational(_fraction(real(available_power_w, "Available power")) - self.threshold_exact_w,
+                                "Power-switch residual")
+
+
+def _mode_data(law):
+    """Declared inputs of the two built-in relay laws, without float export."""
+    if isinstance(law, DiscreteThrottlePath):
+        return (tuple(_fraction(level.input_power_w) for level in law.levels),
+                _fraction(law.up_switch_hysteresis_w), tuple(level.level_id for level in law.levels))
+    return ((_fraction(law.minimum_power_w),), _fraction(law.start_hysteresis_w), (law.law_id,))
+
+
+def _law_surfaces(law, current_level, margin=Fraction(0), *, include_kink=False):
+    required, hysteresis, identifiers = _mode_data(law)
+    saturation = _fraction(law.maximum_power_w) if include_kink and isinstance(law, FixedEfficiencyThrottle) else None
+    specs = _mode_roots(required, hysteresis, current_level, identifiers, margin, saturation=saturation)
+    return tuple(PowerSwitchSurface(name, _finite_rational(threshold, "Power-switch threshold"),
+                    crossing, source, target, threshold_ratio=(threshold.numerator, threshold.denominator))
+                 for name, threshold, crossing, source, target in specs)
 
 
 @dataclass(frozen=True, slots=True)
@@ -369,7 +455,7 @@ class DiscreteThrottlePath:
         if not isinstance(self.table, ElectricThrottleTable):
             raise DomainError("Throttle path requires an ElectricThrottleTable.")
         _set(self, "level_ids", _strings_blank(self.level_ids, "Throttle-path level identifiers"))
-        text(self.path_id, "Throttle path identifier")
+        _set(self, "path_id", text(self.path_id, "Throttle path identifier"))
         if not self.level_ids:
             raise DomainError("A throttle path requires at least one level.")
         if len(self.level_ids) != len(set(self.level_ids)):
@@ -409,11 +495,14 @@ class DiscreteThrottlePath:
         NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
         """
 
+        if not isinstance(table, ElectricThrottleTable):
+            raise DomainError("Throttle path requires an ElectricThrottleTable.", field="Throttle table")
+        objective = text(objective, "Throttle-path objective")
         if objective not in {"thrust", "specific_impulse"}:
             raise DomainError("Throttle-path objective must be thrust or specific_impulse.")
 
-        def score(level: ElectricThrottleLevel) -> float:
-            return level.thrust_n if objective == "thrust" else level.specific_impulse_s
+        def score(level: ElectricThrottleLevel) -> Fraction:
+            return _fraction(level.thrust_n) if objective == "thrust" else _fraction(level.thrust_n) / _fraction(level.mass_flow_kg_s)
 
         ordered = sorted(table.levels, key=lambda level: (level.input_power_w, -score(level)))
         selected: list[ElectricThrottleLevel] = []
@@ -438,76 +527,18 @@ class DiscreteThrottlePath:
     def select_level(self, available_power_w: float, current_level: int | None) -> int:
         """Return the level index for ``available_power_w`` (``-1`` = off)."""
 
-        available_power_w = real(available_power_w, "Available power")
-        if current_level is not None:
-            current_level = integer(current_level, "Current throttle level")
-        levels = self.levels
-        feasible = OFF_LEVEL
-        for index, level in enumerate(levels):
-            if level.input_power_w <= available_power_w + _POWER_TOLERANCE_W:
-                feasible = index
-        if current_level is None:
-            return feasible
-        if current_level < OFF_LEVEL or current_level >= len(levels):
-            raise DomainError("Current throttle level is outside the path.")
-        if current_level != OFF_LEVEL and (
-            available_power_w < levels[current_level].input_power_w - _POWER_TOLERANCE_W
-        ):
-            return feasible
-        level = current_level
-        while (
-            level + 1 < len(levels)
-            and available_power_w + _POWER_TOLERANCE_W
-            >= levels[level + 1].input_power_w + self.up_switch_hysteresis_w
-        ):
-            level += 1
-        return level
+        required, hysteresis, _ = _mode_data(self)
+        return _select_mode(_fraction(real(available_power_w, "Available power")), required, hysteresis, current_level)
 
     def switching_surfaces(self, current_level: int) -> tuple[PowerSwitchSurface, ...]:
         """Return the down- and up-switch roots for the current level."""
 
-        current_level = integer(current_level, "Current throttle level")
-        levels = self.levels
-        if current_level < OFF_LEVEL or current_level >= len(levels):
-            raise DomainError("Current throttle level is outside the path.")
-        surfaces: list[PowerSwitchSurface] = []
-        if current_level != OFF_LEVEL:
-            surfaces.append(
-                PowerSwitchSurface(
-                    f"power:{levels[current_level].level_id}:down",
-                    levels[current_level].input_power_w,
-                    "decreasing",
-                    current_level,
-                    current_level - 1,
-                )
-            )
-        if current_level + 1 < len(levels):
-            following = levels[current_level + 1]
-            surfaces.append(
-                PowerSwitchSurface(
-                    f"power:{following.level_id}:up",
-                    following.input_power_w + self.up_switch_hysteresis_w,
-                    "increasing",
-                    current_level,
-                    current_level + 1,
-                )
-            )
-        return tuple(surfaces)
+        return _law_surfaces(self, current_level)
 
     def operating_point(self, level_index: int, available_power_w: float) -> LevelOperatingPoint:
         """Return the constant operating point of ``level_index``."""
 
-        level = self.levels[level_index]
-        return LevelOperatingPoint(
-            level_index=level_index,
-            level_id=level.level_id,
-            thrust_n=level.thrust_n,
-            mass_flow_kg_s=level.mass_flow_kg_s,
-            input_power_w=level.input_power_w,
-            required_power_w=level.input_power_w,
-            thrust_wrt_available_power=0.0,
-            mass_flow_wrt_available_power=0.0,
-        )
+        return _operating_point_ledger(self, level_index, real(available_power_w, "Available power")).export()
 
     @property
     def level_count(self) -> int:
@@ -521,6 +552,12 @@ class DiscreteThrottlePath:
             "level_ids": list(self.level_ids),
             "up_switch_hysteresis_w": self.up_switch_hysteresis_w,
         }
+
+
+def _fixed_gain(law):
+    """Retain the exact binary-input thrust/power ratio until each output."""
+    return 2 * _fraction(law.total_efficiency) / (
+        _fraction(STANDARD_GRAVITY_M_S2) * _fraction(law.specific_impulse_s))
 
 
 @dataclass(frozen=True, slots=True)
@@ -557,7 +594,7 @@ class FixedEfficiencyThrottle:
         _set(
             self, "start_hysteresis_w", _nonnegative(self.start_hysteresis_w, "Start hysteresis")
         )
-        text(self.law_id, "Throttle law identifier")
+        _set(self, "law_id", text(self.law_id, "Throttle law identifier"))
 
     @property
     def level_count(self) -> int:
@@ -567,77 +604,28 @@ class FixedEfficiencyThrottle:
     def thrust_per_watt_n_w(self) -> float:
         """Return ``2 eta / (g0 Isp)``."""
 
-        return 2.0 * self.total_efficiency / (STANDARD_GRAVITY_M_S2 * self.specific_impulse_s)
+        return _finite_rational(_fixed_gain(self), "Continuous thrust/power gain")
 
     def select_level(self, available_power_w: float, current_level: int | None) -> int:
         """Return ``0`` when the thruster runs and ``-1`` when it is off."""
 
-        available_power_w = real(available_power_w, "Available power")
-        if current_level is not None:
-            current_level = integer(current_level, "Current throttle level")
-        if current_level is not None and current_level not in {OFF_LEVEL, 0}:
-            raise DomainError("Current throttle level is outside the continuous law.")
-        threshold = self.minimum_power_w
-        if current_level == OFF_LEVEL:
-            threshold += self.start_hysteresis_w
-        return 0 if available_power_w + _POWER_TOLERANCE_W >= threshold else OFF_LEVEL
+        required, hysteresis, _ = _mode_data(self)
+        return _select_mode(_fraction(real(available_power_w, "Available power")), required, hysteresis, current_level)
 
     def switching_surfaces(self, current_level: int) -> tuple[PowerSwitchSurface, ...]:
         """Return the shutdown root when on, or the start root when off."""
 
-        current_level = integer(current_level, "Current throttle level")
-        if current_level == 0:
-            return (
-                PowerSwitchSurface(
-                    f"power:{self.law_id}:down",
-                    self.minimum_power_w,
-                    "decreasing",
-                    0,
-                    OFF_LEVEL,
-                ),
-            )
-        if current_level == OFF_LEVEL:
-            return (
-                PowerSwitchSurface(
-                    f"power:{self.law_id}:up",
-                    self.minimum_power_w + self.start_hysteresis_w,
-                    "increasing",
-                    OFF_LEVEL,
-                    0,
-                ),
-            )
-        raise DomainError("Current throttle level is outside the continuous law.")
+        return _law_surfaces(self, current_level)
 
     def kink_surfaces(self) -> tuple[PowerSwitchSurface, ...]:
         """Return the non-mode-changing saturation root where ``dT/dP`` jumps."""
 
-        return (
-            PowerSwitchSurface(
-                f"power:{self.law_id}:saturation", self.maximum_power_w, "either", 0, 0
-            ),
-        )
+        return tuple(surface for surface in _law_surfaces(self, 0, include_kink=True) if surface.crossing == "either")
 
     def operating_point(self, level_index: int, available_power_w: float) -> LevelOperatingPoint:
         """Return thrust and flow using ``min(P, P_max)`` and their power slopes."""
 
-        if level_index != 0:
-            raise DomainError("Continuous law operating point requires level 0.")
-        saturated = available_power_w >= self.maximum_power_w
-        power = self.maximum_power_w if saturated else max(available_power_w, 0.0)
-        gain = self.thrust_per_watt_n_w
-        exhaust_velocity = STANDARD_GRAVITY_M_S2 * self.specific_impulse_s
-        thrust = gain * power
-        thrust_slope = 0.0 if saturated else gain
-        return LevelOperatingPoint(
-            level_index=0,
-            level_id=self.law_id,
-            thrust_n=thrust,
-            mass_flow_kg_s=thrust / exhaust_velocity,
-            input_power_w=power,
-            required_power_w=self.minimum_power_w,
-            thrust_wrt_available_power=thrust_slope,
-            mass_flow_wrt_available_power=thrust_slope / exhaust_velocity,
-        )
+        return _operating_point_ledger(self, level_index, real(available_power_w, "Available power")).export()
 
     def manifest(self) -> dict[str, object]:
         return {
@@ -649,6 +637,27 @@ class FixedEfficiencyThrottle:
             "maximum_power_w": self.maximum_power_w,
             "start_hysteresis_w": self.start_hysteresis_w,
         }
+
+
+def _operating_point_ledger(law, level_index, available_power_w):
+    """Keep built-in law values exact across duty/driver scaling in a model."""
+    level_index = integer(level_index, "Throttle level index")
+    available_power_w = _fraction(available_power_w, "Available power")
+    if not 0 <= level_index < law.level_count:
+        raise DomainError("Throttle level index is outside the law.", field="Throttle level index")
+    if isinstance(law, DiscreteThrottlePath):
+        level = law.levels[level_index]
+        return _ExactLevelPoint(level_index, level.level_id, _fraction(level.thrust_n),
+            _fraction(level.mass_flow_kg_s), _fraction(level.input_power_w),
+            _fraction(level.input_power_w), Fraction(0), Fraction(0))
+    saturated = available_power_w >= law.maximum_power_w
+    power = _fraction(law.maximum_power_w if saturated else max(available_power_w, 0.0))
+    gain = _fixed_gain(law)
+    velocity = _fraction(STANDARD_GRAVITY_M_S2) * _fraction(law.specific_impulse_s)
+    # At zero use the right derivative; below zero clamped power is constant.
+    slope = Fraction(0) if saturated or available_power_w < 0 else gain
+    return _ExactLevelPoint(0, law.law_id, gain * power, gain * power / velocity,
+        power, _fraction(law.minimum_power_w), slope, slope / velocity)
 
 
 @dataclass(frozen=True, slots=True)
@@ -740,12 +749,13 @@ class PowerLimitedPropulsionModel:
     schema: str = POWER_LIMITED_PROPULSION_SCHEMA
 
     def __post_init__(self) -> None:
+        _set(self, "schema", text(self.schema, "Power-limited model schema"))
         if self.schema != POWER_LIMITED_PROPULSION_SCHEMA:
             raise DomainError("Unsupported power-limited propulsion schema.")
         if not isinstance(self.throttle_law, (DiscreteThrottlePath, FixedEfficiencyThrottle)):
             raise DomainError("Throttle law must be a DiscreteThrottlePath or FixedEfficiencyThrottle.")
-        text(self.model_id, "Model identifier")
-        text(self.propellant_state_name, "Propellant state name")
+        _set(self, "model_id", text(self.model_id, "Model identifier"))
+        _set(self, "propellant_state_name", text(self.propellant_state_name, "Propellant state name"))
         if self.propellant_reserve_kg is not None:
             _set(
                 self,
@@ -783,7 +793,9 @@ class PowerLimitedPropulsionModel:
     def effective_power_w(self, available_power_w: float) -> float:
         """Return available power minus the declared margin."""
 
-        return real(available_power_w, "Available power") - self.power_margin_w
+        return _finite_rational(
+            _fraction(available_power_w, "Available power") - _fraction(self.power_margin_w),
+            "Effective power")
 
     def select_level(self, available_power_w: float, current_level: int | None = None) -> int:
         """Initialize (``current_level=None``) or update the throttle mode.
@@ -793,9 +805,11 @@ class PowerLimitedPropulsionModel:
         NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
         """
 
-        return self.throttle_law.select_level(
-            self.effective_power_w(available_power_w), current_level
-        )
+        if type(self.throttle_law) in (DiscreteThrottlePath, FixedEfficiencyThrottle):
+            required, hysteresis, _ = _mode_data(self.throttle_law)
+            power = _fraction(real(available_power_w, "Available power")) - _fraction(self.power_margin_w)
+            return _select_mode(power, required, hysteresis, current_level)
+        return self.throttle_law.select_level(self.effective_power_w(available_power_w), current_level)
 
     def switching_surfaces(self, current_level: int) -> tuple[PowerSwitchSurface, ...]:
         """Return mode-changing roots expressed in *available* power.
@@ -806,16 +820,20 @@ class PowerLimitedPropulsionModel:
         https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
         """
 
+        if type(self.throttle_law) in (DiscreteThrottlePath, FixedEfficiencyThrottle):
+            return _law_surfaces(self.throttle_law, current_level, _fraction(self.power_margin_w), include_kink=True)
         surfaces = self.throttle_law.switching_surfaces(current_level)
         if isinstance(self.throttle_law, FixedEfficiencyThrottle) and current_level == 0:
             surfaces = surfaces + self.throttle_law.kink_surfaces()
         return tuple(
             PowerSwitchSurface(
                 surface.event_id,
-                surface.threshold_w + self.power_margin_w,
+                _finite_rational(surface.threshold_exact_w + _fraction(self.power_margin_w), "Power-switch threshold"),
                 surface.crossing,
                 surface.from_level,
                 surface.to_level,
+                threshold_ratio=((surface.threshold_exact_w + _fraction(self.power_margin_w)).numerator,
+                                 (surface.threshold_exact_w + _fraction(self.power_margin_w)).denominator),
             )
             for surface in surfaces
         )
@@ -876,6 +894,7 @@ class PowerLimitedPropulsionModel:
             "model_id": self.model_id,
             "throttle_law": self.throttle_law.manifest(),
             "mass_closure_numerics": _MASS_CLOSURE_POLICY,
+            "power_mode_numerics": _POWER_MODE_POLICY,
             "direction_numerics": "scaled_hypot_rational_projection_and_signed_tangents_v1",
             "propellant_state_name": self.propellant_state_name,
             "propellant_reserve_kg": self.propellant_reserve_kg,
@@ -935,8 +954,7 @@ class PowerLimitedPropulsionModel:
         NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
         """
 
-        if not isinstance(payload, Mapping):
-            raise InputError("Power-limited model document root must be an object.")
+        _power_document(payload)
         try:
             law_payload = payload["throttle_law"]
             if law_payload["law"] == "discrete_throttle_path":
@@ -988,6 +1006,7 @@ class PowerLimitedPropulsionModel:
         if payload.get("model_hash") != model.model_hash:
             raise InputError("Power-limited model hash does not match its contents.")
         _require_numerical_policies(payload, model.manifest(include_hash=False))
+        _metadata(payload, model.manifest(include_hash=False), _POWER_METADATA)
         return model
 
     @classmethod
@@ -1060,7 +1079,9 @@ class PowerLimitedPropulsionModel:
         available_power_w = real(available_power_w, "Available power")
         if not isinstance(apply_inventory_limits, bool):
             raise DomainError("apply_inventory_limits must be a boolean.")
-        effective_power = self.effective_power_w(available_power_w)
+        effective_power = (_fraction(available_power_w) - _fraction(self.power_margin_w)
+                           if type(self.throttle_law) in (DiscreteThrottlePath, FixedEfficiencyThrottle)
+                           else self.effective_power_w(available_power_w))
         geometry = _direction_geometry(direction)
         states = _validated_states(additional_states)
         if self.propellant_state_name not in states:
@@ -1106,18 +1127,24 @@ class PowerLimitedPropulsionModel:
                 ),
             )
 
-        point = self.throttle_law.operating_point(level_index, effective_power)
+        if type(self.throttle_law) in (DiscreteThrottlePath, FixedEfficiencyThrottle):
+            point = _operating_point_ledger(self.throttle_law, level_index, effective_power)
+        else:
+            # Retain subclass callback behavior at its existing public boundary.
+            point = self.throttle_law.operating_point(level_index, effective_power)
         duty = self.duty_cycle
         base_thrust = _fraction(point.thrust_n) * _fraction(duty)
-        base_flow = point.mass_flow_kg_s * duty
+        base_flow = _fraction(point.mass_flow_kg_s) * _fraction(duty)
         exact_thrust = base_thrust * _fraction(thrust_scale)
         thrust = _finite_rational(exact_thrust, "Axial thrust")
-        flow = base_flow * flow_scale
+        flow = base_flow * _fraction(flow_scale)
+        drain = _finite_rational(-flow, "Electric propellant drain")
         force = geometry.project(exact_thrust, label="Force")
         acceleration = geometry.project(exact_thrust, vehicle_mass_kg, label="Acceleration")
         thrust_power_slope = (_fraction(point.thrust_wrt_available_power)
                               * _fraction(duty) * _fraction(thrust_scale))
-        flow_power_slope = point.mass_flow_wrt_available_power * duty * flow_scale
+        flow_power_slope = (_fraction(point.mass_flow_wrt_available_power)
+                            * _fraction(duty) * _fraction(flow_scale))
         return ElectricPropulsionEvaluation(
             active=True,
             level_index=level_index,
@@ -1125,13 +1152,14 @@ class PowerLimitedPropulsionModel:
             thrust_n=thrust,
             force_vector_n=force,  # type: ignore[arg-type]
             acceleration_m_s2=acceleration,  # type: ignore[arg-type]
-            mass_derivative_kg_s=-flow,
-            additional_state_derivatives=((self.propellant_state_name, -flow),),
+            mass_derivative_kg_s=drain,
+            additional_state_derivatives=((self.propellant_state_name, drain),),
             available_power_w=available_power_w,
-            consumed_power_w=point.input_power_w * duty,
-            power_deficit_w=max(0.0, point.required_power_w - effective_power),
+            consumed_power_w=_finite_rational(_fraction(point.input_power_w) * _fraction(duty), "Consumed electric power"),
+            power_deficit_w=_finite_rational(max(0, _fraction(point.required_power_w) - _fraction(effective_power)), "Electric power deficit"),
             specific_impulse_s=(
-                thrust / (STANDARD_GRAVITY_M_S2 * flow) if flow > 0.0 else None
+                _finite_rational(exact_thrust / (_fraction(STANDARD_GRAVITY_M_S2) * flow),
+                                 "Electric specific impulse") if flow > 0 else None
             ),
             parameters=tuple(parameters.items()),
             inhibited_by=(),
@@ -1141,7 +1169,7 @@ class PowerLimitedPropulsionModel:
                 acceleration_wrt_direction=geometry.jacobian(exact_thrust, vehicle_mass_kg),
                 acceleration_wrt_available_power=geometry.project(
                     thrust_power_slope, vehicle_mass_kg, label="Power acceleration partial"),
-                mass_rate_wrt_available_power=-flow_power_slope,
+                mass_rate_wrt_available_power=_finite_rational(-flow_power_slope, "Electric flow/power partial"),
                 acceleration_wrt_parameters=(
                     (
                         "thrust_scale",
@@ -1152,7 +1180,7 @@ class PowerLimitedPropulsionModel:
                 ),
                 mass_rate_wrt_parameters=(
                     ("thrust_scale", 0.0),
-                    ("mass_flow_scale", -base_flow),
+                    ("mass_flow_scale", _finite_rational(-base_flow, "Electric flow scale partial")),
                 ),
             ),
         )

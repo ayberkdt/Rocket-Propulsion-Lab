@@ -30,9 +30,9 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
+from fractions import Fraction
 from importlib import import_module
 from itertools import pairwise
-from math import sqrt
 from typing import Any
 
 from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError
@@ -43,9 +43,12 @@ from rocket_propulsion.propulsion.burns import (
 )
 from rocket_propulsion.propulsion.burns.propagator import INVENTORY_LIMIT_TOLERANCE
 from rocket_propulsion.propulsion.burns.numeric_outputs import _fraction, _finite_rational
-from rocket_propulsion.propulsion.burns.time_coordinates import _epoch_table, _epoch_profile_time
+from rocket_propulsion.propulsion.burns.time_coordinates import (
+    _epoch_profile_time, _clock_table, _profile_boundaries,
+)
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 from .direction import _directed_vector
+from .native_mass import _NATIVE_MASS_POLICY, _consumption, _cutoff, _scale, _upper_bound
 
 LUNARIS_FRAMES = ("inertial", "ric")
 
@@ -211,9 +214,11 @@ class LunarisBurnWindow:
     """Effective firing window of one burn, as the finite-burn wrapper sees it.
 
     ``ignition_time_s`` includes the resolved ``ignition_time_bias_s`` driver.
-    ``depletion_time_s`` is the exact time at which the vehicle reaches the
-    burn's ``protected_dry_mass_kg`` (``None`` when it never does or when the
-    burn has no protected dry mass); the burn is off from that time on.
+    ``depletion_time_s`` is a guarded, represented cutoff for the burn's
+    protected dry mass and declared inventory margin (``None`` when no cut
+    is needed). The burn is off from that date on. The reported numerical
+    shortfall bound measures unused mass relative to that margin-adjusted
+    target; it is not a physical uncertainty bound.
     ``mass_at_ignition_kg`` is ``None`` when no initial mass was given.
 
     References
@@ -227,51 +232,73 @@ class LunarisBurnWindow:
     mass_at_ignition_kg: float | None
     depletion_time_s: float | None
     time_events_s: tuple[float, ...]
+    cutoff_profile_time_ratio: tuple[int, int] | None = None
+    mass_at_cutoff_kg: float | None = None
+    depletion_mass_shortfall_bound_kg: float | None = None
+    cutoff_numerics: str = 'unspecified'
+
+    def __post_init__(self):
+        text(self.burn_id, 'Native burn identifier')
+        for name in ('ignition_time_s','cutoff_time_s'):
+            object.__setattr__(self,name,real(getattr(self,name),name))
+        if self.cutoff_time_s < self.ignition_time_s:
+            raise DomainError('Native cutoff cannot precede ignition.')
+        for name in ('mass_at_ignition_kg','mass_at_cutoff_kg','depletion_time_s',
+                     'depletion_mass_shortfall_bound_kg'):
+            value=getattr(self,name)
+            if value is not None:
+                object.__setattr__(self,name,real(value,name))
+        for name in ('mass_at_ignition_kg','mass_at_cutoff_kg'):
+            if getattr(self,name) is not None and getattr(self,name) <= 0:
+                raise DomainError('Native window masses must be positive.')
+        if self.depletion_time_s is not None and self.depletion_time_s != self.cutoff_time_s:
+            raise DomainError('A native depletion date must be the cutoff date.')
+        if self.depletion_mass_shortfall_bound_kg is not None and (
+                self.depletion_mass_shortfall_bound_kg < 0 or self.depletion_time_s is None):
+            raise DomainError('A native depletion deficit requires a nonnegative bound and cut.')
+        if isinstance(self.time_events_s,(str,bytes,Mapping)):
+            raise DomainError('Native event dates must be a sequence of real scalars.')
+        try:
+            dates=tuple(real(t,'Native event date') for t in self.time_events_s)
+        except TypeError as error:
+            raise DomainError('Native event dates must be a sequence.') from error
+        if not dates or dates[0]!=self.ignition_time_s or dates[-1]!=self.cutoff_time_s or any(
+                b<=a for a,b in zip(dates,dates[1:])):
+            raise DomainError('Native event dates must include both endpoints and increase strictly.')
+        object.__setattr__(self,'time_events_s',dates)
+        ratio=self.cutoff_profile_time_ratio
+        if ratio is not None:
+            if not isinstance(ratio,(tuple,list)) or len(ratio)!=2 or any(type(n) is not int for n in ratio):
+                raise DomainError('Native cutoff coordinate requires an integer ratio.')
+            if ratio[0]<0 or ratio[1]<=0:
+                raise DomainError('Native cutoff coordinate ratio must be nonnegative.')
+            exact=Fraction(*ratio)
+            object.__setattr__(self,'cutoff_profile_time_ratio',(exact.numerator,exact.denominator))
+        if self.cutoff_numerics not in ('unspecified',_NATIVE_MASS_POLICY):
+            raise DomainError('Unsupported native cutoff numerical policy.')
 
 
 def _consumed_by(bridge: Any, mass_flow_scale: float, relative_time_s: float) -> float:
     """Propellant used from ignition to ``relative_time_s`` (piecewise-linear flow)."""
 
-    used = 0.0
-    for segment in bridge.artifact.segments:
-        if relative_time_s <= segment.start_time_s:
-            break
-        duration = segment.duration_s
-        tau = min(relative_time_s, segment.end_time_s) - segment.start_time_s
-        q0 = segment.start_total_mass_flow_kg_s
-        q1 = segment.end_total_mass_flow_kg_s
-        used += q0 * tau + 0.5 * (q1 - q0) * tau * tau / duration
-    return used * mass_flow_scale
+    return _finite_rational(_consumption(bridge.artifact.segments, _scale(mass_flow_scale),
+                                         _fraction(relative_time_s)), 'Native consumed mass')
 
 
 def _time_to_consume(bridge: Any, mass_flow_scale: float, amount_kg: float) -> float | None:
     """Return the relative time at which ``amount_kg`` has been consumed, or ``None``.
 
-    Uses the cancellation-free root ``tau = 2c / (q0 + sqrt(q0^2 + 4 a c))`` of
-    ``a tau^2 + q0 tau - c = 0`` (Goldberg 1991, ACM Computing Surveys 23(1)).
+    The returned scalar is the greatest safe represented relative time, with
+    decisions made against the exact mass integral. The existing inventory
+    margin remains a caller/model policy, not measurement uncertainty.
     """
 
     # The bridge's clamp treats a mass within INVENTORY_LIMIT_TOLERANCE of the
     # limit as reached; the cut uses the same margin, otherwise rounding can
     # carry it past a zero-flow plateau that already sits at the limit.
-    remaining = amount_kg - INVENTORY_LIMIT_TOLERANCE
-    if remaining <= 0.0:
-        return 0.0
-    for segment in bridge.artifact.segments:
-        duration = segment.duration_s
-        q0 = segment.start_total_mass_flow_kg_s * mass_flow_scale
-        q1 = segment.end_total_mass_flow_kg_s * mass_flow_scale
-        available = 0.5 * (q0 + q1) * duration
-        if available < remaining:
-            remaining -= available
-            continue
-        # Solve q0 tau + (q1 - q0) tau^2 / (2 d) = remaining with the stable root.
-        a = 0.5 * (q1 - q0) / duration
-        root = sqrt(max(q0 * q0 + 4.0 * a * remaining, 0.0))
-        denominator = q0 + root
-        tau = duration if denominator <= 0.0 else 2.0 * remaining / denominator
-        return segment.start_time_s + min(max(tau, 0.0), duration)
-    return None
+    target = _fraction(amount_kg)-_fraction(INVENTORY_LIMIT_TOLERANCE)
+    cut = _cutoff(bridge.artifact.segments, _scale(mass_flow_scale), target, _fraction(0.))
+    return None if cut is None else cut.date
 
 
 def lunaris_burn_windows(
@@ -283,11 +310,12 @@ def lunaris_burn_windows(
     """Return every burn's effective window: bias-shifted events and dry-mass cut.
 
     For a mass-only burn without operating-condition surfaces the mass flow is
-    a function of time alone, so with a known ``initial_mass_kg`` the time at
-    which the vehicle reaches a burn's ``protected_dry_mass_kg`` is computed
-    exactly (piecewise-quadratic mass, stable quadratic root).  Lunaris event
-    functions only see the first six state elements, so this is how a
-    dry-mass cut becomes an exact segment boundary.  Bridges with a protected
+    a function of time alone. With a known ``initial_mass_kg``, exact supplied-
+    binary mass integrals select a safe date on the represented epoch clock.
+    The date can precede the analytical crossing; the window reports an
+    outward-rounded unused-mass bound. Lunaris event functions only see the
+    first six state elements, so the cut is exposed as a segment boundary.
+    Bridges with a protected
     dry mass therefore need ``initial_mass_kg``; overlapping timelines are
     refused because a cut of one burn changes the other's mass history.
 
@@ -306,63 +334,84 @@ def lunaris_burn_windows(
     unknown = set(overrides) - {burn.burn_id for burn in timeline.burns}
     if unknown:
         raise DomainError("Parameter overrides for unknown burns: " + ", ".join(sorted(unknown)))
-    mass: float | None = None
+    initial = None
     if initial_mass_kg is not None:
-        mass = real(initial_mass_kg, "Initial mass")
-        if mass <= 0.0:
+        initial = _fraction(real(initial_mass_kg, "Initial mass"))
+        if initial <= 0:
             raise DomainError("Initial mass must be greater than zero.")
     protected = any(burn.bridge.protected_dry_mass_kg is not None for burn in timeline.burns)
-    if protected and mass is None:
-        raise DomainError(
-            "A burn has protected_dry_mass_kg: pass initial_mass_kg so the dry-mass cut "
-            "becomes an exact Lunaris segment boundary."
-        )
+    if protected and initial is None:
+        raise DomainError("Protected native burns require initial_mass_kg.")
     if protected and timeline.allow_overlapping_burns:
         raise DomainError("Dry-mass cuts cannot be precomputed for overlapping burns.")
+    if initial is not None and timeline.jettisons:
+        raise DomainError("Native mass prediction requires jettisons to be applied between segments.")
     resolved = []
     for burn in timeline.burns:
         drivers = burn.bridge.resolved_parameters(overrides.get(burn.burn_id))
-        resolved.append((_fraction(burn.ignition_time_s) + _fraction(drivers["ignition_time_bias_s"]), burn, drivers))
-    resolved.sort(key=lambda item: item[0])
-    windows: list[LunarisBurnWindow] = []
-    previous_cutoff = None
-    for ignition, burn, drivers in resolved:
+        _scale(drivers['mass_flow_scale'])
         bridge = burn.bridge
-        epoch_dates, _ = _epoch_table(bridge.artifact.segments, burn.ignition_time_s,
-                                     drivers['ignition_time_bias_s'])
-        if (
-            not timeline.allow_overlapping_burns
-            and previous_cutoff is not None
-            and ignition < previous_cutoff
-        ):
-            raise DomainError(
-                f"Burn {burn.burn_id!r} starts before the previous burn ends once the "
-                "ignition-time biases are applied."
-            )
-        flow_scale = drivers["mass_flow_scale"]
+        if initial is not None and (bridge.performance_surface is not None
+                                    or bridge.stream_performance_surface is not None):
+            raise DomainError("Native mass prediction needs time-only flow, without a performance surface.")
+        offset = _fraction(burn.ignition_time_s)+_fraction(drivers["ignition_time_bias_s"])
+        resolved.append((offset, burn, drivers))
+    resolved.sort(key=lambda row: row[0])
+    contexts = []
+
+    def consumed_at(context, date):
+        offset, burn, drivers, horizon, _, _, _, _ = context
+        point = _epoch_profile_time(burn.bridge.artifact.segments, date, burn.ignition_time_s,
+            drivers["ignition_time_bias_s"], horizon=horizon, allow_aliases=False)
+        return _consumption(burn.bridge.artifact.segments, _fraction(drivers["mass_flow_scale"]),
+                            min(max(point, Fraction(0)), horizon))
+
+    def mass_at(date, active):
+        if initial is None:
+            return None
+        return initial-sum((consumed_at(row,date) for row in active),Fraction(0))
+
+    for offset, burn, drivers in resolved:
+        bridge = burn.bridge
+        ignition = _finite_rational(offset, "Native ignition time")
+        if not timeline.allow_overlapping_burns and contexts and ignition < contexts[-1][5][-1]:
+            raise DomainError("Biased native burns overlap on the represented clock.")
+        mass = mass_at(ignition, contexts)
+        if mass is not None and mass <= 0:
+            raise DomainError("Native mass history reaches nonpositive vehicle mass.")
+        horizon = _fraction(bridge.artifact.duration_s)
         depletion = None
-        cutoff_relative = bridge.artifact.duration_s
+        deficit = None
         if mass is not None and bridge.protected_dry_mass_kg is not None:
-            reached = _time_to_consume(bridge, flow_scale, mass - bridge.protected_dry_mass_kg)
+            target = mass-_fraction(bridge.protected_dry_mass_kg)-_fraction(INVENTORY_LIMIT_TOLERANCE)
+            cut = _cutoff(bridge.artifact.segments, _fraction(drivers["mass_flow_scale"]), target, offset)
+            reached = None if cut is None else cut.profile_time
             if reached is not None and reached < bridge.artifact.duration_s:
-                depletion = _finite_rational(ignition + _fraction(reached), 'Depletion time')
-                cutoff_relative = reached
-        relative_dates = (0.0,) + tuple(segment.end_time_s for segment in bridge.artifact.segments)
-        events = tuple(date for relative, date in zip(relative_dates, epoch_dates, strict=True)
-                       if relative <= cutoff_relative) + ((depletion,) if depletion is not None else ())
-        windows.append(
-            LunarisBurnWindow(
-                burn_id=burn.burn_id,
-                ignition_time_s=epoch_dates[0],
-                cutoff_time_s=_finite_rational(ignition + _fraction(cutoff_relative), 'Cutoff time'),
-                mass_at_ignition_kg=mass,
-                depletion_time_s=depletion,
-                time_events_s=tuple(sorted(events)),
-            )
-        )
-        if mass is not None:
-            mass -= _consumed_by(bridge, flow_scale, cutoff_relative)
-        previous_cutoff = ignition + _fraction(cutoff_relative)
+                horizon = reached
+                depletion = cut.date
+                deficit = cut.shortfall
+        boundaries = _profile_boundaries(bridge.artifact.segments, horizon)
+        dates, _ = _clock_table(boundaries,burn.ignition_time_s,drivers["ignition_time_bias_s"])
+        if depletion is not None and dates[-1] != depletion:
+            raise DomainError("Native cutoff and active prefix clock do not agree.")
+        contexts.append((offset,burn,drivers,horizon,ignition,dates,depletion,deficit))
+    if initial is not None:
+        final = initial-sum((_consumption(row[1].bridge.artifact.segments,
+                            _fraction(row[2]["mass_flow_scale"]),row[3]) for row in contexts),Fraction(0))
+        if final <= 0:
+            raise DomainError("Native mass history reaches nonpositive vehicle mass.")
+    windows=[]
+    for offset,burn,drivers,horizon,ignition,dates,depletion,deficit in contexts:
+        before=mass_at(ignition,contexts)
+        after=mass_at(dates[-1],contexts)
+        windows.append(LunarisBurnWindow(
+            burn_id=burn.burn_id,ignition_time_s=ignition,cutoff_time_s=dates[-1],
+            mass_at_ignition_kg=None if before is None else _finite_rational(before,"Native ignition mass"),
+            depletion_time_s=depletion,time_events_s=dates,
+            cutoff_numerics=_NATIVE_MASS_POLICY,
+            cutoff_profile_time_ratio=(horizon.numerator,horizon.denominator),
+            mass_at_cutoff_kg=None if after is None else _finite_rational(after,"Native cutoff mass"),
+            depletion_mass_shortfall_bound_kg=None if deficit is None else _upper_bound(deficit)))
     return tuple(windows)
 
 
@@ -375,7 +424,7 @@ def lunaris_segmentation_times(
     """Return every burn discontinuity time, strictly increasing.
 
     Times include each burn's resolved ``ignition_time_bias_s`` and, with
-    ``initial_mass_kg``, the exact dry-mass cut times (see
+    ``initial_mass_kg``, the guarded dry-mass cut dates (see
     :func:`lunaris_burn_windows`).  Pass the same ``parameter_overrides`` as
     to :class:`LunarisFiniteBurnDynamics`, or use its ``segmentation_plan()``.
 
@@ -496,7 +545,7 @@ class LunarisFiniteBurnDynamics:
     limit; any later evaluation exactly on a burn boundary is the segment end
     and takes its left-hand limit.  Propagate with :meth:`segmentation_plan`,
     which uses the same overrides and initial mass, so every discontinuity
-    (bias-shifted profile events and exact dry-mass cuts) is a segment
+    (bias-shifted profile events and guarded dry-mass cuts) is a segment
     boundary.
 
     ``apply_inventory_limits=None`` (default) turns the bridge's internal
@@ -545,7 +594,8 @@ class LunarisFiniteBurnDynamics:
                     "mass. Build the bridge with stream_bindings=() and "
                     "require_complete_stream_binding=False (protected_dry_mass_kg still works)."
                 )
-            if bridge.performance_surface is not None or bridge.nozzle_exit_area_m2 is not None:
+            if (bridge.performance_surface is not None or bridge.stream_performance_surface is not None
+                    or bridge.nozzle_exit_area_m2 is not None):
                 raise DomainError(
                     f"Burn {burn.burn_id!r} needs operating conditions or ambient pressure, "
                     "which Lunaris does not supply."
@@ -561,7 +611,8 @@ class LunarisFiniteBurnDynamics:
         self._base = base_dynamics
         self._timeline = timeline
         self._law = direction_law
-        self._overrides = parameter_overrides
+        self._overrides = {burn.burn_id:burn.bridge.resolved_parameters(
+            (parameter_overrides or {}).get(burn.burn_id)) for burn in timeline.burns}
         # With a known initial mass the dry-mass cut is an exact boundary, and
         # the bridge's internal clamp would only bias the integrator's stages.
         self._limits = (
@@ -569,6 +620,7 @@ class LunarisFiniteBurnDynamics:
         )
         self._ids = tuple(burn.burn_id for burn in timeline.burns)
         self._windows = windows
+        self._horizons = {window.burn_id:Fraction(*window.cutoff_profile_time_ratio) for window in windows}
         self._boundaries = _merged_times(
             value for window in windows for value in window.time_events_s
         )
@@ -610,10 +662,15 @@ class LunarisFiniteBurnDynamics:
     def predicted_mass_kg(self, time_s: float) -> float:
         """Vehicle mass implied by the timeline at ``time_s`` (needs ``initial_mass_kg``)."""
 
+        return _finite_rational(self._predicted_mass(time_s), 'Native predicted vehicle mass')
+
+    def _predicted_mass(self, time_s):
+        """Keep the shared mass ledger exact through initial-state consistency checks."""
+
         if self._initial_mass is None:
             raise DomainError("Predicted mass needs initial_mass_kg.")
         time_s = real(time_s, "Time")
-        mass = self._initial_mass
+        mass = _fraction(self._initial_mass)
         for window in self._windows:
             if time_s <= window.ignition_time_s:
                 break
@@ -623,9 +680,9 @@ class LunarisFiniteBurnDynamics:
             )
             relative_exact = _epoch_profile_time(burn.bridge.artifact.segments,
                 min(time_s, window.cutoff_time_s), burn.ignition_time_s,
-                drivers['ignition_time_bias_s'])
-            relative = _finite_rational(relative_exact, 'Mass prediction profile time')
-            mass -= _consumed_by(burn.bridge, drivers["mass_flow_scale"], relative)
+                drivers['ignition_time_bias_s'],horizon=self._horizons[window.burn_id],allow_aliases=False)
+            mass -= _consumption(burn.bridge.artifact.segments,_fraction(drivers["mass_flow_scale"]),
+                                 min(max(relative_exact,Fraction(0)),self._horizons[window.burn_id]))
         return mass
 
     def _stopped(self, time_s: float, side: str) -> frozenset[str]:
@@ -648,13 +705,16 @@ class LunarisFiniteBurnDynamics:
         def rhs(t: float, y: Any) -> Any:
             if len(y) != 7:
                 raise DomainError("Finite burns need the 7-element Lunaris state (mass at y[6]).")
-            out = base_rhs(t, y)
-            time_s = float(t)
+            time_s = real(t,'Native RHS time')
+            mass_value = real(y[6],'Native RHS vehicle mass')
+            if mass_value <= 0:
+                raise DomainError('Native RHS vehicle mass must be positive.')
             if not first_time:
-                first_time.append(time_s)
                 if self._initial_mass is not None:
-                    expected = self.predicted_mass_kg(time_s)
-                    if abs(float(y[6]) - expected) > self._mass_tolerance * self._initial_mass:
+                    exact_expected = self._predicted_mass(time_s)
+                    expected = _finite_rational(exact_expected, 'Native predicted vehicle mass')
+                    if abs(_fraction(mass_value)-exact_expected) > (
+                            _fraction(self._mass_tolerance)*_fraction(self._initial_mass)):
                         raise DomainError(
                             f"State mass {float(y[6])!r} kg at t={time_s!r} s differs from the "
                             f"timeline prediction {expected!r} kg; the dry-mass cut would be "
@@ -664,22 +724,30 @@ class LunarisFiniteBurnDynamics:
             side = (
                 "left"
                 if on_boundary
+                and first_time
                 and time_s != first_time[0]
                 else "right"
             )
-            value = timeline.evaluate(
+            value = timeline._evaluate(
                 time_s=time_s,
-                vehicle_mass_kg=float(y[6]),
+                vehicle_mass_kg=mass_value,
                 directions=_LazyDirections(self._law, self._ids, time_s, y),
                 parameter_overrides=self._overrides,
                 side=side,
                 stopped_burns=self._stopped(time_s, side),
                 apply_inventory_limits=self._limits,
+                _clock_horizons=self._horizons,
+                _canonical_epoch=True,
             )
+            out = base_rhs(time_s, y)
             out[3] += value.acceleration_m_s2[0]
             out[4] += value.acceleration_m_s2[1]
             out[5] += value.acceleration_m_s2[2]
             out[6] += value.mass_derivative_kg_s
+            # A rejected/failed evaluation must not initialize the segment's
+            # clock or suppress the next initial-mass consistency check.
+            if not first_time:
+                first_time.append(time_s)
             return out
 
         return rhs
