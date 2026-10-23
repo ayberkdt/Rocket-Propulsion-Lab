@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import asdict
+from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 from math import isfinite, log
 from pathlib import Path
 from typing import Any
@@ -65,6 +67,7 @@ from rocket_propulsion.propulsion import (
     simulate_profiled_burn,
 )
 from rocket_propulsion.propulsion.burns import burn_result_from_dict
+from rocket_propulsion.propulsion.burns.numeric_outputs import _finite_rational
 from rocket_propulsion.studies import (
     ParameterRange,
     build_report_bundle,
@@ -104,7 +107,7 @@ def _number(payload: dict[str, Any], key: str, *, default: float | None = None) 
         raise InputError(f"Field {key} must be a number.", field=key)
     try:
         value = float(raw_value)
-    except (TypeError, ValueError) as error:
+    except (TypeError, ValueError, OverflowError) as error:
         raise InputError(f"Field {key} must be a number.", field=key) from error
     if not isfinite(value):
         raise InputError(f"Field {key} must be finite.", field=key)
@@ -865,26 +868,58 @@ def calculate_engine_cycle_route(payload: dict[str, Any]) -> dict[str, Any]:
 
     return asdict(
         calculate_engine_cycle(
-            cycle=str(payload.get("cycle", "pressure-fed")),
+            cycle=payload.get("cycle", "pressure-fed"),
             chamber_pressure_pa=_number(payload, "chamber_pressure_pa"),
             chamber_mass_flow_kg_s=_number(payload, "chamber_mass_flow_kg_s"),
-            propellant_density_kg_m3=_number(payload, "propellant_density_kg_m3"),
+            propellant_density_kg_m3=_optional_number(payload, "propellant_density_kg_m3"),
             inlet_pressure_pa=_number(payload, "inlet_pressure_pa"),
             injector_pressure_drop_fraction=_number(
                 payload, "injector_pressure_drop_fraction"
             ),
-            pump_efficiency=_number(payload, "pump_efficiency"),
-            turbine_efficiency=_number(payload, "turbine_efficiency"),
-            turbine_inlet_temperature_k=_number(
+            pump_efficiency=_optional_number(payload, "pump_efficiency"),
+            turbine_efficiency=_optional_number(payload, "turbine_efficiency"),
+            turbine_inlet_temperature_k=_optional_number(
                 payload, "turbine_inlet_temperature_k"
             ),
-            turbine_specific_heat_j_kg_k=_number(
+            turbine_specific_heat_j_kg_k=_optional_number(
                 payload, "turbine_specific_heat_j_kg_k"
             ),
-            turbine_gamma=_number(payload, "turbine_gamma"),
-            turbine_pressure_ratio=_number(payload, "turbine_pressure_ratio"),
+            turbine_gamma=_optional_number(payload, "turbine_gamma"),
+            turbine_pressure_ratio=_optional_number(payload, "turbine_pressure_ratio"),
+            pump_feed_policy=payload.get("pump_feed_policy", "shared-pump"),
         )
     )
+
+
+def _study_request_integer(payload, key, default):
+    """Keep JSON integers and integral form text exact, including large seeds."""
+    value = payload.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise InputError(f'{key} must be an integer.', field=key)
+    if isinstance(value, int):
+        return value
+    try:
+        number = Decimal(value) if isinstance(value, str) else Decimal.from_float(value)
+        if not number.is_finite() or number != number.to_integral_value():
+            raise InputError(f'{key} must be a finite integer.', field=key)
+        return int(number)
+    except (InvalidOperation, ValueError, OverflowError) as error:
+        raise InputError(f'{key} must be an integer.', field=key) from error
+
+
+def _uncertainty_delta_v(sample):
+    """Round the product once; log retains the platform math.log contract."""
+    return _finite_rational(Fraction(STANDARD_GRAVITY_M_S2)
+                            * Fraction(sample['specific_impulse_s'])
+                            * Fraction(log(sample['mass_ratio'])), 'Uncertainty delta-v')
+
+
+def _validate_uncertainty_physical_ranges(parameters):
+    for parameter in parameters:
+        if ((parameter.name == 'specific_impulse_s' and parameter.minimum <= 0)
+                or (parameter.name == 'mass_ratio' and parameter.minimum < 1)):
+            raise InputError('Isp must be positive and mass ratio at least one over the entire range.',
+                             field=parameter.name)
 
 
 def calculate_uncertainty_route(payload: dict[str, Any]) -> dict[str, Any]:
@@ -913,7 +948,7 @@ def calculate_uncertainty_route(payload: dict[str, Any]) -> dict[str, Any]:
         raise InputError("parameters must be a list.", field="parameters")
     parameters = tuple(
         ParameterRange(
-            name=str(item.get("name", "")),
+            name=item.get("name", ""),
             minimum=_number(item, "minimum"),
             maximum=_number(item, "maximum"),
         )
@@ -928,14 +963,13 @@ def calculate_uncertainty_route(payload: dict[str, Any]) -> dict[str, Any]:
             "rocket-delta-v uncertainty requires specific_impulse_s and mass_ratio ranges.",
             field="parameters",
         )
+    _validate_uncertainty_physical_ranges(parameters)
     result = propagate_uncertainty(
         parameters,
-        evaluator=lambda sample: STANDARD_GRAVITY_M_S2
-        * sample["specific_impulse_s"]
-        * log(sample["mass_ratio"]),
-        sample_count=_integer(payload, "sample_count", default=200),
-        seed=_integer(payload, "seed", default=42),
-        method=str(payload.get("method", "latin-hypercube")),
+        evaluator=_uncertainty_delta_v,
+        sample_count=_study_request_integer(payload, "sample_count", 200),
+        seed=_study_request_integer(payload, "seed", 42),
+        method=payload.get("method", "latin-hypercube"),
     )
     return asdict(result)
 
@@ -1438,15 +1472,20 @@ ROUTE_METADATA = {
     ),
     "/api/v1/rocket-equation": ModelMetadata(
         model="Tsiolkovsky ideal rocket equation",
-        version="1.0",
-        assumptions=("constant effective exhaust velocity", "no gravity or drag losses"),
-        units={"*_kg": "kg", "*_m_s": "m/s", "specific_impulse_s": "s", "*_ratio": "1"},
+        version="2.0",
+        assumptions=("constant effective exhaust velocity", "no gravity or drag losses",
+                     "retained solve mode and performance input; independent checked exports",
+                     "finite precision directed log/exp enclosures; no hardware validation"),
+        units={"*_kg": "kg", "*_m_s": "m/s", "specific_impulse_s": "s", "*_ratio": "1",
+               "propellant_mass_fraction": "1"},
     ),
     "/api/v1/thrust": ModelMetadata(
         model="steady rocket thrust equation",
-        version="1.0",
-        assumptions=("steady one-dimensional exit plane", "uniform exit properties"),
-        units={"*_kg_s": "kg/s", "*_m_s": "m/s", "*_m2": "m2", "*_pa": "Pa", "*_n": "N"},
+        version="2.0",
+        assumptions=("steady one-dimensional exit plane", "uniform exit properties",
+                     "exact binary-input pressure/momentum ledger; retained impulse duration"),
+        units={"*_kg_s": "kg/s", "*_m_s": "m/s", "*_m2": "m2", "*_pa": "Pa", "*_n": "N",
+               "specific_impulse_s": "s", "burn_time_s": "s", "total_impulse_n_s": "N s"},
     ),
     "/api/v1/burn/simulate": ModelMetadata(
         model="standalone analytic constant/profiled propulsion burn",
@@ -1542,18 +1581,23 @@ ROUTE_METADATA = {
     ),
     "/api/v1/engine-cycle": ModelMetadata(
         model="preliminary engine-cycle component energy balance",
-        version="1.0",
+        version="2.0",
         assumptions=(
             "single equivalent propellant density",
             "constant component efficiencies",
             "no turbomachinery maps or cavitation model",
+            "shared-pump GG includes generator flow; external GG feed is explicitly excluded",
+            "pressure-fed requirements sizing; hot-gas pressure and hardware feasibility not closed",
         ),
-        units={"*_pa": "Pa", "*_w": "W", "*_kg_s": "kg/s", "*_j_kg": "J/kg"},
+        units={"*_pa": "Pa", "*_w": "W", "*_kg_s": "kg/s", "*_j_kg": "J/kg", "*_fraction": "1"},
     ),
     "/api/v1/uncertainty": ModelMetadata(
         model="seeded bounded uncertainty propagation",
-        version="1.0",
-        assumptions=("uniform independent inputs", "Pearson linear sensitivity ranking"),
+        version="2.0",
+        assumptions=("declared independent uniform input marginals; LHS rows dependent",
+                     "empirical sample summaries; no qualified confidence coverage",
+                     "Pearson linear screening; undefined for constant vectors",
+                     "ideal Tsiolkovsky relation; platform math.log and checked product"),
         units={"output_*": "m/s", "specific_impulse_s": "s", "mass_ratio": "1"},
     ),
     "/api/v1/workspace": ModelMetadata(

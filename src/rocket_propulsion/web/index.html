@@ -1131,6 +1131,7 @@
           <div class="workbench compact" data-module="engine-cycle">
             <form class="control-panel" id="engine-cycle-form">
               <label><span>Çevrim</span><select name="cycle"><option value="pressure-fed">Basınç beslemeli</option><option value="gas-generator" selected>Gas-generator</option><option value="staged-combustion">Staged combustion</option></select></label>
+              <label><span>GG itici akış beslemesi</span><select name="pump_feed_policy"><option value="shared-pump">Ortak pompa: ana oda + GG</option><option value="external-gg-feed">Ayrı GG kaynağı: besleme gücü kapsam dışı</option></select></label>
               <div class="field-row two-columns">
                 <label><span>Oda basıncı (Pa)</span><input name="chamber_pressure_pa" type="number" value="10000000" step="any" required /></label>
                 <label><span>Oda debisi (kg/s)</span><input name="chamber_mass_flow_kg_s" type="number" value="100" step="any" required /></label>
@@ -1146,13 +1147,13 @@
               <details><summary>Türbin termodinamiği</summary>
                 <div class="field-row two-columns">
                   <label><span>Türbin verimi</span><input name="turbine_efficiency" type="number" value="0.6" step="any" required /></label>
-                  <label><span>Türbin giriş T (K)</span><input name="turbine_inlet_temperature_k" type="number" value="900" step="any" required /></label>
+                  <label><span>Türbin giriş toplam T0 (K)</span><input name="turbine_inlet_temperature_k" type="number" value="900" step="any" required /></label>
                 </div>
                 <div class="field-row two-columns">
                   <label><span>Türbin cp (J/kg·K)</span><input name="turbine_specific_heat_j_kg_k" type="number" value="2500" step="any" required /></label>
                   <label><span>Türbin γ</span><input name="turbine_gamma" type="number" value="1.25" step="any" required /></label>
                 </div>
-                <label><span>Türbin basınç oranı</span><input name="turbine_pressure_ratio" type="number" value="8" step="any" required /></label>
+                <label><span>Toplam basınç oranı Pt,giriş / Pt,çıkış</span><input name="turbine_pressure_ratio" type="number" value="8" step="any" required /></label>
               </details>
               <button type="submit">Çevrim dengesini çöz <b aria-hidden="true">→</b></button>
               <p class="form-message" role="status" aria-live="polite"></p>
@@ -1162,6 +1163,7 @@
               <article><span>Türbin gücü</span><strong data-key="turbine_power_w">—</strong><small>W</small></article>
               <article><span>Türbin debi oranı</span><strong data-key="turbine_flow_fraction">—</strong><small>—</small></article>
               <article><span>Güç artığı</span><strong data-key="power_balance_residual_w">—</strong><small>W</small></article>
+              <p id="cycle-scope-note">Bileşen boyutlandırması; tüm motorun çalışabilirliğini doğrulamaz.</p>
             </div>
           </div>
 
@@ -1187,9 +1189,12 @@
               <div class="result-group"><dl>
                 <div><dt>Ortalama Δv (m/s)</dt><dd data-key="output_mean">—</dd></div>
                 <div><dt>Standart sapma (m/s)</dt><dd data-key="output_standard_deviation">—</dd></div>
-                <div><dt>P05 (m/s)</dt><dd id="uncertainty-p05">—</dd></div>
-                <div><dt>P95 (m/s)</dt><dd id="uncertainty-p95">—</dd></div>
+                <div><dt>Örnek P05 (m/s)</dt><dd id="uncertainty-p05">—</dd></div>
+                <div><dt>Örnek P95 (m/s)</dt><dd id="uncertainty-p95">—</dd></div>
               </dl></div>
+              <p id="uncertainty-inference">P05/P95 örnek yüzdelikleridir; güven aralığı değildir.</p>
+              <p>Pearson doğrusal ilişki taraması</p>
+              <ul id="uncertainty-sensitivity"></ul>
               <div class="chart-grid compact-charts"><figure class="chart-figure chart-span-two"><figcaption>Örneklenen Δv</figcaption><svg class="engineering-chart" id="uncertainty-chart" role="img" aria-label="Belirsizlik örneklerine göre delta v"></svg></figure></div>
             </div>
           </div>

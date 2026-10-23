@@ -11,6 +11,10 @@ propagates each retained thrust/mass-flow realization.
 Implementation:
 `rocket_propulsion.propulsion.burns.uncertainty`.
 
+The separate generic `studies.sampling` API and delta-v UI have a bounded review
+in `STUDY_SAMPLING_REVIEW.md`; they retain empirical sample summaries and do not
+establish physical or confidence-coverage qualification.
+
 ## Credibility rules
 
 Every uncertain input must declare:

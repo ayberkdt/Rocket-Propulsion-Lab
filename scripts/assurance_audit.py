@@ -146,6 +146,38 @@ FREE_SPACE_REVIEW = {
     '_range_output', '_range_output.rounded',
     'FreeSpaceBurnMetrics.__post_init__', 'free_space_burn_metrics',
 }
+CYCLE_COMPONENT_REVIEW = {
+    'propulsion/cycles.py': {'EngineCycleInputs','EngineCycleInputs.__post_init__',
+        'EngineCycleResult','EngineCycleResult.__post_init__','_cycle_warnings',
+        '_cycle_values','calculate_engine_cycle'},
+    'propulsion/cycle_numerics.py': {'_integer_root','_exact_turbine_work','_work_bounds',
+        '_work_relation','_power_feasible','_fraction_outputs','_dependent_bounds',
+        'component_power_outputs','component_power_outputs.<lambda@125:41>',
+        'component_power_outputs.bounds','component_power_outputs.<lambda@137:53>'},
+    'api/routes.py': {'calculate_engine_cycle_route'},
+}
+PERFORMANCE_REVIEW = {
+    'propulsion/performance.py': {'RocketEquationResult', 'RocketEquationResult.__post_init__',
+        'ThrustResult', 'ThrustResult.__post_init__', '_positive', '_performance_values',
+        '_rocket_values', 'calculate_rocket_equation', '_thrust_values', 'calculate_thrust'},
+    'propulsion/performance_numerics.py': {'_positive_enclosed_output', '_scaled_log',
+        '_scaled_log.evaluate', '_exp_interval', '_scaled_exp', '_scaled_exp.evaluate',
+        '_scaled_exp_complement', '_scaled_exp_complement.evaluate', '_inverse_mass_outputs'},
+    'api/routes.py': {'calculate_rocket_equation_route', 'calculate_thrust_route'},
+}
+STUDY_SAMPLING_REVIEW = {
+    'studies/sampling.py': {'_FrozenValues', '_FrozenValues.__new__',
+        '_FrozenValues.__init__', '_FrozenValues._immutable', '_FrozenValues.copy',
+        '_FrozenValues.__deepcopy__', '_FrozenValues.__reduce_ex__', '_owned_values',
+        'ParameterRange', 'ParameterRange.__post_init__', 'SweepPoint', 'SweepPoint.__post_init__',
+        'SensitivityRecord', 'SensitivityRecord.__post_init__', 'UncertaintyResult',
+        'UncertaintyResult.__post_init__', '_validate_ranges', '_count', '_controls',
+        '_method', '_affine', 'latin_hypercube_samples', 'monte_carlo_samples',
+        '_evaluator', 'parameter_sweep', '_percentile', '_correlation', '_summaries',
+        '_sensitivities', '_sensitivities.<lambda@269:26>', '_warnings', 'propagate_uncertainty'},
+    'api/routes.py': {'_number', '_study_request_integer', '_uncertainty_delta_v',
+        '_validate_uncertainty_physical_ranges', 'calculate_uncertainty_route'},
+}
 SAMPLE_SUMMARY_REVIEW = {
     'propulsion/burns/sample_statistics.py': {'_SampleLedger', '_sample_ledger',
         '_linear_quantile', '_affine_sqrt_output', '_affine_sqrt_output.compare',
@@ -351,6 +383,12 @@ def _review_scopes(path, name):
     scopes = (["source_trace_and_software_verification_only"]
               if "studies/sass/" in path.as_posix() else [])
     groups = (
+        (CYCLE_COMPONENT_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_preliminary_cycle_routed_component_ledgers_capacity_records_and_api_only_no_hardware_closure'),
+        (PERFORMANCE_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_ideal_rocket_and_steady_thrust_exact_ledgers_enclosed_exports_and_retained_records_only'),
+        (STUDY_SAMPLING_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_generic_study_affine_draws_owned_records_empirical_summaries_and_uncertainty_api_only'),
         (SAMPLE_SUMMARY_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
          'targeted_blowdown_sample_summary_arithmetic_retained_records_and_stability_only_no_coverage_claim'),
         (MARGINAL_SAMPLER_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),

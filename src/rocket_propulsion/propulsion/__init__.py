@@ -28,7 +28,7 @@ from .burns import (
     simulate_constant_burn,
     simulate_profiled_burn,
 )
-from .cycles import EngineCycleResult, calculate_engine_cycle
+from .cycles import EngineCycleInputs, EngineCycleResult, calculate_engine_cycle
 from .losses import LossTerm, PerformanceLossBudget, calculate_loss_budget
 from .performance import (
     STANDARD_GRAVITY_M_S2,
@@ -56,6 +56,7 @@ __all__ = [
     "ConstantBurnReduction",
     "ConstantPerformanceProvider",
     "EngineCycleResult",
+    "EngineCycleInputs",
     "EngineOperatingPoint",
     "FlowDestination",
     "LossTerm",

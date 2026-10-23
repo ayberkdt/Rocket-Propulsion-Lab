@@ -46,6 +46,50 @@ The authoritative endpoint inventory and per-route metadata live in
 accepted directly in JSON; form-friendly staging and uncertainty aliases are
 also supported by the browser interface.
 
+## Ideal rocket equation and steady thrust
+
+`/api/v1/rocket-equation` and `/api/v1/thrust` use model metadata version 2.0.
+Rocket results add `solve_mode`, `performance_input` and `numerical_policy`;
+thrust results add `burn_time_s` and `numerical_policy`. These retain the source
+quantities needed to reproduce each output. In inverse solves rounded final and
+initial masses can coincide while positive propellant consumption remains.
+Preserve the original mode/input tags when reconstructing a record. An impulse
+record also requires its duration. Named DomainError denotes an invalid input or
+unrepresentable mandatory output; ConvergenceError denotes unresolved rounding,
+not proof of unrepresentability. See `PERFORMANCE_ARITHMETIC_REVIEW.md`.
+
+## Engine-cycle component sizing
+
+`POST /api/v1/engine-cycle` has model metadata version 2.0. Its default
+`pump_feed_policy=shared-pump` includes generator flow in GG pump duty and solves
+the feedback balance jointly. `external-gg-feed` applies only to GG and explicitly
+excludes its separate supply energy. Staged turbine flow returns to the chamber.
+Turbine input temperature and pressure ratio use total quantities; the ratio is
+inlet/outlet. Pumped modes require their component inputs; pressure-fed sizing
+can omit them and reports whether inlet pressure meets the declared requirement.
+
+Results add retained `inputs`, `pump_mass_flow_kg_s`, `energy_balance_scope`,
+`numerical_policy`, `inlet_pressure_margin_pa`, its representability flag and
+nullable `pressure_fed_supply_sufficient`. An unrepresentable optional margin is
+null, while the exact sign still decides supply sufficiency. Warnings and scope
+must be retained: algebraic zero residual does not validate integrated hardware
+or hot-gas pressure closure. See `CYCLE_COMPONENT_REVIEW.md`.
+
+## Generic delta-v uncertainty
+
+`POST /api/v1/uncertainty` has model metadata version 2.0. It accepts unique
+`specific_impulse_s` and `mass_ratio` uniform ranges, sample count 2..100000,
+an integer seed, and `latin-hypercube` or `monte-carlo`. Form aliases remain
+supported. Isp must be positive and mass ratio at least one over each full range.
+JSON integer seeds and integral form text retain their exact integer value.
+
+Results add retained `parameters`, `sampling_numerics`, `summary_numerics` and
+inference `warnings`. A constant input/output makes Pearson `correlation`,
+`absolute_correlation` and `rank` null, with `undefined_reason` set to
+`constant_input_or_output`. Clients must handle that null value. P05/P50/P95
+are empirical linear sample percentiles, not confidence intervals. See
+`STUDY_SAMPLING_REVIEW.md` for arithmetic and validation limits.
+
 ## Standalone constant and profiled burns
 
 `POST /api/v1/engine-operating-point` builds a validated L0 operating point.

@@ -67,6 +67,29 @@ function chartTick(value) {
   return Number(value.toPrecision(4)).toString();
 }
 
+function chartAxis(values, paddingFraction) {
+  let minimum = Infinity;
+  let maximum = -Infinity;
+  for (const value of values) {
+    minimum = Math.min(minimum, value);
+    maximum = Math.max(maximum, value);
+  }
+  const scale = Math.max(Math.abs(minimum), Math.abs(maximum)) || 1;
+  let lower = minimum / scale;
+  let upper = maximum / scale;
+  const padding = (upper - lower || 1) * paddingFraction;
+  const finiteLimit = Number.MAX_VALUE / scale;
+  lower = Math.max(-finiteLimit, lower - padding);
+  upper = Math.min(finiteLimit, upper + padding);
+  return {
+    fraction: value => (value / scale - lower) / (upper - lower),
+    // Axis ticks are approximate display values. Keep their final conversion
+    // finite even at the last binary cell; model values are never changed.
+    tick: fraction => Math.max(-Number.MAX_VALUE, Math.min(Number.MAX_VALUE,
+      ((1 - fraction) * lower + fraction * upper) * scale)),
+  };
+}
+
 function renderLineChart(svg, series, { xLabel, yLabel }) {
   const width = 720;
   const height = 280;
@@ -80,19 +103,10 @@ function renderLineChart(svg, series, { xLabel, yLabel }) {
   svg.replaceChildren();
   if (!allPoints.length) return;
 
-  let xMin = Math.min(...allPoints.map((point) => point.x));
-  let xMax = Math.max(...allPoints.map((point) => point.x));
-  let yMin = Math.min(...allPoints.map((point) => point.y));
-  let yMax = Math.max(...allPoints.map((point) => point.y));
-  const xPadding = Math.max((xMax - xMin) * 0.03, 1e-12);
-  const yPadding = Math.max((yMax - yMin) * 0.08, 1e-12);
-  xMin -= xPadding;
-  xMax += xPadding;
-  yMin -= yPadding;
-  yMax += yPadding;
-
-  const xScale = (value) => margin.left + ((value - xMin) / (xMax - xMin)) * plotWidth;
-  const yScale = (value) => margin.top + plotHeight - ((value - yMin) / (yMax - yMin)) * plotHeight;
+  const xAxis = chartAxis(allPoints.map(point => point.x), 0.03);
+  const yAxis = chartAxis(allPoints.map(point => point.y), 0.08);
+  const xScale = value => margin.left + xAxis.fraction(value) * plotWidth;
+  const yScale = value => margin.top + plotHeight - yAxis.fraction(value) * plotHeight;
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
   for (let index = 0; index <= 5; index += 1) {
@@ -102,8 +116,8 @@ function renderLineChart(svg, series, { xLabel, yLabel }) {
     svg.append(
       svgElement("line", { x1: x, y1: margin.top, x2: x, y2: margin.top + plotHeight, class: "chart-grid-line" }),
       svgElement("line", { x1: margin.left, y1: y, x2: margin.left + plotWidth, y2: y, class: "chart-grid-line" }),
-      svgElement("text", { x, y: margin.top + plotHeight + 20, "text-anchor": "middle", class: "chart-tick" }, chartTick(xMin + fraction * (xMax - xMin))),
-      svgElement("text", { x: margin.left - 10, y: y + 4, "text-anchor": "end", class: "chart-tick" }, chartTick(yMax - fraction * (yMax - yMin))),
+      svgElement("text", { x, y: margin.top + plotHeight + 20, "text-anchor": "middle", class: "chart-tick" }, chartTick(xAxis.tick(fraction))),
+      svgElement("text", { x: margin.left - 10, y: y + 4, "text-anchor": "end", class: "chart-tick" }, chartTick(yAxis.tick(1 - fraction))),
     );
   }
   svg.append(
@@ -114,9 +128,16 @@ function renderLineChart(svg, series, { xLabel, yLabel }) {
   );
 
   series.forEach((item, index) => {
-    const path = item.data
-      .map((point, pointIndex) => `${pointIndex ? "L" : "M"}${xScale(Number(point[item.x])).toFixed(2)},${yScale(Number(point[item.y])).toFixed(2)}`)
-      .join(" ");
+    let drawing = false;
+    const parts = [];
+    for (const point of item.data) {
+      const x = Number(point[item.x]);
+      const y = Number(point[item.y]);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) { drawing = false; continue; }
+      parts.push(`${drawing ? "L" : "M"}${xScale(x).toFixed(2)},${yScale(y).toFixed(2)}`);
+      drawing = true;
+    }
+    const path = parts.join(" ");
     svg.append(svgElement("path", { d: path, class: `chart-line ${item.className || `series-${index + 1}`}` }));
   });
 }
@@ -413,9 +434,29 @@ function renderStaging(data) {
   );
 }
 
+function updateCycleControls(form) {
+  const cycle = form.elements.cycle.value;
+  const names = ["propellant_density_kg_m3", "pump_efficiency", "turbine_efficiency",
+    "turbine_inlet_temperature_k", "turbine_specific_heat_j_kg_k", "turbine_gamma", "turbine_pressure_ratio"];
+  for (const name of names) form.elements[name].disabled = cycle === "pressure-fed";
+  form.elements.pump_feed_policy.disabled = cycle !== "gas-generator";
+}
+
 function renderEngineCycle(data) {
   latestCycleResult = data;
   document.getElementById("workspace-message").textContent = "Sistem analizleri çalışma dosyasına eklenmeye hazır.";
+  let scope;
+  if (data.cycle === "pressure-fed") {
+    scope = data.pressure_fed_supply_sufficient === true
+      ? "Girdi basıncı belirtilen enjektör hedefini karşılıyor; bu bir basınç ihtiyacı hesabıdır."
+      : "Girdi basıncı belirtilen enjektör hedefini karşılamıyor; sonuç ulaşılmış bir besleme durumunu göstermiyor.";
+  } else {
+    scope = data.cycle === "gas-generator" && data.inputs?.pump_feed_policy === "external-gg-feed"
+      ? "GG akışı ayrı bir kaynaktan besleniyor; o kaynağın basınç ve güç ihtiyacı bu hesabın dışında."
+      : "Belirtilen akışlar ortak pompa/türbin bileşen modelinde dengeleniyor.";
+  }
+  const messages = (data.warnings || []).map(warning => warning.message).join(" ");
+  document.getElementById("cycle-scope-note").textContent = `${scope} Sıfır güç artığı model özdeşliğidir; deney doğrulaması değildir. ${messages}`;
 }
 
 function renderUncertainty(data) {
@@ -423,6 +464,18 @@ function renderUncertainty(data) {
   document.getElementById("workspace-message").textContent = "Sistem analizleri çalışma dosyasına eklenmeye hazır.";
   document.getElementById("uncertainty-p05").textContent = formatValue(data.output_percentiles.p05, "delta_v_m_s");
   document.getElementById("uncertainty-p95").textContent = formatValue(data.output_percentiles.p95, "delta_v_m_s");
+  const sensitivity = document.getElementById("uncertainty-sensitivity");
+  sensitivity.replaceChildren();
+  for (const record of data.sensitivity) {
+    const item = document.createElement("li");
+    item.textContent = record.correlation === null
+      ? `${record.parameter}: tanımsız (girdi veya çıktı sabit); sıralama yok.`
+      : `${record.rank}. ${record.parameter}: Pearson r = ${formatValue(record.correlation, "correlation")}`;
+    sensitivity.append(item);
+  }
+  document.getElementById("uncertainty-inference").textContent =
+    "P05/P95 örnek yüzdelikleridir; güven aralığı değildir. Pearson yalnızca doğrusal ilişkiyi tarar; fiziksel doğrulama sağlamaz."
+    + (data.method === "latin-hypercube" ? " Latin hypercube satırları bağımlıdır." : "");
   const samples = data.samples.map((sample, index) => ({ index: index + 1, output: sample.output }));
   renderLineChart(
     document.getElementById("uncertainty-chart"),
@@ -456,7 +509,7 @@ function analysisWorkspace() {
       turbine_power_w: latestCycleResult.turbine_power_w,
       delivered_mass_fraction: latestCycleResult.delivered_mass_fraction,
     },
-    model_versions: { "engine-cycle": "1.0" },
+    model_versions: { "engine-cycle": "2.0", "cycle-numerics": latestCycleResult.numerical_policy },
     warnings: (latestCycleResult.warnings || []).map((warning) => warning.message),
   });
   if (latestUncertaintyResult) cases.push({
@@ -470,8 +523,9 @@ function analysisWorkspace() {
       p05: latestUncertaintyResult.output_percentiles.p05,
       p95: latestUncertaintyResult.output_percentiles.p95,
     },
-    model_versions: { "uncertainty": "1.0" },
-    warnings: [],
+    model_versions: { "uncertainty": "2.0", "sampling-numerics": latestUncertaintyResult.sampling_numerics,
+      "summary-numerics": latestUncertaintyResult.summary_numerics },
+    warnings: latestUncertaintyResult.warnings,
   });
   if (latestBurnResult && latestBurnInput) cases.push({
     case_id: "standalone-burn",
@@ -749,6 +803,10 @@ const calculators = [
   ["rocket-form", "/api/v1/rocket-equation"],
   ["thrust-form", "/api/v1/thrust"],
 ];
+
+const cycleForm = document.getElementById("engine-cycle-form");
+cycleForm.addEventListener("change", () => updateCycleControls(cycleForm));
+updateCycleControls(cycleForm);
 
 for (const [formId, endpoint, onSuccess] of calculators) {
   const form = document.getElementById(formId);
