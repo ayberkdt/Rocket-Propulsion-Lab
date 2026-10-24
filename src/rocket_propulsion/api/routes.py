@@ -1469,11 +1469,13 @@ ROUTE_METADATA = {
     ),
     "/api/v1/nozzle-contour": ModelMetadata(
         model="multi-fidelity axisymmetric nozzle contour",
-        version="2.0",
+        version="2.1",
         assumptions=(
             "axisymmetric equivalent-area geometry",
-            "quasi-one-dimensional isentropic station properties",
-            "planar compatibility equations for MOC",
+            "prescribed isentropic station states; construction and flow applicability remain under review",
+            "mapped planar MOC field; full axisymmetric source-term solve not implemented",
+            "exported closed sampled fluid domain, not a manufactured nozzle wall; STL coordinates in metres",
+            "owned export replay and binary64 coordinate round trips do not establish physical qualification",
         ),
         units={"*_m": "m", "*_m2": "m2", "mach": "1", "*_ratio": "1"},
         references=(

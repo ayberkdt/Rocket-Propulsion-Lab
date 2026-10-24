@@ -161,6 +161,14 @@ function renderPolytropicCharts(data) {
 
 let latestGeometryExports = null;
 
+function renderGeometryExportScope(exports) {
+  const units = exports?.coordinate_unit === "m"
+    ? "Koordinatlar metre cinsindedir; STL içe aktarırken metre birimini seçin."
+    : "STL birimi dosyanın içinde standart olarak taşınmaz; içe aktarma birimini doğrulayın.";
+  document.getElementById("geometry-export-scope-note").textContent =
+    `Dışa aktarılan STL, örneklenmiş kapalı akış hacminin yüzeyidir. Duvar kalınlığı veya üretim çizimi içermez. ${units} Akış çözümünün ve donanımın fiziksel doğrulaması açık. SVG görünümünde eksenler ayrı ölçeklenir.`;
+}
+
 function renderGeometryComparison(records = []) {
   const body = document.getElementById("geometry-comparison-body");
   body.replaceChildren();
@@ -211,6 +219,7 @@ function renderNozzleGeometry(data) {
     { xLabel: "x (m)", yLabel: "Statik / toplam" },
   );
   latestGeometryExports = data.exports || null;
+  renderGeometryExportScope(latestGeometryExports);
   renderGeometryComparison(data.comparison);
 }
 
@@ -228,6 +237,7 @@ async function downloadGeometryExport(format) {
     const result = await response.json();
     if (!response.ok) throw new Error(apiErrorMessage(result, "Dışa aktarma üretilemedi."));
     latestGeometryExports = result.data.exports;
+    renderGeometryExportScope(latestGeometryExports);
   }
   const mediaTypes = {
     csv: "text/csv;charset=utf-8",

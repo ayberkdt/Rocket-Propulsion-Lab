@@ -3,6 +3,7 @@ from collections import Counter
 from collections.abc import Mapping
 import csv
 from dataclasses import asdict, replace
+from decimal import Decimal, localcontext
 from fractions import Fraction
 import io
 from math import isfinite, pi, sin, ulp
@@ -11,6 +12,7 @@ import xml.etree.ElementTree as ET
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.geometry import NozzleContour, NozzleStation, export_nozzle_contour, generate_rao_contour
+from rocket_propulsion.api import routes as api_routes
 
 
 def cylinder(radius=.125,length=.3,name='prescribed cylinder'):
@@ -32,9 +34,18 @@ def facets(text):
     return result
 
 
-def cross(a,b):return (a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0])
+def cross(a,b):
+    # Convert BEFORE multiplication: even the oracle's private cross product
+    # can exceed binary64 although every serialized vertex/normal is finite.
+    a=tuple(map(Fraction,a));b=tuple(map(Fraction,b))
+    return (a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0])
 def vector(a,b):return tuple(Fraction(y)-Fraction(x) for x,y in zip(a,b))
 def dot(a,b):return sum((Fraction(x)*Fraction(y) for x,y in zip(a,b)),Fraction(0))
+
+
+def svg_tree(text):
+    try:return ET.fromstring(text)
+    except ET.ParseError as error:raise AssertionError(f'Exported SVG must be well-formed XML: {error}') from error
 
 
 def dxf_points(text):
@@ -110,7 +121,7 @@ class GeometryExportAttacks(unittest.TestCase):
         for s in c.stations:self.assertIn((s.x_m,s.radius_m,0.),points)
 
     def test_svg_tiny_geometry_uses_viewport_without_absolute_length_floor(self):
-        tree=ET.fromstring(self.valid(cylinder(1e-150,1e-150)).svg)
+        tree=svg_tree(self.valid(cylinder(1e-150,1e-150)).svg)
         polygon=tree.find('{http://www.w3.org/2000/svg}polygon')
         points=[tuple(map(float,item.split(','))) for item in polygon.attrib['points'].split()]
         self.assertGreater(max(p[0] for p in points)-min(p[0] for p in points),1000.)
@@ -118,7 +129,7 @@ class GeometryExportAttacks(unittest.TestCase):
 
     def test_svg_metadata_is_literal_text_not_executable_xml(self):
         name='prescribed </metadata><script>alert(1)</script><metadata> & source'
-        tree=ET.fromstring(self.valid(cylinder(name=name)).svg)
+        tree=svg_tree(self.valid(cylinder(name=name)).svg)
         self.assertFalse(any(e.tag.rsplit('}',1)[-1]=='script' for e in tree.iter()))
         self.assertIn(name,tree.find('{http://www.w3.org/2000/svg}metadata').text)
 
@@ -187,6 +198,97 @@ class GeometryExportAttacks(unittest.TestCase):
         self.assertEqual(r.mesh_role,'closed_fluid_domain_visualization')
         self.assertEqual(r.coordinate_unit,'m')
         self.assertFalse(r.manufacturing_qualified);self.assertFalse(r.physical_model_qualified)
+
+    def test_converging_and_diverging_frusta_reproduce_independent_volume(self):
+        base=cylinder();radii=(.375,.125,.25);xs=(-.2,0.,.3)
+        stations=tuple(NozzleStation(x,r,pi*r*r,(r/.125)**2,1.,.5,.8) for x,r in zip(xs,radii))
+        c=replace(base,stations=stations,area_ratio=4.)
+        for count in (9,11,128):
+            with self.subTest(count=count):
+                _,_,volume=self.mesh(c,count)
+                expected=sum((xs[i+1]-xs[i])*(radii[i]**2+radii[i]*radii[i+1]+radii[i+1]**2)
+                             for i in range(2))*count*sin(2*pi/count)/6
+                self.assertLess(abs(float(volume)/expected-1),1e-13)
+
+    def test_normals_match_independent_high_precision_vertex_cross_products(self):
+        c=generate_rao_contour(throat_area_m2=.01,area_ratio=16.,station_count=41)
+        mesh=facets(self.valid(c).stl)
+        for _,(a,b,d) in mesh[::31]:
+            exact=cross(vector(a,b),vector(a,d));expected=[]
+            for precision in (110,180):
+                with localcontext() as ctx:
+                    ctx.prec=precision
+                    values=[Decimal(v.numerator)/Decimal(v.denominator) for v in exact]
+                    magnitude=sum(v*v for v in values).sqrt()
+                    expected.append(tuple(float(v/magnitude) for v in values))
+            self.assertEqual(expected[0],expected[1])
+            actual=next(normal for normal,points in mesh if points==(a,b,d))
+            self.assertEqual(actual,expected[1])
+
+    def test_svg_rejects_xml_forbidden_characters_and_preserves_valid_literal_names(self):
+        for name in ('bad\x00name','bad\x01name','bad\ufffename','bad\uffffname'):
+            with self.subTest(name=repr(name)),self.assertRaises(DomainError):export_nozzle_contour(cylinder(name=name))
+        name='A & B < C > D\r\n\t nozzle'
+        tree=svg_tree(self.valid(cylinder(name=name)).svg)
+        self.assertIn(name,tree.find('{http://www.w3.org/2000/svg}metadata').text)
+
+    def test_export_boundary_types_all_consumed_station_scalars_and_contour(self):
+        for c in (None,{},'contour'):
+            with self.subTest(contour=c),self.assertRaises(DomainError):export_nozzle_contour(c)
+        c=cylinder()
+        for name in asdict(c.stations[0]):
+            for value in (True,None,'1',float('inf')):
+                with self.subTest(field=name,value=value),self.assertRaises(DomainError):
+                    export_nozzle_contour(replace(c,stations=(replace(c.stations[0],**{name:value}),c.stations[1])))
+
+    def test_stored_unit_role_and_nominal_geometry_cannot_be_tampered(self):
+        r=self.valid(cylinder())
+        for change in (dict(coordinate_unit='mm'),dict(mesh_role='manufacturable_wall')):
+            with self.subTest(change=change),self.assertRaises(DomainError):replace(r,**change)
+        for change in (dict(throat_area_m2=2*r.inputs.throat_area_m2),dict(area_ratio=4.)):
+            with self.subTest(change=change),self.assertRaises(DomainError):replace(r.inputs,**change)
+
+    def test_large_opposite_axial_coordinates_do_not_overflow_svg_span(self):
+        c=cylinder();points=(replace(c.stations[0],x_m=-1e308),replace(c.stations[1],x_m=1e308))
+        r=self.valid(replace(c,stations=points))
+        tree=svg_tree(r.svg)
+        points=[tuple(map(float,p.split(','))) for p in tree.find('{http://www.w3.org/2000/svg}polygon').attrib['points'].split()]
+        self.assertEqual((min(p[0] for p in points),max(p[0] for p in points)),(30.,1170.))
+
+    def test_unrepresentable_mandatory_normal_component_fails_typed(self):
+        c=cylinder(1e150,1e-200);end=replace(c.stations[1],radius_m=2e150,area_m2=pi*(2e150)**2,area_ratio=4.)
+        with self.assertRaises(DomainError):export_nozzle_contour(replace(c,stations=(c.stations[0],end),area_ratio=4.))
+
+    def test_boolean_mach_has_valid_numeric_positive_control(self):
+        c=cylinder();self.valid(c)
+        with self.assertRaises(DomainError):
+            export_nozzle_contour(replace(c,stations=(replace(c.stations[0],mach=True),c.stations[1])))
+
+    def test_float_angular_count_does_not_impersonate_an_actual_integer(self):
+        self.valid(cylinder(),8);self.valid(cylinder(),128)
+        with self.assertRaises(DomainError):export_nozzle_contour(cylinder(),angular_segments=8.)
+
+    def test_reversed_axial_order_is_refused_before_rendering(self):
+        c=cylinder();self.valid(c)
+        with self.assertRaises(DomainError):export_nozzle_contour(replace(c,stations=tuple(reversed(c.stations))))
+
+
+class GeometryExportApiAttacks(unittest.TestCase):
+    def test_all_geometry_modes_return_owned_export_policy_and_matching_coordinates(self):
+        for mode in ('conical','preliminary','rao','moc'):
+            x=dict(throat_area_m2=.01,area_ratio=16.,contour=mode,station_count=41,
+                   characteristic_count=10,include_exports=True,angular_segments=8)
+            for invoke in (lambda:api_routes.dispatch_calculation('/api/v1/nozzle-contour',x),
+                           lambda:api_routes.calculate_nozzle_contour_route(x)):
+                with self.subTest(mode=mode,path=invoke):
+                    r=invoke();export=r['exports']
+                    self.assertIs(export['manufacturing_qualified'],False)
+                    self.assertIs(export['physical_model_qualified'],False)
+                    self.assertEqual(export['coordinate_unit'],'m')
+                    self.assertEqual(export['mesh_role'],'closed_fluid_domain_visualization')
+                    self.assertEqual(export['inputs']['angular_segments'],8)
+                    points,_=dxf_points(export['dxf'])
+                    self.assertEqual(points[:len(r['stations'])],tuple((s['x_m'],s['radius_m']) for s in r['stations']))
 
 
 if __name__=='__main__':unittest.main()

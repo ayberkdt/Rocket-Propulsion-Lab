@@ -13,7 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class VerificationDiagnosticTests(unittest.TestCase):
     def test_python_timer_records_blocked_test_and_keeps_its_result(self):
-        with tempfile.TemporaryDirectory(dir=ROOT) as folder:
+        parent = ROOT / 'output' / 'assurance' / 'test_artifacts' / 'pytest_diagnostics'
+        parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=parent) as folder:
             fixture = Path(folder) / "test_snapshot_fixture.py"
             fixture.write_text("import time\ndef test_wait_for_snapshot():\n    time.sleep(.25)\n"
                                "    assert 6 * 7 == 42\n", encoding="utf-8")

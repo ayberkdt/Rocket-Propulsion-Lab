@@ -28,6 +28,10 @@ const context = vm.createContext({document, console, FormData});
 const prefix = source.slice(0,source.indexOf('function renderPolytropicCharts('));
 assert.ok(prefix.includes('function renderLineChart('));
 vm.runInContext(prefix, context);
+if (source.includes('function renderGeometryExportScope(')) {
+  vm.runInContext(source.slice(source.indexOf('function renderGeometryExportScope('),
+    source.indexOf('function renderGeometryComparison(')),context);
+}
 const renderSource = source.slice(source.indexOf('function renderUncertainty('),source.indexOf('function analysisWorkspace('));
 assert.ok(renderSource.startsWith('function renderUncertainty('));
 vm.runInContext('let latestUncertaintyResult=null;\n'+renderSource,context);
@@ -209,6 +213,19 @@ check('coolant missing decisions are unknown and transition or shape assumptions
   data.cooling.flow_regime='laminar';data.cooling.inputs={laminar_darcy_poiseuille_number:64};
   context.renderNozzleThermal(data);
   assert.match(document.getElementById('coolant-scope-note').textContent,/dairesel eşdeğer varsayımı/);
+});
+check('geometry exports identify fluid domain, absent wall and STL metre import',()=>{
+  context.renderGeometryExportScope({coordinate_unit:'m',manufacturing_qualified:false,physical_model_qualified:false});
+  const note=document.getElementById('geometry-export-scope-note').textContent;
+  assert.match(note,/kapalı akış hacmi/);assert.match(note,/Duvar kalınlığı veya üretim çizimi içermez/);
+  assert.match(note,/STL içe aktarırken metre birimini seçin/);assert.match(note,/SVG.*ayrı ölçeklenir/);
+  assert.match(note,/fiziksel doğrulaması açık/);
+});
+check('geometry missing units stay unknown even if untrusted qualification flags are true',()=>{
+  context.renderGeometryExportScope({manufacturing_qualified:true,physical_model_qualified:true});
+  const note=document.getElementById('geometry-export-scope-note').textContent;
+  assert.match(note,/birimini doğrulayın/);assert.match(note,/fiziksel doğrulaması açık/);
+  assert.doesNotMatch(note,/metre cinsindedir/);
 });
 const report={scope:'Actual chart/render/control function executions with instrumented DOM; no browser layout or physics claim',
   source_sha256:crypto.createHash('sha256').update(source).digest('hex'),node:process.version,rows,

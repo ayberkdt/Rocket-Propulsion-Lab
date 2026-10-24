@@ -228,3 +228,36 @@ rocket-propulsion burn export burn-result.json --target sidera `
   --output sidera-plan.json --start 100 --direction 1 0 0 --frame inertial
 ```
 
+## Interior characteristic intersection (Python only)
+
+`solve_moc_axis_point` additionally takes `incoming` and exactly two
+`axis_history` states. `solve_moc_wall_point` takes `incoming` and a
+`MocWallSegment`; its accepted x is in `(x0,x1]`. Their owned
+`MocBoundaryResult` includes signed normalized source diagnostics and always
+retains false full-nozzle/physical qualification flags. These local boundary
+processes are not yet connected to the HTTP nozzle designer; see the
+[boundary review](MOC_BOUNDARY_REVIEW.md).
+
+Python geometry also exposes `MocFlowPoint`, `MocUnitInputs`, `MocUnitResult`
+and `solve_moc_interior_point` for a separately verified interior C+/C-
+intersection. It accepts planar or axisymmetric equations with explicit
+positive-radius restrictions for the latter. Owned results expose raw versus
+coordinate-rounding-adjusted equation residuals and never claim full nozzle
+or physical qualification. This kernel is not connected to the current HTTP
+MOC nozzle generator; its construction findings remain open. See the
+[unit-process review](MOC_UNIT_PROCESS_REVIEW.md).
+
+## Sampled geometry exports (contour model metadata 2.1)
+
+With `include_exports=true`, `/api/v1/nozzle-contour` returns CSV/SVG/DXF/STL
+text plus owned consumed `inputs`, `coordinate_unit="m"`,
+`mesh_role="closed_fluid_domain_visualization"`, `serialization_policy`, and
+actual false `manufacturing_qualified`/`physical_model_qualified` flags. CSV,
+DXF and STL preserve binary64 numbers with 17 significant digits. Reopening a
+Python `ContourExportBundle` requires retained inputs and replays every file.
+Legacy four-text-only construction cannot establish this replay contract.
+STL carries no standardized units: select metres in the receiving application.
+It represents the closed sampled fluid domain, with no nozzle wall thickness.
+SVG independently scales axes; it is not a manufacturing drawing. Contour
+construction and MOC flow findings remain open; see [geometry review](GEOMETRY_REVIEW.md).
+
