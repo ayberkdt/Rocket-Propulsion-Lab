@@ -25,7 +25,7 @@ scope labels must be read within these limits. See
 | Off-design nozzle | analytical regime order, internal-shock mass conservation, atmosphere sweep | software checks cover perfect gas |
 | Separation | NASA SP-8041/Summerfield screen and validity warning | screening only |
 | Rao/MOC geometry | common contract, wall/centerline residuals, 2× mesh refinement | software checks cover documented approximation |
-| CAD exchange | CSV/SVG and parsed DXF/STL dimension tests | software checks cover preliminary exchange |
+| CAD exchange | CSV/SVG and parsed DXF/STL tests; expanded hostile baseline currently fails, see [geometry review](GEOMETRY_REVIEW.md) | repair pending for orientation, precision, scaling, metadata and input/result contracts; current expanded suite is not green |
 | Loss-factor model | declared operating bases, exact ledgers, replay and first-order covariance tests | conditional coefficient model; coupled nozzle physics and statistical coverage remain unqualified |
 | Prescribed Bartz profile | independent signed profile equations, Gaussian surface-integration oracle, guarded geometry, retained replay and controlled faults; see [Bartz review](BARTZ_REVIEW.md) | integral ledger identity is not measured energy closure; prescribed wall/gas states, empirical domain, unsampled-profile error and hardware applicability remain unqualified |
 | Bulk regenerative cooling | exact energy/laminar ledgers, enclosed turbulent formula, exact limit/regime decisions, explicit cross-section factor, owned replay and controlled faults; see [regenerative review](REGENERATIVE_REVIEW.md) | prescribed single-phase model; transition/cross-section/correlation applicability, wall coupling, changing properties, boiling and hardware validation remain open |
