@@ -173,6 +173,11 @@ MOC_BOUNDARY_REVIEW = {
         '_wall_slope','_wall_angle','_wall_position','_wall_topology','_wall_rows','_wall_metrics','_solve_wall',
         'MocBoundaryResult','MocBoundaryResult.__post_init__','solve_moc_axis_point','solve_moc_wall_point'},
 }
+MOC_DEPARTURE_REVIEW = {
+    'geometry/moc_axis_departure.py': {'MocAxisDepartureInputs','MocAxisDepartureInputs.__post_init__',
+        '_parents','_axis_expansion','_rows','_metrics','_private_topology','_stored_topology','_pack','_solve',
+        'MocAxisDepartureResult','MocAxisDepartureResult.__post_init__','solve_moc_axis_departure'},
+}
 BARTZ_REVIEW = {
     'thermodynamics/heat_transfer.py': {'_owned','BartzContourStation','BartzContourStation.__post_init__',
         '_rounding_cell','BartzContour','BartzContour.__post_init__','_contour','BartzInputs','BartzInputs.__post_init__',
@@ -441,6 +446,8 @@ def _review_scopes(path, name):
     scopes = (["source_trace_and_software_verification_only"]
               if "studies/sass/" in path.as_posix() else [])
     groups = (
+        (MOC_DEPARTURE_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_owned_axis_departure_second_order_radial_regularity_signed_oracles_and_coupled_stencil_stability_only_no_full_field_or_hardware_qualification'),
         (MOC_BOUNDARY_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
          'targeted_constant_gamma_axis_regularity_and_prescribed_finite_wall_characteristic_boundaries_with_signed_radial_oracles_only_no_full_field_or_hardware_qualification'),
         (MOC_UNIT_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),

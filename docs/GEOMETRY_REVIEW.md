@@ -97,7 +97,9 @@ adds a verified foundation with a genuine cylindrical source term. It has not
 yet been integrated into a full nozzle solver and does not close these legacy
 MOC findings.
 The [axis/wall boundary review](MOC_BOUNDARY_REVIEW.md) supplies local
-regularity/slip processes; it does not qualify the legacy mapped field.
+boundary evidence; the [axis departure review](MOC_AXIS_DEPARTURE_REVIEW.md)
+retains a failed coupled stencil and its second-order regularity repair.
+Neither qualifies the legacy mapped field.
 
 ## References
 

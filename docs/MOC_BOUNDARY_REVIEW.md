@@ -7,6 +7,12 @@ do not supply a sonic/throat starting line, a complete characteristic field,
 wall optimization, shock/crossing treatment, validated exit profiles or
 hardware evidence. All nine motor/feed hardware gates remain unmet.
 
+The [axis-to-interior review](MOC_AXIS_DEPARTURE_REVIEW.md) documents a new
+departure process and a genuine instability found when naively combining
+the locally passing axis process with a two-family endpoint average. The
+repaired near-axis stencil does not turn these local tests into full-field
+stability or nozzle validation.
+
 ## Axis regularity
 
 At a smooth axis, v/r tends to v_r, not generally zero. Cylindrical

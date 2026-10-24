@@ -12,6 +12,8 @@ from .nozzle_contour import NozzleContour, NozzleStation, generate_nozzle_contou
 from .moc_unit_process import MocFlowPoint, MocUnitInputs, MocUnitResult, solve_moc_interior_point
 from .moc_boundary import (MocAxisInputs, MocWallInputs, MocWallSegment, MocBoundaryResult,
                           solve_moc_axis_point, solve_moc_wall_point)
+from .moc_axis_departure import (MocAxisDepartureInputs, MocAxisDepartureResult,
+                                 solve_moc_axis_departure)
 from .rao import generate_rao_contour
 
 __all__ = [
@@ -25,6 +27,8 @@ __all__ = [
     "MocWallInputs",
     "MocWallSegment",
     "MocBoundaryResult",
+    "MocAxisDepartureInputs",
+    "MocAxisDepartureResult",
     "MocUnitInputs",
     "MocUnitResult",
     "MocResiduals",
@@ -38,5 +42,6 @@ __all__ = [
     "solve_moc_interior_point",
     "solve_moc_axis_point",
     "solve_moc_wall_point",
+    "solve_moc_axis_departure",
 ]
 
