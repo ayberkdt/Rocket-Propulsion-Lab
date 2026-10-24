@@ -46,6 +46,93 @@ The authoritative endpoint inventory and per-route metadata live in
 accepted directly in JSON; form-friendly staging and uncertainty aliases are
 also supported by the browser interface.
 
+## Ideal rocket equation and steady thrust
+
+`/api/v1/rocket-equation` and `/api/v1/thrust` use model metadata version 2.0.
+Rocket results add `solve_mode`, `performance_input` and `numerical_policy`;
+thrust results add `burn_time_s` and `numerical_policy`. These retain the source
+quantities needed to reproduce each output. In inverse solves rounded final and
+initial masses can coincide while positive propellant consumption remains.
+Preserve the original mode/input tags when reconstructing a record. An impulse
+record also requires its duration. Named DomainError denotes an invalid input or
+unrepresentable mandatory output; ConvergenceError denotes unresolved rounding,
+not proof of unrepresentability. See `PERFORMANCE_ARITHMETIC_REVIEW.md`.
+
+## Engine-cycle component sizing
+
+`POST /api/v1/engine-cycle` has model metadata version 2.0. Its default
+`pump_feed_policy=shared-pump` includes generator flow in GG pump duty and solves
+the feedback balance jointly. `external-gg-feed` applies only to GG and explicitly
+excludes its separate supply energy. Staged turbine flow returns to the chamber.
+Turbine input temperature and pressure ratio use total quantities; the ratio is
+inlet/outlet. Pumped modes require their component inputs; pressure-fed sizing
+can omit them and reports whether inlet pressure meets the declared requirement.
+
+Results add retained `inputs`, `pump_mass_flow_kg_s`, `energy_balance_scope`,
+`numerical_policy`, `inlet_pressure_margin_pa`, its representability flag and
+nullable `pressure_fed_supply_sufficient`. An unrepresentable optional margin is
+null, while the exact sign still decides supply sufficiency. Warnings and scope
+must be retained: algebraic zero residual does not validate integrated hardware
+or hot-gas pressure closure. See `CYCLE_COMPONENT_REVIEW.md`.
+
+## Generic delta-v uncertainty
+
+`POST /api/v1/uncertainty` has model metadata version 2.0. It accepts unique
+`specific_impulse_s` and `mass_ratio` uniform ranges, sample count 2..100000,
+an integer seed, and `latin-hypercube` or `monte-carlo`. Form aliases remain
+supported. Isp must be positive and mass ratio at least one over each full range.
+JSON integer seeds and integral form text retain their exact integer value.
+
+Results add retained `parameters`, `sampling_numerics`, `summary_numerics` and
+inference `warnings`. A constant input/output makes Pearson `correlation`,
+`absolute_correlation` and `rank` null, with `undefined_reason` set to
+`constant_input_or_output`. Clients must handle that null value. P05/P50/P95
+are empirical linear sample percentiles, not confidence intervals. See
+`STUDY_SAMPLING_REVIEW.md` for arithmetic and validation limits.
+
+## Loss-factor budget
+
+`POST /api/v1/loss-budget` has model metadata version 2.0. Existing calls default
+to `operating_basis="fixed-mass-flow-lumped"`; its discharge input is a legacy
+performance multiplier, explicitly warned as not physical throat Cd.
+`operating_basis="fixed-pressure-area"` selects separate intrinsic cstar,
+mass-flow Cd and net Cf factors. It exports distinct thrust, Isp and flow ratios;
+signed Isp changes can be negative under independently varied coefficients.
+The model does not close actual gas/nozzle compatibility or validate coefficients.
+
+Optional `correlation_matrix` is a numeric 4x4 JSON array, ordered combustion,
+discharge, boundary_layer, divergence. Default identity declares zero correlation.
+The matrix must be exactly symmetric, unit diagonal and positive semidefinite;
+singular cases are allowed. `relative_uncertainty` is the same relative standard
+input uncertainty per enabled factor; ideal reference uncertainty is excluded.
+Disabled factors supply zero sensitivity. Distinct first-order relative proxies
+are returned for thrust, Isp and flow. Bands carry `coverage_qualified=false`
+and `uncertainty_kind="first_order_relative_factor_covariance_proxy"`.
+
+Inputs, ordered terms, basis and numerical policy are retained and replayed.
+Directly constructing old result/term records without retained inputs is a typed
+migration error. Ordinary calculation calls retain their signature and defaults.
+See [the loss-factor review](LOSS_FACTOR_REVIEW.md) for equations and limits.
+
+## Two-phase exit-state scenarios
+
+`POST /api/v1/two-phase-band` has metadata version 2.0. Optional
+`reference_pressure_thrust_n` defaults to zero, a warned assumption, and is kept
+separate from momentum thrust. `coupling_definition` defaults to
+`exit-velocity-ratio`; `specific-kinetic-energy-ratio` means particle/gas kinetic
+energy **per unit mass**, whose square root supplies the velocity ratio. Existing
+coupling-efficiency field names remain aliases for the selected ratio in [0,1].
+
+Reference total thrust/Isp and reference momentum
+`ideal_thrust_n-reference_pressure_thrust_n` must be positive. Signed pressure
+and nonpositive conditional endpoint thrust are retained with warnings; actual
+gas/nozzle compatibility is unsolved. Separate particle velocity, momentum and
+total-thrust-ratio ranges are returned. The legacy `performance_efficiency_range`
+is a signed total-thrust-ratio alias. Results retain typed inputs and replayed
+fields, with `band_kind="conditional_exit_state_scenario_range"`,
+`physical_bound_qualified=false` and `statistical_coverage_qualified=false`.
+See [the two-phase review](TWO_PHASE_REVIEW.md) for scope and validation gaps.
+
 ## Standalone constant and profiled burns
 
 `POST /api/v1/engine-operating-point` builds a validated L0 operating point.

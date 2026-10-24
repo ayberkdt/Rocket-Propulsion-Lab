@@ -28,8 +28,8 @@ from .burns import (
     simulate_constant_burn,
     simulate_profiled_burn,
 )
-from .cycles import EngineCycleResult, calculate_engine_cycle
-from .losses import LossTerm, PerformanceLossBudget, calculate_loss_budget
+from .cycles import EngineCycleInputs, EngineCycleResult, calculate_engine_cycle
+from .losses import LossBudgetInputs, LossTerm, PerformanceLossBudget, calculate_loss_budget
 from .performance import (
     STANDARD_GRAVITY_M_S2,
     RocketEquationResult,
@@ -44,7 +44,7 @@ from .staging import (
     StagingOptimizationResult,
     optimize_staging,
 )
-from .two_phase import TwoPhasePerformanceBand, calculate_two_phase_band
+from .two_phase import TwoPhaseInputs, TwoPhasePerformanceBand, calculate_two_phase_band
 
 __all__ = [
     "PROPELLANTS",
@@ -56,9 +56,11 @@ __all__ = [
     "ConstantBurnReduction",
     "ConstantPerformanceProvider",
     "EngineCycleResult",
+    "EngineCycleInputs",
     "EngineOperatingPoint",
     "FlowDestination",
     "LossTerm",
+    "LossBudgetInputs",
     "PerformanceLossBudget",
     "ProfiledBurnPoint",
     "ProfiledBurnResult",
@@ -76,6 +78,7 @@ __all__ = [
     "ThrottleSegment",
     "ThrustResult",
     "TwoPhasePerformanceBand",
+    "TwoPhaseInputs",
     "build_burn_html_report",
     "burn_result_from_dict",
     "burn_result_from_json",

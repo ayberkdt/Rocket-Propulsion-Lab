@@ -304,3 +304,14 @@ Sources below support the provisional study package; ITU course identity is not 
 - **NUMPY-2.2-LINEAR-QUANTILE**: NumPy, linear/Hyndman-Fan type-7 sample quantile definition. Accessed 2026-10-21. <https://numpy.org/doc/2.2/reference/generated/numpy.quantile.html>
 - **NIST-PEARSON**: NIST Dataplot, centered-product correlation definition. Accessed 2026-10-21. <https://www.itl.nist.gov/div898/software/dataplot/refman2/auxillar/correlat.htm>
 - **SCIPY-1.14.1-PEARSON**: SciPy, Pearson coefficient and undefined constant-input behavior. Accessed 2026-10-21. <https://docs.scipy.org/doc/scipy-1.14.1/reference/generated/scipy.stats.pearsonr.html>
+
+- **NASA-STEADY-ROCKET-THRUST**: NASA Glenn, momentum and pressure thrust equation. Accessed 2026-10-21. <https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust/>
+
+- **NASA-TMX64749-CYCLE**: R. H. Schmucker, 1973, equivalent cycle power balances and whole pumped mass flows. Theory source, not selected hardware validation. Accessed 2026-10-24. <https://ntrs.nasa.gov/citations/19730016059>
+- **NASA-ENGINESIM-THEORY**: NASA Glenn, ideal gas turbine temperature/pressure and shaft-work relations. Accessed 2026-10-24. <https://www.grc.nasa.gov/www/k-12/airplane/EngineTheory.pdf>
+- **NASA-SP8120-DISCHARGE**: NASA SP-8120, Liquid Rocket Engine Nozzles, 1976, discharge coefficient and flow effects, printed pp.10,19-20,93. Accessed 2026-10-24. <https://ntrs.nasa.gov/api/citations/19770009165/downloads/19770009165.pdf>
+- **ROCKETISP-CSTAR-CD-CONVENTION**: RocketIsp 0.1.13 project documentation, its declared intrinsic cstar/discharge relation; not independent NASA qualification. Accessed 2026-10-24. <https://rocketisp.readthedocs.io/en/latest/efficiencies.html>
+- **NIST-TN1297-COVARIANCE**: NIST TN1297 Appendix A, first-order measurement uncertainty with sensitivity and covariance. Accessed 2026-10-24. <https://www.nist.gov/pml/nist-technical-note-1297/nist-tn-1297-appendix-law-propagation-uncertainty>
+- **DREWNIAK-TWO-PHASE-2022**: Drewniak, Boyer and Yetter, 2022, Eq.(3), separate gas/particle momentum and pressure. Accessed 2026-10-24. <https://ntrs.nasa.gov/citations/20220006969>
+- **KIBBEY-TWO-PHASE-2012**: Kibbey, 2012, coupled gas/particle flow and momentum debit. Accessed 2026-10-24. <https://ntrs.nasa.gov/citations/20120015678>
+- **WHITESIDES-COLD-FLOW-1995**: Whitesides et al., NASA-CR-204231/AIAA95-2724, Table I, air/water pressure-response experiment; calibration is not independent validation. Accessed 2026-10-24. <https://ntrs.nasa.gov/citations/19970015335>
