@@ -26,7 +26,9 @@ scope labels must be read within these limits. See
 | Separation | NASA SP-8041/Summerfield screen and validity warning | screening only |
 | Rao/MOC geometry | common contract, wall/centerline residuals, 2× mesh refinement | software checks cover documented approximation |
 | CAD exchange | CSV/SVG and parsed DXF/STL dimension tests | software checks cover preliminary exchange |
-| Loss and thermal models | switch-off tests, budget/energy residuals, domain warnings | software checks cover preliminary scope |
+| Loss-factor model | declared operating bases, exact ledgers, replay and first-order covariance tests | conditional coefficient model; coupled nozzle physics and statistical coverage remain unqualified |
+| Prescribed Bartz profile | independent signed profile equations, Gaussian surface-integration oracle, guarded geometry, retained replay and controlled faults; see [Bartz review](BARTZ_REVIEW.md) | integral ledger identity is not measured energy closure; prescribed wall/gas states, empirical domain, unsampled-profile error and hardware applicability remain unqualified |
+| Bulk regenerative cooling | exact energy/laminar ledgers, enclosed turbulent formula, exact limit/regime decisions, explicit cross-section factor, owned replay and controlled faults; see [regenerative review](REGENERATIVE_REVIEW.md) | prescribed single-phase model; transition/cross-section/correlation applicability, wall coupling, changing properties, boiling and hardware validation remain open |
 | Workspaces and uncertainty | exact round trip, v1 migration, seeded reproducibility | listed software checks |
 | Staging and cycles | target/constraint tests and component power balance | software checks cover constant-property scope |
 | Constant propulsion burn | analytic inverse cases, stream/tank conservation, cutoff, provider construction, persistence and Python/API/CLI/workspace parity tests | software checks cover L0 preliminary scope |

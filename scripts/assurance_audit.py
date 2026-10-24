@@ -146,6 +146,31 @@ FREE_SPACE_REVIEW = {
     '_range_output', '_range_output.rounded',
     'FreeSpaceBurnMetrics.__post_init__', 'free_space_burn_metrics',
 }
+REGENERATIVE_REVIEW = {
+    'thermodynamics/regenerative.py': {'RegenerativeInputs','RegenerativeInputs.__post_init__','_warnings',
+        'RegenerativeCoolingResult','RegenerativeCoolingResult.__post_init__','_solve','calculate_regenerative_cooling'},
+    'thermodynamics/regenerative_numerics.py': {'_ledgers','_exact_argument','_decimal_log_integer','_argument_bounds',
+        '_friction_basis','_friction_bounds','_optional_output','_values','_values.pressure_bounds'},
+    'api/routes.py': {'calculate_nozzle_thermal_route'},
+}
+BARTZ_REVIEW = {
+    'thermodynamics/heat_transfer.py': {'_owned','BartzContourStation','BartzContourStation.__post_init__',
+        '_rounding_cell','BartzContour','BartzContour.__post_init__','_contour','BartzInputs','BartzInputs.__post_init__',
+        'HeatFluxStation','HeatFluxStation.__post_init__','_warnings','BartzHeatTransferResult',
+        'BartzHeatTransferResult.__post_init__','_solve','calculate_bartz_heat_transfer'},
+    'thermodynamics/bartz_numerics.py': {'_power','_signed_output','_profile','_peak_index','_profile_exports'},
+    'api/routes.py': {'calculate_nozzle_thermal_route'},
+}
+STAGING_REVIEW = {
+    'propulsion/staging.py': {'StageDefinition', 'StageDefinition.__post_init__', '_stage',
+        'StagingInputs', 'StagingInputs.__post_init__', '_inputs', '_units', '_literal_fields',
+        'StageSolution', 'StageSolution.__post_init__', 'StagingOptimizationResult',
+        'StagingOptimizationResult.__post_init__', '_solve', '_mass_factor', '_mass_factor.evaluate', 'optimize_staging'},
+    'propulsion/staging_numerics.py': {'_exponent', '_feasible', '_state', '_increment_identity',
+        '_compare_increment', '_allocate', '_ledger', '_objective_polynomial', '_grid_difference',
+        '_grid_difference.evaluate', '_exports', '_exports.fraction'},
+    'api/routes.py': {'calculate_staging_route'},
+}
 TWO_PHASE_REVIEW = {
     'propulsion/two_phase.py': {'TwoPhaseInputs', 'TwoPhaseInputs.__post_init__', '_retained_inputs',
         '_two_phase_warnings', 'TwoPhasePerformanceBand', 'TwoPhasePerformanceBand.__post_init__',
@@ -396,6 +421,12 @@ def _review_scopes(path, name):
     scopes = (["source_trace_and_software_verification_only"]
               if "studies/sass/" in path.as_posix() else [])
     groups = (
+        (REGENERATIVE_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_prescribed_coolant_exact_energy_laminar_ledgers_enclosed_turbulent_exports_exact_limit_regime_decisions_and_owned_records_only_no_physical_qualification'),
+        (BARTZ_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_prescribed_signed_bartz_profile_owned_geometry_directed_exports_and_reconstructed_surface_integral_only_no_physical_qualification'),
+        (STAGING_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_conditional_finite_grid_staging_capacity_convex_increment_ordering_mass_ledgers_and_owned_records_only_no_continuous_or_hardware_qualification'),
         (TWO_PHASE_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
          'targeted_conditional_two_phase_exit_state_ledgers_algebraic_exports_owned_records_and_api_only_no_physical_bound_qualification'),
         (LOSS_FACTOR_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),

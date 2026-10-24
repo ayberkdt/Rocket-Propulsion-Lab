@@ -776,6 +776,9 @@ def calculate_nozzle_thermal_route(payload: dict[str, Any]) -> dict[str, Any]:
     )
     result = asdict(heat)
     if _boolean(payload, "include_cooling", default=False):
+        if heat.total_heat_load_w <= 0:
+            raise DomainError("The current bulk coolant model requires positive net absorbed heat; signed gas-side heat is not rectified.",
+                              code="unsupported_nonpositive_bulk_heat", field="include_cooling")
         result["cooling"] = asdict(
             calculate_regenerative_cooling(
                 absorbed_heat_w=heat.total_heat_load_w,
@@ -797,6 +800,9 @@ def calculate_nozzle_thermal_route(payload: dict[str, Any]) -> dict[str, Any]:
                 roughness_m=_number(payload, "roughness_m"),
                 maximum_coolant_temperature_k=_number(
                     payload, "maximum_coolant_temperature_k"
+                ),
+                laminar_darcy_poiseuille_number=_number(
+                    payload, "laminar_darcy_poiseuille_number", default=64.0
                 ),
             )
         )
@@ -835,12 +841,12 @@ def calculate_staging_route(payload: dict[str, Any]) -> dict[str, Any]:
     if raw_stages is None and "stage1_specific_impulse_s" in payload:
         raw_stages = [
             {
-                "name": str(payload.get("stage1_name", "Booster")),
+                "name": payload.get("stage1_name", "Booster"),
                 "specific_impulse_s": payload.get("stage1_specific_impulse_s"),
                 "structural_fraction": payload.get("stage1_structural_fraction"),
             },
             {
-                "name": str(payload.get("stage2_name", "Upper")),
+                "name": payload.get("stage2_name", "Upper"),
                 "specific_impulse_s": payload.get("stage2_specific_impulse_s"),
                 "structural_fraction": payload.get("stage2_structural_fraction"),
             },
@@ -853,7 +859,7 @@ def calculate_staging_route(payload: dict[str, Any]) -> dict[str, Any]:
             raise InputError("Each stage must be an object.", field=f"stages[{index}]")
         stages.append(
             StageDefinition(
-                name=str(raw_stage.get("name", f"Stage {index + 1}")),
+                name=raw_stage.get("name", f"Stage {index + 1}"),
                 specific_impulse_s=_number(raw_stage, "specific_impulse_s"),
                 structural_fraction=_number(raw_stage, "structural_fraction"),
             )
@@ -1560,12 +1566,17 @@ ROUTE_METADATA = {
         units={"*_n": "N", "*_s": "s", "*_efficiency": "1", "*_residual_*": "varies"},
     ),
     "/api/v1/nozzle-thermal": ModelMetadata(
-        model="Bartz gas-side heat transfer and experimental regenerative balance",
-        version="1.0-experimental",
+        model="prescribed signed Bartz profile and optional experimental bulk coolant balance",
+        version="2.0",
         assumptions=(
             "steady turbulent hot-gas boundary layer",
             "user-supplied frozen gas properties",
             "single-phase constant-property coolant when cooling is enabled",
+            "nested coolant model 2.0: exact temperature-limit/Reynolds decisions; default laminar Darcy f*Re=64 assumes a circular equivalent",
+            "coolant cross-section/transition/friction domain and boiling applicability are unqualified",
+            "prescribed uniform wall temperature; wall/coolant coupling, radiation and physical applicability are unqualified",
+            "piecewise linear heat-flux/radius reconstruction; no continuous-profile error bound",
+            "zero gas-side residual is an integral ledger identity, not measured energy closure",
         ),
         units={"*_w_m2": "W/m2", "*_w": "W", "*_k": "K", "*_pa": "Pa", "*_m": "m"},
         references=("Bartz correlation, NASA SP-125", "Darcy-Weisbach pressure loss"),
@@ -1581,12 +1592,14 @@ ROUTE_METADATA = {
         units={"*_n": "N", "*_s": "s", "*_fraction": "1", "*_efficiency*": "1", "*_ratio*": "1"},
     ),
     "/api/v1/staging": ModelMetadata(
-        model="discrete constrained multi-stage mass optimizer",
-        version="1.0",
+        model="conditional finite-grid multi-stage initial-mass optimizer",
+        version="2.0",
         assumptions=(
             "Tsiolkovsky equation per stage",
             "constant stage Isp and structural fraction",
             "instantaneous staging without gravity or drag loss",
+            "global optimum on the declared grid; exact grid increments and certified cost comparisons",
+            "two-grid mass difference is diagnostic; no continuous-optimum or physical qualification",
         ),
         units={"*_m_s": "m/s", "*_kg": "kg", "*_s": "s", "*_fraction": "1"},
     ),

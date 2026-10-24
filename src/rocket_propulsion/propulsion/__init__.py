@@ -41,6 +41,7 @@ from .propellants import PROPELLANTS, PropellantRecord, list_propellants
 from .staging import (
     StageDefinition,
     StageSolution,
+    StagingInputs,
     StagingOptimizationResult,
     optimize_staging,
 )
@@ -72,6 +73,7 @@ __all__ = [
     "RocketEquationResult",
     "StageDefinition",
     "StageSolution",
+    "StagingInputs",
     "StagingOptimizationResult",
     "TankDefinition",
     "ThrottleSchedule",

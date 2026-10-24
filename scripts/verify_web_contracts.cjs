@@ -36,6 +36,10 @@ const cycleStart=source.includes('function updateCycleControls(')
 vm.runInContext('let latestCycleResult=null;\n'+source.slice(cycleStart,source.indexOf('function renderUncertainty(')),context);
 vm.runInContext(source.slice(source.indexOf('function renderLossBudget('),source.indexOf('function renderTwoPhaseBand(')),context);
 vm.runInContext(source.slice(source.indexOf('function renderTwoPhaseBand('),source.indexOf('function renderNozzleThermal(')),context);
+vm.runInContext(source.slice(source.indexOf('function renderNozzleThermal('),source.indexOf('let latestStagingResult')),context);
+vm.runInContext('let latestStagingResult=null;let latestBurnResult=null;let latestBurnInput=null;\n'+
+  source.slice(source.indexOf('function renderStaging('),source.indexOf('function updateCycleControls(')),context);
+vm.runInContext(source.slice(source.indexOf('function analysisWorkspace('),source.indexOf('function downloadText(')),context);
 const rows=[];
 function check(name, action) {
   try { action(); rows.push({name,status:'passed'}); }
@@ -148,6 +152,63 @@ check('nonpositive two-phase endpoints and zero-pressure assumption stay visible
   const note=document.getElementById('two-phase-scope-note');
   assert.match(note.textContent,/negatif/);assert.match(note.textContent,/varsayım/);
   assert.match(note.textContent,/<img onerror=bad>/);assert.equal(note.children.length,0);
+});
+check('staging distinguishes absent and non-nested grid comparisons from convergence evidence',()=>{
+  context.renderStaging({stages:[{delta_v_m_s:100}],refinement_performed:false});
+  assert.match(document.getElementById('staging-scope-note').textContent,/mevcut değil/);
+  context.renderStaging({stages:[{delta_v_m_s:100}],refinement_performed:true,refinement_grid_nested:false});
+  assert.match(document.getElementById('staging-scope-note').textContent,/iç içe değil/);
+  assert.match(document.getElementById('staging-scope-note').textContent,/hata sınırı değildir/);
+});
+check('staging workspace retains solved inputs and full artifact after the form changes',()=>{
+  vm.runInContext('latestCycleResult=null;latestUncertaintyResult=null;',context);
+  document.getElementById('staging-form').data=[['target_delta_v_m_s','999']];
+  const data={inputs:{target_delta_v_m_s:100,resolution:40},stages:[{delta_v_m_s:100}],
+    initial_mass_kg:2,payload_fraction:.5,achieved_delta_v_m_s:100,active_constraints:[],
+    refinement_performed:true,refinement_grid_nested:true,continuous_optimum_qualified:false};
+  context.renderStaging(data);
+  const saved=context.analysisWorkspace().cases[0];
+  assert.equal(saved.inputs.target_delta_v_m_s,100);
+  assert.equal(saved.results.artifact,data);
+  assert.equal(saved.model_versions['staging-optimizer'],'2.0');
+  assert.ok(saved.warnings.some(w=>w.includes('unqualified')));
+});
+check('thermal signed flux and unqualified ledger closure remain explicit with no extra warnings',()=>{
+  context.renderNozzleThermal({stations:[{x_m:0,heat_flux_w_m2:1,adiabatic_wall_temperature_k:4},
+    {x_m:1,heat_flux_w_m2:-1,adiabatic_wall_temperature_k:2}],contains_negative_heat_flux:true,warnings:[]});
+  const note=document.getElementById('thermal-warning');
+  assert.match(note.textContent,/negatif/);assert.match(note.textContent,/özdeşliğidir/);
+  assert.match(note.textContent,/ölçülmüş enerji kapanışı değildir/);
+  assert.match(note.textContent,/verilen duvar sıcaklığını/);
+});
+check('thermal warnings are literal text and never imply validated coupled wall cooling',()=>{
+  context.renderNozzleThermal({stations:[{x_m:0,heat_flux_w_m2:1,adiabatic_wall_temperature_k:4},
+    {x_m:1,heat_flux_w_m2:2,adiabatic_wall_temperature_k:3}],warnings:[{message:'<img onerror=bad>'}],
+    cooling:{warnings:[],outlet_temperature_k:200,pressure_drop_pa:1,energy_balance_residual_w:0}});
+  const note=document.getElementById('thermal-warning');
+  assert.match(note.textContent,/<img onerror=bad>/);assert.equal(note.children.length,0);
+  assert.match(note.textContent,/eşlenik.*yapılmaz/);
+  assert.match(note.textContent,/yeterliliği doğrulanmadı/);
+});
+check('coolant exact limit flag stays critical when displayed outlet equals the supplied limit',()=>{
+  context.renderNozzleThermal({stations:[{x_m:0,heat_flux_w_m2:1,adiabatic_wall_temperature_k:4},
+    {x_m:1,heat_flux_w_m2:2,adiabatic_wall_temperature_k:3}],warnings:[],cooling:{
+      outlet_temperature_k:1.0000000000000002,temperature_limit_exceeded:true,warnings:[],
+      energy_balance_residual_w:0,displayed_temperature_energy_residual_w:1}});
+  assert.match(document.getElementById('coolant-scope-note').textContent,/AŞILDI/);
+  assert.match(document.getElementById('coolant-scope-note').textContent,/aynı yuvarlanabilir/);
+  assert.equal(document.getElementById('coolant-energy-residual').textContent,'1');
+});
+check('coolant missing decisions are unknown and transition or shape assumptions remain explicit',()=>{
+  const data={stations:[{x_m:0,heat_flux_w_m2:1,adiabatic_wall_temperature_k:4},
+    {x_m:1,heat_flux_w_m2:2,adiabatic_wall_temperature_k:3}],warnings:[],cooling:{warnings:[]}};
+  context.renderNozzleThermal(data);
+  assert.match(document.getElementById('coolant-scope-note').textContent,/mevcut değil/);
+  data.cooling.flow_regime='transition';context.renderNozzleThermal(data);
+  assert.match(document.getElementById('coolant-scope-note').textContent,/doğrulanmış geçiş bağıntısı değildir/);
+  data.cooling.flow_regime='laminar';data.cooling.inputs={laminar_darcy_poiseuille_number:64};
+  context.renderNozzleThermal(data);
+  assert.match(document.getElementById('coolant-scope-note').textContent,/dairesel eşdeğer varsayımı/);
 });
 const report={scope:'Actual chart/render/control function executions with instrumented DOM; no browser layout or physics claim',
   source_sha256:crypto.createHash('sha256').update(source).digest('hex'),node:process.version,rows,

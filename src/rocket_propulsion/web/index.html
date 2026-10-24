@@ -862,23 +862,25 @@
                   <label><span>Kanal uzunluğu (m)</span><input name="channel_length_m" type="number" value="1" step="any" required /></label>
                 </div>
                 <label><span>Pürüzlülük (m)</span><input name="roughness_m" type="number" value="0.00001" min="0" step="any" required /></label>
+                <label><span>Laminar Darcy f × Re (64: dairesel eşdeğer varsayımı)</span><input name="laminar_darcy_poiseuille_number" type="number" value="64" step="any" required /></label>
               </details>
               <input name="include_cooling" type="hidden" value="true" />
               <input name="station_count" type="hidden" value="121" />
               <button type="submit">Isıl yükleri çöz <b aria-hidden="true">→</b></button>
-              <p class="form-note">Bartz korelasyonu kullanıcı tarafından girilen donmuş gaz özelliklerini kullanır. Kanal modeli tek fazlı ve deneyseldir.</p>
+              <p class="form-note">Duvar sıcaklığı ve gaz özellikleri verilen değerlerdir; duvar/soğutucu eşlenik çözülmez. İşaretli gaz tarafı ısı akısı korunur. Kanal modeli pozitif net ısı yükünde tek fazlı genel denge verir; fiziksel yeterlilik doğrulanmadı.</p>
               <p class="form-message" role="status" aria-live="polite"></p>
             </form>
             <div class="results-panel">
               <div class="result-group"><dl>
                 <div><dt>Tepe ısı akısı (W/m²)</dt><dd data-key="peak_heat_flux_w_m2">—</dd></div>
                 <div><dt>Tepe konumu (m)</dt><dd data-key="peak_location_m">—</dd></div>
-                <div><dt>Toplam ısı yükü (W)</dt><dd data-key="total_heat_load_w">—</dd></div>
+                <div><dt>İşaretli toplam ısı yükü (W)</dt><dd data-key="total_heat_load_w">—</dd></div>
                 <div><dt>Soğutucu çıkış T (K)</dt><dd id="coolant-outlet-temperature">—</dd></div>
                 <div><dt>Soğutucu Δp (Pa)</dt><dd id="coolant-pressure-drop">—</dd></div>
-                <div><dt>Enerji artığı (W)</dt><dd id="coolant-energy-residual">—</dd></div>
+                <div><dt>Sıcaklık gösteriminin enerji farkı (W)</dt><dd id="coolant-energy-residual">—</dd></div>
               </dl></div>
               <p class="model-warning" id="thermal-warning">Korelasyon uyarıları burada gösterilir.</p>
+              <p class="model-warning" id="coolant-scope-note">Soğutucu sıcaklık sınırı ve akış modeli bilgisi burada gösterilir.</p>
               <div class="chart-grid">
                 <figure class="chart-figure"><figcaption>Gaz tarafı ısı akısı</figcaption><svg class="engineering-chart" id="heat-flux-chart" role="img" aria-label="Nozul boyunca gaz tarafı ısı akısı"></svg></figure>
                 <figure class="chart-figure"><figcaption>Adyabatik duvar sıcaklığı</figcaption><svg class="engineering-chart" id="adiabatic-wall-chart" role="img" aria-label="Nozul boyunca adyabatik duvar sıcaklığı"></svg></figure>
@@ -1122,7 +1124,7 @@
               </div>
               <input name="resolution" type="hidden" value="240" />
               <button type="submit">Kademeleri optimize et <b aria-hidden="true">→</b></button>
-              <p class="form-note">Ayrık çözüm, iki kat ağ inceltmesiyle başlangıç kütlesi yakınsamasını raporlar.</p>
+              <p class="form-note">Sabit Isp ve yapı oranıyla Δv ızgarasında kütle en aza indirilir. İki ızgaranın farkı sürekli optimuma yakınlık veya hata sınırı değildir.</p>
               <p class="form-message" role="status" aria-live="polite"></p>
             </form>
             <div class="results-panel">
@@ -1132,6 +1134,7 @@
                 <article><span>Ulaşılan Δv</span><strong data-key="achieved_delta_v_m_s">—</strong><small>m/s</small></article>
                 <article><span>Ağ farkı</span><strong data-key="convergence_delta_initial_mass_relative">—</strong><small>bağıl</small></article>
               </div>
+              <p class="form-note" id="staging-scope-note">Izgara optimumu; sürekli optimum ve donanım yeterliliği doğrulanmadı.</p>
               <div class="chart-grid compact-charts"><figure class="chart-figure chart-span-two"><figcaption>Kademe Δv dağılımı</figcaption><svg class="engineering-chart" id="staging-chart" role="img" aria-label="Kademelere göre delta v dağılımı"></svg></figure></div>
             </div>
           </div>
