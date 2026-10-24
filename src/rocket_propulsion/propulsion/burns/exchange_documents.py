@@ -7,6 +7,7 @@ Programmatic constructors retain their separate iterable and numeric contracts.
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import real
+
 from .tabulated_documents import _validate_document as _tabulated_document
 
 

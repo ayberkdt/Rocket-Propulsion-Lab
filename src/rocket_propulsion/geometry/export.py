@@ -12,8 +12,8 @@ from xml.sax.saxutils import escape
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.validation import _ordered_items, integer, real, text
 
-from .nozzle_contour import NozzleContour, NozzleStation
 from .export_numerics import _check_geometry, _ring, _unit_normal
+from .nozzle_contour import NozzleContour, NozzleStation
 
 _SERIALIZATION_POLICY = 'binary64_round_trip_17_digits_exact_vertex_cross_normals_v1'
 _MESH_ROLE = 'closed_fluid_domain_visualization'

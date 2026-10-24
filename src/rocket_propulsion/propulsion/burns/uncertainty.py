@@ -15,20 +15,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
-from math import isfinite, nextafter, inf
 from fractions import Fraction
+from math import inf, isfinite, nextafter
 from random import Random
 from statistics import NormalDist
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
-from rocket_propulsion.core.validation import coerce_fields, integer, real, records, strings, real_matrix, name_value_pairs, text
-from .marginal_numerics import marginal_value, _GaussianProbability, _SAMPLING_POLICY, _normal_quantile
-from .numeric_outputs import _finite_rational, _fraction
-from .probability_numerics import _sqrt_output
-from .sample_statistics import (
-    _SUMMARY_POLICY, _INTERVAL_KIND, _NORMAL_PROXY_MULTIPLIER,
-    _sample_ledger, _linear_quantile, _affine_sqrt_output, _pearson,
-    _relative_exact, _deviation_relative_change,
+from rocket_propulsion.core.validation import (
+    coerce_fields,
+    integer,
+    name_value_pairs,
+    real,
+    real_matrix,
+    records,
+    strings,
+    text,
 )
 
 from .blowdown import (
@@ -37,7 +38,26 @@ from .blowdown import (
     _scaled_operating_point,
     simulate_pressure_fed_blowdown,
 )
+from .marginal_numerics import (
+    _SAMPLING_POLICY,
+    _GaussianProbability,
+    _normal_quantile,
+    marginal_value,
+)
 from .models import EngineOperatingPoint
+from .numeric_outputs import _finite_rational, _fraction
+from .probability_numerics import _sqrt_output
+from .sample_statistics import (
+    _INTERVAL_KIND,
+    _NORMAL_PROXY_MULTIPLIER,
+    _SUMMARY_POLICY,
+    _affine_sqrt_output,
+    _deviation_relative_change,
+    _linear_quantile,
+    _pearson,
+    _relative_exact,
+    _sample_ledger,
+)
 from .tabulated import TabulatedBurnArtifact
 
 UNCERTAINTY_REFERENCE_IDS = (
@@ -606,9 +626,10 @@ def _validate_uncertainty_result(result):
     names=tuple(p.name for p in result.parameters)
     if not names or len(set(names))!=len(names) or not set(names)<=_BLOWDOWN_INPUT_NAMES or len(result.samples)!=result.sample_count:
         raise DomainError("Blowdown result needs unique parameters and complete sample coverage.")
-    if result.correlation is not None:
-        if not isinstance(result.correlation,CorrelationModel) or result.correlation.parameter_names!=names:
-            raise DomainError("Blowdown correlation order does not match the parameters.")
+    if result.correlation is not None and (
+        not isinstance(result.correlation,CorrelationModel) or result.correlation.parameter_names!=names
+    ):
+        raise DomainError("Blowdown correlation order does not match the parameters.")
     if result.aleatory_parameter_count!=sum(p.uncertainty_class is UncertaintyClass.ALEATORY for p in result.parameters) or result.epistemic_parameter_count!=sum(p.uncertainty_class is UncertaintyClass.EPISTEMIC for p in result.parameters):
         raise DomainError("Blowdown uncertainty class counts do not reproduce.")
     samples=tuple(sorted(result.samples,key=lambda row:row.index))

@@ -10,7 +10,6 @@ from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
 from .inventory import validate_tank_coverage
-from .numeric_outputs import _finite_rational, _fraction
 from .models import (
     BurnDefinition,
     BurnProfilePoint,
@@ -22,6 +21,7 @@ from .models import (
     IntegrationEvidence,
     PropulsionState,
 )
+from .numeric_outputs import _finite_rational, _fraction
 from .serialization import burn_input_hash, burn_result_hash
 
 

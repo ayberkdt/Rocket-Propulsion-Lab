@@ -230,6 +230,15 @@ rocket-propulsion burn export burn-result.json --target sidera `
 
 ## Interior characteristic intersection (Python only)
 
+`solve_moc_axis_departure(axis_result=..., minus_parent=...)` carries an owned
+axis-boundary result into the first off-axis point. Gamma and geometry mode
+are inherited from the axis result. Cylindrical flow uses a second-order
+radial Taylor relation and C- compatibility; the separately exposed
+`averaged_plus_compatibility_defect` is not an enforced equation. Planar
+flow retains the two-family interior process. Inputs/results are
+`MocAxisDepartureInputs` and `MocAxisDepartureResult`. This local process is
+not connected to the HTTP designer; see the [departure review](MOC_AXIS_DEPARTURE_REVIEW.md).
+
 `solve_moc_axis_point` additionally takes `incoming` and exactly two
 `axis_history` states. `solve_moc_wall_point` takes `incoming` and a
 `MocWallSegment`; its accepted x is in `(x0,x1]`. Their owned

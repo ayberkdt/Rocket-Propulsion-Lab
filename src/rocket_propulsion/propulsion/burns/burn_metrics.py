@@ -7,13 +7,14 @@ integration/rounding only. They are not measurement or physical-model uncertaint
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Context, Decimal, ROUND_CEILING, ROUND_FLOOR, localcontext
+from decimal import ROUND_CEILING, ROUND_FLOOR, Context, Decimal, localcontext
 from fractions import Fraction
 from functools import lru_cache
 from math import ceil, cos, inf, log, nextafter, pi
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
 from rocket_propulsion.core.validation import coerce_fields, integer, real
+
 from .numeric_outputs import _finite_rational, _fraction
 from .tabulated import TabulatedBurnArtifact, _artifact_ledger, _segment_ledger
 
@@ -73,7 +74,7 @@ def _mass_intervals(artifact, initial, force_scale, flow_scale):
         q0 = _fraction(segment.start_total_mass_flow_kg_s) * flow_scale
         q1 = _fraction(segment.end_total_mass_flow_kg_s) * flow_scale
 
-        def mass_at(x):
+        def mass_at(x, *, mass_start=mass_start, duration=duration, q0=q0, q1=q1):
             return mass_start - duration * (q0 * x + (q1 - q0) * x * x / 2)
 
         pending = [(Fraction(0), Fraction(1))]

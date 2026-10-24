@@ -1,14 +1,14 @@
 """Independent signed Bartz equations, surface integration and hostile records."""
+import unittest
+from collections.abc import Mapping
 from dataclasses import asdict, replace
 from decimal import Decimal, localcontext
-from math import inf, pi, nextafter
-from collections.abc import Mapping
-import unittest
+from math import inf, nextafter, pi
 
-from rocket_propulsion.core.errors import DomainError, ConvergenceError
+from rocket_propulsion.api import routes as api_routes
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
 from rocket_propulsion.geometry import NozzleContour, NozzleStation, generate_rao_contour
 from rocket_propulsion.thermodynamics import calculate_bartz_heat_transfer
-from rocket_propulsion.api import routes as api_routes
 
 
 def contour():
@@ -19,9 +19,9 @@ def contour():
 
 
 def inputs(**changes):
-    return dict(dict(contour=contour(), chamber_pressure_pa=5e6, chamber_temperature_k=3500.,
-        wall_temperature_k=800., characteristic_velocity_m_s=1700., dynamic_viscosity_pa_s=7e-5,
-        specific_heat_j_kg_k=3000., prandtl_number=.7, gamma=1.22, throat_radius_of_curvature_m=.03), **changes)
+    return dict({'contour': contour(), 'chamber_pressure_pa': 5e6, 'chamber_temperature_k': 3500.,
+        'wall_temperature_k': 800., 'characteristic_velocity_m_s': 1700., 'dynamic_viscosity_pa_s': 7e-5,
+        'specific_heat_j_kg_k': 3000., 'prandtl_number': .7, 'gamma': 1.22, 'throat_radius_of_curvature_m': .03}, **changes)
 
 
 def reference(x, precision=180):
@@ -49,8 +49,8 @@ def reference(x, precision=180):
             h = base*pw(d(station.area_ratio), -9, 10)*sigma
             taw = tc*(1+recovery*(compression-1))/compression
             q = h*(taw-tw)
-            raw.append(dict(x_m=d(station.x_m),radius_m=d(station.radius_m),mach=d(station.mach),
-                adiabatic_wall_temperature_k=taw,gas_side_coefficient_w_m2_k=h,heat_flux_w_m2=q))
+            raw.append({'x_m': d(station.x_m),'radius_m': d(station.radius_m),'mach': d(station.mach),
+                'adiabatic_wall_temperature_k': taw,'gas_side_coefficient_w_m2_k': h,'heat_flux_w_m2': q})
         cumulative = Decimal(0); stations = []
         u0, u1 = Decimal('.5')-Decimal(3).sqrt()/6, Decimal('.5')+Decimal(3).sqrt()/6
         for index, station in enumerate(raw):
@@ -65,9 +65,9 @@ def reference(x, precision=180):
                 cumulative += d(pi)*length*value
             stations.append(dict(station, cumulative_heat_w=cumulative))
         peak = max(range(len(raw)), key=lambda i: raw[i]['heat_flux_w_m2'])
-        return dict(stations=tuple({k:float(v) for k,v in row.items()} for row in stations),
-            peak_heat_flux_w_m2=float(raw[peak]['heat_flux_w_m2']),peak_location_m=float(raw[peak]['x_m']),
-            total_heat_load_w=float(cumulative),contains_negative_heat_flux=any(row['heat_flux_w_m2'] < 0 for row in raw))
+        return {'stations': tuple({k:float(v) for k,v in row.items()} for row in stations),
+            'peak_heat_flux_w_m2': float(raw[peak]['heat_flux_w_m2']),'peak_location_m': float(raw[peak]['x_m']),
+            'total_heat_load_w': float(cumulative),'contains_negative_heat_flux': any(row['heat_flux_w_m2'] < 0 for row in raw)}
 
 
 class BartzAttacks(unittest.TestCase):
@@ -194,9 +194,9 @@ class BartzAttacks(unittest.TestCase):
 
     def test_forged_complete_result_and_qualification_are_rejected(self):
         r=self.valid(inputs())
-        for changes in (dict(total_heat_load_w=1e99),dict(energy_balance_residual_w=1.),
-                        dict(physical_model_qualified=True),dict(physical_model_qualified=0),dict(contains_negative_heat_flux=1),
-                        dict(numerical_policy='forged'),dict(quadrature_error_bound_w=0.)):
+        for changes in ({'total_heat_load_w': 1e99},{'energy_balance_residual_w': 1.},
+                        {'physical_model_qualified': True},{'physical_model_qualified': 0},{'contains_negative_heat_flux': 1},
+                        {'numerical_policy': 'forged'},{'quadrature_error_bound_w': 0.}):
             with self.subTest(changes=changes),self.assertRaises(DomainError):replace(r,**changes)
 
     def test_forged_station_in_result_is_rejected(self):

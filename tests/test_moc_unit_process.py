@@ -1,9 +1,11 @@
 """Manufactured radial flow, independent Cartesian balances and hostile boundaries."""
+import itertools
+import unittest
 from collections.abc import Mapping
 from dataclasses import asdict, replace
 from fractions import Fraction
 from math import ldexp, nextafter, sqrt, ulp
-import unittest
+
 import mpmath as mp
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
@@ -32,7 +34,7 @@ def manufactured(*,axisymmetric=True,step=.05,mach=2.,angle=20.,gamma=1.4,precis
             phi=theta+sign*delta
             parents.append(MocFlowPoint(float(radius*mp.cos(phi)),float(radius*mp.sin(phi)),float(p),float(phi*180/mp.pi)))
         expected=(float(2*mp.cos(theta)),float(2*mp.sin(theta)),mach,angle)
-    return dict(plus_parent=parents[0],minus_parent=parents[1],gamma=gamma,axisymmetric=axisymmetric),expected
+    return {'plus_parent': parents[0],'minus_parent': parents[1],'gamma': gamma,'axisymmetric': axisymmetric},expected
 
 
 def error(point,expected):
@@ -46,7 +48,7 @@ class MocUnitProcessAttacks(unittest.TestCase):
         except (DomainError,ArithmeticError) as exc:self.fail(f'Representable characteristic witness rejected: {exc}')
 
     def uniform(self,mach=2.,axisymmetric=True):
-        return dict(plus_parent=MocFlowPoint(0,1,mach,0),minus_parent=MocFlowPoint(0,3,mach,0),axisymmetric=axisymmetric)
+        return {'plus_parent': MocFlowPoint(0,1,mach,0),'minus_parent': MocFlowPoint(0,3,mach,0),'axisymmetric': axisymmetric}
 
     def test_parallel_uniform_flow_matches_closed_form_in_both_geometries(self):
         for axis in (False,True):
@@ -74,7 +76,7 @@ class MocUnitProcessAttacks(unittest.TestCase):
                 x,wanted=manufactured(axisymmetric=axis,step=step,gamma=gamma,mach=mach,angle=angle)
                 r=self.valid(**x);errors.append(error(r.point,wanted))
                 self.assertEqual(r.solution_kind,'iterated_midpoint_intersection')
-            self.assertTrue(all(6<left/right<12 for left,right in zip(errors,errors[1:])),errors)
+            self.assertTrue(all(6<left/right<12 for left,right in itertools.pairwise(errors)),errors)
             self.assertLess(errors[-1],2e-7)
 
     def test_axisymmetric_spherical_flow_has_third_order_local_refinement(self):self.convergence(True)
@@ -96,7 +98,7 @@ class MocUnitProcessAttacks(unittest.TestCase):
             inputs,_=manufactured(axisymmetric=axis);r=self.valid(**inputs)
             with mp.workdps(110):
                 g=exact_mp(inputs['gamma'])
-                def state(p,sign):
+                def state(p,sign, *, g=g, axis=axis):
                     m=exact_mp(p.mach);theta=exact_mp(p.flow_angle_deg)*mp.pi/180
                     a2=(g+1)/(2+(g-1)*m*m);v=m*mp.sqrt(a2)
                     u,w=v*mp.cos(theta),v*mp.sin(theta);lam=mp.tan(theta+sign*mp.asin(1/m))
@@ -154,7 +156,7 @@ class MocUnitProcessAttacks(unittest.TestCase):
         for name in ('x_m','radius_m','mach','flow_angle_deg'):
             for value in (True,None,'2',float('nan'),float('inf')):
                 with self.subTest(field=name,value=value),self.assertRaises(DomainError):replace(self.uniform()['plus_parent'],**{name:value})
-        for change in (dict(mach=1.),dict(mach=.8),dict(flow_angle_deg=90.),dict(flow_angle_deg=70.)):
+        for change in ({'mach': 1.},{'mach': .8},{'flow_angle_deg': 90.},{'flow_angle_deg': 70.}):
             with self.subTest(change=change),self.assertRaises(DomainError):replace(self.uniform()['plus_parent'],**change)
 
     def test_selector_gamma_and_iteration_count_do_not_accept_python_truthiness(self):
@@ -170,15 +172,15 @@ class MocUnitProcessAttacks(unittest.TestCase):
 
     def test_retained_state_residual_iteration_and_policy_cannot_be_forged(self):
         r=self.valid(**manufactured()[0])
-        for change in (dict(point=replace(r.point,mach=r.point.mach+.01)),dict(iterations=r.iterations+1),
-                       dict(equation_residual_max=0.),dict(solution_kind='constant_state_intersection'),dict(numerical_policy='forged')):
+        for change in ({'point': replace(r.point,mach=r.point.mach+.01)},{'iterations': r.iterations+1},
+                       {'equation_residual_max': 0.},{'solution_kind': 'constant_state_intersection'},{'numerical_policy': 'forged'}):
             with self.subTest(change=change),self.assertRaises(DomainError):replace(r,**change)
 
     def test_partial_unit_process_cannot_claim_error_bound_or_nozzle_qualification(self):
         r=self.valid(**manufactured()[0])
         self.assertIsNone(r.discretization_error_bound)
-        for change in (dict(physical_model_qualified=True),dict(physical_model_qualified=0),
-                       dict(full_nozzle_solution=True),dict(discretization_error_bound=0.)):
+        for change in ({'physical_model_qualified': True},{'physical_model_qualified': 0},
+                       {'full_nozzle_solution': True},{'discretization_error_bound': 0.}):
             with self.subTest(change=change),self.assertRaises(DomainError):replace(r,**change)
 
     def test_malformed_mappings_are_typed_and_unrelated_callbacks_propagate(self):
@@ -204,7 +206,7 @@ class MocUnitProcessAttacks(unittest.TestCase):
         self.assertGreater(r.equation_residual_max,1.5e-14)
         self.assertLess(r.rounding_adjusted_residual_max,2e-15)
         self.assertGreater(r.coordinate_rounding_allowance_max,r.equation_residual_max-1.4e-14)
-        for change in (dict(coordinate_rounding_allowance_max=0.),dict(representation_limited=False),dict(representation_limited=1)):
+        for change in ({'coordinate_rounding_allowance_max': 0.},{'representation_limited': False},{'representation_limited': 1}):
             with self.subTest(change=change),self.assertRaises(DomainError):replace(r,**change)
 
     def test_large_translated_planar_intersection_keeps_private_products_finite(self):
@@ -225,7 +227,7 @@ class MocUnitProcessAttacks(unittest.TestCase):
             scale=max(abs(exact_mp(a.x_m)-exact_mp(b.x_m)),abs(exact_mp(a.radius_m)-exact_mp(b.radius_m)))
             bounds=[]
             for parent,sign in ((a,1),(b,-1)):
-                def slope(point):return mp.tan(exact_mp(point.flow_angle_deg)*mp.pi/180+sign*mp.asin(1/exact_mp(point.mach)))
+                def slope(point, *, sign=sign):return mp.tan(exact_mp(point.flow_angle_deg)*mp.pi/180+sign*mp.asin(1/exact_mp(point.mach)))
                 average=(slope(parent)+slope(p))/2
                 bounds.append((half_cell(p.radius_m)+abs(average)*half_cell(p.x_m))/scale)
             expected=float(max(bounds))

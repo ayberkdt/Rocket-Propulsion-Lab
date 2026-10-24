@@ -24,7 +24,8 @@ and pairs instead perform bounded cardinality checks.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping, Set
+from collections.abc import Callable, Mapping
+from collections.abc import Set as AbstractSet
 from dataclasses import fields, is_dataclass
 from itertools import islice
 from math import isfinite
@@ -84,7 +85,7 @@ def text(value: object, label: str) -> str:
 
 def _ordered_items(value, label, *, size=None):
     """Snapshot an ordered finite iterable; fixed cardinalities use bounded reads."""
-    if isinstance(value, (str, bytes, bytearray, memoryview, Mapping, Set)):
+    if isinstance(value, (str, bytes, bytearray, memoryview, Mapping, AbstractSet)):
         raise DomainError(f"{label} must be an ordered, non-binary iterable.", field=label)
     try:
         iterator = iter(value)

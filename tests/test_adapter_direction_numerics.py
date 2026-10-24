@@ -24,10 +24,10 @@ from rocket_propulsion.propulsion.burns import (
     ScheduledBurn,
     simulate_constant_burn,
 )
-from tests.test_burn_constant_numerics import mono
 from rocket_propulsion.propulsion.burns.serialization import canonical_sha256
-from tests.test_lunaris_integration import mass_only_bridge
 from tests import test_sidera_ensemble_handoff as ensemble_fixtures
+from tests.test_burn_constant_numerics import mono
+from tests.test_lunaris_integration import mass_only_bridge
 
 
 def decimal_vector(direction, magnitude, precision):
@@ -145,15 +145,15 @@ class AdapterDirectionAttacks(unittest.TestCase):
             for name, call in (
                 (
                     "constant",
-                    lambda: export_sidera_artifact(self.burn, t_start_s=0.0, direction=direction),
+                    lambda*, direction=direction: export_sidera_artifact(self.burn, t_start_s=0.0, direction=direction),
                 ),
                 (
                     "ensemble",
-                    lambda: SideraEnsembleBurnJob(
+                    lambda*, direction=direction: SideraEnsembleBurnJob(
                         "s", 0, 1.0, 1.0, 1.0, 0.0, direction, "inertial", self.bridge.artifact
                     ),
                 ),
-                ("lunaris", lambda: self.impulse(direction)),
+                ("lunaris", lambda*, direction=direction: self.impulse(direction)),
             ):
                 with (
                     self.subTest(adapter=name, direction=direction),

@@ -3,15 +3,19 @@
 These implement a prescribed constant-property bulk model. They do not bound
 correlation error, establish cross-section validity or predict boiling.
 """
-from decimal import Decimal
 from fractions import Fraction
 from functools import lru_cache
 
-from rocket_propulsion.core.errors import DomainError, ConvergenceError
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
+from rocket_propulsion.propulsion.burns.marginal_numerics import (
+    _PRECISIONS,
+    _Intervals,
+    _log_interval,
+)
 from rocket_propulsion.propulsion.burns.numeric_outputs import _finite_rational
-from rocket_propulsion.propulsion.burns.marginal_numerics import _Intervals, _log_interval, _PRECISIONS
 from rocket_propulsion.propulsion.cycle_numerics import _integer_root
 from rocket_propulsion.propulsion.performance_numerics import _positive_enclosed_output
+
 from .bartz_numerics import _power
 
 _COOLANT_POLICY='exact_binary_coolant_ledgers_and_enclosed_swamee_jain_exports_v1'
@@ -26,8 +30,8 @@ def _ledgers(inputs):
     velocity=m/(density*area)
     reynolds=m*diameter/(area*f(inputs.coolant_dynamic_viscosity_pa_s))
     pressure_scale=f(inputs.channel_length_m)/diameter*density*velocity**2/2
-    return dict(coolant_capacity_w_k=capacity,temperature_rise_k=rise,outlet_temperature_k=outlet,
-                channel_velocity_m_s=velocity,reynolds_number=reynolds,pressure_scale=pressure_scale)
+    return {'coolant_capacity_w_k': capacity,'temperature_rise_k': rise,'outlet_temperature_k': outlet,
+                'channel_velocity_m_s': velocity,'reynolds_number': reynolds,'pressure_scale': pressure_scale}
 
 
 def _exact_argument(reynolds,relative_roughness):

@@ -1,5 +1,6 @@
 """Independent budget, relay, event-coordinate and frontier counterexamples."""
 
+import itertools
 import sys
 import unittest
 from decimal import Decimal, localcontext
@@ -233,7 +234,7 @@ class ElectricModeAttacks(unittest.TestCase):
         current = model.select_level(powers[0])
         modes = [current]
         event_names = []
-        for before, after in zip(powers, powers[1:]):
+        for before, after in itertools.pairwise(powers):
             fired = []
             for event in model.switching_surfaces(current):
                 left, right = event.value(before), event.value(after)

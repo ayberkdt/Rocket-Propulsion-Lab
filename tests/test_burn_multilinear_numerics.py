@@ -10,11 +10,16 @@ from sys import float_info
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.propulsion.burns import (
-    PerformanceAxis, PerformanceScalePoint, RectilinearPerformanceSurface,
-    RectilinearStreamPerformanceSurface, StreamPerformanceScalePoint,
-    PropagatorPropulsionBridge, StreamStateBinding, TabulatedBurnArtifact, TabulatedBurnSegment,
+    PerformanceAxis,
+    PerformanceScalePoint,
+    PropagatorPropulsionBridge,
+    RectilinearPerformanceSurface,
+    RectilinearStreamPerformanceSurface,
+    StreamPerformanceScalePoint,
+    StreamStateBinding,
+    TabulatedBurnArtifact,
+    TabulatedBurnSegment,
 )
-
 
 TINY = float.fromhex("0x0.0000000000001p-1022")
 
@@ -151,7 +156,7 @@ class MultilinearNumericalAttacks(unittest.TestCase):
             names = ("y", "x") if reversed_axes else ("x", "y")
             axes = tuple(PerformanceAxis(name, "1", (0., 1.)) for name in names)
 
-            def data(point):
+            def data(point, *, reversed_axes=reversed_axes):
                 x, y = reversed(point) if reversed_axes else point
                 return tuple(k*(1e300 if y == 0 else 1+x) for k in (1, 2, 3, 4))
 
@@ -185,7 +190,7 @@ class MultilinearNumericalAttacks(unittest.TestCase):
         axes = (PerformanceAxis("x", "1", (0., 1e-320)),)
         for model in models(axes, lambda point: (1.,)*4 if point[0] == 0 else (2.,)*4):
             with self.subTest(model=type(model).__name__):
-                self.assert_field("Multilinear force gradient", lambda: model.evaluate({"x": 5e-321}))
+                self.assert_field("Multilinear force gradient", lambda*, model=model: model.evaluate({"x": 5e-321}))
 
     def test_genuine_underflow_is_detected_per_total_or_named_stream_channel(self):
         axes = (PerformanceAxis("x", "1", (0., 1e308)),)
@@ -193,7 +198,7 @@ class MultilinearNumericalAttacks(unittest.TestCase):
                             (1., nextafter(1., 2.), nextafter(1., 2.), nextafter(1., 2.))):
             label = "mass-flow gradient" if isinstance(model, RectilinearPerformanceSurface) else "stream gradient: fuel"
             with self.subTest(model=type(model).__name__):
-                self.assert_field(label, lambda: model.evaluate({"x": 5e307}))
+                self.assert_field(label, lambda*, model=model: model.evaluate({"x": 5e307}))
 
     def test_flat_tiny_maps_keep_genuine_zero_gradients_on_huge_spans(self):
         axes = (PerformanceAxis("x", "1", (-1e308, 1e308)),)
@@ -208,7 +213,7 @@ class MultilinearNumericalAttacks(unittest.TestCase):
             expected, gradients = reference(model, query, 1600)
             value = bridge(model).evaluate(relative_time_s=.5, vehicle_mass_kg=100., direction=(1., 0., 0.),
                                             additional_states={"mf": 10., "mo": 30.}, operating_conditions=query)
-            total = expected["total"] if "total" in expected else None
+            total = expected.get("total", None)
             fuel, oxidizer = (total, 3*total) if total is not None else (expected["fuel"], 3*expected["oxidizer"])
             with self.subTest(model=type(model).__name__):
                 self.assert_scalar(value.axial_thrust_n, 100*expected["force"])
@@ -263,7 +268,7 @@ class MultilinearNumericalAttacks(unittest.TestCase):
             state = (100., 10., 30.)
             step = .02
 
-            def rate(time, values):
+            def rate(time, values, *, coupling=coupling):
                 value = coupling.evaluate(relative_time_s=time, vehicle_mass_kg=values[0], direction=(1., 0., 0.),
                     additional_states={"mf": values[1], "mo": values[2]}, operating_conditions={"x": time, "y": time},
                     side="left" if time == 1 else "right")

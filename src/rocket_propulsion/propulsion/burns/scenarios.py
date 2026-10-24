@@ -14,12 +14,10 @@ NASA-20160007073: https://ntrs.nasa.gov/citations/20160007073
 
 from __future__ import annotations
 
-from fractions import Fraction
-from .numeric_outputs import _finite_rational, _fraction
-
 import hashlib
 from dataclasses import dataclass, replace
 from enum import Enum
+from fractions import Fraction
 from math import isfinite
 
 from rocket_propulsion.core.errors import DomainError
@@ -32,6 +30,7 @@ from .cluster import (
     build_engine_cluster_profile,
 )
 from .models import ThrottleSchedule, ThrottleSegment
+from .numeric_outputs import _finite_rational, _fraction
 from .profiles import resolved_schedule_intervals
 from .serialization import canonical_json_bytes
 from .tabulated import TabulatedBurnArtifact, TabulatedBurnSegment
@@ -271,8 +270,8 @@ def _weighted_percentile(
 def _metric_statistics(
     metric: str, values: tuple[tuple[float, float], ...]
 ) -> ScenarioMetricStatistics:
-    from .probability_numerics import _weight_ledger, _quantiles
     from .numeric_outputs import _finite_rational
+    from .probability_numerics import _quantiles, _weight_ledger
     ledger = _weight_ledger(values)
     p05, p50, p95 = _quantiles(ledger)
     return ScenarioMetricStatistics(

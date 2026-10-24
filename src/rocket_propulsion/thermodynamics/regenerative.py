@@ -1,15 +1,18 @@
 """Owned constant-property coolant balances with explicit unqualified friction basis."""
 from __future__ import annotations
-from collections.abc import Mapping, Set
+
+from collections.abc import Mapping
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, fields
 from functools import lru_cache
 from itertools import islice
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.metadata import WarningMessage
-from rocket_propulsion.core.validation import real, integer, text, _ordered_items
+from rocket_propulsion.core.validation import _ordered_items, integer, real, text
+
 from .heat_transfer import _owned
-from .regenerative_numerics import _values, _COOLANT_POLICY
+from .regenerative_numerics import _COOLANT_POLICY, _values
 
 _RESIDUAL='bulk_energy_ledger_identity_not_measured_energy_closure'
 _ASSUMPTIONS=('positive absorbed heat; prescribed single-phase constant coolant properties',
@@ -57,19 +60,19 @@ class RegenerativeInputs:
 
 
 def _warnings(value):
-    if isinstance(value,(str,bytes,bytearray,memoryview,Mapping,Set)):
+    if isinstance(value,(str,bytes,bytearray,memoryview,Mapping,AbstractSet)):
         raise DomainError('Warnings must be ordered records.',field='Coolant warnings')
     try:items=tuple(islice(value,7))
     except (TypeError,ValueError,KeyError,IndexError,OverflowError) as error:
         raise DomainError('Malformed coolant warning iterable.',field='Coolant warnings') from error
     if len(items)>6:raise DomainError('Too many coolant warnings.',field='Coolant warnings')
     result=[]
-    for value in items:
-        value=_owned(value,WarningMessage,'Coolant warning')
-        severity=text(value.severity,'Warning severity')
+    for warning in items:
+        warning=_owned(warning,WarningMessage,'Coolant warning')
+        severity=text(warning.severity,'Warning severity')
         if severity not in ('info','warning','critical'):raise DomainError('Unknown warning severity.',field='Warning severity')
-        result.append(WarningMessage(text(value.code,'Warning code'),text(value.message,'Warning message'),severity,
-            None if value.field is None else text(value.field,'Warning field')))
+        result.append(WarningMessage(text(warning.code,'Warning code'),text(warning.message,'Warning message'),severity,
+            None if warning.field is None else text(warning.field,'Warning field')))
     return tuple(result)
 
 

@@ -8,6 +8,7 @@ from fractions import Fraction
 from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.validation import coerce_fields, real
+
 from .burns.numeric_outputs import _finite_rational
 from .performance_numerics import _PERFORMANCE_POLICY, _inverse_mass_outputs, _scaled_log
 
@@ -105,9 +106,9 @@ def _rocket_values(initial, final, delta, performance, performance_input, mode):
         delta = _positive(delta, 'Delta-v')
         exponent = Fraction(delta)/exact_velocity
         ratio, final, consumed, fraction = _inverse_mass_outputs(initial_exact, exponent)
-    return dict(initial_mass_kg=initial, final_mass_kg=final, propellant_mass_kg=consumed,
-                mass_ratio=ratio, propellant_mass_fraction=fraction, specific_impulse_s=isp,
-                effective_exhaust_velocity_m_s=velocity, delta_v_m_s=delta)
+    return {'initial_mass_kg': initial, 'final_mass_kg': final, 'propellant_mass_kg': consumed,
+                'mass_ratio': ratio, 'propellant_mass_fraction': fraction, 'specific_impulse_s': isp,
+                'effective_exhaust_velocity_m_s': velocity, 'delta_v_m_s': delta}
 
 
 def calculate_rocket_equation(
@@ -152,15 +153,15 @@ def _thrust_values(flow, velocity, area, exit_pressure, ambient_pressure, durati
     total = momentum+pressure
     if total <= 0:
         raise DomainError('The specified state produces non-positive total thrust.', field='Total thrust')
-    return dict(mass_flow_kg_s=flow, exit_velocity_m_s=velocity, exit_area_m2=area,
-                exit_pressure_pa=exit_pressure, ambient_pressure_pa=ambient_pressure,
-                momentum_thrust_n=_finite_rational(momentum, 'Momentum thrust'),
-                pressure_thrust_n=_finite_rational(pressure, 'Pressure thrust'),
-                total_thrust_n=_finite_rational(total, 'Total thrust'),
-                effective_exhaust_velocity_m_s=_finite_rational(total/flow_exact, 'Effective exhaust velocity'),
-                specific_impulse_s=_finite_rational(total/(flow_exact*Fraction(STANDARD_GRAVITY_M_S2)), 'Specific impulse'),
-                total_impulse_n_s=None if duration is None else _finite_rational(total*Fraction(duration), 'Total impulse'),
-                burn_time_s=duration)
+    return {'mass_flow_kg_s': flow, 'exit_velocity_m_s': velocity, 'exit_area_m2': area,
+                'exit_pressure_pa': exit_pressure, 'ambient_pressure_pa': ambient_pressure,
+                'momentum_thrust_n': _finite_rational(momentum, 'Momentum thrust'),
+                'pressure_thrust_n': _finite_rational(pressure, 'Pressure thrust'),
+                'total_thrust_n': _finite_rational(total, 'Total thrust'),
+                'effective_exhaust_velocity_m_s': _finite_rational(total/flow_exact, 'Effective exhaust velocity'),
+                'specific_impulse_s': _finite_rational(total/(flow_exact*Fraction(STANDARD_GRAVITY_M_S2)), 'Specific impulse'),
+                'total_impulse_n_s': None if duration is None else _finite_rational(total*Fraction(duration), 'Total impulse'),
+                'burn_time_s': duration}
 
 
 def calculate_thrust(

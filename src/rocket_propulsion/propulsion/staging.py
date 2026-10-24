@@ -1,16 +1,27 @@
 """Owned staging inputs and replayed conditional finite-grid optima."""
 from __future__ import annotations
-from collections.abc import Mapping, Set
+
+from collections.abc import Mapping
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, fields, replace
 from fractions import Fraction
 from functools import lru_cache
 from itertools import islice
 
 from rocket_propulsion.core.errors import DomainError
-from rocket_propulsion.core.validation import real, integer, text, _ordered_items
+from rocket_propulsion.core.validation import _ordered_items, integer, real, text
+
 from .burns.numeric_outputs import _finite_rational
-from .staging_numerics import (_allocate, _exports, _grid_difference, _STAGING_POLICY,
-                               _feasible, _state, _Intervals, _positive_enclosed_output)
+from .staging_numerics import (
+    _STAGING_POLICY,
+    _allocate,
+    _exports,
+    _feasible,
+    _grid_difference,
+    _Intervals,
+    _positive_enclosed_output,
+    _state,
+)
 
 _SCOPE = 'global optimum on the declared finite delta-v grid under constant-Isp structural-fraction assumptions'
 _TIE = 'lower-stage-first for exactly equal next-increment costs'
@@ -51,7 +62,7 @@ class StagingInputs:
 
     def __post_init__(self):
         value = self.stages
-        if isinstance(value, (str, bytes, bytearray, memoryview, Mapping, Set)):
+        if isinstance(value, (str, bytes, bytearray, memoryview, Mapping, AbstractSet)):
             raise DomainError('Stages must be ordered records.', field='stages')
         try:
             values = tuple(islice(value, 6))
@@ -189,15 +200,15 @@ def _solve(inputs):
     performed = refined_resolution != inputs.resolution
     refined = replace(inputs, resolution=refined_resolution)
     refined_counts = _allocate(refined.stages, refined.target_delta_v_m_s, refined.resolution)
-    return dict(target_delta_v_m_s=inputs.target_delta_v_m_s, achieved_delta_v_m_s=inputs.target_delta_v_m_s,
-        payload_mass_kg=inputs.payload_mass_kg, initial_mass_kg=initial, payload_fraction=fraction,
-        discretization_step_m_s=_finite_rational(step, 'Delta-v step'),
-        convergence_delta_initial_mass_relative=_grid_difference(inputs, allocations, refined, refined_counts) if performed else None,
-        active_constraints=tuple(f"{s['name']}: {s['active_constraint']}" for s in stage_values if s['active_constraint']),
-        feasible=True, allocation_units=allocations, refined_allocation_units=refined_counts,
-        refined_resolution=refined_resolution, refinement_performed=performed,
-        refinement_grid_nested=performed and refined_resolution % inputs.resolution == 0,
-        continuous_optimum_qualified=False, stage_values=stage_values)
+    return {'target_delta_v_m_s': inputs.target_delta_v_m_s, 'achieved_delta_v_m_s': inputs.target_delta_v_m_s,
+        'payload_mass_kg': inputs.payload_mass_kg, 'initial_mass_kg': initial, 'payload_fraction': fraction,
+        'discretization_step_m_s': _finite_rational(step, 'Delta-v step'),
+        'convergence_delta_initial_mass_relative': _grid_difference(inputs, allocations, refined, refined_counts) if performed else None,
+        'active_constraints': tuple(f"{s['name']}: {s['active_constraint']}" for s in stage_values if s['active_constraint']),
+        'feasible': True, 'allocation_units': allocations, 'refined_allocation_units': refined_counts,
+        'refined_resolution': refined_resolution, 'refinement_performed': performed,
+        'refinement_grid_nested': performed and refined_resolution % inputs.resolution == 0,
+        'continuous_optimum_qualified': False, 'stage_values': stage_values}
 
 
 def _mass_factor(stage, delta_v_m_s):

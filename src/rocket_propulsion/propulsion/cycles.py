@@ -11,6 +11,7 @@ from fractions import Fraction
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.metadata import WarningMessage
 from rocket_propulsion.core.validation import coerce_fields, records, strings
+
 from .burns.numeric_outputs import _finite_rational
 from .cycle_numerics import _CYCLE_POLICY, component_power_outputs
 
@@ -129,10 +130,10 @@ def _cycle_values(inputs):
         margin_output = _finite_rational(margin,'Inlet pressure margin')
     except DomainError:
         margin_output = None
-    values = dict(cycle=inputs.cycle,chamber_pressure_pa=inputs.chamber_pressure_pa,
-        required_feed_pressure_pa=required_output,
-        inlet_pressure_margin_pa=margin_output,inlet_pressure_margin_representable=margin_output is not None,
-        chamber_mass_flow_kg_s=inputs.chamber_mass_flow_kg_s)
+    values = {'cycle': inputs.cycle,'chamber_pressure_pa': inputs.chamber_pressure_pa,
+        'required_feed_pressure_pa': required_output,
+        'inlet_pressure_margin_pa': margin_output,'inlet_pressure_margin_representable': margin_output is not None,
+        'chamber_mass_flow_kg_s': inputs.chamber_mass_flow_kg_s}
     if inputs.cycle == 'pressure-fed':
         warnings = (() if margin >= 0 else (WarningMessage('insufficient_pressure_fed_supply',
             'Declared inlet pressure is below the injector-feed requirement; this is sizing, not achieved delivery.',

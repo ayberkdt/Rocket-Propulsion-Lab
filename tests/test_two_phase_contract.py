@@ -8,17 +8,17 @@ from fractions import Fraction
 from math import inf, nextafter
 from sys import float_info
 
-from rocket_propulsion.core.errors import DomainError, ConvergenceError
+from rocket_propulsion.api.routes import calculation_metadata, dispatch_calculation
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
 from rocket_propulsion.propulsion import calculate_two_phase_band
-from rocket_propulsion.api.routes import dispatch_calculation, calculation_metadata
 
 VELOCITY = 'exit-velocity-ratio'
 ENERGY = 'specific-kinetic-energy-ratio'
 
 
 def inputs(**changes):
-    return dict(dict(ideal_thrust_n=100000., ideal_specific_impulse_s=450., condensed_mass_fraction=.2,
-                     minimum_particle_coupling_efficiency=.6, maximum_particle_coupling_efficiency=.9), **changes)
+    return dict({'ideal_thrust_n': 100000., 'ideal_specific_impulse_s': 450., 'condensed_mass_fraction': .2,
+                     'minimum_particle_coupling_efficiency': .6, 'maximum_particle_coupling_efficiency': .9}, **changes)
 
 
 def reference(x, precision=1400):
@@ -38,10 +38,10 @@ def reference(x, precision=1400):
             thrust = momentum*eta+pressure
             velocity.append(float(speed)); mixture.append(float(eta)); forces.append(float(thrust))
             ratios.append(float(thrust/force)); impulses.append(float(isp*thrust/force)); signs.append(thrust <= 0)
-        return dict(particle_velocity_ratio_range=tuple(velocity), momentum_efficiency_range=tuple(mixture),
-                    performance_efficiency_range=tuple(ratios), total_thrust_ratio_range=tuple(ratios),
-                    thrust_range_n=tuple(forces), specific_impulse_range_s=tuple(impulses),
-                    contains_nonpositive_thrust=any(signs))
+        return {'particle_velocity_ratio_range': tuple(velocity), 'momentum_efficiency_range': tuple(mixture),
+                    'performance_efficiency_range': tuple(ratios), 'total_thrust_ratio_range': tuple(ratios),
+                    'thrust_range_n': tuple(forces), 'specific_impulse_range_s': tuple(impulses),
+                    'contains_nonpositive_thrust': any(signs)}
 
 
 class TwoPhaseAttacks(unittest.TestCase):
@@ -62,27 +62,27 @@ class TwoPhaseAttacks(unittest.TestCase):
     def test_all_quantities_reject_bool_text_nonfinite_overflow_and_erased_inputs(self):
         for field in (*inputs(), 'reference_pressure_thrust_n'):
             for bad in (True, '1', None, [], float('nan'), inf, 10**10000, Fraction(1, 10**1000)):
-                with self.subTest(field=field, type=type(bad).__name__):
-                    with self.assertRaises(DomainError):
-                        calculate_two_phase_band(**inputs(**{field: bad}))
+                with (
+                    self.subTest(field=field, type=type(bad).__name__),
+                    self.assertRaises(DomainError),
+                ):
+                    calculate_two_phase_band(**inputs(**{field: bad}))
 
     def test_reference_and_fraction_domains_are_strict(self):
         for field, bad in (('ideal_thrust_n', 0.), ('ideal_specific_impulse_s', -1.),
                            ('condensed_mass_fraction', nextafter(1., inf)), ('condensed_mass_fraction', -5e-324),
                            ('minimum_particle_coupling_efficiency', -5e-324),
                            ('maximum_particle_coupling_efficiency', nextafter(1., inf))):
-            with self.subTest(field=field, bad=bad):
-                with self.assertRaises(DomainError):
-                    calculate_two_phase_band(**inputs(**{field: bad}))
+            with self.subTest(field=field, bad=bad), self.assertRaises(DomainError):
+                calculate_two_phase_band(**inputs(**{field: bad}))
         with self.assertRaises(DomainError):
             calculate_two_phase_band(**inputs(minimum_particle_coupling_efficiency=.9,
                                               maximum_particle_coupling_efficiency=.6))
 
     def test_reference_momentum_must_be_positive_before_output_rounding(self):
         for pressure in (100000., nextafter(100000., inf)):
-            with self.subTest(pressure=pressure):
-                with self.assertRaises(DomainError):
-                    calculate_two_phase_band(**inputs(reference_pressure_thrust_n=pressure))
+            with self.subTest(pressure=pressure), self.assertRaises(DomainError):
+                calculate_two_phase_band(**inputs(reference_pressure_thrust_n=pressure))
 
     def test_positive_subnormal_particle_velocity_and_force_are_not_erased(self):
         x = inputs(ideal_thrust_n=float_info.max, ideal_specific_impulse_s=1., condensed_mass_fraction=1.,
@@ -189,9 +189,8 @@ class TwoPhaseAttacks(unittest.TestCase):
             yield 1.; yield 2.; yield 3.
             raise AssertionError('Pair constructor read beyond its rejection boundary.')
         for field in ('thrust_range_n', 'particle_velocity_ratio_range', 'specific_impulse_range_s'):
-            with self.subTest(field=field):
-                with self.assertRaises(DomainError):
-                    replace(result, **{field: pair()})
+            with self.subTest(field=field), self.assertRaises(DomainError):
+                replace(result, **{field: pair()})
         def warnings():
             yield from (result.warnings[0] for _ in range(5))
             raise AssertionError('Warning constructor read beyond its rejection boundary.')
@@ -200,9 +199,8 @@ class TwoPhaseAttacks(unittest.TestCase):
 
     def test_unknown_or_nontext_coupling_definitions_are_rejected(self):
         for definition in (True, None, 1, 'total-energy-ratio', 'unknown'):
-            with self.subTest(definition=definition):
-                with self.assertRaises(DomainError):
-                    calculate_two_phase_band(**inputs(coupling_definition=definition))
+            with self.subTest(definition=definition), self.assertRaises(DomainError):
+                calculate_two_phase_band(**inputs(coupling_definition=definition))
 
     def test_result_replay_rejects_changed_original_fields_and_all_ranges(self):
         result = self.valid(inputs())
@@ -211,15 +209,13 @@ class TwoPhaseAttacks(unittest.TestCase):
         for field in ('thrust_range_n', 'specific_impulse_range_s', 'performance_efficiency_range',
                       'particle_coupling_efficiency_range'):
             value = getattr(result, field)
-            with self.subTest(field=field):
-                with self.assertRaises(DomainError):
-                    replace(result, **{field: (nextafter(value[0], inf), value[1])})
+            with self.subTest(field=field), self.assertRaises(DomainError):
+                replace(result, **{field: (nextafter(value[0], inf), value[1])})
         self.assertTrue(hasattr(result, 'inputs'))
         for field in ('particle_velocity_ratio_range', 'momentum_efficiency_range', 'total_thrust_ratio_range'):
             value = getattr(result, field)
-            with self.subTest(field=field):
-                with self.assertRaises(DomainError):
-                    replace(result, **{field: (nextafter(value[0], inf), value[1])})
+            with self.subTest(field=field), self.assertRaises(DomainError):
+                replace(result, **{field: (nextafter(value[0], inf), value[1])})
 
     def test_retained_inputs_policies_flags_and_scope_cannot_be_forged(self):
         result = self.valid(inputs())
@@ -229,9 +225,8 @@ class TwoPhaseAttacks(unittest.TestCase):
                         {'physical_bound_qualified': True}, {'statistical_coverage_qualified': 0},
                         {'contains_nonpositive_thrust': 0}, {'model': 'certified hardware'},
                         {'assumptions': ('validated gas-particle feedback',)}, {'warnings': ()}):
-            with self.subTest(fields=list(changes)):
-                with self.assertRaises(DomainError):
-                    replace(result, **changes)
+            with self.subTest(fields=list(changes)), self.assertRaises(DomainError):
+                replace(result, **changes)
 
     def test_json_reopening_owns_nested_mappings_and_ordered_pairs(self):
         result = self.valid(inputs())
@@ -254,9 +249,11 @@ class TwoPhaseAttacks(unittest.TestCase):
         for field in ('code', 'message', 'severity', 'field'):
             warning = replace(result.warnings[0], **{field: EqualText('fabricated certification')})
             for item in (warning, asdict(warning)):
-                with self.subTest(field=field, mapping=isinstance(item, dict)):
-                    with self.assertRaises(DomainError):
-                        replace(result, warnings=(item, *result.warnings[1:]))
+                with (
+                    self.subTest(field=field, mapping=isinstance(item, dict)),
+                    self.assertRaises(DomainError),
+                ):
+                    replace(result, warnings=(item, *result.warnings[1:]))
 
     def test_mapping_protocol_errors_are_typed_without_hiding_programmer_errors(self):
         class Broken(Mapping):
@@ -297,6 +294,5 @@ class TwoPhaseApiAttacks(unittest.TestCase):
 
     def test_dispatch_does_not_stringify_invalid_definition(self):
         for value in (True, None, 1):
-            with self.subTest(value=value):
-                with self.assertRaises(DomainError):
-                    dispatch_calculation('/api/v1/two-phase-band', inputs(coupling_definition=value))
+            with self.subTest(value=value), self.assertRaises(DomainError):
+                dispatch_calculation('/api/v1/two-phase-band', inputs(coupling_definition=value))

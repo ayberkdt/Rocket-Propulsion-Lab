@@ -10,8 +10,12 @@ from functools import lru_cache
 from math import isfinite, pi
 from sys import float_info
 
-from rocket_propulsion.core.errors import DomainError, ConvergenceError
-from rocket_propulsion.propulsion.burns.marginal_numerics import _Intervals, _log_interval, _PRECISIONS
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
+from rocket_propulsion.propulsion.burns.marginal_numerics import (
+    _PRECISIONS,
+    _Intervals,
+    _log_interval,
+)
 from rocket_propulsion.propulsion.cycle_numerics import _integer_root
 
 _ZERO=(Decimal(0),Decimal(0))
@@ -85,8 +89,8 @@ def _profile(inputs,precision):
             b=math.mul(math.rational(f(previous.radius_m)+2*f(station.radius_m)),flux)
             segment=math.mul(math.rational(f(pi)/3),math.mul(length,math.add(a,b)))
             cumulative=math.add(cumulative,segment)
-        records.append(dict(adiabatic_wall_temperature_k=taw,gas_side_coefficient_w_m2_k=h,
-                            heat_flux_w_m2=flux,cumulative_heat_w=cumulative))
+        records.append({'adiabatic_wall_temperature_k': taw,'gas_side_coefficient_w_m2_k': h,
+                            'heat_flux_w_m2': flux,'cumulative_heat_w': cumulative})
     return tuple(records)
 
 
@@ -109,11 +113,11 @@ def _peak_index(inputs):
 def _profile_exports(inputs):
     stations=[]
     for index,station in enumerate(inputs.contour.stations):
-        record=dict(x_m=station.x_m,radius_m=station.radius_m,mach=station.mach)
+        record={'x_m': station.x_m,'radius_m': station.radius_m,'mach': station.mach}
         for name in ('adiabatic_wall_temperature_k','gas_side_coefficient_w_m2_k','heat_flux_w_m2','cumulative_heat_w'):
-            record[name]=_signed_output(lambda p:_profile(inputs,p)[index][name],name)
+            record[name]=_signed_output(lambda p, *, index=index, name=name:_profile(inputs,p)[index][name],name)
         stations.append(record)
     peak=_peak_index(inputs)
-    return dict(station_values=tuple(stations),peak_heat_flux_w_m2=stations[peak]['heat_flux_w_m2'],
-                peak_location_m=stations[peak]['x_m'],total_heat_load_w=stations[-1]['cumulative_heat_w'],
-                contains_negative_heat_flux=any(s['heat_flux_w_m2']<0 for s in stations))
+    return {'station_values': tuple(stations),'peak_heat_flux_w_m2': stations[peak]['heat_flux_w_m2'],
+                'peak_location_m': stations[peak]['x_m'],'total_heat_load_w': stations[-1]['cumulative_heat_w'],
+                'contains_negative_heat_flux': any(s['heat_flux_w_m2']<0 for s in stations)}

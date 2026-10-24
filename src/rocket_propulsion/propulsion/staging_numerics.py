@@ -11,7 +11,8 @@ from functools import lru_cache
 
 from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
-from .burns.marginal_numerics import _Intervals, _PRECISIONS
+
+from .burns.marginal_numerics import _PRECISIONS, _Intervals
 from .performance_numerics import _exp_interval, _positive_enclosed_output
 
 _ONE = (Decimal(1), Decimal(1))
@@ -127,9 +128,9 @@ def _ledger(inputs, allocations, precision):
         survival, denominator = _state(stage, step*count, precision)
         wet = math.div(math.mul(upper, math.sub(_ONE, survival)), denominator)
         initial = math.div(math.mul(upper, math.sub(_ONE, eps)), denominator)
-        stages.append(dict(initial_mass_kg=initial, upper_stack_mass_kg=upper,
-            dry_mass_kg=math.mul(eps, wet), propellant_mass_kg=math.mul(math.sub(_ONE, eps), wet),
-            mass_ratio=_exp_interval(_exponent(stage, step*count), precision)))
+        stages.append({'initial_mass_kg': initial, 'upper_stack_mass_kg': upper,
+            'dry_mass_kg': math.mul(eps, wet), 'propellant_mass_kg': math.mul(math.sub(_ONE, eps), wet),
+            'mass_ratio': _exp_interval(_exponent(stage, step*count), precision)})
         upper = initial
     return upper, tuple(reversed(stages))
 
@@ -168,7 +169,7 @@ def _exports(inputs, allocations):
         for name in ('initial_mass_kg', 'upper_stack_mass_kg', 'dry_mass_kg',
                      'propellant_mass_kg', 'mass_ratio'):
             fields[name] = (0. if count == 0 and name in ('dry_mass_kg', 'propellant_mass_kg') else
-                _positive_enclosed_output(lambda p: _ledger(inputs, allocations, p)[1][index][name], name))
+                _positive_enclosed_output(lambda p, *, index=index, name=name: _ledger(inputs, allocations, p)[1][index][name], name))
         result.append(fields)
     initial = _positive_enclosed_output(lambda p: _ledger(inputs, allocations, p)[0], 'Initial mass')
     def fraction(p):

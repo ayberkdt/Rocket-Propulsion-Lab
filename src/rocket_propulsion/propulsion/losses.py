@@ -7,7 +7,15 @@ from fractions import Fraction
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.metadata import WarningMessage
-from rocket_propulsion.core.validation import coerce_fields, real_matrix, real_tuple, records, strings, text
+from rocket_propulsion.core.validation import (
+    coerce_fields,
+    real_matrix,
+    real_tuple,
+    records,
+    strings,
+    text,
+)
+
 from .burns.numeric_outputs import _finite_rational
 from .burns.probability_numerics import _sqrt_output
 from .burns.sample_statistics import _affine_sqrt_output
@@ -194,7 +202,7 @@ def _ledgers(source):
 
 
 def _term_values(source):
-    force, impulse, flow, changes = _ledgers(source)
+    _force, _impulse, _flow, changes = _ledgers(source)
     physical = source.operating_basis == 'fixed-pressure-area'
     labels = ('Yanma / c*', 'Deşarj / debi' if physical else 'Deşarj adlı eski performans çarpanı',
               'Sınır tabakası', 'Iraksama')
@@ -204,11 +212,11 @@ def _term_values(source):
                 ('lumped performance factor at fixed mass flow',
                  'legacy performance multiplier; not a physical throat mass-flow coefficient',
                  'lumped performance factor at fixed mass flow', 'lumped performance factor at fixed mass flow'))
-    return [dict(key=key, label=labels[i], enabled=getattr(source, _FLAGS[i]),
-        efficiency=getattr(source, _EFFS[i]),
-        thrust_loss_n=_finite_rational(Fraction(source.ideal_thrust_n)*changes[i][0], 'Term thrust change'),
-        specific_impulse_loss_s=_finite_rational(Fraction(source.ideal_specific_impulse_s)*changes[i][1], 'Term Isp change'),
-        source=meanings[i], inputs=source, numerical_policy=_LOSS_POLICY) for i, key in enumerate(_KEYS)]
+    return [{'key': key, 'label': labels[i], 'enabled': getattr(source, _FLAGS[i]),
+        'efficiency': getattr(source, _EFFS[i]),
+        'thrust_loss_n': _finite_rational(Fraction(source.ideal_thrust_n)*changes[i][0], 'Term thrust change'),
+        'specific_impulse_loss_s': _finite_rational(Fraction(source.ideal_specific_impulse_s)*changes[i][1], 'Term Isp change'),
+        'source': meanings[i], 'inputs': source, 'numerical_policy': _LOSS_POLICY} for i, key in enumerate(_KEYS)]
 
 
 def _relative_variances(source):
@@ -225,7 +233,7 @@ def _relative_variances(source):
 
 
 def _budget_values(source):
-    force, impulse, flow, changes = _ledgers(source)
+    force, impulse, flow, _changes = _ledgers(source)
     f0, i0 = Fraction(source.ideal_thrust_n), Fraction(source.ideal_specific_impulse_s)
     f, isp = f0*force, i0*impulse
     vf, vi, vm = _relative_variances(source)
@@ -246,22 +254,22 @@ def _budget_values(source):
         'first-order covariance propagation; no probability coverage qualification; ideal inputs treated fixed',
         ('fixed reference chamber-pressure times throat-area; intrinsic cstar and independent net Cf factors; no absolute state or coupled flow solution'
          if physical else 'fixed mass flow; all four inputs are effective performance multipliers'))
-    return dict(ideal_thrust_n=source.ideal_thrust_n, delivered_thrust_n=_finite_rational(f, 'Delivered thrust'),
-        ideal_specific_impulse_s=source.ideal_specific_impulse_s,
-        delivered_specific_impulse_s=_finite_rational(isp, 'Delivered Isp'),
-        total_efficiency=_finite_rational(force, 'Thrust ratio'),
-        specific_impulse_ratio=_finite_rational(impulse, 'Isp ratio'), mass_flow_ratio=_finite_rational(flow, 'Mass-flow ratio'),
-        total_thrust_loss_n=_finite_rational(f0-f, 'Total thrust change'),
-        total_specific_impulse_loss_s=_finite_rational(i0-isp, 'Total Isp change'),
-        terms=tuple(LossTerm(**v) for v in _term_values(source)),
-        thrust_balance_residual_n=0., specific_impulse_balance_residual_s=0.,
-        one_sigma_relative=_sqrt_output(vf, 'Relative thrust uncertainty'),
-        specific_impulse_one_sigma_relative=_sqrt_output(vi, 'Relative Isp uncertainty'),
-        mass_flow_one_sigma_relative=_sqrt_output(vm, 'Relative flow uncertainty'),
-        delivered_thrust_band_n=tuple(_affine_sqrt_output(f, f*f*vf, direction, 'Thrust proxy band') for direction in (-1, 1)),
-        delivered_specific_impulse_band_s=tuple(_affine_sqrt_output(isp, isp*isp*vi, direction, 'Isp proxy band') for direction in (-1, 1)),
-        inputs=source, operating_basis=source.operating_basis, numerical_policy=_LOSS_POLICY,
-        uncertainty_kind=_UNCERTAINTY_KIND, coverage_qualified=False, warnings=tuple(warnings), assumptions=assumptions)
+    return {'ideal_thrust_n': source.ideal_thrust_n, 'delivered_thrust_n': _finite_rational(f, 'Delivered thrust'),
+        'ideal_specific_impulse_s': source.ideal_specific_impulse_s,
+        'delivered_specific_impulse_s': _finite_rational(isp, 'Delivered Isp'),
+        'total_efficiency': _finite_rational(force, 'Thrust ratio'),
+        'specific_impulse_ratio': _finite_rational(impulse, 'Isp ratio'), 'mass_flow_ratio': _finite_rational(flow, 'Mass-flow ratio'),
+        'total_thrust_loss_n': _finite_rational(f0-f, 'Total thrust change'),
+        'total_specific_impulse_loss_s': _finite_rational(i0-isp, 'Total Isp change'),
+        'terms': tuple(LossTerm(**v) for v in _term_values(source)),
+        'thrust_balance_residual_n': 0., 'specific_impulse_balance_residual_s': 0.,
+        'one_sigma_relative': _sqrt_output(vf, 'Relative thrust uncertainty'),
+        'specific_impulse_one_sigma_relative': _sqrt_output(vi, 'Relative Isp uncertainty'),
+        'mass_flow_one_sigma_relative': _sqrt_output(vm, 'Relative flow uncertainty'),
+        'delivered_thrust_band_n': tuple(_affine_sqrt_output(f, f*f*vf, direction, 'Thrust proxy band') for direction in (-1, 1)),
+        'delivered_specific_impulse_band_s': tuple(_affine_sqrt_output(isp, isp*isp*vi, direction, 'Isp proxy band') for direction in (-1, 1)),
+        'inputs': source, 'operating_basis': source.operating_basis, 'numerical_policy': _LOSS_POLICY,
+        'uncertainty_kind': _UNCERTAINTY_KIND, 'coverage_qualified': False, 'warnings': tuple(warnings), 'assumptions': assumptions}
 
 
 def calculate_loss_budget(

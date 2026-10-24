@@ -8,9 +8,10 @@ from sys import float_info
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.validation import real_tuple
+
+from .marginal_numerics import _inverse_grid
 from .numeric_outputs import _finite_rational, _fraction
 from .probability_numerics import _sqrt_output
-from .marginal_numerics import _inverse_grid
 
 _SUMMARY_POLICY = 'exact_binary_sample_moments_linear_rational_quantiles_and_pearson_v1'
 _INTERVAL_KIND = 'iid_normal_formula_proxy_unqualified_coverage'

@@ -1,18 +1,21 @@
 """Bounded inverse-CDF references and adversarial sampler/correlation contracts."""
 
+import json
+import sys
+import unittest
 from dataclasses import replace
 from decimal import Decimal, localcontext
 from fractions import Fraction
-import json
 from math import isfinite, nextafter
 from pathlib import Path
-import sys
-import unittest
 from unittest.mock import patch
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
 from rocket_propulsion.propulsion.burns import (
-    UncertainParameter, DistributionKind, UncertaintyClass, CorrelationModel,
+    CorrelationModel,
+    DistributionKind,
+    UncertainParameter,
+    UncertaintyClass,
     sample_uncertain_parameters,
 )
 from rocket_propulsion.propulsion.burns import uncertainty as model
@@ -121,7 +124,7 @@ class MarginalNumericalAttacks(unittest.TestCase):
             p=float.fromhex(row['probability_hex']);expected=float.fromhex(row['expected_float_hex'])
             for hint in (nextafter(expected,0.),64. if p<.5 else -64.):
                 class HintedNormal:
-                    def inv_cdf(self,probability):return hint
+                    def inv_cdf(self,probability, *, hint=hint):return hint
                 with patch.object(numerics,'NormalDist',HintedNormal):
                     self.assertEqual(numerics._normal_quantile(p),expected)
 
@@ -204,9 +207,11 @@ class CorrelationAndSamplerAttacks(unittest.TestCase):
             def __init__(self):self.calls=0
             def random(self):self.calls+=1;return 0.
         source=RandomSource()
-        with patch.object(model,'Random',lambda seed:source):
-            with self.assertRaises(ConvergenceError) as caught:
-                sample_uncertain_parameters((parameter(),),sample_count=4,seed=1)
+        with (
+            patch.object(model, 'Random', lambda seed: source),
+            self.assertRaises(ConvergenceError) as caught,
+        ):
+            sample_uncertain_parameters((parameter(),),sample_count=4,seed=1)
         self.assertEqual(caught.exception.field,'Unit random variate')
         self.assertGreater(source.calls,0)
         self.assertLessEqual(source.calls,1024)
@@ -308,9 +313,11 @@ class CorrelationAndSamplerAttacks(unittest.TestCase):
         items=(parameter(name='a'),custom)
         correlation=CorrelationModel(('a','b'),((1.,.9),(.9,1.)),'synthetic','latent tail endpoint')
         unit=nextafter(1.,0.)
-        with patch.object(model,'_unit_samples',return_value=[[unit,unit] for _ in range(4)]):
-            with self.assertRaises(DomainError) as caught:
-                sample_uncertain_parameters(items,sample_count=4,seed=1,correlation=correlation)
+        with (
+            patch.object(model, '_unit_samples', return_value=[[unit, unit] for _ in range(4)]),
+            self.assertRaises(DomainError) as caught,
+        ):
+            sample_uncertain_parameters(items,sample_count=4,seed=1,correlation=correlation)
         self.assertEqual(caught.exception.field,'Sampling probability')
         self.assertEqual(Custom.calls,0)
 
@@ -318,16 +325,19 @@ class CorrelationAndSamplerAttacks(unittest.TestCase):
 class SamplingIdentityAttacks(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from tests.test_burn_hierarchical_ensemble import HierarchicalPropulsionEnsembleTests
         from rocket_propulsion.propulsion.burns import build_hierarchical_propulsion_ensemble
+        from tests.test_burn_hierarchical_ensemble import HierarchicalPropulsionEnsembleTests
         fixture=HierarchicalPropulsionEnsembleTests();fixture.setUp()
         cls.discrete,cls.definitions=fixture.discrete,fixture.definitions
         cls.ensemble=build_hierarchical_propulsion_ensemble(cls.discrete,cls.definitions,seed=71)
 
     def test_missing_or_rehashed_unsupported_sampling_policy_cannot_claim_current_identity(self):
-        from rocket_propulsion.propulsion.burns import hierarchical_ensemble_to_dict, hierarchical_ensemble_from_dict
-        from tests.test_ensemble_document_contract import rehash
         from rocket_propulsion.core.errors import InputError
+        from rocket_propulsion.propulsion.burns import (
+            hierarchical_ensemble_from_dict,
+            hierarchical_ensemble_to_dict,
+        )
+        from tests.test_ensemble_document_contract import rehash
         raw=hierarchical_ensemble_to_dict(self.ensemble)
         self.assertEqual(hierarchical_ensemble_from_dict(raw),self.ensemble)
         self.assertEqual(raw.get('sampling_numerics'),'open_binary_strata_latent_gaussian_and_certified_bounded_quantiles_v1')

@@ -1,21 +1,21 @@
 """Exact energy/laminar ledgers, independent turbulent references and hostile records."""
+import unittest
 from collections.abc import Mapping
 from dataclasses import asdict, replace
 from decimal import Decimal, localcontext
 from fractions import Fraction
 from math import inf, nextafter
-import unittest
 
-from rocket_propulsion.core.errors import DomainError, ConvergenceError
-from rocket_propulsion.thermodynamics import calculate_regenerative_cooling
 from rocket_propulsion.api import routes as api_routes
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
+from rocket_propulsion.thermodynamics import calculate_regenerative_cooling
 
 
 def inputs(**changes):
-    return dict(dict(absorbed_heat_w=1000.,coolant_mass_flow_kg_s=1.,coolant_specific_heat_j_kg_k=1000.,
-        coolant_inlet_temperature_k=100.,coolant_density_kg_m3=1000.,coolant_dynamic_viscosity_pa_s=.001,
-        channel_count=10,channel_flow_area_m2=.001,hydraulic_diameter_m=.01,channel_length_m=1.,
-        roughness_m=0.,maximum_coolant_temperature_k=1000.),**changes)
+    return dict({'absorbed_heat_w': 1000.,'coolant_mass_flow_kg_s': 1.,'coolant_specific_heat_j_kg_k': 1000.,
+        'coolant_inlet_temperature_k': 100.,'coolant_density_kg_m3': 1000.,'coolant_dynamic_viscosity_pa_s': .001,
+        'channel_count': 10,'channel_flow_area_m2': .001,'hydraulic_diameter_m': .01,'channel_length_m': 1.,
+        'roughness_m': 0.,'maximum_coolant_temperature_k': 1000.},**changes)
 
 
 def rational_state(x):
@@ -50,12 +50,12 @@ def reference(x,precision=180):
             exported_f=float(friction);pressure=float(friction*d(head))
     margin=Fraction(x['maximum_coolant_temperature_k'])-outlet
     displayed=abs(Fraction(x['absorbed_heat_w'])-capacity*(Fraction(float(outlet))-Fraction(x['coolant_inlet_temperature_k'])))
-    return dict(coolant_capacity_w_k=float(capacity),temperature_rise_k=float(rise),outlet_temperature_k=float(outlet),
-        inlet_temperature_k=x['coolant_inlet_temperature_k'],absorbed_heat_w=x['absorbed_heat_w'],
-        channel_velocity_m_s=float(velocity),reynolds_number=float(reynolds),darcy_friction_factor=exported_f,
-        pressure_drop_pa=pressure,temperature_limit_exceeded=margin<0,temperature_limit_margin_k=optional_float(margin),
-        displayed_temperature_energy_residual_w=optional_float(displayed),
-        flow_regime='laminar' if reynolds<2300 else 'transition' if reynolds<4000 else 'turbulent')
+    return {'coolant_capacity_w_k': float(capacity),'temperature_rise_k': float(rise),'outlet_temperature_k': float(outlet),
+        'inlet_temperature_k': x['coolant_inlet_temperature_k'],'absorbed_heat_w': x['absorbed_heat_w'],
+        'channel_velocity_m_s': float(velocity),'reynolds_number': float(reynolds),'darcy_friction_factor': exported_f,
+        'pressure_drop_pa': pressure,'temperature_limit_exceeded': margin<0,'temperature_limit_margin_k': optional_float(margin),
+        'displayed_temperature_energy_residual_w': optional_float(displayed),
+        'flow_regime': 'laminar' if reynolds<2300 else 'transition' if reynolds<4000 else 'turbulent'}
 
 
 def pole_inputs(multiplier=1,near=False):
@@ -206,9 +206,9 @@ class RegenerativeAttacks(unittest.TestCase):
 
     def test_complete_record_replay_rejects_forged_fields_and_qualifications(self):
         r=self.valid(inputs())
-        for change in (dict(outlet_temperature_k=1e99),dict(pressure_drop_pa=1e99),dict(physical_model_qualified=True),
-                       dict(physical_model_qualified=0),dict(temperature_limit_exceeded=True),dict(numerical_policy='forged'),
-                       dict(flow_regime='turbulent'),dict(energy_balance_residual_w=1.)):
+        for change in ({'outlet_temperature_k': 1e99},{'pressure_drop_pa': 1e99},{'physical_model_qualified': True},
+                       {'physical_model_qualified': 0},{'temperature_limit_exceeded': True},{'numerical_policy': 'forged'},
+                       {'flow_regime': 'turbulent'},{'energy_balance_residual_w': 1.}):
             with self.subTest(change=change),self.assertRaises(DomainError):replace(r,**change)
 
     def test_mapping_round_trip_owns_inputs_and_warning_text(self):

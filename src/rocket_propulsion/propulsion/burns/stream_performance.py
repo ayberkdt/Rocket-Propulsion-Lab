@@ -16,7 +16,6 @@ from itertools import product
 from math import isfinite
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from .exchange_documents import _surface_document
 from rocket_propulsion.core.validation import (
     name_value_pairs,
     read_json_document,
@@ -28,13 +27,14 @@ from rocket_propulsion.core.validation import (
     text,
 )
 
+from .exchange_documents import _surface_document
+from .interpolation import _MULTILINEAR_POLICY, _multilinear_terms
+from .numeric_outputs import _finite_rational, _fraction
 from .performance_surface import (
     PerformanceAxis,
     PerformanceGridLineSurface,
     PerformanceValiditySurface,
 )
-from .interpolation import _MULTILINEAR_POLICY, _multilinear_terms
-from .numeric_outputs import _finite_rational, _fraction
 from .serialization import _require_numerical_policies, canonical_sha256
 
 STREAM_PERFORMANCE_SURFACE_SCHEMA = "rocket_propulsion_stream_performance_surface_v1"

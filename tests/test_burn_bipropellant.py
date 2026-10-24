@@ -18,8 +18,8 @@ from rocket_propulsion.propulsion.burns import (
     DynamicFeedLineConfiguration,
     DynamicFeedLineState,
     PropagatorPropulsionBridge,
-    RegulatedFeedSystem,
     RegulatedFeedState,
+    RegulatedFeedSystem,
     StreamStateBinding,
 )
 from tests.test_burn_feed_system import example_feed_system

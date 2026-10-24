@@ -11,8 +11,6 @@ from math import isfinite, log
 from pathlib import Path
 from typing import Any
 
-from .capabilities import SideraCapabilityProbe
-
 from rocket_propulsion.compressible import (
     calculate_fanno,
     calculate_ideal_nozzle,
@@ -95,6 +93,8 @@ from rocket_propulsion.thermodynamics import (
     calculate_stagnation_state,
     complete_ideal_gas_state,
 )
+
+from .capabilities import SideraCapabilityProbe
 
 
 def _number(payload: dict[str, Any], key: str, *, default: float | None = None) -> float:

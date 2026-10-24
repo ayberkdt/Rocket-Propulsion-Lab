@@ -8,7 +8,7 @@ References: NASA-ROCKET; NASA-7009B numerical verification and domain records.
 
 import math
 import unittest
-from decimal import Context, Decimal, ROUND_DOWN, localcontext
+from decimal import ROUND_DOWN, Context, Decimal, localcontext
 
 from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2 as G0
 from rocket_propulsion.core.errors import DomainError

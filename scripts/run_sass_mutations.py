@@ -7,13 +7,12 @@ References: NASA-7009B, implementation verification and documented limitations.
 """
 
 import hashlib
-import sys
 import importlib
 import json
+import sys
 from pathlib import Path
 
 from scripts.run_bounded_regression import ROOT, verification_inputs
-
 
 MUTATIONS = (
     ("perturb_final_mass", "mass_numerics", "_at_precision", '("final_mass", mass, "kg")',
@@ -77,7 +76,7 @@ def main():
     for name, module_name, symbol, before, after, test_name, suite_name in MUTATIONS:
         module = importlib.import_module("rocket_propulsion.studies.sass." + module_name)
         function = getattr(module, symbol)
-        from scripts.mutation_runtime import compile_fault, evaluate_fault, MUTATION_RUNTIME_POLICY
+        from scripts.mutation_runtime import MUTATION_RUNTIME_POLICY, compile_fault, evaluate_fault
         source,replacement = compile_fault(function,before,after,f"<mutation:{name}>")
         tests = importlib.import_module("tests.test_sass_" + suite_name)
         cls = getattr(tests, {"adversarial": "HostileRegressionTests", "validation": "ValidationAttacks",
@@ -87,7 +86,7 @@ def main():
         # Patch every imported binding of the exact original callable. Patching
         # only its defining module misses helpers imported into a consumer's
         # globals, creating a false survivor without exercising the mutant.
-        def aliases():return [(loaded, key) for name, loaded in list(sys.modules.items())
+        def aliases(*, function=function):return [(loaded, key) for name, loaded in list(sys.modules.items())
                    if name.startswith(("rocket_propulsion.studies.sass", "tests.test_sass_"))
                    and loaded is not None for key, value in list(vars(loaded).items())
                    if value is function]

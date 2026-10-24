@@ -5,6 +5,7 @@ neither authenticate a test campaign nor establish physical qualification.
 """
 
 from rocket_propulsion.core.errors import InputError
+
 from .exchange_documents import _array, _number, _object, _string, _strings
 
 

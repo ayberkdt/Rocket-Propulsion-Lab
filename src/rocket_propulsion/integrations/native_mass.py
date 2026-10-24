@@ -6,12 +6,12 @@ rules. The existing caller's inventory margin is supplied explicitly.
 
 from dataclasses import dataclass
 from fractions import Fraction
-from math import isfinite, nextafter, inf
+from math import inf, isfinite, nextafter
 from struct import pack, unpack
 from sys import float_info
 
 from rocket_propulsion.core.errors import DomainError
-from rocket_propulsion.propulsion.burns.numeric_outputs import _fraction, _finite_rational
+from rocket_propulsion.propulsion.burns.numeric_outputs import _finite_rational, _fraction
 
 _NATIVE_MASS_POLICY = 'exact_mass_ledger_guarded_epoch_cutoff_v1'
 

@@ -41,12 +41,15 @@ from rocket_propulsion.propulsion.burns import (
     PropulsionTimeline,
     free_space_burn_metrics,
 )
+from rocket_propulsion.propulsion.burns.numeric_outputs import _finite_rational, _fraction
 from rocket_propulsion.propulsion.burns.propagator import INVENTORY_LIMIT_TOLERANCE
-from rocket_propulsion.propulsion.burns.numeric_outputs import _fraction, _finite_rational
 from rocket_propulsion.propulsion.burns.time_coordinates import (
-    _epoch_profile_time, _clock_table, _profile_boundaries,
+    _clock_table,
+    _epoch_profile_time,
+    _profile_boundaries,
 )
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
+
 from .direction import _directed_vector
 from .native_mass import _NATIVE_MASS_POLICY, _consumption, _cutoff, _scale, _upper_bound
 
@@ -263,7 +266,7 @@ class LunarisBurnWindow:
         except TypeError as error:
             raise DomainError('Native event dates must be a sequence.') from error
         if not dates or dates[0]!=self.ignition_time_s or dates[-1]!=self.cutoff_time_s or any(
-                b<=a for a,b in zip(dates,dates[1:])):
+                b<=a for a,b in pairwise(dates)):
             raise DomainError('Native event dates must include both endpoints and increase strictly.')
         object.__setattr__(self,'time_events_s',dates)
         ratio=self.cutoff_profile_time_ratio
@@ -360,7 +363,7 @@ def lunaris_burn_windows(
     contexts = []
 
     def consumed_at(context, date):
-        offset, burn, drivers, horizon, _, _, _, _ = context
+        _offset, burn, drivers, horizon, _, _, _, _ = context
         point = _epoch_profile_time(burn.bridge.artifact.segments, date, burn.ignition_time_s,
             drivers["ignition_time_bias_s"], horizon=horizon, allow_aliases=False)
         return _consumption(burn.bridge.artifact.segments, _fraction(drivers["mass_flow_scale"]),
@@ -709,17 +712,16 @@ class LunarisFiniteBurnDynamics:
             mass_value = real(y[6],'Native RHS vehicle mass')
             if mass_value <= 0:
                 raise DomainError('Native RHS vehicle mass must be positive.')
-            if not first_time:
-                if self._initial_mass is not None:
-                    exact_expected = self._predicted_mass(time_s)
-                    expected = _finite_rational(exact_expected, 'Native predicted vehicle mass')
-                    if abs(_fraction(mass_value)-exact_expected) > (
-                            _fraction(self._mass_tolerance)*_fraction(self._initial_mass)):
-                        raise DomainError(
-                            f"State mass {float(y[6])!r} kg at t={time_s!r} s differs from the "
-                            f"timeline prediction {expected!r} kg; the dry-mass cut would be "
-                            "wrong. Start from initial_mass_kg and add no other mass changes."
-                        )
+            if not first_time and self._initial_mass is not None:
+                exact_expected = self._predicted_mass(time_s)
+                expected = _finite_rational(exact_expected, 'Native predicted vehicle mass')
+                if abs(_fraction(mass_value)-exact_expected) > (
+                        _fraction(self._mass_tolerance)*_fraction(self._initial_mass)):
+                    raise DomainError(
+                        f"State mass {float(y[6])!r} kg at t={time_s!r} s differs from the "
+                        f"timeline prediction {expected!r} kg; the dry-mass cut would be "
+                        "wrong. Start from initial_mass_kg and add no other mass changes."
+                    )
             on_boundary = time_s in boundaries
             side = (
                 "left"

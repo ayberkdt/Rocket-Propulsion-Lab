@@ -241,6 +241,6 @@ def power_resources(firing_power: CitedScalar, on_time: CitedScalar, duty_fracti
                Citation("NASA-SE-6", "6.3: explicit propulsion-to-EPS operational interfaces"))
     return AnalysisResult("disjoint_phase_bus_energy_budget", tuple(
         (name, derived(value, unit, inputs, methods)) for name, value, unit in values
-    ), ("Phase ledger uses exact rational input arithmetic with final binary conversion; "
-        "physical uncertainty is not quantified.",
+    ), (("Phase ledger uses exact rational input arithmetic with final binary conversion; "
+        "physical uncertainty is not quantified."),
         "No solar-array, battery, PPU efficiency or spacecraft thermal-model inference."))

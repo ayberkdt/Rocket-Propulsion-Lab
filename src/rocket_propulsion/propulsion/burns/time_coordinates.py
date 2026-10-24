@@ -4,12 +4,14 @@ An epoch clock that maps distinct profile boundaries to the same binary64 time
 cannot represent that profile. No minimum relative duration is imposed.
 """
 
+import itertools
 from bisect import bisect_left
 from fractions import Fraction
 from functools import lru_cache
 from math import isfinite
 
 from rocket_propulsion.core.errors import DomainError
+
 from .numeric_outputs import _finite_rational
 
 _TIME_POLICY = 'exact_relative_clock_and_once_rounded_epoch_events_v1'
@@ -46,7 +48,7 @@ def _clock_table(boundaries, ignition, bias):
     offset = Fraction(ignition) + Fraction(bias)
     canonical = tuple(_finite_rational(offset + Fraction(t), 'Absolute profile boundary')
                       for t in boundaries)
-    if any(right <= left for left, right in zip(canonical, canonical[1:])):
+    if any(right <= left for left, right in itertools.pairwise(canonical)):
         raise DomainError('Absolute clock cannot distinguish successive profile boundaries.',
                           field='Epoch resolution')
     primary = dict(zip(canonical, boundaries, strict=True))

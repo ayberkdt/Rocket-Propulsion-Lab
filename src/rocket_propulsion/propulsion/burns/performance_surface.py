@@ -19,7 +19,6 @@ from math import isfinite, prod
 from types import MappingProxyType
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from .exchange_documents import _surface_document
 from rocket_propulsion.core.validation import (
     read_json_document,
     real,
@@ -29,6 +28,7 @@ from rocket_propulsion.core.validation import (
     text,
 )
 
+from .exchange_documents import _surface_document
 from .interpolation import _MULTILINEAR_POLICY, _multilinear_terms, _pchip_rational_slopes
 from .numeric_outputs import _finite_rational, _fraction
 from .serialization import _require_numerical_policies, canonical_sha256

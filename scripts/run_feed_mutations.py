@@ -12,124 +12,182 @@ import time
 from pathlib import Path
 from types import ModuleType
 
+from rocket_propulsion.api import routes as api_routes
+from rocket_propulsion.core import validation as validation_model
+from rocket_propulsion.geometry import export as geometry_export_model
+from rocket_propulsion.geometry import export_numerics as geometry_export_numeric_model
+from rocket_propulsion.geometry import moc_axis_departure as moc_departure_model
+from rocket_propulsion.geometry import moc_boundary as moc_boundary_model
+from rocket_propulsion.geometry import moc_unit_process as moc_unit_model
+from rocket_propulsion.integrations import direction as adapter_direction
+from rocket_propulsion.integrations import lunaris as lunaris_adapter
+from rocket_propulsion.integrations import native_mass
+from rocket_propulsion.integrations import sidera_ensemble as ensemble_adapter
+from rocket_propulsion.propulsion import cycle_numerics, performance_numerics
+from rocket_propulsion.propulsion import cycles as cycle_model
+from rocket_propulsion.propulsion import losses as loss_model
+from rocket_propulsion.propulsion import performance as performance_model
+from rocket_propulsion.propulsion import staging as staging_model
+from rocket_propulsion.propulsion import staging_numerics as staging_numeric_model
+from rocket_propulsion.propulsion import two_phase as two_phase_model
 from rocket_propulsion.propulsion.burns import (
-    BipropellantDynamicFeedConfiguration,
     BipropellantCoupledPartials,
+    BipropellantDynamicFeedConfiguration,
     BipropellantMixtureRatioEventSurface,
     DynamicFeedLine,
     IdealPressurantGas,
-    RegulatedFeedSystem,
     PropagatorPropulsionBridge,
-    ThrottleableEngineModel,
+    PropellantMassClosure,
     RectilinearPerformanceSurface,
     RectilinearStreamPerformanceSurface,
-    PropellantMassClosure,
+    RegulatedFeedSystem,
+    ThrottleableEngineModel,
+    numeric_outputs,
 )
 from rocket_propulsion.propulsion.burns import bipropellant as bipropellant_model
-from rocket_propulsion.propulsion.burns import propagator as bridge_model
-from rocket_propulsion.propulsion.burns import numeric_outputs
-from rocket_propulsion.propulsion.burns import direction as direction_model
-from rocket_propulsion.propulsion.burns import serialization as serialization_model
-from rocket_propulsion.propulsion.burns import interpolation as interpolation_model
-from rocket_propulsion.propulsion.burns import mass_closure as closure_model
-from rocket_propulsion.propulsion.burns import integration as constant_model
-from rocket_propulsion.propulsion.burns import profiles as profile_geometry
-from rocket_propulsion.propulsion.burns import profile_integration as profile_model
-from rocket_propulsion.propulsion.burns import inventory as inventory_model
-from rocket_propulsion.propulsion.burns import models as burn_models
-from rocket_propulsion.propulsion.burns import tabulated as tabulated_model
 from rocket_propulsion.propulsion.burns import burn_metrics as metrics_model
-from rocket_propulsion.propulsion.burns import time_coordinates as time_model
-from rocket_propulsion.propulsion.burns import timeline as timeline_model
-from rocket_propulsion.integrations import lunaris as lunaris_adapter
-from rocket_propulsion.integrations import direction as adapter_direction
-from rocket_propulsion.integrations import native_mass
-from rocket_propulsion.core import validation as validation_model
-from rocket_propulsion.propulsion.burns import tabulated_documents as document_model
-from rocket_propulsion.propulsion.burns import exchange_documents as exchange_model
+from rocket_propulsion.propulsion.burns import direction as direction_model
 from rocket_propulsion.propulsion.burns import electric as electric_model
-from rocket_propulsion.propulsion.burns import power_modes as mode_model
+from rocket_propulsion.propulsion.burns import ensemble as ensemble_model
 from rocket_propulsion.propulsion.burns import ensemble_documents as ensemble_document_model
 from rocket_propulsion.propulsion.burns import ensemble_serialization as ensemble_reader
-from rocket_propulsion.propulsion.burns import ensemble as ensemble_model
-from rocket_propulsion.propulsion.burns import probability_numerics as probability_model
+from rocket_propulsion.propulsion.burns import exchange_documents as exchange_model
+from rocket_propulsion.propulsion.burns import integration as constant_model
+from rocket_propulsion.propulsion.burns import interpolation as interpolation_model
+from rocket_propulsion.propulsion.burns import inventory as inventory_model
 from rocket_propulsion.propulsion.burns import marginal_numerics as marginal_model
-from rocket_propulsion.propulsion.burns import uncertainty as uncertainty_model
+from rocket_propulsion.propulsion.burns import mass_closure as closure_model
+from rocket_propulsion.propulsion.burns import models as burn_models
+from rocket_propulsion.propulsion.burns import power_modes as mode_model
+from rocket_propulsion.propulsion.burns import probability_numerics as probability_model
+from rocket_propulsion.propulsion.burns import profile_integration as profile_model
+from rocket_propulsion.propulsion.burns import profiles as profile_geometry
+from rocket_propulsion.propulsion.burns import propagator as bridge_model
 from rocket_propulsion.propulsion.burns import sample_statistics as summary_model
+from rocket_propulsion.propulsion.burns import serialization as serialization_model
+from rocket_propulsion.propulsion.burns import tabulated as tabulated_model
+from rocket_propulsion.propulsion.burns import tabulated_documents as document_model
+from rocket_propulsion.propulsion.burns import time_coordinates as time_model
+from rocket_propulsion.propulsion.burns import timeline as timeline_model
+from rocket_propulsion.propulsion.burns import uncertainty as uncertainty_model
 from rocket_propulsion.studies import sampling as study_model
-from rocket_propulsion.api import routes as api_routes
-from rocket_propulsion.propulsion import performance as performance_model
-from rocket_propulsion.propulsion import performance_numerics as performance_numerics
-from tests.test_performance_contract import PerformanceAttacks, PerformanceApiAttacks
-from rocket_propulsion.propulsion import two_phase as two_phase_model
-from tests.test_two_phase_contract import TwoPhaseAttacks, TwoPhaseApiAttacks
-from rocket_propulsion.propulsion import staging as staging_model
-from rocket_propulsion.propulsion import staging_numerics as staging_numeric_model
-from tests.test_staging_contract import StagingAttacks
-from rocket_propulsion.thermodynamics import heat_transfer as bartz_model
 from rocket_propulsion.thermodynamics import bartz_numerics as bartz_numeric_model
-from tests.test_bartz_contract import BartzAttacks, BartzApiAttacks
+from rocket_propulsion.thermodynamics import heat_transfer as bartz_model
 from rocket_propulsion.thermodynamics import regenerative as coolant_model
 from rocket_propulsion.thermodynamics import regenerative_numerics as coolant_numeric_model
-from tests.test_regenerative_contract import RegenerativeAttacks, RegenerativeApiAttacks
-from rocket_propulsion.geometry import export as geometry_export_model
-from rocket_propulsion.geometry import export_numerics as geometry_export_numeric_model
-from tests.test_geometry_export_contract import GeometryExportAttacks, GeometryExportApiAttacks
-from rocket_propulsion.geometry import moc_unit_process as moc_unit_model
-from tests.test_moc_unit_process import MocUnitProcessAttacks
-from rocket_propulsion.geometry import moc_boundary as moc_boundary_model
-from tests.test_moc_boundary import MocBoundaryAttacks
-from rocket_propulsion.propulsion import losses as loss_model
-from tests.test_loss_contract import LossAttacks, LossApiAttacks
+from scripts import assurance_audit
+from scripts.mutation_runtime import MUTATION_RUNTIME_POLICY, compile_fault, evaluate_fault
+from scripts.run_bounded_regression import ROOT, verification_inputs
 from tests import test_mutation_runtime_contract as runtime_contract_tests
-from rocket_propulsion.propulsion import cycles as cycle_model
-from rocket_propulsion.propulsion import cycle_numerics as cycle_numerics
-from tests.test_cycle_contract import CycleAttacks, CycleApiAttacks
-from tests.test_study_sampling_contract import StudySamplingAttacks, StudyUncertaintyApiAttacks
-from tests.test_uncertainty_summary_contract import SummaryNumericalAttacks, SummaryRecordAttacks
-from tests.test_uncertainty_marginal_contract import (
-    MarginalNumericalAttacks, CorrelationAndSamplerAttacks, SamplingIdentityAttacks,
-)
-from tests.test_ensemble_probability_numerics import WeightedKernelAttacks, PublicProbabilityAttacks
-from rocket_propulsion.integrations import sidera_ensemble as ensemble_adapter
-from tests.test_ensemble_document_contract import EnsembleDocumentAttacks
-from tests.test_electric_mode_contract import ElectricModeAttacks, ElectricFrontierAttacks
-from tests.test_feed_physics_adversarial import FeedBoundaryAttacks, FeedConservationOracles
-from tests.test_burn_feed_system import RegulatedFeedSystemTests
+from tests.test_adapter_direction_numerics import AdapterDirectionAttacks
+from tests.test_bartz_contract import BartzApiAttacks, BartzAttacks
 from tests.test_burn_bipropellant import BipropellantDynamicFeedTests
 from tests.test_burn_bipropellant_numerics import BipropellantNumericalAttacks
 from tests.test_burn_bridge_flow_numerics import BridgeFlowNumericalAttacks
-from tests.test_burn_direction_numerics import DirectionNumericalAttacks
-from tests.test_burn_propagator_integration import BridgeTimeIntegrationTests
-from tests.test_burn_throttle_flow_numerics import ThrottleFlowNumericalAttacks
-from tests.test_burn_pchip_numerics import PchipNumericalAttacks
-from tests.test_burn_multilinear_numerics import MultilinearNumericalAttacks
-from tests.test_burn_inventory_closure import InventoryClosureAttacks
 from tests.test_burn_constant_numerics import ConstantBurnNumericalAttacks
-from tests.test_burn_profile_numerics import ProfileBurnNumericalAttacks
-from tests.test_adapter_direction_numerics import AdapterDirectionAttacks
+from tests.test_burn_direction_numerics import DirectionNumericalAttacks
+from tests.test_burn_feed_system import RegulatedFeedSystemTests
+from tests.test_burn_inventory_closure import InventoryClosureAttacks
 from tests.test_burn_legacy_inventory import LegacyInventoryAttacks
+from tests.test_burn_multilinear_numerics import MultilinearNumericalAttacks
+from tests.test_burn_pchip_numerics import PchipNumericalAttacks
+from tests.test_burn_profile_numerics import ProfileBurnNumericalAttacks
+from tests.test_burn_propagator_integration import BridgeTimeIntegrationTests
 from tests.test_burn_record_contracts import BurnRecordContractAttacks
+from tests.test_burn_throttle_flow_numerics import ThrottleFlowNumericalAttacks
+from tests.test_core_validation_contract import CoreValidationAttacks
+from tests.test_cycle_contract import CycleAttacks
+from tests.test_electric_mode_contract import ElectricFrontierAttacks, ElectricModeAttacks
+from tests.test_ensemble_document_contract import EnsembleDocumentAttacks
+from tests.test_ensemble_probability_numerics import PublicProbabilityAttacks, WeightedKernelAttacks
+from tests.test_exchange_document_contract import ExchangeDocumentAttacks
+from tests.test_feed_physics_adversarial import FeedBoundaryAttacks, FeedConservationOracles
 from tests.test_free_space_numerics import FreeSpaceNumericalAttacks
+from tests.test_geometry_export_contract import GeometryExportApiAttacks, GeometryExportAttacks
+from tests.test_loss_contract import LossApiAttacks, LossAttacks
+from tests.test_moc_axis_departure import MocAxisDepartureAttacks
+from tests.test_moc_boundary import MocBoundaryAttacks
+from tests.test_moc_unit_process import MocUnitProcessAttacks
+from tests.test_native_reserve_numerics import NativeReserveAttacks
+from tests.test_performance_contract import PerformanceAttacks
+from tests.test_power_document_contract import (
+    ContinuousPowerNumericalAttacks,
+    ElectricLevelNumericalAttacks,
+    PowerDocumentAttacks,
+)
+from tests.test_regenerative_contract import RegenerativeApiAttacks, RegenerativeAttacks
+from tests.test_source_review_inventory import SourceInventoryAttacks
+from tests.test_staging_contract import StagingAttacks
+from tests.test_study_sampling_contract import StudySamplingAttacks, StudyUncertaintyApiAttacks
+from tests.test_tabulated_document_contract import TabulatedDocumentAttacks
 from tests.test_tabulated_ledger_numerics import TabulatedLedgerAttacks
 from tests.test_tabulated_time_contract import TabulatedTimeAttacks
-from tests.test_native_reserve_numerics import NativeReserveAttacks
-from tests.test_tabulated_document_contract import TabulatedDocumentAttacks
-from tests.test_core_validation_contract import CoreValidationAttacks
-from tests.test_exchange_document_contract import ExchangeDocumentAttacks
-from tests.test_power_document_contract import (
-    PowerDocumentAttacks, ElectricLevelNumericalAttacks, ContinuousPowerNumericalAttacks,
+from tests.test_two_phase_contract import TwoPhaseApiAttacks, TwoPhaseAttacks
+from tests.test_uncertainty_marginal_contract import (
+    CorrelationAndSamplerAttacks,
+    MarginalNumericalAttacks,
+    SamplingIdentityAttacks,
 )
-from tests.test_source_review_inventory import SourceInventoryAttacks
-from scripts import assurance_audit
-from scripts.run_bounded_regression import ROOT, verification_inputs
-from scripts.mutation_runtime import compile_fault, evaluate_fault, MUTATION_RUNTIME_POLICY
-
+from tests.test_uncertainty_summary_contract import SummaryNumericalAttacks, SummaryRecordAttacks
 
 # Two model-local UTF-8 deletion variants were retired after shared literal
 # normalization and the non-depleting-stream branch audit. They are not kills.
 # Evidence and active replacement coverage: CORE_VALIDATION_CONTRACT_REVIEW.md.
 MUTATIONS = (
+    ('moc_departure_confuse_zero_gradient_with_uniform_history', moc_departure_model, '_solve',
+     'all(p.mach==a.mach for p in inputs.axis_result.inputs.axis_history)', 'plus[3]==0',
+     MocAxisDepartureAttacks, 'test_zero_axis_gradient_with_curved_history_is_not_uniform'),
+    ('moc_departure_drop_cylindrical_half', moc_departure_model, '_axis_expansion',
+     'c=(m*m-1)/2', 'c=(m*m-1)', MocAxisDepartureAttacks, 'test_spherical_expansion_carries_nonzero_axis_source'),
+    ('moc_departure_zero_axis_radial_gradient', moc_departure_model, '_axis_expansion',
+     'return c*first,', 'return F(0),', MocAxisDepartureAttacks, 'test_spherical_expansion_carries_nonzero_axis_source'),
+    ('moc_departure_omit_axial_gradient_of_radial_velocity', moc_departure_model, '_axis_expansion',
+     'c*second+c_u*first*first', 'F(0)', MocAxisDepartureAttacks, 'test_spherical_expansion_carries_nonzero_axis_source'),
+    ('moc_departure_omit_nonlinear_gradient_term', moc_departure_model, '_axis_expansion',
+     'c*second+c_u*first*first', 'c*second', MocAxisDepartureAttacks, 'test_spherical_expansion_carries_nonzero_axis_source'),
+    ('moc_departure_omit_quadratic_axis_curvature', moc_departure_model, '_axis_expansion',
+     'c*second+c_u*first*first', 'c_u*first*first', MocAxisDepartureAttacks, 'test_spherical_expansion_carries_nonzero_axis_source'),
+    ('moc_departure_erase_compression_gradient_sign', moc_departure_model, '_axis_expansion',
+     'return c*first,', 'return c*abs(first),', MocAxisDepartureAttacks, 'test_spherical_compression_carries_negative_axis_source'),
+    ('moc_departure_use_optional_displayed_source_in_solve', moc_departure_model, '_axis_expansion',
+     'return c*first,', 'return F(axis.source_term_per_m or 0)/a2,',
+     MocAxisDepartureAttacks, 'test_unrepresentable_source_diagnostic_does_not_erase_private_regularity'),
+    ('moc_departure_wrong_incoming_characteristic_family', moc_departure_model, '_parents',
+     '_coefficients(inputs.minus_parent,g,-1,axis.inputs.axisymmetric)', '_coefficients(inputs.minus_parent,g,1,axis.inputs.axisymmetric)',
+     MocAxisDepartureAttacks, 'test_spherical_expansion_carries_nonzero_axis_source'),
+    ('moc_departure_reverse_minus_source', moc_departure_model, '_solve',
+     '+cm*(x-F(b.x_m))', '-cm*(x-F(b.x_m))', MocAxisDepartureAttacks, 'test_spherical_expansion_carries_nonzero_axis_source'),
+    ('moc_departure_ignore_iteration_budget', moc_departure_model, '_solve',
+     'range(1,inputs.max_iterations+1)', 'range(1,129)',
+     MocAxisDepartureAttacks, 'test_iteration_budget_must_fail_instead_of_returning_an_unconverged_state'),
+    ('moc_departure_skip_private_topology_guard', moc_departure_model, '_private_topology',
+     'if x<=max(', 'if False and x<=max(', MocAxisDepartureAttacks, 'test_private_noncausal_intersection_has_distinct_error'),
+    ('moc_departure_skip_stored_topology_guard', moc_departure_model, '_stored_topology',
+     'if point.x_m<=max(', 'if False and point.x_m<=max(',
+     MocAxisDepartureAttacks, 'test_stored_coordinate_cannot_collapse_a_downstream_step'),
+    ('moc_departure_disable_regular_planar_solver', moc_departure_model, '_solve',
+     'if not inputs.axis_result.inputs.axisymmetric:', 'if False and not inputs.axis_result.inputs.axisymmetric:',
+     MocAxisDepartureAttacks, 'test_planar_expansion_uses_planar_equations'),
+    ('moc_departure_call_one_ulp_difference_constant', moc_departure_model, '_solve',
+     'if a.mach==b.mach and', 'if True and', MocAxisDepartureAttacks, 'test_one_ulp_parent_difference_cannot_be_called_constant_flow'),
+    ('moc_departure_freeze_endpoint_coefficients', moc_departure_model, '_rows',
+     '(a+b)/2', 'a', MocAxisDepartureAttacks, 'test_spherical_expansion_carries_nonzero_axis_source'),
+    ('moc_departure_hide_unenforced_plus_defect', moc_departure_model, '_pack',
+     "'averaged_plus_compatibility_defect': _upper_residual(plus_defect)", "'averaged_plus_compatibility_defect': 0.",
+     MocAxisDepartureAttacks, 'test_unenforced_plus_compatibility_defect_is_visible_and_replayed'),
+    ('moc_departure_skip_result_replay', moc_departure_model.MocAxisDepartureResult, '__post_init__',
+     'if any(getattr(self,name)!=value for name,value in _solve(source).items()):',
+     'if False and any(getattr(self,name)!=value for name,value in _solve(source).items()):',
+     MocAxisDepartureAttacks, 'test_result_state_diagnostics_source_and_labels_must_replay'),
+    ('moc_departure_trust_policy_equality', moc_departure_model.MocAxisDepartureResult, '__post_init__',
+     'text(getattr(self,name),name)', 'getattr(self,name)',
+     MocAxisDepartureAttacks, 'test_hostile_policy_equality_does_not_bypass_plain_text_ownership'),
+    ('moc_departure_allow_physical_qualification', moc_departure_model.MocAxisDepartureResult, '__post_init__',
+     'if self.physical_model_qualified or self.full_nozzle_solution', 'if False or self.full_nozzle_solution',
+     MocAxisDepartureAttacks, 'test_local_process_cannot_claim_global_error_or_hardware_qualification'),
+    ('moc_departure_report_negative_source_as_positive', moc_departure_model, '_pack',
+     "'axis_source_term_per_m': value", "'axis_source_term_per_m': None if value is None else abs(value)",
+     MocAxisDepartureAttacks, 'test_spherical_compression_carries_negative_axis_source'),
     ('moc_boundary_zero_axis_regularity_limit', moc_boundary_model, '_axis_rows',
      'k=a2*(m*m-1)/2 if inputs.axisymmetric else F(0)', 'k=F(0)',
      MocBoundaryAttacks, 'test_axis_source_limit_is_nonzero_and_converges_to_spherical_value'),
@@ -414,7 +472,7 @@ MUTATIONS = (
      'if any(getattr(self,name)!=value', 'if False and any(getattr(self,name)!=value',
      RegenerativeAttacks, 'test_complete_record_replay_rejects_forged_fields_and_qualifications'),
     ('coolant_retain_warning_text_comparison_callback', coolant_model, '_warnings',
-     "text(value.message,'Warning message')", 'value.message',
+     "text(warning.message,'Warning message')", 'warning.message',
      RegenerativeAttacks, 'test_mapping_round_trip_owns_inputs_and_warning_text'),
     ('coolant_accept_nonboolean_qualification_flag', coolant_model.RegenerativeCoolingResult, '__post_init__',
      'if type(getattr(self,name)) is not bool:', 'if False and type(getattr(self,name)) is not bool:',
@@ -540,21 +598,21 @@ MUTATIONS = (
      'upper = initial', 'upper = math.rational(Fraction(float(initial[0])))',
      StagingAttacks, 'test_unrounded_upper_stack_is_used_in_lower_stage_ledger'),
     ('staging_omit_dry_fraction_from_propellant', staging_numeric_model, '_ledger',
-     'propellant_mass_kg=math.mul(math.sub(_ONE, eps), wet)', 'propellant_mass_kg=wet',
+     "'propellant_mass_kg': math.mul(math.sub(_ONE, eps), wet)", "'propellant_mass_kg': wet",
      StagingAttacks, 'test_two_stage_global_grid_optimum_matches_exhaustive_search'),
     ('staging_reverse_mass_ratio_exponent', staging_numeric_model, '_ledger',
-     'mass_ratio=_exp_interval(_exponent(stage, step*count), precision)',
-     'mass_ratio=_exp_interval(-_exponent(stage, step*count), precision)',
+     "'mass_ratio': _exp_interval(_exponent(stage, step*count), precision)",
+     "'mass_ratio': _exp_interval(-_exponent(stage, step*count), precision)",
      StagingAttacks, 'test_two_stage_global_grid_optimum_matches_exhaustive_search'),
     ('staging_claim_same_grid_is_refinement', staging_model, '_solve',
      'performed = refined_resolution != inputs.resolution', 'performed = True',
      StagingAttacks, 'test_maximum_grid_does_not_report_zero_as_refinement_evidence'),
     ('staging_claim_non_nested_grid_is_nested', staging_model, '_solve',
-     'refinement_grid_nested=performed and refined_resolution % inputs.resolution == 0',
-     'refinement_grid_nested=performed',
+     "'refinement_grid_nested': performed and refined_resolution % inputs.resolution == 0",
+     "'refinement_grid_nested': performed",
      StagingAttacks, 'test_non_nested_grid_difference_is_only_a_diagnostic'),
     ('staging_claim_continuous_optimum_qualification', staging_model, '_solve',
-     'continuous_optimum_qualified=False', 'continuous_optimum_qualified=True',
+     "'continuous_optimum_qualified': False", "'continuous_optimum_qualified': True",
      StagingAttacks, 'test_maximum_grid_does_not_report_zero_as_refinement_evidence'),
     ('staging_skip_complete_result_replay', staging_model.StagingOptimizationResult, '__post_init__',
      'if (any(getattr(self, name) != item', 'if (False and any(getattr(self, name) != item',
@@ -582,13 +640,13 @@ MUTATIONS = (
      'if source.coupling_definition == _VELOCITY:', 'if True:', TwoPhaseAttacks,
      'test_specific_energy_ratio_is_converted_to_velocity_before_mixing'),
     ('two_phase_reuse_displayed_velocity_in_force', two_phase_model, '_endpoint',
-     "thrust=_affine_sqrt_output(mean, radicand, 1, 'Conditional thrust')", "thrust=_finite_rational(mean+scaled_particle*Fraction(_sqrt_output(k, 'Displayed velocity')), 'Conditional thrust')", TwoPhaseAttacks,
+     "'thrust': _affine_sqrt_output(mean, radicand, 1, 'Conditional thrust')", "'thrust': _finite_rational(mean+scaled_particle*Fraction(_sqrt_output(k, 'Displayed velocity')), 'Conditional thrust')", TwoPhaseAttacks,
      'test_close_energy_cancellation_and_sign_do_not_use_displayed_velocity'),
     ('two_phase_square_specific_energy_before_velocity_export', two_phase_model, '_endpoint',
-     "velocity=_sqrt_output(k, 'Particle velocity ratio')", "velocity=_sqrt_output(k*k, 'Particle velocity ratio')", TwoPhaseAttacks,
+     "'velocity': _sqrt_output(k, 'Particle velocity ratio')", "'velocity': _sqrt_output(k*k, 'Particle velocity ratio')", TwoPhaseAttacks,
      'test_specific_energy_of_smallest_subnormal_is_not_squared_or_erased'),
     ('two_phase_reuse_exported_force_in_isp', two_phase_model, '_endpoint',
-     "isp=_finite_rational(isp*thrust/force, 'Conditional Isp')", "isp=_finite_rational(isp*Fraction(float(thrust))/force, 'Conditional Isp')", TwoPhaseAttacks,
+     "'isp': _finite_rational(isp*thrust/force, 'Conditional Isp')", "'isp': _finite_rational(isp*Fraction(float(thrust))/force, 'Conditional Isp')", TwoPhaseAttacks,
      'test_isp_does_not_reuse_the_rounded_exported_force'),
     ('two_phase_permit_nonboolean_qualification_flag', two_phase_model.TwoPhasePerformanceBand, '__post_init__',
      'if self.physical_bound_qualified is not False or self.statistical_coverage_qualified is not False:', 'if False:', TwoPhaseAttacks,
@@ -603,7 +661,7 @@ MUTATIONS = (
      'momentum, k = force-pressure, Fraction(coupling)', 'momentum, k = force, Fraction(coupling)', TwoPhaseAttacks,
      'test_pressure_thrust_is_not_multiplied_by_particle_momentum_loss'),
     ('two_phase_normalize_isp_by_momentum_instead_of_total', two_phase_model, '_endpoint',
-     "isp=_finite_rational(isp*thrust/force, 'Conditional Isp')", "isp=_finite_rational(isp*thrust/momentum, 'Conditional Isp')", TwoPhaseAttacks,
+     "'isp': _finite_rational(isp*thrust/force, 'Conditional Isp')", "'isp': _finite_rational(isp*thrust/momentum, 'Conditional Isp')", TwoPhaseAttacks,
      'test_pressure_thrust_is_not_multiplied_by_particle_momentum_loss'),
     ('two_phase_skip_retained_output_replay', two_phase_model.TwoPhasePerformanceBand, '__post_init__',
      'if any(getattr(self, name) != value for name, value in expected.items()):', 'if False:', TwoPhaseAttacks,
@@ -697,7 +755,7 @@ MUTATIONS = (
      'if any(getattr(self, name) != value for name, value in expected.items()):', 'if False:', LossAttacks,
      'test_term_replay_rejects_forged_labels_sources_switches_and_policy'),
     ('hide_legacy_discharge_model_warning', loss_model, '_budget_values',
-     'warnings=tuple(warnings)', "warnings=tuple(w for w in warnings if w.code != 'legacy_discharge_is_performance_multiplier')", LossAttacks,
+     "'warnings': tuple(warnings)", "'warnings': tuple(w for w in warnings if w.code != 'legacy_discharge_is_performance_multiplier')", LossAttacks,
      'test_basis_and_coverage_claims_are_explicit_and_algebra_is_not_validation'),
     ('ignore_loss_operating_basis_at_public_factory', loss_model, 'calculate_loss_budget',
      'source = LossBudgetInputs(**locals())', "operating_basis = 'fixed-mass-flow-lumped'\n    source = LossBudgetInputs(**locals())", LossApiAttacks,
@@ -1419,7 +1477,7 @@ MUTATIONS = (
      'except (OverflowError,) as error:',
      CoreValidationAttacks, 'test_recognized_integer_conversion_errors_are_typed'),
     ('accept_unordered_numeric_and_record_sequences', validation_model, '_ordered_items',
-     'memoryview, Mapping, Set', 'memoryview, Mapping',
+     'memoryview, Mapping, AbstractSet', 'memoryview, Mapping',
      CoreValidationAttacks, 'test_unordered_containers_cannot_define_component_or_record_order'),
     ('accept_raw_binary_numeric_sequences', validation_model, '_ordered_items',
      'bytes, bytearray, memoryview, Mapping', 'bytes, Mapping',
@@ -1438,7 +1496,7 @@ MUTATIONS = (
      'if not isinstance(allow_blank, bool):', 'if False:',
      CoreValidationAttacks, 'test_string_lists_validate_unicode_even_when_blanks_are_allowed'),
     ('interpret_mapping_keys_as_pair_components', validation_model, '_ordered_items',
-     'memoryview, Mapping, Set', 'memoryview, Set',
+     'memoryview, Mapping, AbstractSet', 'memoryview, AbstractSet',
      CoreValidationAttacks, 'test_nested_mapping_and_set_pairs_are_not_positional_data'),
     ('accept_ragged_real_matrices', validation_model, 'real_matrix',
      'if rows and any(len(row) != len(rows[0]) for row in rows):', 'if False:',
@@ -1541,16 +1599,16 @@ MUTATIONS = (
      'abs(_fraction(mass_value)-exact_expected)', 'abs(_fraction(mass_value)-_fraction(expected))',
      NativeReserveAttacks, 'test_initial_consistency_uses_unrounded_mass_difference'),
     ('initialize_native_clock_before_accepting_state', lunaris_adapter.LunarisFiniteBurnDynamics, '_wrap',
-     'if not first_time:\n            if self._initial_mass is not None:',
-     'if not first_time:\n            first_time.append(time_s)\n            if self._initial_mass is not None:',
+     'if not first_time and self._initial_mass is not None:\n            exact_expected = self._predicted_mass(time_s)\n            expected = _finite_rational(exact_expected, \'Native predicted vehicle mass\')\n            if abs(_fraction(mass_value)-exact_expected) > (\n                    _fraction(self._mass_tolerance)*_fraction(self._initial_mass)):\n                raise DomainError(\n                    f"State mass {float(y[6])!r} kg at t={time_s!r} s differs from the "\n                    f"timeline prediction {expected!r} kg; the dry-mass cut would be "\n                    "wrong. Start from initial_mass_kg and add no other mass changes."\n                )',
+     'if not first_time:\n            first_time.append(time_s)\n            if self._initial_mass is not None:\n                exact_expected = self._predicted_mass(time_s)\n                expected = _finite_rational(exact_expected, \'Native predicted vehicle mass\')\n                if abs(_fraction(mass_value)-exact_expected) > (\n                        _fraction(self._mass_tolerance)*_fraction(self._initial_mass)):\n                    raise DomainError(\n                        f"State mass {float(y[6])!r} kg at t={time_s!r} s differs from the "\n                        f"timeline prediction {expected!r} kg; the dry-mass cut would be "\n                        "wrong. Start from initial_mass_kg and add no other mass changes."\n                    )',
      NativeReserveAttacks, 'test_rejected_first_state_cannot_disable_consistency_validation'),
     ('initialize_native_clock_before_base_rhs_success', lunaris_adapter.LunarisFiniteBurnDynamics, '_wrap',
      'out = base_rhs(time_s, y)',
      'if not first_time:\n            first_time.append(time_s)\n        out = base_rhs(time_s, y)',
      NativeReserveAttacks, 'test_base_failure_does_not_initialize_the_segment_clock'),
     ('retain_mutable_native_parameter_overrides', lunaris_adapter.LunarisFiniteBurnDynamics, '__init__',
-     'self._overrides = {burn.burn_id:burn.bridge.resolved_parameters(\n'
-     '        (parameter_overrides or {}).get(burn.burn_id)) for burn in timeline.burns}',
+     ('self._overrides = {burn.burn_id:burn.bridge.resolved_parameters(\n'
+     '        (parameter_overrides or {}).get(burn.burn_id)) for burn in timeline.burns}'),
      'self._overrides = parameter_overrides',
      NativeReserveAttacks, 'test_parameter_overrides_are_frozen_with_the_precomputed_ledger'),
     ('round_native_dry_limit_before_comparison', PropagatorPropulsionBridge, '_evaluate',
@@ -1558,7 +1616,7 @@ MUTATIONS = (
      '_fraction(self.protected_dry_mass_kg + INVENTORY_LIMIT_TOLERANCE)',
      NativeReserveAttacks, 'test_exact_clamp_comparison_does_not_round_a_limit_up_to_the_state'),
     ('trust_native_window_event_order', lunaris_adapter.LunarisBurnWindow, '__post_init__',
-     'b<=a for a,b in zip(dates,dates[1:])', 'False for a,b in zip(dates,dates[1:])',
+     'b<=a for a,b in pairwise(dates)', 'False for a,b in pairwise(dates)',
      NativeReserveAttacks, 'test_window_copies_nested_inputs_and_rejects_inconsistent_records'),
     ('permit_negative_native_flow_scale', native_mass, '_scale',
      'if result < 0:', 'if False:',
@@ -1594,7 +1652,7 @@ MUTATIONS = (
      'abs(effective_time_s-artifact.duration_s) <= _fraction(1e-12) and side == "right"',
      TabulatedTimeAttacks, 'test_only_exact_endpoints_control_bridge_activity_and_nonsmoothness'),
     ('accept_collapsed_absolute_events', time_model, '_clock_table',
-     'if any(right <= left for left, right in zip(canonical, canonical[1:])):', 'if False:',
+     'if any(right <= left for left, right in itertools.pairwise(canonical)):', 'if False:',
      TabulatedTimeAttacks, 'test_actual_absolute_event_collisions_fail_closed'),
     ('omit_bias_from_absolute_event_dates', time_model, '_clock_table',
      'offset = Fraction(ignition) + Fraction(bias)', 'offset = Fraction(ignition)',
@@ -1773,8 +1831,8 @@ MUTATIONS = (
      "choked = log_ratio <= critical_log", "choked = False",
      FeedBoundaryAttacks, "test_near_equilibrium_regulator_flow_against_decimal"),
     ("no_heat_capacity_guard", IdealPressurantGas, "__post_init__",
-     '    _positive(self.specific_heat_cv_j_kg_k, "Pressurant constant-volume heat capacity")\n'
-     '    _positive(self.specific_heat_cp_j_kg_k, "Pressurant constant-pressure heat capacity")\n',
+     ('    _positive(self.specific_heat_cv_j_kg_k, "Pressurant constant-volume heat capacity")\n'
+     '    _positive(self.specific_heat_cp_j_kg_k, "Pressurant constant-pressure heat capacity")\n'),
      "", FeedBoundaryAttacks, "test_gas_thermodynamic_properties_cannot_be_infinite"),
     ("modal_frequency_gain_error", DynamicFeedLine, "evaluate",
      "natural_frequency = (1.0 /", "natural_frequency = (.99 /",
@@ -1843,17 +1901,17 @@ MUTATIONS = (
      BridgeFlowNumericalAttacks,
      "test_grouped_half_subnormal_drains_and_parameter_rates_are_rescued"),
     ("round_grouped_condition_ledger", PropagatorPropulsionBridge, "_evaluate",
-     "def state_condition_partials(condition_name: str) -> tuple[tuple[str, float], ...]:\n"
-     "        values = {state_name: Fraction(0) for state_name in required_states}",
-     "def state_condition_partials(condition_name: str) -> tuple[tuple[str, float], ...]:\n"
-     "        values = {state_name: 0.0 for state_name in required_states}",
+     ("def state_condition_partials(condition_name: str) -> tuple[tuple[str, float], ...]:\n"
+     "        values = {state_name: Fraction(0) for state_name in required_states}"),
+     ("def state_condition_partials(condition_name: str) -> tuple[tuple[str, float], ...]:\n"
+     "        values = {state_name: 0.0 for state_name in required_states}"),
      BridgeFlowNumericalAttacks,
      "test_condition_cancellation_is_order_independent_and_preserves_the_small_channel"),
     ("round_grouped_parameter_ledger", PropagatorPropulsionBridge, "_evaluate",
-     "def state_parameter_partials(parameter_name: str) -> tuple[tuple[str, float], ...]:\n"
-     "        values = {state_name: Fraction(0) for state_name in required_states}",
-     "def state_parameter_partials(parameter_name: str) -> tuple[tuple[str, float], ...]:\n"
-     "        values = {state_name: 0.0 for state_name in required_states}",
+     ("def state_parameter_partials(parameter_name: str) -> tuple[tuple[str, float], ...]:\n"
+     "        values = {state_name: Fraction(0) for state_name in required_states}"),
+     ("def state_parameter_partials(parameter_name: str) -> tuple[tuple[str, float], ...]:\n"
+     "        values = {state_name: 0.0 for state_name in required_states}"),
      BridgeFlowNumericalAttacks,
      "test_ignition_tangent_preserves_cancellation_in_the_stream_profile"),
     ("round_sampled_streams_before_grouping", bridge_model, "_mass_profile",
@@ -1869,10 +1927,10 @@ MUTATIONS = (
      DirectionNumericalAttacks,
      "test_projection_can_recover_an_unrepresentable_unit_component"),
     ("rounded_direction_projector", direction_model._DirectionGeometry, "jacobian",
-     "((self.squared_norm if row == column else 0)\n"
-     "                - self.coordinates[row] * self.coordinates[column])",
-     "self.squared_norm * _fraction((1.0 if row == column else 0.0) - "
-     "float(self.coordinates[row] / self.norm_estimate) * float(self.coordinates[column] / self.norm_estimate))",
+     ("((self.squared_norm if row == column else 0)\n"
+     "                - self.coordinates[row] * self.coordinates[column])"),
+     ("self.squared_norm * _fraction((1.0 if row == column else 0.0) - "
+     "float(self.coordinates[row] / self.norm_estimate) * float(self.coordinates[column] / self.norm_estimate))"),
      DirectionNumericalAttacks,
      "test_near_axis_projector_keeps_representable_diagonal_sensitivity"),
     ("absolute_direction_tangent_thrust", direction_model._DirectionGeometry, "jacobian",
@@ -1880,8 +1938,8 @@ MUTATIONS = (
      "test_signed_thrust_is_preserved_in_direction_tangents"),
     ("transverse_acceleration_bias", PropagatorPropulsionBridge, "_evaluate",
      'acceleration = geometry.project(exact_thrust, vehicle_mass_kg, label="Acceleration")',
-     'acceleration = geometry.project(exact_thrust, vehicle_mass_kg, label="Acceleration")\n'
-     '    acceleration = (acceleration[0], acceleration[1], acceleration[2] + 0.001)',
+     ('acceleration = geometry.project(exact_thrust, vehicle_mass_kg, label="Acceleration")\n'
+     '    acceleration = (acceleration[0], acceleration[1], acceleration[2] + 0.001)'),
      BridgeTimeIntegrationTests,
      "test_full_burn_reproduces_rocket_equation_and_mass_closure"),
     ("round_throttle_command_product", ThrottleableEngineModel, "evaluate",
@@ -1927,8 +1985,8 @@ MUTATIONS = (
      "test_fraction_rounding_does_not_corrupt_a_small_value_near_a_large_cancellation"),
     ("round_hermite_terms_before_sum", interpolation_model, "_hermite_segment",
      'value = _finite_ratio(value_numerator, denominator * cube, "Curve value")',
-     'from fractions import Fraction\n    value = _finite_rational(_fraction(float(Fraction(a, denominator))) + '
-     '_fraction(float(Fraction(value_numerator - a * cube, denominator * cube))), "Curve value")',
+     ('from fractions import Fraction\n    value = _finite_rational(_fraction(float(Fraction(a, denominator))) + '
+     '_fraction(float(Fraction(value_numerator - a * cube, denominator * cube))), "Curve value")'),
      PchipNumericalAttacks,
      "test_fraction_rounding_does_not_corrupt_a_small_value_near_a_large_cancellation"),
     ("absolute_tensor_gradient_basis", RectilinearPerformanceSurface, "_evaluate_hermite",
@@ -2070,10 +2128,10 @@ def main():
         source,replacement = compile_fault(function,before,after,f"<feed-mutation:{name}>")
         if isinstance(descriptor, property):
             if not isinstance(replacement, property):
-                raise RuntimeError(f"Mutation {name} lost its property descriptor.")
+                raise RuntimeError(f"Mutation {name} lost its property descriptor.")  # noqa: TRY004 - Broken experiment integrity is a runtime failure, not an assertion kill.
             replacement = property(replacement.fget, descriptor.fset, descriptor.fdel,
                                    descriptor.__doc__)
-        def bindings():
+        def bindings(*, owner=owner, symbol=symbol, function=function):
             targets=[(owner,symbol)]
             if isinstance(owner,ModuleType):
                 targets += [(loaded,key) for module_name,loaded in list(sys.modules.items())

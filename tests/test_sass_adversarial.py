@@ -16,9 +16,18 @@ from decimal import Decimal, localcontext
 from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2 as G0
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.studies.sass import (
-    Candidate, CitedScalar, assumption, bipropellant_split, circular_spiral_delta_v,
-    hohmann_transfer, ideal_cold_gas_storage, list_thrusters, nominal_operating_point,
-    perigee_lowering_delta_v, project_from_json, size_mission,
+    Candidate,
+    CitedScalar,
+    assumption,
+    bipropellant_split,
+    circular_spiral_delta_v,
+    hohmann_transfer,
+    ideal_cold_gas_storage,
+    list_thrusters,
+    nominal_operating_point,
+    perigee_lowering_delta_v,
+    project_from_json,
+    size_mission,
 )
 from rocket_propulsion.studies.sass.evidence import AnalysisResult
 from tests.test_sass_studies import example_request, maneuver
@@ -97,7 +106,7 @@ class HostileRegressionTests(unittest.TestCase):
     def test_single_impulse_does_not_require_a_representable_orbit_period(self):
         with localcontext() as ctx:
             ctx.prec = 75
-            ra, rp = Decimal(2e210), Decimal(1e210)
+            ra, rp = Decimal.from_float(2e210), Decimal.from_float(1e210)
             expected = (1 / ra).sqrt() - (2 * rp / (ra * (ra + rp))).sqrt()
         result = perigee_lowering_delta_v(q(float(ra), "m"), q(float(rp), "m"),
                                           q(1, "m^3/s^2"))
@@ -118,7 +127,7 @@ class IndependentMassOracleTests(unittest.TestCase):
                 # Solve for loaded propellant by bisection, propagating masses
                 # backward from dry + retained, not the production closure formula.
                 lo, hi = Decimal(0), Decimal(dry + reserve + 1)
-                def needed(loaded):
+                def needed(loaded, *, dry=dry, reserve=reserve, fraction=fraction, burns=burns):
                     mass = Decimal(dry) + Decimal(reserve) + Decimal(fraction) * loaded
                     for burn in reversed(burns):
                         exponent = Decimal(burn.delta_v.value) / (

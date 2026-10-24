@@ -16,7 +16,7 @@ class PowerBoundaryAttacks(unittest.TestCase):
         for time in (1., 1.3, 100., 1e-310):
             duty = math.nextafter(1., 0.)
             with localcontext(Context(prec=115)):
-                expected = float(Decimal(1e300) * Decimal(time)
+                expected = float(Decimal.from_float(1e300) * Decimal(time)
                                  * (1 - Decimal(duty)) / Decimal(duty))
             result = power_resources(q(0, "W"), q(time, "s"), q(duty),
                                      q(1e300, "W"), q(0, "W"), q(0, "s"))

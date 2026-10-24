@@ -21,16 +21,16 @@ from dataclasses import dataclass
 from enum import Enum
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from .exchange_documents import _timeline_document
 from rocket_propulsion.core.validation import read_json_document, real, real_mapping, records, text
 
+from .exchange_documents import _timeline_document
+from .numeric_outputs import _finite_rational, _fraction
 from .propagator import (
     BurnEventSurface,
     PropagatorPropulsionBridge,
     PropulsionDynamicsEvaluation,
 )
-from .serialization import canonical_sha256, _require_numerical_policies
-from .numeric_outputs import _fraction, _finite_rational
+from .serialization import _require_numerical_policies, canonical_sha256
 from .time_coordinates import _TIME_POLICY, _epoch_profile_time, _epoch_table
 
 PROPULSION_TIMELINE_SCHEMA = "rocket_propulsion_propulsion_timeline_v1"

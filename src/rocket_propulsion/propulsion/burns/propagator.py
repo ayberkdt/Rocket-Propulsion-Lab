@@ -27,18 +27,18 @@ from rocket_propulsion.core.validation import (
 )
 
 from .direction import _direction_geometry
-from .exchange_documents import _bridge_document, _metadata, _BRIDGE_METADATA
+from .exchange_documents import _BRIDGE_METADATA, _bridge_document, _metadata
 from .mass_closure import _MASS_CLOSURE_POLICY, _closure_ratio, _inventory_ledger
+from .numeric_outputs import _finite_rational, _fraction
 from .performance_surface import (
     PerformanceGridLineSurface,
     PerformanceValiditySurface,
     RectilinearPerformanceSurface,
 )
 from .serialization import _require_numerical_policies, canonical_sha256
-from .numeric_outputs import _finite_rational, _fraction
-from .time_coordinates import _TIME_POLICY, _epoch_profile_time
 from .stream_performance import RectilinearStreamPerformanceSurface
 from .tabulated import InterpolationPolicy, TabulatedBurnArtifact, TabulatedBurnSegment
+from .time_coordinates import _TIME_POLICY, _epoch_profile_time
 
 # Absolute margin (kg, or the bound state's unit) within which a mass or tank
 # state counts as having reached its protected limit.  Shared by the bridge's

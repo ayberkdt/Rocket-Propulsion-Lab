@@ -24,8 +24,8 @@ from typing import Any
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import (
-    name_value_pairs,
     finite_float_text,
+    name_value_pairs,
     read_json_document,
     real,
     records,
@@ -35,11 +35,11 @@ from rocket_propulsion.core.validation import (
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
 from .models import ProfiledBurnResult
+from .numeric_outputs import _finite_rational, _fraction
 from .profiles import resolved_schedule_intervals
 from .serialization import burn_result_to_dict, canonical_json_bytes
-from .numeric_outputs import _finite_rational, _fraction
-from .time_coordinates import _TIME_POLICY
 from .tabulated_documents import _utf8, _validate_document
+from .time_coordinates import _TIME_POLICY
 
 _TABULATED_LEDGER_NUMERICS = "exact_binary_segment_aggregate_ledger_v1"
 

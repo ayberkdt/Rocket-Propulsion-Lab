@@ -44,7 +44,7 @@ class SideraCapabilityProbe:
             result = self._inspector()
             if not isinstance(result, SideraCapabilities):
                 raise TypeError("Inspector did not return a SideraCapabilities record.")
-        except BaseException as error:  # worker exits must publish a terminal result
+        except BaseException as error:  # noqa: BLE001 - Even worker SystemExit must publish a terminal result.
             result = _failed_probe(error)
         with self._lock:
             self._result = result

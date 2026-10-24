@@ -91,7 +91,7 @@ class NativeReserveAttacks(unittest.TestCase):
         ):
             calls = []
 
-            def safe(date):
+            def safe(date, *, calls=calls, target=target):
                 calls.append(date)
                 return Fraction(date) <= target
 

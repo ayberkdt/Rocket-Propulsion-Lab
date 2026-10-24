@@ -1,29 +1,29 @@
 """Independent Decimal oracles for weighted moments and public rare-event weights."""
 
+import sys
+import unittest
 from dataclasses import replace
 from decimal import Decimal, localcontext
 from fractions import Fraction
 from math import ldexp, nextafter
-import sys
-import unittest
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.propulsion.burns import (
     ConstantPerformanceProvider,
+    DistributionKind,
     EngineClusterMember,
     EngineTransientCommand,
-    ThrottleSchedule,
-    ThrottleSegment,
     PropulsionScenario,
     PropulsionScenarioSet,
+    ScenarioConditionalUncertainty,
     ScenarioEvent,
     ScenarioEventType,
-    ScenarioConditionalUncertainty,
+    ThrottleSchedule,
+    ThrottleSegment,
     UncertainParameter,
     UncertaintyClass,
-    DistributionKind,
-    build_propulsion_scenario_ensemble,
     build_hierarchical_propulsion_ensemble,
+    build_propulsion_scenario_ensemble,
     hierarchical_ensemble_from_dict,
     hierarchical_ensemble_to_dict,
 )
@@ -342,7 +342,7 @@ class PublicProbabilityAttacks(unittest.TestCase):
                 )
                 rows.append(row)
                 metric_values[artifact.source_id] = value * scale
-            getter = lambda artifact: metric_values[artifact.source_id]
+            getter = lambda artifact, *, metric_values=metric_values: metric_values[artifact.source_id]
             with localcontext() as context:
                 context.prec = 2200
                 data = [
