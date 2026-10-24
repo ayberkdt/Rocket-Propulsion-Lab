@@ -174,7 +174,9 @@ class ArtifactFailureTests(unittest.TestCase):
             self.assertEqual(first.read_text(encoding="utf-8"), "source")
 
     def test_second_replace_failure_restores_first_artifact(self):
-        with tempfile.TemporaryDirectory(dir=ROOT) as folder:
+        parent = ROOT / 'output' / 'assurance' / 'test_artifacts' / 'sass_transaction'
+        parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=parent) as folder:
             first, second = Path(folder) / "study.json", Path(folder) / "study.html"
             first.write_text("previous JSON", encoding="utf-8")
             second.write_text("previous HTML", encoding="utf-8")

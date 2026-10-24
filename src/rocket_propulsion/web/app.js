@@ -161,6 +161,14 @@ function renderPolytropicCharts(data) {
 
 let latestGeometryExports = null;
 
+function renderGeometryExportScope(exports) {
+  const units = exports?.coordinate_unit === "m"
+    ? "Koordinatlar metre cinsindedir; STL içe aktarırken metre birimini seçin."
+    : "STL birimi dosyanın içinde standart olarak taşınmaz; içe aktarma birimini doğrulayın.";
+  document.getElementById("geometry-export-scope-note").textContent =
+    `Dışa aktarılan STL, örneklenmiş kapalı akış hacminin yüzeyidir. Duvar kalınlığı veya üretim çizimi içermez. ${units} Akış çözümünün ve donanımın fiziksel doğrulaması açık. SVG görünümünde eksenler ayrı ölçeklenir.`;
+}
+
 function renderGeometryComparison(records = []) {
   const body = document.getElementById("geometry-comparison-body");
   body.replaceChildren();
@@ -211,6 +219,7 @@ function renderNozzleGeometry(data) {
     { xLabel: "x (m)", yLabel: "Statik / toplam" },
   );
   latestGeometryExports = data.exports || null;
+  renderGeometryExportScope(latestGeometryExports);
   renderGeometryComparison(data.comparison);
 }
 
@@ -228,6 +237,7 @@ async function downloadGeometryExport(format) {
     const result = await response.json();
     if (!response.ok) throw new Error(apiErrorMessage(result, "Dışa aktarma üretilemedi."));
     latestGeometryExports = result.data.exports;
+    renderGeometryExportScope(latestGeometryExports);
   }
   const mediaTypes = {
     csv: "text/csv;charset=utf-8",
@@ -283,7 +293,14 @@ function renderNozzleThermal(data) {
   const cooling = data.cooling || {};
   document.getElementById("coolant-outlet-temperature").textContent = formatValue(cooling.outlet_temperature_k, "temperature_k");
   document.getElementById("coolant-pressure-drop").textContent = formatValue(cooling.pressure_drop_pa, "pressure_pa");
-  document.getElementById("coolant-energy-residual").textContent = formatValue(cooling.energy_balance_residual_w, "residual_w");
+  document.getElementById("coolant-energy-residual").textContent = formatValue(cooling.displayed_temperature_energy_residual_w, "residual_w");
+  const limit = cooling.temperature_limit_exceeded === true
+    ? "Verilen soğutucu sıcaklık sınırı tam hesapta AŞILDI; gösterilen çıkış sıcaklığı sınırla aynı yuvarlanabilir."
+    : cooling.temperature_limit_exceeded === false ? "Tam hesapta verilen sıcaklık sınırı aşılmadı; bu karar kaynama veya donanım yeterliliğini doğrulamaz." : "Soğutucu sıcaklık sınırı kararı mevcut değil.";
+  const regime = cooling.flow_regime === "transition"
+    ? " Geçiş rejimindeki Swamee–Jain uzatması doğrulanmış geçiş bağıntısı değildir."
+    : cooling.flow_regime === "laminar" ? ` Laminar Darcy f × Re katsayısı: ${formatValue(cooling.inputs?.laminar_darcy_poiseuille_number, "coefficient")}; 64 dairesel eşdeğer varsayımıdır.` : "";
+  document.getElementById("coolant-scope-note").textContent = `${limit}${regime} Sabit özellikler ve eşit kanal debileri varsayılır; kesit, pürüzlülük ve akış bağıntısının fiziksel uygunluğu ayrıca doğrulanmalıdır.`;
   renderLineChart(
     document.getElementById("heat-flux-chart"),
     [{ data: data.stations, x: "x_m", y: "heat_flux_w_m2", className: "series-2" }],
@@ -295,9 +312,9 @@ function renderNozzleThermal(data) {
     { xLabel: "x (m)", yLabel: "Taw (K)" },
   );
   const warnings = [...(data.warnings || []), ...(cooling.warnings || [])];
-  document.getElementById("thermal-warning").textContent = warnings.length
-    ? warnings.map((warning) => warning.message).join(" ")
-    : "Bartz ve kanal enerji dengesi tanımlı girdi aralıklarında kapandı.";
+  const signed = data.contains_negative_heat_flux
+    ? " Bazı noktalarda ısı duvardan gaza geçiyor; negatif akı ve toplam yük korunur." : "";
+  document.getElementById("thermal-warning").textContent = `Bartz hesabı verilen duvar sıcaklığını ve gaz özelliklerini kullanır; eşlenik duvar/soğutucu çözümü yapılmaz.${signed} Sıfır bakiye integral defterinin özdeşliğidir; ölçülmüş enerji kapanışı değildir. Sürekli profil hatası ve fiziksel/donanım yeterliliği doğrulanmadı. ${warnings.map((warning) => warning.message).join(" ")}`;
 }
 
 let latestStagingResult = null;
@@ -447,6 +464,10 @@ async function runBurn(form) {
 
 function renderStaging(data) {
   latestStagingResult = data;
+  const grid = data.refinement_performed
+    ? (data.refinement_grid_nested ? "İç içe iki ızgaranın kütle farkı gösteriliyor." : "Karşılaştırılan ızgaralar iç içe değil; fark bir hata sınırı değildir.")
+    : "İkinci bir ızgara çözülmedi; ağ farkı mevcut değil.";
+  document.getElementById("staging-scope-note").textContent = `Sabit Isp ve yapı oranıyla belirtilen Δv ızgarasında en küçük başlangıç kütlesi. ${grid} Sürekli optimum, gerçek uçuş ve donanım yeterliliği doğrulanmadı.`;
   document.getElementById("workspace-message").textContent = "Sistem analizleri çalışma dosyasına eklenmeye hazır.";
   const stages = data.stages.map((stage, index) => ({ ...stage, index: index + 1 }));
   renderLineChart(
@@ -512,14 +533,15 @@ function analysisWorkspace() {
     case_id: "staging",
     name: "Kademe optimizasyonu",
     model: "staging-optimizer",
-    inputs: formPayload(document.getElementById("staging-form")),
+    inputs: latestStagingResult.inputs,
     results: {
       initial_mass_kg: latestStagingResult.initial_mass_kg,
       payload_fraction: latestStagingResult.payload_fraction,
       achieved_delta_v_m_s: latestStagingResult.achieved_delta_v_m_s,
+      artifact: latestStagingResult,
     },
-    model_versions: { "staging-optimizer": "1.0" },
-    warnings: latestStagingResult.active_constraints || [],
+    model_versions: { "staging-optimizer": "2.0" },
+    warnings: [...(latestStagingResult.active_constraints || []), "Conditional finite-grid optimum; continuous optimum and hardware are unqualified."],
   });
   if (latestCycleResult) cases.push({
     case_id: "engine-cycle",

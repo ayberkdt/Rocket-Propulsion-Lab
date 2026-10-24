@@ -401,7 +401,9 @@ class ProjectTests(unittest.TestCase):
 
     def test_cli_matches_python_and_refuses_input_overwrite(self) -> None:
         source = ROOT / "examples" / "sass_mission.json"
-        with tempfile.TemporaryDirectory(dir=ROOT) as temp:
+        parent = ROOT / 'output' / 'assurance' / 'test_artifacts' / 'sass_cli'
+        parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=parent) as temp:
             out, report = Path(temp) / "study.json", Path(temp) / "study.html"
             self.assertEqual(main([str(source), "--output", str(out), "--report", str(report)]), 0)
             self.assertEqual(json.loads(out.read_text(encoding="utf-8")),

@@ -146,6 +146,51 @@ FREE_SPACE_REVIEW = {
     '_range_output', '_range_output.rounded',
     'FreeSpaceBurnMetrics.__post_init__', 'free_space_burn_metrics',
 }
+REGENERATIVE_REVIEW = {
+    'thermodynamics/regenerative.py': {'RegenerativeInputs','RegenerativeInputs.__post_init__','_warnings',
+        'RegenerativeCoolingResult','RegenerativeCoolingResult.__post_init__','_solve','calculate_regenerative_cooling'},
+    'thermodynamics/regenerative_numerics.py': {'_ledgers','_exact_argument','_decimal_log_integer','_argument_bounds',
+        '_friction_basis','_friction_bounds','_optional_output','_values','_values.pressure_bounds'},
+    'api/routes.py': {'calculate_nozzle_thermal_route'},
+}
+GEOMETRY_EXPORT_REVIEW = {
+    'geometry/export.py': {'_owned', 'ContourExportInputs', 'ContourExportInputs.__post_init__',
+        'ContourExportBundle', 'ContourExportBundle.__post_init__', '_csv', '_svg', '_svg.point',
+        '_dxf', '_normal_and_triangle', '_stl', '_render', 'export_nozzle_contour'},
+    'geometry/export_numerics.py': {'_rounding_cell', '_check_geometry', '_ring', '_unit_normal'},
+    'api/routes.py': {'calculate_nozzle_contour_route'},
+}
+MOC_UNIT_REVIEW = {
+    'geometry/moc_unit_process.py': {'_owned','MocFlowPoint','MocFlowPoint.__post_init__',
+        'MocUnitInputs','MocUnitInputs.__post_init__','_coefficients','_intersection','_midpoint_equations',
+        '_coordinate_cell_radius','_residual','_upper_residual','_point_from_velocity','_check_output_topology','_solve',
+        'MocUnitResult','MocUnitResult.__post_init__','solve_moc_interior_point'},
+}
+MOC_BOUNDARY_REVIEW = {
+    'geometry/moc_boundary.py': {'_common','MocAxisInputs','MocAxisInputs.__post_init__',
+        'MocWallSegment','MocWallSegment.__post_init__','MocWallInputs','MocWallInputs.__post_init__',
+        '_axis_derivative_terms','_axis_rows','_axis_metrics','_axis_topology','_optional_source','_pack','_solve_axis',
+        '_wall_slope','_wall_angle','_wall_position','_wall_topology','_wall_rows','_wall_metrics','_solve_wall',
+        'MocBoundaryResult','MocBoundaryResult.__post_init__','solve_moc_axis_point','solve_moc_wall_point'},
+}
+BARTZ_REVIEW = {
+    'thermodynamics/heat_transfer.py': {'_owned','BartzContourStation','BartzContourStation.__post_init__',
+        '_rounding_cell','BartzContour','BartzContour.__post_init__','_contour','BartzInputs','BartzInputs.__post_init__',
+        'HeatFluxStation','HeatFluxStation.__post_init__','_warnings','BartzHeatTransferResult',
+        'BartzHeatTransferResult.__post_init__','_solve','calculate_bartz_heat_transfer'},
+    'thermodynamics/bartz_numerics.py': {'_power','_signed_output','_profile','_peak_index','_profile_exports'},
+    'api/routes.py': {'calculate_nozzle_thermal_route'},
+}
+STAGING_REVIEW = {
+    'propulsion/staging.py': {'StageDefinition', 'StageDefinition.__post_init__', '_stage',
+        'StagingInputs', 'StagingInputs.__post_init__', '_inputs', '_units', '_literal_fields',
+        'StageSolution', 'StageSolution.__post_init__', 'StagingOptimizationResult',
+        'StagingOptimizationResult.__post_init__', '_solve', '_mass_factor', '_mass_factor.evaluate', 'optimize_staging'},
+    'propulsion/staging_numerics.py': {'_exponent', '_feasible', '_state', '_increment_identity',
+        '_compare_increment', '_allocate', '_ledger', '_objective_polynomial', '_grid_difference',
+        '_grid_difference.evaluate', '_exports', '_exports.fraction'},
+    'api/routes.py': {'calculate_staging_route'},
+}
 TWO_PHASE_REVIEW = {
     'propulsion/two_phase.py': {'TwoPhaseInputs', 'TwoPhaseInputs.__post_init__', '_retained_inputs',
         '_two_phase_warnings', 'TwoPhasePerformanceBand', 'TwoPhasePerformanceBand.__post_init__',
@@ -396,6 +441,18 @@ def _review_scopes(path, name):
     scopes = (["source_trace_and_software_verification_only"]
               if "studies/sass/" in path.as_posix() else [])
     groups = (
+        (MOC_BOUNDARY_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_constant_gamma_axis_regularity_and_prescribed_finite_wall_characteristic_boundaries_with_signed_radial_oracles_only_no_full_field_or_hardware_qualification'),
+        (MOC_UNIT_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_constant_gamma_interior_cartesian_characteristic_unit_process_with_cylindrical_source_manufactured_radial_oracles_and_coordinate_cells_only_no_full_nozzle_or_physical_qualification'),
+        (GEOMETRY_EXPORT_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_sampled_fluid_domain_export_vertex_round_trips_exact_cross_normals_owned_replay_and_scope_only_no_flow_or_manufacturing_qualification'),
+        (REGENERATIVE_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_prescribed_coolant_exact_energy_laminar_ledgers_enclosed_turbulent_exports_exact_limit_regime_decisions_and_owned_records_only_no_physical_qualification'),
+        (BARTZ_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_prescribed_signed_bartz_profile_owned_geometry_directed_exports_and_reconstructed_surface_integral_only_no_physical_qualification'),
+        (STAGING_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_conditional_finite_grid_staging_capacity_convex_increment_ordering_mass_ledgers_and_owned_records_only_no_continuous_or_hardware_qualification'),
         (TWO_PHASE_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
          'targeted_conditional_two_phase_exit_state_ledgers_algebraic_exports_owned_records_and_api_only_no_physical_bound_qualification'),
         (LOSS_FACTOR_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),

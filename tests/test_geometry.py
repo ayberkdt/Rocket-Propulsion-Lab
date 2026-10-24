@@ -95,7 +95,13 @@ class NozzleGeometryTests(unittest.TestCase):
         self.assertEqual(len(csv_lines), len(contour.stations) + 1)
         self.assertIn("<svg", bundle.svg)
         self.assertIn("LWPOLYLINE", bundle.dxf)
-        self.assertIn(f"{contour.stations[-1].x_m:.12g}", bundle.dxf)
+        dxf_rows = bundle.dxf.splitlines()
+        dxf_pairs = list(zip(dxf_rows[::2], dxf_rows[1::2]))
+        imported_x = [float(value) for code, value in dxf_pairs if code == "10"]
+        imported_y = [float(value) for code, value in dxf_pairs if code == "20"]
+        expected_points = [(s.x_m, s.radius_m) for s in contour.stations]
+        expected_points += [(s.x_m, -s.radius_m) for s in reversed(contour.stations)]
+        self.assertEqual(list(zip(imported_x, imported_y)), expected_points)
         self.assertTrue(bundle.stl.startswith("solid rocket_propulsion_nozzle"))
         self.assertEqual(bundle.stl.count("facet normal"), 2 * 12 * len(contour.stations))
         vertices = []

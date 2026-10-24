@@ -133,6 +133,51 @@ fields, with `band_kind="conditional_exit_state_scenario_range"`,
 `physical_bound_qualified=false` and `statistical_coverage_qualified=false`.
 See [the two-phase review](TWO_PHASE_REVIEW.md) for scope and validation gaps.
 
+## Prescribed signed nozzle heat transfer
+
+`POST /api/v1/nozzle-thermal` metadata version 2.0 retains consumed `inputs`
+and replayed station records. Heat flux is signed positive into the wall;
+`contains_negative_heat_flux` reports reversed local heat flow. The signed
+surface integral uses a piecewise linear flux/radius reconstruction.
+`physical_model_qualified=false` and `quadrature_error_bound_w=null` describe
+its qualification. Zero `energy_balance_residual_w` is labelled by `residual_kind`
+as an integral ledger identity, not measured energy closure.
+
+If optional cooling is requested with a nonpositive net gas-side load, the
+current positive-absorption bulk model fails with `unsupported_nonpositive_bulk_heat`.
+Gas/wall properties remain prescribed; neither the wall temperature nor a
+conjugate wall/coolant solution is predicted. See [the Bartz review](BARTZ_REVIEW.md).
+
+The nested `cooling` result has `model_version="2.0"`, owned inputs and replayed
+outputs. `laminar_darcy_poiseuille_number` defaults to 64 (a circular-equivalent
+assumption) and sets Darcy f*Re in the laminar branch. Exact Re determines the
+reported `flow_regime`; transition retains a labelled unqualified extension.
+`physical_model_qualified` and `friction_correlation_domain_qualified` are false.
+
+`temperature_limit_exceeded` and its critical warning use the exact energy
+ledger, even if the exported outlet equals the limit. The optional
+`temperature_limit_margin_k` and `displayed_temperature_energy_residual_w` may
+be null with their corresponding `*_unrepresentable` flags. Zero
+`energy_balance_residual_w` is a labelled bulk-ledger identity. These are not
+boiling, coupled-cooling or hardware qualification claims. See
+[the regenerative review](REGENERATIVE_REVIEW.md).
+
+## Conditional finite-grid staging
+
+`POST /api/v1/staging` metadata version 2.0 retains validated `inputs`, exact
+integer `allocation_units`, `refined_allocation_units`, and `refined_resolution`.
+The optimizer minimizes the constant-Isp/structural-fraction initial mass on the
+requested exact delta-v grid. `infeasible_staging_grid` concerns this grid and
+does not alone prove continuous-model infeasibility. Stage names require text.
+
+`refinement_performed` and `refinement_grid_nested` qualify the legacy
+`convergence_delta_initial_mass_relative` diagnostic. Its value is `null` at
+resolution 800, where no different comparison grid exists. The difference
+between grids is not a continuous-optimum error bound, and
+`continuous_optimum_qualified=false`. Stage values and complete results replay
+from owned inputs; rounded displayed stage delta-v values can sum differently
+from the exact target ledger. See [the staging review](STAGING_REVIEW.md).
+
 ## Standalone constant and profiled burns
 
 `POST /api/v1/engine-operating-point` builds a validated L0 operating point.
@@ -182,4 +227,37 @@ rocket-propulsion burn validate burn-result.json
 rocket-propulsion burn export burn-result.json --target sidera `
   --output sidera-plan.json --start 100 --direction 1 0 0 --frame inertial
 ```
+
+## Interior characteristic intersection (Python only)
+
+`solve_moc_axis_point` additionally takes `incoming` and exactly two
+`axis_history` states. `solve_moc_wall_point` takes `incoming` and a
+`MocWallSegment`; its accepted x is in `(x0,x1]`. Their owned
+`MocBoundaryResult` includes signed normalized source diagnostics and always
+retains false full-nozzle/physical qualification flags. These local boundary
+processes are not yet connected to the HTTP nozzle designer; see the
+[boundary review](MOC_BOUNDARY_REVIEW.md).
+
+Python geometry also exposes `MocFlowPoint`, `MocUnitInputs`, `MocUnitResult`
+and `solve_moc_interior_point` for a separately verified interior C+/C-
+intersection. It accepts planar or axisymmetric equations with explicit
+positive-radius restrictions for the latter. Owned results expose raw versus
+coordinate-rounding-adjusted equation residuals and never claim full nozzle
+or physical qualification. This kernel is not connected to the current HTTP
+MOC nozzle generator; its construction findings remain open. See the
+[unit-process review](MOC_UNIT_PROCESS_REVIEW.md).
+
+## Sampled geometry exports (contour model metadata 2.1)
+
+With `include_exports=true`, `/api/v1/nozzle-contour` returns CSV/SVG/DXF/STL
+text plus owned consumed `inputs`, `coordinate_unit="m"`,
+`mesh_role="closed_fluid_domain_visualization"`, `serialization_policy`, and
+actual false `manufacturing_qualified`/`physical_model_qualified` flags. CSV,
+DXF and STL preserve binary64 numbers with 17 significant digits. Reopening a
+Python `ContourExportBundle` requires retained inputs and replays every file.
+Legacy four-text-only construction cannot establish this replay contract.
+STL carries no standardized units: select metres in the receiving application.
+It represents the closed sampled fluid domain, with no nozzle wall thickness.
+SVG independently scales axes; it is not a manufacturing drawing. Contour
+construction and MOC flow findings remain open; see [geometry review](GEOMETRY_REVIEW.md).
 
