@@ -23,7 +23,8 @@ const document = {
     return elements.get(id);
   },
 };
-const context = vm.createContext({document, console});
+const FormData = class { constructor(form) { this.form=form; } entries() { return this.form.data; } };
+const context = vm.createContext({document, console, FormData});
 const prefix = source.slice(0,source.indexOf('function renderPolytropicCharts('));
 assert.ok(prefix.includes('function renderLineChart('));
 vm.runInContext(prefix, context);
@@ -33,6 +34,8 @@ vm.runInContext('let latestUncertaintyResult=null;\n'+renderSource,context);
 const cycleStart=source.includes('function updateCycleControls(')
   ? source.indexOf('function updateCycleControls(') : source.indexOf('function renderEngineCycle(');
 vm.runInContext('let latestCycleResult=null;\n'+source.slice(cycleStart,source.indexOf('function renderUncertainty(')),context);
+vm.runInContext(source.slice(source.indexOf('function renderLossBudget('),source.indexOf('function renderTwoPhaseBand(')),context);
+vm.runInContext(source.slice(source.indexOf('function renderTwoPhaseBand('),source.indexOf('function renderNozzleThermal(')),context);
 const rows=[];
 function check(name, action) {
   try { action(); rows.push({name,status:'passed'}); }
@@ -110,6 +113,41 @@ check('cycle selection disables inactive component fields and preserves their va
   assert.equal(fields.pump_feed_policy.disabled,false);
   fields.cycle.value='staged-combustion';context.updateCycleControls(form);
   assert.ok(names.every(name=>!fields[name].disabled));assert.ok(fields.pump_feed_policy.disabled);
+});
+check('loss covariance bands retain proxy qualification, basis and literal warning text',()=>{
+  context.renderLossBudget({operating_basis:'fixed-pressure-area',mass_flow_ratio:.8,coverage_qualified:false,
+    delivered_thrust_band_n:[900,1100],terms:[{thrust_loss_n:0},{thrust_loss_n:-10}],
+    warnings:[{message:'<img onerror=bad>'}]});
+  const note=document.getElementById('loss-scope-note');
+  assert.match(note.textContent,/Pc.*At/);assert.match(note.textContent,/kapsama.*değildir/);
+  assert.match(note.textContent,/<img onerror=bad>/);assert.equal(note.children.length,0);
+});
+check('legacy loss basis visibly distinguishes its multiplier from physical discharge',()=>{
+  context.renderLossBudget({operating_basis:'fixed-mass-flow-lumped',mass_flow_ratio:1,
+    delivered_thrust_band_n:[900,1100],terms:[{thrust_loss_n:1}],warnings:[]});
+  assert.match(document.getElementById('loss-scope-note').textContent,/debi katsayısı değildir/);
+});
+check('loss form sends the correlation matrix as an array and refuses malformed JSON',()=>{
+  const form={id:'loss-budget-form',data:[['operating_basis','fixed-pressure-area'],
+    ['correlation_matrix','[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]']]};
+  const data=context.formPayload(form);
+  assert.ok(Array.isArray(data.correlation_matrix));assert.equal(data.correlation_matrix[2][2],1);
+  form.data[1][1]='[[invalid]]';assert.throws(()=>context.formPayload(form));
+});
+check('two-phase energy means specific energy and keeps pressure separate from momentum',()=>{
+  context.renderTwoPhaseBand({coupling_definition:'specific-kinetic-energy-ratio',reference_pressure_thrust_n:100,
+    thrust_range_n:[975,1000],specific_impulse_range_s:[400,410],contains_nonpositive_thrust:false,warnings:[]});
+  const note=document.getElementById('two-phase-scope-note');
+  assert.match(note.textContent,/birim kütle/);assert.match(note.textContent,/100/);
+  assert.match(note.textContent,/kapsama.*değildir/);
+});
+check('nonpositive two-phase endpoints and zero-pressure assumption stay visible as literal text',()=>{
+  context.renderTwoPhaseBand({coupling_definition:'exit-velocity-ratio',reference_pressure_thrust_n:0,
+    thrust_range_n:[-1,1],specific_impulse_range_s:[-450,450],contains_nonpositive_thrust:true,
+    warnings:[{message:'<img onerror=bad>'}]});
+  const note=document.getElementById('two-phase-scope-note');
+  assert.match(note.textContent,/negatif/);assert.match(note.textContent,/varsayım/);
+  assert.match(note.textContent,/<img onerror=bad>/);assert.equal(note.children.length,0);
 });
 const report={scope:'Actual chart/render/control function executions with instrumented DOM; no browser layout or physics claim',
   source_sha256:crypto.createHash('sha256').update(source).digest('hex'),node:process.version,rows,

@@ -34,7 +34,11 @@ function formatValue(value, key) {
 }
 
 function formPayload(form) {
-  return Object.fromEntries(new FormData(form).entries());
+  const payload = Object.fromEntries(new FormData(form).entries());
+  if (form.id === "loss-budget-form" && "correlation_matrix" in payload) {
+    payload.correlation_matrix = JSON.parse(payload.correlation_matrix);
+  }
+  return payload;
 }
 
 function apiErrorMessage(payload, fallback) {
@@ -242,6 +246,14 @@ async function downloadGeometryExport(format) {
 function renderLossBudget(data) {
   document.getElementById("loss-band-low").textContent = formatValue(data.delivered_thrust_band_n[0], "thrust_n");
   document.getElementById("loss-band-high").textContent = formatValue(data.delivered_thrust_band_n[1], "thrust_n");
+  const ispBand = data.delivered_specific_impulse_band_s || [];
+  document.getElementById("loss-isp-band-low").textContent = formatValue(ispBand[0], "specific_impulse_s");
+  document.getElementById("loss-isp-band-high").textContent = formatValue(ispBand[1], "specific_impulse_s");
+  const basis = data.operating_basis === "fixed-pressure-area"
+    ? "Sabit Pc × At: c*, debi katsayısı ve net itki katsayısı ayrı etkiler taşır. Katsayı uyumu ve gerçek gaz/nozul akışı çözülmez; Isp artışı fiziksel başarım kanıtı değildir."
+    : "Sabit debili eski çarpan modeli: deşarj adlı çarpan gerçek boğaz debi katsayısı değildir.";
+  const warnings = (data.warnings || []).map(w => w.message).join(" ");
+  document.getElementById("loss-scope-note").textContent = `${basis} Debi oranı: ${formatValue(data.mass_flow_ratio, "mass_flow_ratio")}. Bantlar birinci mertebe katsayı kovaryansı yaklaşımıdır; doğrulanmış güven/kapsama aralığı değildir. Sıfır bakiye cebirsel özdeşliktir; kayıp etkilerinin örtüşmediğini kanıtlamaz. ${warnings}`;
   const terms = data.terms.map((term, index) => ({ ...term, index: index + 1 }));
   renderLineChart(
     document.getElementById("loss-budget-chart"),
@@ -255,6 +267,16 @@ function renderTwoPhaseBand(data) {
   document.getElementById("two-phase-thrust-high").textContent = formatValue(data.thrust_range_n[1], "thrust_n");
   document.getElementById("two-phase-isp-low").textContent = formatValue(data.specific_impulse_range_s[0], "specific_impulse_s");
   document.getElementById("two-phase-isp-high").textContent = formatValue(data.specific_impulse_range_s[1], "specific_impulse_s");
+  const definition = data.coupling_definition === "specific-kinetic-energy-ratio"
+    ? "Girdi, parçacık/gaz birim kütle başına kinetik enerji oranıdır; momentum için hız oranına dönüştürülür."
+    : "Girdi, parçacık/gaz çıkış hızı oranıdır.";
+  const pressure = data.reference_pressure_thrust_n === 0
+    ? "Sıfır basınç itkisi bir giriş varsayımıdır; eşleşmiş nozul genişlemesini kanıtlamaz."
+    : `Sabit tutulan referans basınç itkisi: ${formatValue(data.reference_pressure_thrust_n, "thrust_n")} N.`;
+  const sign = data.contains_nonpositive_thrust
+    ? " En az bir uçta sıfır veya negatif koşullu itki var; gerçek nozul/karşı basınç uyumluluğu çözülmedi." : "";
+  const warnings = (data.warnings || []).map(w => w.message).join(" ");
+  document.getElementById("two-phase-scope-note").textContent = `${definition} ${pressure}${sign} Toplam debi ve gaz çıkış durumu sabittir; parçacıkların gazın momentum ve enerjisine tepkisi çözülmez. Bu aralık doğrulanmış fiziksel sınır veya güven/kapsama aralığı değildir. ${warnings}`;
 }
 
 function renderNozzleThermal(data) {

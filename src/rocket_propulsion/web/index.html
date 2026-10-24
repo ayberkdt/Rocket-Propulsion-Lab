@@ -748,6 +748,7 @@
         <div class="stacked-workbenches">
           <div class="workbench compact" data-module="loss-budget">
             <form class="control-panel" id="loss-budget-form">
+              <label><span>Hesap temeli</span><select name="operating_basis"><option value="fixed-mass-flow-lumped">Sabit debi: eski performans çarpanları</option><option value="fixed-pressure-area">Sabit Pc × At: ayrı c*, Cd ve net Cf oranları</option></select></label>
               <div class="field-row two-columns">
                 <label><span>İdeal itki (N)</span><input name="ideal_thrust_n" type="number" value="100000" step="any" required /></label>
                 <label><span>İdeal Isp (s)</span><input name="ideal_specific_impulse_s" type="number" value="450" step="any" required /></label>
@@ -760,7 +761,8 @@
                 <label><span>Sınır tabakası verimi</span><input name="boundary_layer_efficiency" type="number" value="0.985" step="any" required /></label>
                 <label><span>Iraksama verimi</span><input name="divergence_efficiency" type="number" value="0.98" step="any" required /></label>
               </div>
-              <label><span>Her terim için bağıl 1σ belirsizlik</span><input name="relative_uncertainty" type="number" value="0.02" min="0" max="0.25" step="any" required /></label>
+              <label><span>Etkin katsayı başına bağıl standart belirsizlik</span><input name="relative_uncertainty" type="number" value="0.02" min="0" max="0.25" step="any" required /></label>
+              <label><span>Korelasyon matrisi (JSON): yanma, deşarj, sınır tabakası, ıraksama sırası</span><textarea name="correlation_matrix" rows="4" required>[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]</textarea></label>
               <fieldset class="toggle-grid"><legend>Etkin kayıplar</legend>
                 <label><input type="hidden" name="enable_combustion_loss" value="false" /><input type="checkbox" name="enable_combustion_loss" value="true" checked /> Yanma</label>
                 <label><input type="hidden" name="enable_discharge_loss" value="false" /><input type="checkbox" name="enable_discharge_loss" value="true" checked /> Deşarj</label>
@@ -773,12 +775,15 @@
             <div class="results-panel">
               <div class="result-cards">
                 <article><span>İdeal itki</span><strong data-key="ideal_thrust_n">—</strong><small>N</small></article>
-                <article><span>Teslim edilen itki</span><strong data-key="delivered_thrust_n">—</strong><small>N</small></article>
-                <article><span>Toplam verim</span><strong data-key="total_efficiency">—</strong><small>—</small></article>
-                <article><span>Teslim edilen Isp</span><strong data-key="delivered_specific_impulse_s">—</strong><small>s</small></article>
-                <article><span>İtki 1σ alt</span><strong id="loss-band-low">—</strong><small>N</small></article>
-                <article><span>İtki 1σ üst</span><strong id="loss-band-high">—</strong><small>N</small></article>
+                <article><span>Model itki</span><strong data-key="delivered_thrust_n">—</strong><small>N</small></article>
+                <article><span>İtki oranı</span><strong data-key="total_efficiency">—</strong><small>—</small></article>
+                <article><span>Model Isp</span><strong data-key="delivered_specific_impulse_s">—</strong><small>s</small></article>
+                <article><span>İtki yaklaşım alt</span><strong id="loss-band-low">—</strong><small>N</small></article>
+                <article><span>İtki yaklaşım üst</span><strong id="loss-band-high">—</strong><small>N</small></article>
+                <article><span>Isp yaklaşım alt</span><strong id="loss-isp-band-low">—</strong><small>s</small></article>
+                <article><span>Isp yaklaşım üst</span><strong id="loss-isp-band-high">—</strong><small>s</small></article>
               </div>
+              <p class="method-note" id="loss-scope-note">Katsayı modeli ve birinci mertebe kovaryans bantları fiziksel doğrulama veya güven/kapsama aralığı değildir.</p>
               <div class="chart-grid compact-charts"><figure class="chart-figure chart-span-two"><figcaption>Terim bazında itki kaybı</figcaption><svg class="engineering-chart" id="loss-budget-chart" role="img" aria-label="Kayıp terimine göre itki kaybı"></svg></figure></div>
             </div>
           </div>
@@ -786,16 +791,18 @@
           <div class="workbench compact" data-module="two-phase-band">
             <form class="control-panel" id="two-phase-form">
               <div class="field-row two-columns">
-                <label><span>İdeal itki (N)</span><input name="ideal_thrust_n" type="number" value="100000" step="any" required /></label>
-                <label><span>İdeal Isp (s)</span><input name="ideal_specific_impulse_s" type="number" value="450" step="any" required /></label>
+                <label><span>Referans itki (N)</span><input name="ideal_thrust_n" type="number" value="100000" step="any" required /></label>
+                <label><span>Referans Isp (s)</span><input name="ideal_specific_impulse_s" type="number" value="450" step="any" required /></label>
               </div>
+              <label><span>Referans basınç itkisi (N; sıfır bir varsayımdır)</span><input name="reference_pressure_thrust_n" type="number" value="0" step="any" required /></label>
+              <label><span>Parçacık/gaz oranının tanımı</span><select name="coupling_definition"><option value="exit-velocity-ratio">Çıkış hızı oranı</option><option value="specific-kinetic-energy-ratio">Birim kütle başına kinetik enerji oranı</option></select></label>
               <label><span>Yoğuşmuş faz kütle kesri</span><input name="condensed_mass_fraction" type="number" value="0.2" min="0" max="1" step="any" required /></label>
               <div class="field-row two-columns">
-                <label><span>Parçacık bağlaşım alt sınırı</span><input name="minimum_particle_coupling_efficiency" type="number" value="0.6" min="0" max="1" step="any" required /></label>
-                <label><span>Parçacık bağlaşım üst sınırı</span><input name="maximum_particle_coupling_efficiency" type="number" value="0.9" min="0" max="1" step="any" required /></label>
+                <label><span>Parçacık/gaz oranı alt</span><input name="minimum_particle_coupling_efficiency" type="number" value="0.6" min="0" max="1" step="any" required /></label>
+                <label><span>Parçacık/gaz oranı üst</span><input name="maximum_particle_coupling_efficiency" type="number" value="0.9" min="0" max="1" step="any" required /></label>
               </div>
               <button type="submit">İki faz bandını hesapla <b aria-hidden="true">→</b></button>
-              <p class="form-note">Bu model parçacık çapı ve faz değişimini çözmez; kullanıcı tanımlı bir bağlaşım bandıdır.</p>
+              <p class="form-note">Sabit toplam debi ve belirtilen gaz çıkış durumu için koşullu senaryolar; bağlaşık gaz/parçacık akışı, parçacık çapı ve faz değişimi çözülmez.</p>
               <p class="form-message" role="status" aria-live="polite"></p>
             </form>
             <div class="results-panel result-cards">
@@ -803,6 +810,7 @@
               <article><span>İtki üst</span><strong id="two-phase-thrust-high">—</strong><small>N</small></article>
               <article><span>Isp alt</span><strong id="two-phase-isp-low">—</strong><small>s</small></article>
               <article><span>Isp üst</span><strong id="two-phase-isp-high">—</strong><small>s</small></article>
+              <p class="method-note" id="two-phase-scope-note">Koşullu aralık; doğrulanmış fiziksel sınır veya güven aralığı değildir.</p>
             </div>
           </div>
 

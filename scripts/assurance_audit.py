@@ -146,6 +146,19 @@ FREE_SPACE_REVIEW = {
     '_range_output', '_range_output.rounded',
     'FreeSpaceBurnMetrics.__post_init__', 'free_space_burn_metrics',
 }
+TWO_PHASE_REVIEW = {
+    'propulsion/two_phase.py': {'TwoPhaseInputs', 'TwoPhaseInputs.__post_init__', '_retained_inputs',
+        '_two_phase_warnings', 'TwoPhasePerformanceBand', 'TwoPhasePerformanceBand.__post_init__',
+        '_nonpositive_algebraic', '_endpoint', '_band_values', 'calculate_two_phase_band'},
+    'api/routes.py': {'calculate_two_phase_band_route'},
+}
+LOSS_FACTOR_REVIEW = {
+    'propulsion/losses.py': {'_checked_correlation', 'LossBudgetInputs', 'LossBudgetInputs.__post_init__',
+        '_owned', 'LossTerm', 'LossTerm.__post_init__', 'PerformanceLossBudget',
+        'PerformanceLossBudget.__post_init__', '_ledgers', '_term_values', '_relative_variances',
+        '_budget_values', 'calculate_loss_budget'},
+    'api/routes.py': {'calculate_loss_budget_route'},
+}
 CYCLE_COMPONENT_REVIEW = {
     'propulsion/cycles.py': {'EngineCycleInputs','EngineCycleInputs.__post_init__',
         'EngineCycleResult','EngineCycleResult.__post_init__','_cycle_warnings',
@@ -383,6 +396,10 @@ def _review_scopes(path, name):
     scopes = (["source_trace_and_software_verification_only"]
               if "studies/sass/" in path.as_posix() else [])
     groups = (
+        (TWO_PHASE_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_conditional_two_phase_exit_state_ledgers_algebraic_exports_owned_records_and_api_only_no_physical_bound_qualification'),
+        (LOSS_FACTOR_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_loss_factor_basis_exact_attribution_owned_records_and_first_order_covariance_proxy_only'),
         (CYCLE_COMPONENT_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
          'targeted_preliminary_cycle_routed_component_ledgers_capacity_records_and_api_only_no_hardware_closure'),
         (PERFORMANCE_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),

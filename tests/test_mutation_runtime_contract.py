@@ -1,10 +1,12 @@
 """Prove that fault injection obeys controlled globals instead of false kills."""
-from contextlib import ExitStack, redirect_stdout
+from contextlib import ExitStack, contextmanager, redirect_stdout
 import importlib
 import importlib.util
 import io
 import json
 import os
+import sys
+from threading import Thread
 from pathlib import Path
 import tempfile
 from types import ModuleType, SimpleNamespace
@@ -38,7 +40,52 @@ class Owner:
 '''
 
 
+def _temporary_modules(bindings):
+    """Restore only owned fixture names; preserve imports completed elsewhere."""
+    @contextmanager
+    def manage():
+        missing = object()
+        before = {name: sys.modules.get(name, missing) for name in bindings}
+        sys.modules.update(bindings)
+        try:
+            yield
+        finally:
+            for name, previous in before.items():
+                if previous is missing:
+                    sys.modules.pop(name, None)
+                else:
+                    sys.modules[name] = previous
+    return manage()
+
+
 class MutationRuntimeAttacks(unittest.TestCase):
+    def test_module_fixture_cleanup_preserves_unrelated_concurrent_imports(self):
+        owned = 'rocket_propulsion.studies.sass._owned_module_fixture'
+        fresh = 'rocket_propulsion.studies.sass._new_module_fixture'
+        late = 'rocket_propulsion.studies.sass._concurrently_loaded_fixture'
+        sentinel = object()
+        before = {name: sys.modules.get(name, sentinel) for name in (owned, fresh, late)}
+        original, temporary, imported = (ModuleType(owned), ModuleType(owned), ModuleType(late))
+        sys.modules[owned] = original
+        sys.modules.pop(fresh, None)
+        try:
+            with _temporary_modules({owned: temporary, fresh: ModuleType(fresh)}):
+                self.assertIs(sys.modules[owned], temporary)
+                job = Thread(target=lambda: sys.modules.__setitem__(late, imported))
+                job.start(); job.join(timeout=5)
+                self.assertFalse(job.is_alive())
+                self.assertIs(sys.modules[late], imported)
+            self.assertIs(sys.modules[owned], original)
+            self.assertNotIn(fresh, sys.modules)
+            self.assertIs(sys.modules.get(late), imported,
+                          'Fixture cleanup erased a dependency loaded by another thread.')
+        finally:
+            for name, previous in before.items():
+                if previous is sentinel:
+                    sys.modules.pop(name, None)
+                else:
+                    sys.modules[name] = previous
+
     def fixture(self,folder):
         name='rocket_propulsion.studies.sass._controlled_mutation_fixture'
         path=Path(folder)/'fixture.py';path.write_text(SOURCE)
@@ -68,7 +115,7 @@ class MutationRuntimeAttacks(unittest.TestCase):
                     baseline=unittest.TextTestRunner(stream=io.StringIO()).run(ControlledCase('test_controlled'))
                     self.assertTrue(baseline.wasSuccessful())
                     with ExitStack() as stack:
-                        stack.enter_context(patch.dict(__import__('sys').modules,{module.__name__:module}))
+                        stack.enter_context(_temporary_modules({module.__name__:module}))
                         stack.enter_context(patch.object(runner,'ROOT',Path(folder)))
                         stack.enter_context(patch.object(runner,'verification_inputs',return_value={'fixture':'stable'}))
                         before,after='return value+1','return value+2'
@@ -182,7 +229,7 @@ class MutationRuntimeAttacks(unittest.TestCase):
             def bindings():
                 return [(owner,key) for owner in (module,consumer) for key,value in list(vars(owner).items())
                         if value is original]
-            with patch.dict(__import__('sys').modules,{consumer.__name__:consumer,new_consumer.__name__:new_consumer}):
+            with _temporary_modules({consumer.__name__:consumer,new_consumer.__name__:new_consumer}):
                 report=evaluate_fault(bindings,original,replacement,ImportingOracle,'test_case')
             self.assertEqual(report['status'],'killed')
             self.assertTrue(report['baseline_passed'] and report['post_control_passed'])

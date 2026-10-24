@@ -688,7 +688,7 @@ def sidera_capabilities_route(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def calculate_loss_budget_route(payload: dict[str, Any]) -> dict[str, Any]:
-    """Bridge ideal and delivered performance with individually switchable terms."""
+    """Retain the declared factor basis and first-order input covariance."""
 
     return asdict(
         calculate_loss_budget(
@@ -721,6 +721,9 @@ def calculate_loss_budget_route(payload: dict[str, Any]) -> dict[str, Any]:
             relative_uncertainty=_number(
                 payload, "relative_uncertainty", default=0.02
             ),
+            operating_basis=payload.get("operating_basis", "fixed-mass-flow-lumped"),
+            correlation_matrix=payload.get("correlation_matrix", (
+                (1., 0., 0., 0.), (0., 1., 0., 0.), (0., 0., 1., 0.), (0., 0., 0., 1.))),
         )
     )
 
@@ -801,7 +804,7 @@ def calculate_nozzle_thermal_route(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def calculate_two_phase_band_route(payload: dict[str, Any]) -> dict[str, Any]:
-    """Return an explicit condensed-phase performance uncertainty band."""
+    """Return conditional exit-state scenarios with an explicit coupling definition."""
 
     return asdict(
         calculate_two_phase_band(
@@ -814,6 +817,8 @@ def calculate_two_phase_band_route(payload: dict[str, Any]) -> dict[str, Any]:
             maximum_particle_coupling_efficiency=_number(
                 payload, "maximum_particle_coupling_efficiency"
             ),
+            reference_pressure_thrust_n=_number(payload, "reference_pressure_thrust_n", default=0.),
+            coupling_definition=payload.get("coupling_definition", "exit-velocity-ratio"),
         )
     )
 
@@ -1543,12 +1548,14 @@ ROUTE_METADATA = {
         units={},
     ),
     "/api/v1/loss-budget": ModelMetadata(
-        model="sequential preliminary rocket performance loss budget",
-        version="1.0",
+        model="declared operating-basis factor ratios and first-order covariance proxy",
+        version="2.0",
         assumptions=(
-            "independent lumped efficiencies",
-            "sequential attribution without double counting",
-            "root-sum-square relative uncertainty",
+            "default fixed-mass-flow-lumped mode retains legacy multipliers; discharge is not a mass-flow coefficient",
+            "fixed-pressure-area mode separates intrinsic cstar, mass-flow Cd and net thrust-coefficient factors",
+            "factor correlation matrix order: combustion, discharge, boundary_layer, divergence",
+            "first-order signed covariance propagation; ideal reference fixed; no qualified coverage",
+            "sequential attribution does not prove nonoverlapping physical losses; no coupled gas/nozzle closure",
         ),
         units={"*_n": "N", "*_s": "s", "*_efficiency": "1", "*_residual_*": "varies"},
     ),
@@ -1564,10 +1571,14 @@ ROUTE_METADATA = {
         references=("Bartz correlation, NASA SP-125", "Darcy-Weisbach pressure loss"),
     ),
     "/api/v1/two-phase-band": ModelMetadata(
-        model="condensed-phase particle-coupling performance bracket",
-        version="0.1-experimental",
-        assumptions=("user-supplied condensed fraction", "bounded particle coupling efficiency"),
-        units={"*_n": "N", "*_s": "s", "*_fraction": "1", "*_efficiency*": "1"},
+        model="conditional gas/particle exit-state scenarios with separated pressure thrust",
+        version="2.0",
+        assumptions=("fixed total mass flow and prescribed exit gas state; gas response is not solved",
+            "particle/gas exit velocity ratio, or explicitly selected per-unit-mass kinetic-energy ratio",
+            "reference pressure thrust is separate; default zero is an assumption",
+            "scenario endpoints are not validated physical bounds or statistical coverage",
+            "nonpositive conditional thrust is retained; actual nozzle compatibility is not solved"),
+        units={"*_n": "N", "*_s": "s", "*_fraction": "1", "*_efficiency*": "1", "*_ratio*": "1"},
     ),
     "/api/v1/staging": ModelMetadata(
         model="discrete constrained multi-stage mass optimizer",
