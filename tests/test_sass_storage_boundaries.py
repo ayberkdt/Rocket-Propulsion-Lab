@@ -11,7 +11,9 @@ from decimal import Context, Decimal, localcontext
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.studies.sass import (
-    ideal_cold_gas_storage, ideal_regulated_pressurant, liquid_tank_volume,
+    ideal_cold_gas_storage,
+    ideal_regulated_pressurant,
+    liquid_tank_volume,
 )
 from tests.test_sass_studies import q
 

@@ -15,12 +15,22 @@ from dataclasses import dataclass
 from fractions import Fraction as F
 from functools import lru_cache
 
-from rocket_propulsion.core.errors import DomainError, ConvergenceError
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
 from rocket_propulsion.core.validation import integer, real, text
 from rocket_propulsion.propulsion.burns.numeric_outputs import _finite_rational
-from .moc_unit_process import (MocFlowPoint, solve_moc_interior_point, _owned, _coefficients, _intersection,
-    _point_from_velocity, _coordinate_cell_radius, _upper_residual, _TOLERANCE)
-from .moc_boundary import MocBoundaryResult, _axis_rows, _axis_derivative_terms, _optional_source
+
+from .moc_boundary import MocBoundaryResult, _axis_derivative_terms, _axis_rows, _optional_source
+from .moc_unit_process import (
+    _TOLERANCE,
+    MocFlowPoint,
+    _coefficients,
+    _coordinate_cell_radius,
+    _intersection,
+    _owned,
+    _point_from_velocity,
+    _upper_residual,
+    solve_moc_interior_point,
+)
 
 _POLICY='axis_departure_second_order_regularity_and_averaged_minus_v1'
 
@@ -112,10 +122,10 @@ def _stored_topology(inputs,point):
 
 def _pack(point,count,metrics,kind,source):
     raw,adjusted,cell,plus_defect=metrics;value,status=_optional_source(source)
-    return dict(point=point,iterations=count,equation_residual_max=_upper_residual(raw),
-        rounding_adjusted_residual_max=_upper_residual(adjusted),coordinate_rounding_allowance_max=_upper_residual(cell),
-        representation_limited=raw>_TOLERANCE,solution_kind=kind,axis_source_term_per_m=value,axis_source_term_status=status,
-        averaged_plus_compatibility_defect=_upper_residual(plus_defect))
+    return {'point': point,'iterations': count,'equation_residual_max': _upper_residual(raw),
+        'rounding_adjusted_residual_max': _upper_residual(adjusted),'coordinate_rounding_allowance_max': _upper_residual(cell),
+        'representation_limited': raw>_TOLERANCE,'solution_kind': kind,'axis_source_term_per_m': value,'axis_source_term_status': status,
+        'averaged_plus_compatibility_defect': _upper_residual(plus_defect)}
 
 
 @lru_cache(maxsize=16)
@@ -135,7 +145,7 @@ def _solve(inputs):
     _stored_topology(inputs,point)
     w,wx=_axis_expansion(inputs)
     for count in range(1,inputs.max_iterations+1):
-        plus,minus,_,((sp,ap,bp,cp),(sm,am,bm,cm))=_rows(inputs,point)
+        plus,minus,_,((sp,_ap,_bp,_cp),(sm,am,bm,cm))=_rows(inputs,point)
         x,y=_intersection(a,b,sp,sm);_private_topology(inputs,x,y)
         rm=am*minus[4]+bm*minus[5]+cm*(x-F(b.x_m))
         if am==0:raise ConvergenceError('Axis-departure system is singular.',code='moc_departure_singular')

@@ -2,14 +2,13 @@
 
 import hashlib
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from lunaris.core.propagation import plans
 
 from scripts.run_bounded_regression import ROOT, dependency_inputs, verification_inputs
 from tests.test_native_lunaris_impulse_numerics import NativeLunarisImpulseAttacks
-
 
 MUTATIONS = (
     (
@@ -64,9 +63,9 @@ def main():
     outcomes = []
     for name, symbol, before, after, test in MUTATIONS:
         function = getattr(plans, symbol)
-        from scripts.mutation_runtime import compile_fault, evaluate_fault, MUTATION_RUNTIME_POLICY
+        from scripts.mutation_runtime import MUTATION_RUNTIME_POLICY, compile_fault, evaluate_fault
         source,replacement = compile_fault(function,before,after,f"<native-mutation:{name}>")
-        def bindings():return [
+        def bindings(*, function=function):return [
             (module, key)
             for module_name, module in list(sys.modules.items())
             if module_name.startswith(("lunaris.", "rocket_propulsion.", "tests."))

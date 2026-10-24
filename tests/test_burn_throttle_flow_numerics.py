@@ -3,8 +3,8 @@
 No measured motor, feed hardware or physical uncertainty is validated here.
 """
 
-import unittest
 import json
+import unittest
 from decimal import Decimal, localcontext
 from itertools import permutations
 from math import fsum, isfinite, log, ulp
@@ -13,7 +13,6 @@ from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.propulsion.burns import MonotoneCubicCurve, ThrottleableEngineModel
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 from tests.test_burn_direction_numerics import engines as direction_consumers
-
 
 TINY = float.fromhex("0x0.0000000000001p-1022")
 
@@ -210,7 +209,7 @@ class ThrottleFlowNumericalAttacks(unittest.TestCase):
         step = .02
 
         def derivative(time, values):
-            mass, a, b, velocity = values
+            mass, a, b, _velocity = values
             value = model.evaluate(throttle=.4 + .2 * time, vehicle_mass_kg=mass,
                                    direction=(1., 0., 0.), additional_states={"a": a, "b": b})
             drains = dict(value.additional_state_derivatives)

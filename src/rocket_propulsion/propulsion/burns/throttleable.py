@@ -41,9 +41,11 @@ from rocket_propulsion.core.validation import (
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
 from .direction import _direction_geometry
+from .exchange_documents import _metadata
+from .interpolation import _hermite_coefficients, _hermite_segment, _pchip_rational_slopes
 from .mass_closure import _MASS_CLOSURE_POLICY, _inventory_ledger
 from .numeric_outputs import _finite_rational, _fraction
-from .interpolation import _hermite_coefficients, _hermite_segment, _pchip_rational_slopes
+from .power_documents import _throttle_document
 from .propagator import (
     AdditionalStateConstraint,
     BurnEventKind,
@@ -52,8 +54,6 @@ from .propagator import (
     PropellantMassClosure,
 )
 from .serialization import _require_numerical_policies, canonical_sha256
-from .power_documents import _throttle_document
-from .exchange_documents import _metadata
 
 THROTTLEABLE_ENGINE_SCHEMA = "rocket_propulsion_throttleable_engine_v1"
 THROTTLEABLE_REFERENCE_IDS = ("NASA-20040000363", "OREKIT-13.1.5-PROPULSION-MODEL")

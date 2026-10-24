@@ -19,11 +19,11 @@ from rocket_propulsion.propulsion.burns import (
     throttle_first_moment,
     time_for_integrated_throttle,
 )
-from tests.test_burn_constant_numerics import inverse_series, mono
 from rocket_propulsion.propulsion.burns.profiles import (
     ScheduleInterval,
     resolved_schedule_intervals,
 )
+from tests.test_burn_constant_numerics import inverse_series, mono
 
 
 def schedule(*segments):
@@ -232,8 +232,8 @@ class ProfileBurnNumericalAttacks(unittest.TestCase):
 
     def test_profile_recovers_finite_velocity_after_intermediate_ratio_loss(self):
         for arguments, expected in (
-            (dict(flow=1e-200, force=1e100, mass=1e200, loaded=1.0, dry=0.0), 1e-100),
-            (dict(flow=1e-308, force=5.0), 0.05),
+            ({"flow": 1e-200, "force": 1e100, "mass": 1e200, "loaded": 1.0, "dry": 0.0}, 1e-100),
+            ({"flow": 1e-308, "force": 5.0}, 0.05),
         ):
             with self.subTest(arguments=arguments):
                 definition, point = mono(**arguments)
@@ -285,9 +285,9 @@ class ProfileBurnNumericalAttacks(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(DomainError):
                 ThrottleSegment(
                     **{
-                        **dict(
-                            duration_s=1.0, start_throttle=0.5, end_throttle=0.5, phase="steady"
-                        ),
+
+                            "duration_s": 1.0, "start_throttle": 0.5, "end_throttle": 0.5, "phase": "steady"
+                        ,
                         field: value,
                     }
                 )
@@ -341,17 +341,17 @@ class ProfileBurnNumericalAttacks(unittest.TestCase):
 
     def test_true_physical_output_range_errors_have_field_labels(self):
         for arguments, label in (
-            (dict(flow=1e-200, force=1e-200, target=1e-200), "Consumed propellant"),
+            ({"flow": 1e-200, "force": 1e-200, "target": 1e-200}, "Consumed propellant"),
             (
-                dict(
-                    flow=1e100,
-                    force=1e308,
-                    mass=1e308,
-                    loaded=1e308,
-                    dry=0.0,
-                    target=10.0,
-                    maximum=10.0,
-                ),
+                {
+                    "flow": 1e100,
+                    "force": 1e308,
+                    "mass": 1e308,
+                    "loaded": 1e308,
+                    "dry": 0.0,
+                    "target": 10.0,
+                    "maximum": 10.0,
+                },
                 "Delivered impulse",
             ),
         ):

@@ -1,21 +1,21 @@
 """Independent mass ledgers, exhaustive grid oracles and hostile staging records."""
+import unittest
 from dataclasses import asdict, replace
 from decimal import Decimal, localcontext
 from math import inf, nextafter
-import unittest
 from unittest.mock import patch
 
-from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2
-from rocket_propulsion.core.errors import DomainError, ConvergenceError
-from rocket_propulsion.propulsion.staging import StageDefinition, optimize_staging
-from rocket_propulsion.api.routes import dispatch_calculation
 from rocket_propulsion.api import routes as api_routes
+from rocket_propulsion.api.routes import dispatch_calculation
+from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
 from rocket_propulsion.propulsion import staging_numerics
+from rocket_propulsion.propulsion.staging import StageDefinition, optimize_staging
 
 
 def case(**changes):
-    return dict(dict(stages=(StageDefinition('S1', 300., .1),),
-                     target_delta_v_m_s=100., payload_mass_kg=1., resolution=40), **changes)
+    return dict({'stages': (StageDefinition('S1', 300., .1),),
+                     'target_delta_v_m_s': 100., 'payload_mass_kg': 1., 'resolution': 40}, **changes)
 
 
 def reference(x, units, precision=1400):
@@ -31,9 +31,9 @@ def reference(x, units, precision=1400):
             if 1-eps*ratio <= 0:
                 return None
             wet = upper*(ratio-1)/(1-eps*ratio)
-            result.append(dict(delta_v_m_s=float(dv), mass_ratio=float(ratio),
-                initial_mass_kg=float(upper+wet), upper_stack_mass_kg=float(upper),
-                dry_mass_kg=float(eps*wet), propellant_mass_kg=float((1-eps)*wet)))
+            result.append({'delta_v_m_s': float(dv), 'mass_ratio': float(ratio),
+                'initial_mass_kg': float(upper+wet), 'upper_stack_mass_kg': float(upper),
+                'dry_mass_kg': float(eps*wet), 'propellant_mass_kg': float((1-eps)*wet)})
             upper += wet
         return upper, tuple(reversed(result))
 
@@ -147,9 +147,11 @@ class StagingAttacks(unittest.TestCase):
             self.assertLess(bounds[0], actual); self.assertLess(actual, bounds[1])
         staging_numerics._feasible.cache_clear()
         try:
-            with patch.object(staging_numerics, '_exp_interval', return_value=bounds):
-                with self.assertRaises(ConvergenceError):
-                    staging_numerics._feasible(stage, Fraction(target))
+            with (
+                patch.object(staging_numerics, '_exp_interval', return_value=bounds),
+                self.assertRaises(ConvergenceError),
+            ):
+                staging_numerics._feasible(stage, Fraction(target))
         finally:
             staging_numerics._feasible.cache_clear()
 
@@ -206,9 +208,9 @@ class StagingAttacks(unittest.TestCase):
 
     def test_result_replay_rejects_forged_mass_and_qualification(self):
         r = self.valid(case())
-        for changes in (dict(initial_mass_kg=1e99), dict(feasible=False), dict(feasible=1),
-                        dict(achieved_delta_v_m_s=101.), dict(payload_fraction=.5),
-                        dict(numerical_policy='other'), dict(continuous_optimum_qualified=True)):
+        for changes in ({'initial_mass_kg': 1e99}, {'feasible': False}, {'feasible': 1},
+                        {'achieved_delta_v_m_s': 101.}, {'payload_fraction': .5},
+                        {'numerical_policy': 'other'}, {'continuous_optimum_qualified': True}):
             with self.subTest(changes=changes), self.assertRaises(DomainError): replace(r, **changes)
 
     def test_stage_record_replay_rejects_forged_propellant(self):
@@ -259,8 +261,8 @@ class StagingAttacks(unittest.TestCase):
         self.assertFalse(r.continuous_optimum_qualified)
 
     def test_api_refuses_nontext_stage_names_instead_of_stringifying_them(self):
-        payload = dict(target_delta_v_m_s=100., payload_mass_kg=1., resolution=40,
-                       stages=[dict(name=None, specific_impulse_s=300., structural_fraction=.1)])
+        payload = {'target_delta_v_m_s': 100., 'payload_mass_kg': 1., 'resolution': 40,
+                       'stages': [{'name': None, 'specific_impulse_s': 300., 'structural_fraction': .1}]}
         for label, invoke in (('registered dispatch', lambda: dispatch_calculation('/api/v1/staging', payload)),
                               ('direct route boundary', lambda: api_routes.calculate_staging_route(payload))):
             with self.subTest(path=label), self.assertRaises(DomainError): invoke()

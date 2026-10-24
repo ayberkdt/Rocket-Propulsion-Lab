@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict
+from fractions import Fraction
 from math import isclose, isfinite
 from typing import Any
 
@@ -30,17 +31,15 @@ from .ensemble import (
     HierarchicalVarianceDecomposition,
     ScenarioConditionalUncertainty,
     ScenarioMetricContribution,
+    _derived_seed,
     _variance_decomposition,
     _weighted_statistics,
-    _derived_seed,
 )
 from .ensemble_documents import _ensemble_document
-from .probability_numerics import _PROBABILITY_POLICY, _weight_ledger
 from .marginal_numerics import _SAMPLING_POLICY
 from .numeric_outputs import _finite_rational, _fraction
-from fractions import Fraction
-from .serialization import _require_numerical_policies
-from .serialization import canonical_json_bytes
+from .probability_numerics import _PROBABILITY_POLICY, _weight_ledger
+from .serialization import _require_numerical_policies, canonical_json_bytes
 from .tabulated import TabulatedBurnArtifact
 from .uncertainty import (
     CorrelationModel,

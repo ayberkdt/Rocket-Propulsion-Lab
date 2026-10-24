@@ -7,7 +7,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -23,7 +22,7 @@ class VerificationDiagnosticTests(unittest.TestCase):
             command = [sys.executable, "-m", "pytest", str(fixture), "-q", "-o",
                        "faulthandler_timeout=0", "-p", "scripts.pytest_diagnostics",
                        "--diagnostic-timeout=.02"]
-            child = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, timeout=30)
+            child = subprocess.run(command, check=False, cwd=ROOT, env=env, capture_output=True, timeout=30)
             log = (child.stdout + child.stderr).decode(errors="replace")
             self.assertEqual(child.returncode, 0, log)
             self.assertIn("Diagnostic snapshot after", log)

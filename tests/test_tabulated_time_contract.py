@@ -8,9 +8,9 @@ from math import inf, ldexp, nextafter, ulp
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.integrations.lunaris import (
-    lunaris_segmentation_times,
     LunarisFiniteBurnDynamics,
     lunaris_burn_windows,
+    lunaris_segmentation_times,
 )
 from rocket_propulsion.propulsion.burns import (
     PropagatorPropulsionBridge,

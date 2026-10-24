@@ -1,5 +1,6 @@
 """Owned prescribed-state Bartz profiles; no coupled wall or hardware validation."""
 from __future__ import annotations
+
 from collections.abc import Mapping
 from dataclasses import dataclass, fields
 from fractions import Fraction
@@ -8,9 +9,10 @@ from math import inf, isfinite, nextafter
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.metadata import WarningMessage
-from rocket_propulsion.core.validation import real, text, _ordered_items
+from rocket_propulsion.core.validation import _ordered_items, real, text
 from rocket_propulsion.geometry import NozzleContour, NozzleStation
-from .bartz_numerics import _profile_exports, _BARTZ_POLICY
+
+from .bartz_numerics import _BARTZ_POLICY, _profile_exports
 
 _INTEGRATION='piecewise_linear_heat_flux_and_radius_on_straight_meridional_segments'
 _RESIDUAL='integral_ledger_identity_not_measured_energy_closure'
@@ -128,9 +130,9 @@ class HeatFluxStation:
 
 def _warnings(value):
     # At most two base, two legacy-screening and one signed-flux warning.
+    from collections.abc import Set as AbstractSet
     from itertools import islice
-    from collections.abc import Set
-    if isinstance(value,(str,bytes,bytearray,memoryview,Mapping,Set)):
+    if isinstance(value,(str,bytes,bytearray,memoryview,Mapping,AbstractSet)):
         raise DomainError('Warnings must be ordered records.',field='Thermal warnings')
     try:items=tuple(islice(value,6))
     except (TypeError,ValueError,KeyError,IndexError,OverflowError) as error:

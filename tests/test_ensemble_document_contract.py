@@ -1,11 +1,11 @@
 """Public counterexamples for ensemble schema, identity and redundant evidence."""
 
-from copy import deepcopy
-from dataclasses import replace
 import hashlib
 import json
-from math import nextafter
 import unittest
+from copy import deepcopy
+from dataclasses import replace
+from math import nextafter
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.integrations import (

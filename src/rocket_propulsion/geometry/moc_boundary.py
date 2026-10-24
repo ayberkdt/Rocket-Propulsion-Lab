@@ -16,11 +16,19 @@ from fractions import Fraction as F
 from functools import lru_cache
 from math import atan2, degrees
 
-from rocket_propulsion.core.errors import DomainError, ConvergenceError
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
 from rocket_propulsion.core.validation import _ordered_items, integer, real, text
 from rocket_propulsion.propulsion.burns.numeric_outputs import _finite_rational
-from .moc_unit_process import (MocFlowPoint, _owned, _coefficients, _point_from_velocity,
-    _coordinate_cell_radius, _upper_residual, _TOLERANCE)
+
+from .moc_unit_process import (
+    _TOLERANCE,
+    MocFlowPoint,
+    _coefficients,
+    _coordinate_cell_radius,
+    _owned,
+    _point_from_velocity,
+    _upper_residual,
+)
 
 _POLICY='averaged_cartesian_axis_quadratic_regularity_or_finite_straight_wall_v1'
 
@@ -131,9 +139,9 @@ def _optional_source(value):
 def _pack(point,iteration,metrics,kind):
     raw,adjusted,allowance,source=metrics
     source_value,status=_optional_source(source)
-    return dict(point=point,iterations=iteration,equation_residual_max=_upper_residual(raw),
-        rounding_adjusted_residual_max=_upper_residual(adjusted),coordinate_rounding_allowance_max=_upper_residual(allowance),
-        representation_limited=raw>_TOLERANCE,source_term_per_m=source_value,source_term_status=status,solution_kind=kind)
+    return {'point': point,'iterations': iteration,'equation_residual_max': _upper_residual(raw),
+        'rounding_adjusted_residual_max': _upper_residual(adjusted),'coordinate_rounding_allowance_max': _upper_residual(allowance),
+        'representation_limited': raw>_TOLERANCE,'source_term_per_m': source_value,'source_term_status': status,'solution_kind': kind}
 
 
 @lru_cache(maxsize=16)

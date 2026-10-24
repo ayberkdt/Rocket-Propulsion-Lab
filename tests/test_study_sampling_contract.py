@@ -16,8 +16,13 @@ from rocket_propulsion.api.routes import dispatch_calculation
 from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.studies import (
-    ParameterRange, SensitivityRecord, SweepPoint, latin_hypercube_samples,
-    monte_carlo_samples, parameter_sweep, propagate_uncertainty,
+    ParameterRange,
+    SensitivityRecord,
+    SweepPoint,
+    latin_hypercube_samples,
+    monte_carlo_samples,
+    parameter_sweep,
+    propagate_uncertainty,
 )
 
 
@@ -39,7 +44,7 @@ class StudySamplingAttacks(unittest.TestCase):
             self.fail(f"Representable valid case rejected: {error}")
 
     def result(self, **kwargs):
-        options = dict(evaluator=lambda row: row['x'], sample_count=7, seed=19)
+        options = {"evaluator": lambda row: row['x'], "sample_count": 7, "seed": 19}
         options.update(kwargs)
         return self.valid(propagate_uncertainty, (ParameterRange('x', 1., 2.),), **options)
 
@@ -101,7 +106,7 @@ class StudySamplingAttacks(unittest.TestCase):
     def test_tiny_and_huge_outputs_match_independent_decimal_moments(self):
         for scale in (2e-200, 2e200):
             with self.subTest(scale=scale):
-                result = self.result(evaluator=lambda row: scale*row['x'])
+                result = self.result(evaluator=lambda row, *, scale=scale: scale*row['x'])
                 mean, deviation = decimal_moments([p.output for p in result.samples])
                 self.assertEqual(result.output_mean, mean)
                 self.assertEqual(result.output_standard_deviation, deviation)
@@ -128,11 +133,13 @@ class StudySamplingAttacks(unittest.TestCase):
     def test_unrepresentable_required_summary_is_a_named_domain_failure(self):
         points=({'x':0.},{'x':1.})
         tiny=float.fromhex('0x0.0000000000001p-1022')
-        with patch('rocket_propulsion.studies.sampling.monte_carlo_samples',return_value=points):
-            with self.assertRaises(DomainError) as caught:
-                propagate_uncertainty((ParameterRange('x',0.,1.),),
-                                      evaluator=lambda row: row['x']*2*tiny,
-                                      sample_count=2,method='monte-carlo')
+        with (
+            patch('rocket_propulsion.studies.sampling.monte_carlo_samples', return_value=points),
+            self.assertRaises(DomainError) as caught,
+        ):
+            propagate_uncertainty((ParameterRange('x',0.,1.),),
+                                  evaluator=lambda row: row['x']*2*tiny,
+                                  sample_count=2,method='monte-carlo')
         self.assertEqual(caught.exception.field,'Sample quantile')
 
     def test_undefined_constant_input_is_last_and_defined_zero_remains_ranked(self):
@@ -191,7 +198,7 @@ class StudySamplingAttacks(unittest.TestCase):
     def test_evaluator_rejects_bool_text_nonfinite_and_unrepresentable_output(self):
         for value in (True, '1.0', None, float('nan'), float('inf'), 10**400):
             with self.subTest(value=repr(value)), self.assertRaises(DomainError):
-                self.result_without_valid(evaluator=lambda row: value)
+                self.result_without_valid(evaluator=lambda row, *, value=value: value)
         with self.assertRaises(DomainError):
             propagate_uncertainty((ParameterRange('x',1.,2.),), evaluator=None, sample_count=4)
 
@@ -212,10 +219,10 @@ class StudySamplingAttacks(unittest.TestCase):
         source['x'] = 99.
         self.assertEqual(point.inputs['x'], 2.)
         for record in (point, copy.deepcopy(point), pickle.loads(pickle.dumps(point))):
-            for operation in (lambda: record.inputs.update(x=99.), lambda: record.inputs.clear(),
-                              lambda: record.inputs.pop('x'), lambda: record.inputs.setdefault('y', 1.),
-                              lambda: record.inputs.__ior__({'x':99.}),
-                              lambda: record.inputs.__delitem__('x')):
+            for operation in (lambda*, record=record: record.inputs.update(x=99.), lambda*, record=record: record.inputs.clear(),
+                              lambda*, record=record: record.inputs.pop('x'), lambda*, record=record: record.inputs.setdefault('y', 1.),
+                              lambda*, record=record: record.inputs.__ior__({'x':99.}),
+                              lambda*, record=record: record.inputs.__delitem__('x')):
                 with self.assertRaises(TypeError):
                     operation()
             self.assertEqual(json.loads(json.dumps(asdict(record))), {'inputs':{'x':2.},'output':3.})
@@ -230,7 +237,7 @@ class StudySamplingAttacks(unittest.TestCase):
         for options in ({'point_count':True}, {'point_count':3.5}, {'point_count':10001},
                         {'fixed_inputs':{'z':float('inf')}}, {'fixed_inputs':{'z':True}},
                         {'fixed_inputs':[]}, {'evaluator':lambda row: '3'}):
-            args = dict(point_count=3, evaluator=lambda row: row['x'])
+            args = {"point_count": 3, "evaluator": lambda row: row['x']}
             args.update(options)
             with self.subTest(options=repr(options)), self.assertRaises(DomainError):
                 parameter_sweep(ParameterRange('x',0.,1.), **args)
@@ -272,8 +279,8 @@ class StudySamplingAttacks(unittest.TestCase):
 
 class StudyUncertaintyApiAttacks(unittest.TestCase):
     def payload(self):
-        return dict(parameters=[dict(name='specific_impulse_s',minimum=430.,maximum=460.),
-                                dict(name='mass_ratio',minimum=3.,maximum=4.)], sample_count=4, seed=7)
+        return {"parameters": [{"name": 'specific_impulse_s',"minimum": 430.,"maximum": 460.},
+                                {"name": 'mass_ratio',"minimum": 3.,"maximum": 4.}], "sample_count": 4, "seed": 7}
 
     def call(self, payload):
         return dispatch_calculation('/api/v1/uncertainty', payload)
@@ -292,8 +299,8 @@ class StudyUncertaintyApiAttacks(unittest.TestCase):
 
     def test_route_recovers_representable_delta_v_after_overflowing_intermediate(self):
         payload = self.payload()
-        payload['parameters'] = [dict(name='specific_impulse_s',minimum=5e307,maximum=6e307),
-                                 dict(name='mass_ratio',minimum=nextafter(1.,2.),maximum=nextafter(nextafter(1.,2.),2.))]
+        payload['parameters'] = [{"name": 'specific_impulse_s',"minimum": 5e307,"maximum": 6e307},
+                                 {"name": 'mass_ratio',"minimum": nextafter(1.,2.),"maximum": nextafter(nextafter(1.,2.),2.)}]
         try:
             result = self.call(payload)
         except (DomainError, ArithmeticError) as error:
@@ -329,7 +336,7 @@ class StudyUncertaintyApiAttacks(unittest.TestCase):
                 self.call(payload)
 
     def test_form_payload_is_supported_without_changing_its_seed(self):
-        payload=dict(minimum_specific_impulse_s='430',maximum_specific_impulse_s='460',
-                     minimum_mass_ratio='3',maximum_mass_ratio='4',sample_count='4',seed='42.0',method=' Monte-Carlo ')
+        payload={"minimum_specific_impulse_s": '430',"maximum_specific_impulse_s": '460',
+                     "minimum_mass_ratio": '3',"maximum_mass_ratio": '4',"sample_count": '4',"seed": '42.0',"method": ' Monte-Carlo '}
         result=self.call(payload)
         self.assertEqual((result['seed'],result['sample_count'],result['method']),(42,4,'monte-carlo'))

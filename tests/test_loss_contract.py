@@ -7,9 +7,9 @@ from fractions import Fraction
 from math import inf, nextafter
 from sys import float_info
 
-from rocket_propulsion.core.errors import DomainError, ConvergenceError
+from rocket_propulsion.api.routes import calculation_metadata, dispatch_calculation
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
 from rocket_propulsion.propulsion import calculate_loss_budget
-from rocket_propulsion.api.routes import dispatch_calculation, calculation_metadata
 
 FLAGS = ('enable_combustion_loss', 'enable_discharge_loss',
          'enable_boundary_layer_loss', 'enable_divergence_loss')
@@ -19,8 +19,8 @@ IDENTITY = [[int(i == j) for j in range(4)] for i in range(4)]
 
 
 def inputs(**changes):
-    return dict(dict(ideal_thrust_n=100000., ideal_specific_impulse_s=450.,
-                     relative_uncertainty=0.), **changes)
+    return dict({'ideal_thrust_n': 100000., 'ideal_specific_impulse_s': 450.,
+                     'relative_uncertainty': 0.}, **changes)
 
 
 def disabled(**changes):
@@ -59,13 +59,13 @@ def oracle(x, precision=1400):
             variances.append(d(x.get('relative_uncertainty', .02))**2 * sum(
                 (d(matrix[a][b])*e[a]*e[b] for a in range(4) for b in range(4)), Decimal(0)))
         sf, si, sm = [v.sqrt() for v in variances]
-        return dict(delivered_thrust_n=float(f), delivered_specific_impulse_s=float(isp),
-            total_efficiency=float(f/f0), specific_impulse_ratio=float(isp/i0), mass_flow_ratio=float(flow),
-            total_thrust_loss_n=float(f0-f), total_specific_impulse_loss_s=float(i0-isp),
-            one_sigma_relative=float(sf), specific_impulse_one_sigma_relative=float(si),
-            mass_flow_one_sigma_relative=float(sm),
-            delivered_thrust_band_n=(float(f*(1-sf)), float(f*(1+sf))),
-            delivered_specific_impulse_band_s=(float(isp*(1-si)), float(isp*(1+si))), terms=terms)
+        return {'delivered_thrust_n': float(f), 'delivered_specific_impulse_s': float(isp),
+            'total_efficiency': float(f/f0), 'specific_impulse_ratio': float(isp/i0), 'mass_flow_ratio': float(flow),
+            'total_thrust_loss_n': float(f0-f), 'total_specific_impulse_loss_s': float(i0-isp),
+            'one_sigma_relative': float(sf), 'specific_impulse_one_sigma_relative': float(si),
+            'mass_flow_one_sigma_relative': float(sm),
+            'delivered_thrust_band_n': (float(f*(1-sf)), float(f*(1+sf))),
+            'delivered_specific_impulse_band_s': (float(isp*(1-si)), float(isp*(1+si))), 'terms': terms}
 
 
 class LossAttacks(unittest.TestCase):
@@ -89,23 +89,29 @@ class LossAttacks(unittest.TestCase):
     def test_real_inputs_reject_booleans_text_nonfinite_and_erased_values(self):
         for field in ('ideal_thrust_n', 'ideal_specific_impulse_s', *EFFS, 'relative_uncertainty'):
             for bad in (True, '1', None, [], float('nan'), inf, 10**10000, Fraction(1, 10**1000)):
-                with self.subTest(field=field, bad=type(bad).__name__):
-                    with self.assertRaises(DomainError):
-                        calculate_loss_budget(**inputs(**{field: bad}))
+                with (
+                    self.subTest(field=field, bad=type(bad).__name__),
+                    self.assertRaises(DomainError),
+                ):
+                    calculate_loss_budget(**inputs(**{field: bad}))
 
     def test_switches_are_actual_booleans(self):
         for field in FLAGS:
             for bad in (0, 1, 2, 'false', [], None):
-                with self.subTest(field=field, bad=bad):
-                    with self.assertRaises(DomainError):
-                        calculate_loss_budget(**inputs(**{field: bad}))
+                with (
+                    self.subTest(field=field, bad=bad),
+                    self.assertRaises(DomainError),
+                ):
+                    calculate_loss_budget(**inputs(**{field: bad}))
 
     def test_disabled_factors_are_still_validated(self):
         for field in EFFS:
             for bad in (0., -1., nextafter(1., inf)):
-                with self.subTest(field=field, bad=bad):
-                    with self.assertRaises(DomainError):
-                        calculate_loss_budget(**disabled(**{field: bad}))
+                with (
+                    self.subTest(field=field, bad=bad),
+                    self.assertRaises(DomainError),
+                ):
+                    calculate_loss_budget(**disabled(**{field: bad}))
 
     def test_representable_small_loss_is_not_rounded_thrust_subtraction(self):
         x = disabled(ideal_thrust_n=1e308, ideal_specific_impulse_s=1.,
@@ -186,9 +192,8 @@ class LossAttacks(unittest.TestCase):
                         {'label': 'validated hardware'}, {'source': 'NASA certified'},
                         {'enabled': 1}, {'efficiency': nextafter(term.efficiency, inf)},
                         {'key': 'discharge'}, {'numerical_policy': 'unknown'}):
-            with self.subTest(changes=changes):
-                with self.assertRaises(DomainError):
-                    replace(term, **changes)
+            with self.subTest(changes=changes), self.assertRaises(DomainError):
+                replace(term, **changes)
 
     def test_bands_warnings_and_boolean_qualification_cannot_be_forged(self):
         result = self.valid(inputs(relative_uncertainty=.02))
@@ -198,9 +203,8 @@ class LossAttacks(unittest.TestCase):
                         {'coverage_qualified': 0}, {'one_sigma_relative': True},
                         {'specific_impulse_ratio': nextafter(result.specific_impulse_ratio, inf)},
                         {'mass_flow_ratio': nextafter(result.mass_flow_ratio, inf)}):
-            with self.subTest(changes=list(changes)):
-                with self.assertRaises(DomainError):
-                    replace(result, **changes)
+            with self.subTest(changes=list(changes)), self.assertRaises(DomainError):
+                replace(result, **changes)
 
     def test_retained_warning_text_drops_comparison_callbacks_before_replay(self):
         class EqualText(str):
@@ -211,9 +215,11 @@ class LossAttacks(unittest.TestCase):
         for field in ('code', 'message', 'severity', 'field'):
             forged = replace(result.warnings[0], **{field: EqualText('fabricated qualification')})
             for warning in (forged, asdict(forged)):
-                with self.subTest(field=field, mapping=isinstance(warning, dict)):
-                    with self.assertRaises(DomainError):
-                        replace(result, warnings=(warning, *result.warnings[1:]))
+                with (
+                    self.subTest(field=field, mapping=isinstance(warning, dict)),
+                    self.assertRaises(DomainError),
+                ):
+                    replace(result, warnings=(warning, *result.warnings[1:]))
         original = result.warnings[0]
         valid = replace(original, code=EqualText(original.code), message=EqualText(original.message),
                         severity=EqualText(original.severity))
@@ -234,34 +240,30 @@ class LossAttacks(unittest.TestCase):
         near = [[1., r, r, 0.], [r, 1., r, 0.], [r, r, 1., 0.], [0., 0., 0., 1.]]
         zero_pivot = [[1., 1., 0., 0.], [1., 1., .1, 0.], [0., .1, 1., 0.], [0., 0., 0., 1.]]
         for matrix in (bad, near, zero_pivot):
-            with self.subTest(matrix=matrix):
-                with self.assertRaises(DomainError):
-                    calculate_loss_budget(**inputs(correlation_matrix=matrix))
+            with self.subTest(matrix=matrix), self.assertRaises(DomainError):
+                calculate_loss_budget(**inputs(correlation_matrix=matrix))
 
     def test_correlation_shape_symmetry_diagonal_and_types_are_strict(self):
         cases = [[], [[1]], 'identity', None]
         for i, j, value in ((0, 1, .1), (0, 0, nextafter(1., 0.)), (0, 1, True), (0, 1, inf)):
             matrix = [row[:] for row in IDENTITY]; matrix[i][j] = value; cases.append(matrix)
         for matrix in cases:
-            with self.subTest(matrix=matrix):
-                with self.assertRaises(DomainError):
-                    calculate_loss_budget(**inputs(correlation_matrix=matrix))
+            with self.subTest(matrix=matrix), self.assertRaises(DomainError):
+                calculate_loss_budget(**inputs(correlation_matrix=matrix))
 
     def test_result_replay_rejects_scalar_term_policy_scope_and_input_forgeries(self):
         result = self.valid(inputs())
         for field in ('delivered_thrust_n', 'delivered_specific_impulse_s', 'total_efficiency',
                       'total_thrust_loss_n', 'one_sigma_relative'):
-            with self.subTest(field=field):
-                with self.assertRaises(DomainError):
-                    replace(result, **{field: nextafter(getattr(result, field), inf)})
+            with self.subTest(field=field), self.assertRaises(DomainError):
+                replace(result, **{field: nextafter(getattr(result, field), inf)})
         self.assertTrue(hasattr(result, 'inputs'), 'Result must retain its operating inputs.')
         for changes in ({'numerical_policy': 'unknown'}, {'coverage_qualified': True},
                         {'uncertainty_kind': 'qualified'}, {'assumptions': ('validated hardware',)},
                         {'inputs': replace(result.inputs, combustion_efficiency=.9)},
                         {'terms': tuple(reversed(result.terms))}):
-            with self.subTest(changes=list(changes)):
-                with self.assertRaises(DomainError):
-                    replace(result, **changes)
+            with self.subTest(changes=list(changes)), self.assertRaises(DomainError):
+                replace(result, **changes)
 
     def test_json_reopen_snapshots_matrix_inputs_terms_and_warnings(self):
         result = self.valid(inputs(correlation_matrix=[row[:] for row in IDENTITY]))
@@ -281,9 +283,8 @@ class LossAttacks(unittest.TestCase):
         self.assertEqual(getattr(result, 'uncertainty_kind', None), 'first_order_relative_factor_covariance_proxy')
         self.assertTrue(any(w.code == 'legacy_discharge_is_performance_multiplier' for w in result.warnings))
         for value in ('unknown', True, 1, None):
-            with self.subTest(value=value):
-                with self.assertRaises(DomainError):
-                    calculate_loss_budget(**inputs(operating_basis=value))
+            with self.subTest(value=value), self.assertRaises(DomainError):
+                calculate_loss_budget(**inputs(operating_basis=value))
 
 
 class LossApiAttacks(unittest.TestCase):
@@ -298,6 +299,5 @@ class LossApiAttacks(unittest.TestCase):
 
     def test_dispatch_does_not_coerce_invalid_basis_or_hide_invalid_matrix(self):
         for change in ({'operating_basis': True}, {'correlation_matrix': [[1]]}):
-            with self.subTest(change=change):
-                with self.assertRaises(DomainError):
-                    dispatch_calculation('/api/v1/loss-budget', inputs(**change))
+            with self.subTest(change=change), self.assertRaises(DomainError):
+                dispatch_calculation('/api/v1/loss-budget', inputs(**change))

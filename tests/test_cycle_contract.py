@@ -7,16 +7,16 @@ from decimal import Decimal, localcontext
 from math import nextafter
 from sys import float_info
 
-from rocket_propulsion.api.routes import dispatch_calculation, calculation_metadata
-from rocket_propulsion.core.errors import DomainError, ConvergenceError, InputError
+from rocket_propulsion.api.routes import calculation_metadata, dispatch_calculation
+from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.propulsion import calculate_engine_cycle
 
 
 def base_inputs(**changes):
-    values=dict(cycle='gas-generator',chamber_pressure_pa=7e6,chamber_mass_flow_kg_s=25.,
-        propellant_density_kg_m3=1030.,inlet_pressure_pa=2.5e5,injector_pressure_drop_fraction=.2,
-        pump_efficiency=.68,turbine_efficiency=.65,turbine_inlet_temperature_k=900.,
-        turbine_specific_heat_j_kg_k=2200.,turbine_gamma=1.25,turbine_pressure_ratio=8.)
+    values={'cycle': 'gas-generator','chamber_pressure_pa': 7e6,'chamber_mass_flow_kg_s': 25.,
+        'propellant_density_kg_m3': 1030.,'inlet_pressure_pa': 2.5e5,'injector_pressure_drop_fraction': .2,
+        'pump_efficiency': .68,'turbine_efficiency': .65,'turbine_inlet_temperature_k': 900.,
+        'turbine_specific_heat_j_kg_k': 2200.,'turbine_gamma': 1.25,'turbine_pressure_ratio': 8.}
     return dict(values,**changes)
 
 
@@ -39,11 +39,11 @@ def reference(inputs,precision):
             total=flow+turbine if inputs['cycle']=='gas-generator' else flow
             fraction=turbine/total;delivered=flow/total
         power=pumped*specific
-        return {k:float(v) for k,v in dict(required_feed_pressure_pa=required,
-            inlet_pressure_margin_pa=margin,pump_pressure_rise_pa=rise,pump_power_w=power,
-            turbine_specific_work_j_kg=work,turbine_mass_flow_kg_s=turbine,turbine_flow_fraction=fraction,
-            turbine_power_w=power,power_balance_residual_w=Decimal(0),total_propellant_flow_kg_s=total,
-            delivered_mass_fraction=delivered,pump_mass_flow_kg_s=pumped).items()}
+        return {k:float(v) for k,v in {'required_feed_pressure_pa': required,
+            'inlet_pressure_margin_pa': margin,'pump_pressure_rise_pa': rise,'pump_power_w': power,
+            'turbine_specific_work_j_kg': work,'turbine_mass_flow_kg_s': turbine,'turbine_flow_fraction': fraction,
+            'turbine_power_w': power,'power_balance_residual_w': Decimal(0),'total_propellant_flow_kg_s': total,
+            'delivered_mass_fraction': delivered,'pump_mass_flow_kg_s': pumped}.items()}
 
 
 class CycleAttacks(unittest.TestCase):
@@ -173,8 +173,8 @@ class CycleAttacks(unittest.TestCase):
         self.assertGreater(result.turbine_specific_work_j_kg,0.)
 
     def test_pressure_fed_sizing_exposes_insufficient_supply_and_requires_no_turbine(self):
-        inputs=dict(cycle='pressure-fed',chamber_pressure_pa=1e8,chamber_mass_flow_kg_s=1.,
-                    inlet_pressure_pa=1e8,injector_pressure_drop_fraction=1e-20)
+        inputs={'cycle': 'pressure-fed','chamber_pressure_pa': 1e8,'chamber_mass_flow_kg_s': 1.,
+                    'inlet_pressure_pa': 1e8,'injector_pressure_drop_fraction': 1e-20}
         result=self.valid(inputs)
         self.assertEqual(result.required_feed_pressure_pa,1e8)
         self.assertLess(result.inlet_pressure_margin_pa,0.)
@@ -184,15 +184,15 @@ class CycleAttacks(unittest.TestCase):
         self.assertIsNone(result.inputs.turbine_gamma)
 
     def test_pressure_fed_exact_margin_zero_is_sufficient_for_declared_losses(self):
-        result=self.valid(dict(cycle='pressure-fed',chamber_pressure_pa=2.,chamber_mass_flow_kg_s=1.,
-                              inlet_pressure_pa=3.,injector_pressure_drop_fraction=.5))
+        result=self.valid({'cycle': 'pressure-fed','chamber_pressure_pa': 2.,'chamber_mass_flow_kg_s': 1.,
+                              'inlet_pressure_pa': 3.,'injector_pressure_drop_fraction': .5})
         self.assertIs(result.pressure_fed_supply_sufficient,True)
         self.assertEqual(result.inlet_pressure_margin_pa,0.)
 
     def test_unrepresentable_optional_margin_does_not_restrict_pressure_sizing(self):
         tiny=float.fromhex('0x0.0000000000001p-1022')
-        result=self.valid(dict(cycle='pressure-fed',chamber_pressure_pa=tiny,chamber_mass_flow_kg_s=1.,
-                              inlet_pressure_pa=tiny,injector_pressure_drop_fraction=tiny))
+        result=self.valid({'cycle': 'pressure-fed','chamber_pressure_pa': tiny,'chamber_mass_flow_kg_s': 1.,
+                              'inlet_pressure_pa': tiny,'injector_pressure_drop_fraction': tiny})
         self.assertIsNone(result.inlet_pressure_margin_pa)
         self.assertIs(result.inlet_pressure_margin_representable,False)
         self.assertIs(result.pressure_fed_supply_sufficient,False)
@@ -274,8 +274,8 @@ class CycleAttacks(unittest.TestCase):
 
 class CycleApiAttacks(unittest.TestCase):
     def test_api_pressure_fed_sizing_works_without_inactive_pump_fields(self):
-        result=dispatch_calculation('/api/v1/engine-cycle',dict(cycle='pressure-fed',chamber_pressure_pa='2',
-            chamber_mass_flow_kg_s='1',inlet_pressure_pa='1',injector_pressure_drop_fraction='.5'))
+        result=dispatch_calculation('/api/v1/engine-cycle',{'cycle': 'pressure-fed','chamber_pressure_pa': '2',
+            'chamber_mass_flow_kg_s': '1','inlet_pressure_pa': '1','injector_pressure_drop_fraction': '.5'})
         self.assertIs(result['pressure_fed_supply_sufficient'],False)
         self.assertEqual(result['inlet_pressure_margin_pa'],-2.)
 

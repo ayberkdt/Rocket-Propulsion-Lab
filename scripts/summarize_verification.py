@@ -13,8 +13,8 @@ import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from scripts.run_bounded_regression import dependency_inputs, verification_inputs
 from scripts.mutation_runtime import MUTATION_RUNTIME_POLICY
+from scripts.run_bounded_regression import dependency_inputs, verification_inputs
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "output/assurance"
@@ -136,7 +136,7 @@ def summarize_mutations(root: Path, path: Path) -> dict:
     names = []
     for row in outcomes:
         if not isinstance(row, dict) or not isinstance(row.get("mutation"), str):
-            raise ValueError("Curated mutation outcome lacks a fault identifier.")
+            raise ValueError("Curated mutation outcome lacks a fault identifier.")  # noqa: TRY004 - Malformed JSON evidence retains its ValueError schema contract.
         failures, errors = row.get("assertion_failures"), row.get("errors")
         if type(failures) is not int or type(errors) is not int or min(failures, errors) < 0:
             raise ValueError("Curated outcome counts must be nonnegative integers.")

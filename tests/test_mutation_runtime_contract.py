@@ -1,20 +1,19 @@
 """Prove that fault injection obeys controlled globals instead of false kills."""
-from contextlib import ExitStack, contextmanager, redirect_stdout
 import importlib
 import importlib.util
 import io
 import json
 import os
 import sys
-from threading import Thread
-from pathlib import Path
 import tempfile
-from types import ModuleType, SimpleNamespace
 import unittest
+from contextlib import ExitStack, contextmanager, redirect_stdout
+from pathlib import Path
+from threading import Thread
+from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
 from scripts.mutation_runtime import compile_fault, evaluate_fault
-
 
 SOURCE='''from functools import lru_cache
 def hook(value):
@@ -90,7 +89,7 @@ class MutationRuntimeAttacks(unittest.TestCase):
         name='rocket_propulsion.studies.sass._controlled_mutation_fixture'
         path=Path(folder)/'fixture.py';path.write_text(SOURCE)
         module=ModuleType(name);module.__file__=str(path)
-        exec(compile(SOURCE,str(path),'exec'),module.__dict__)
+        exec(compile(SOURCE,str(path),'exec'),module.__dict__)  # noqa: S102 - The controlled fixture must exercise live module globals.
         return module
 
     def exercise_runner(self,kind):
@@ -108,7 +107,7 @@ class MutationRuntimeAttacks(unittest.TestCase):
                 os.chdir(folder)
                 for active in (False,True):
                     class ControlledCase(unittest.TestCase):
-                        def test_controlled(self):
+                        def test_controlled(self, *, active=active):
                             with patch.object(module,'hook',return_value=active) as control:
                                 self.assertEqual(module.subject(1),2 if active else 1)
                                 control.assert_called_once_with(1)
@@ -162,7 +161,7 @@ class MutationRuntimeAttacks(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             module=self.fixture(folder);original=module.recursive
             self.assertEqual(original(3),3)
-            source,replacement=compile_fault(original,'+1 if','+2 if','<controlled-recursion>')
+            _source,replacement=compile_fault(original,'+1 if','+2 if','<controlled-recursion>')
             self.assertIs(module.recursive,original)
             self.assertIs(replacement.__globals__,original.__globals__)
             with patch.object(module,'recursive',replacement):self.assertEqual(module.recursive(3),6)

@@ -1,14 +1,23 @@
 """Conditional two-phase exit-state accounting, not a coupled particle solver."""
 from __future__ import annotations
 
-from collections.abc import Mapping, Set
+from collections.abc import Mapping
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from fractions import Fraction
 from itertools import islice
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.metadata import WarningMessage
-from rocket_propulsion.core.validation import coerce_fields, real, records, strings, text, _ordered_items
+from rocket_propulsion.core.validation import (
+    _ordered_items,
+    coerce_fields,
+    real,
+    records,
+    strings,
+    text,
+)
+
 from .burns.numeric_outputs import _finite_rational
 from .burns.probability_numerics import _sqrt_output
 from .burns.sample_statistics import _affine_sqrt_output
@@ -61,7 +70,7 @@ def _retained_inputs(value):
 
 def _two_phase_warnings(value):
     """Bound the known warning collection and normalize literal text before replay."""
-    if isinstance(value, (str, bytes, bytearray, memoryview, Mapping, Set)):
+    if isinstance(value, (str, bytes, bytearray, memoryview, Mapping, AbstractSet)):
         raise DomainError('Warnings must be ordered records.', field='Two-phase warnings')
     try:
         items = records(islice(value, 5), (WarningMessage, Mapping), 'Two-phase warnings')
@@ -143,22 +152,22 @@ def _endpoint(source, coupling):
         speed = k
         mixture = 1-chi+chi*speed
         thrust = momentum*mixture+pressure
-        return dict(velocity=_finite_rational(speed, 'Particle velocity ratio'),
-            mixture=_finite_rational(mixture, 'Momentum multiplier'),
-            thrust=_finite_rational(thrust, 'Conditional thrust'),
-            ratio=_finite_rational(thrust/force, 'Conditional thrust ratio'),
-            isp=_finite_rational(isp*thrust/force, 'Conditional Isp'), nonpositive=thrust <= 0)
+        return {'velocity': _finite_rational(speed, 'Particle velocity ratio'),
+            'mixture': _finite_rational(mixture, 'Momentum multiplier'),
+            'thrust': _finite_rational(thrust, 'Conditional thrust'),
+            'ratio': _finite_rational(thrust/force, 'Conditional thrust ratio'),
+            'isp': _finite_rational(isp*thrust/force, 'Conditional Isp'), 'nonpositive': thrust <= 0}
     # Convert specific kinetic energy ratio to velocity without exporting the
     # root into dependent outputs. Each final affine square root rounds alone.
     scaled_particle = momentum*chi
     mean = force-scaled_particle
     radicand = scaled_particle*scaled_particle*k
-    return dict(velocity=_sqrt_output(k, 'Particle velocity ratio'),
-        mixture=_affine_sqrt_output(1-chi, chi*chi*k, 1, 'Momentum multiplier'),
-        thrust=_affine_sqrt_output(mean, radicand, 1, 'Conditional thrust'),
-        ratio=_affine_sqrt_output(mean/force, radicand/(force*force), 1, 'Conditional thrust ratio'),
-        isp=_affine_sqrt_output(isp*mean/force, isp*isp*radicand/(force*force), 1, 'Conditional Isp'),
-        nonpositive=_nonpositive_algebraic(mean, radicand))
+    return {'velocity': _sqrt_output(k, 'Particle velocity ratio'),
+        'mixture': _affine_sqrt_output(1-chi, chi*chi*k, 1, 'Momentum multiplier'),
+        'thrust': _affine_sqrt_output(mean, radicand, 1, 'Conditional thrust'),
+        'ratio': _affine_sqrt_output(mean/force, radicand/(force*force), 1, 'Conditional thrust ratio'),
+        'isp': _affine_sqrt_output(isp*mean/force, isp*isp*radicand/(force*force), 1, 'Conditional Isp'),
+        'nonpositive': _nonpositive_algebraic(mean, radicand)}
 
 
 def _band_values(source):
@@ -177,21 +186,21 @@ def _band_values(source):
         warnings.append(WarningMessage('nonpositive_conditional_thrust',
             'At least one prescribed-state endpoint has nonpositive thrust. Actual backpressure/nozzle compatibility is not solved.', 'critical'))
     ratios = tuple(row['ratio'] for row in endpoints)
-    return dict(condensed_mass_fraction=source.condensed_mass_fraction,
-        particle_coupling_efficiency_range=(lower, upper), performance_efficiency_range=ratios,
-        thrust_range_n=tuple(row['thrust'] for row in endpoints), specific_impulse_range_s=tuple(row['isp'] for row in endpoints),
-        warnings=tuple(warnings), model=_MODEL, inputs=source,
-        reference_pressure_thrust_n=source.reference_pressure_thrust_n, coupling_definition=source.coupling_definition,
-        particle_velocity_ratio_range=tuple(row['velocity'] for row in endpoints),
-        momentum_efficiency_range=tuple(row['mixture'] for row in endpoints), total_thrust_ratio_range=ratios,
-        contains_nonpositive_thrust=nonpositive, physical_bound_qualified=False, statistical_coverage_qualified=False,
-        band_kind=_BAND_KIND, numerical_policy=_TWO_PHASE_POLICY,
-        assumptions=('fixed total mass flow and prescribed gas exit state; no coupled gas/particle solution',
+    return {'condensed_mass_fraction': source.condensed_mass_fraction,
+        'particle_coupling_efficiency_range': (lower, upper), 'performance_efficiency_range': ratios,
+        'thrust_range_n': tuple(row['thrust'] for row in endpoints), 'specific_impulse_range_s': tuple(row['isp'] for row in endpoints),
+        'warnings': tuple(warnings), 'model': _MODEL, 'inputs': source,
+        'reference_pressure_thrust_n': source.reference_pressure_thrust_n, 'coupling_definition': source.coupling_definition,
+        'particle_velocity_ratio_range': tuple(row['velocity'] for row in endpoints),
+        'momentum_efficiency_range': tuple(row['mixture'] for row in endpoints), 'total_thrust_ratio_range': ratios,
+        'contains_nonpositive_thrust': nonpositive, 'physical_bound_qualified': False, 'statistical_coverage_qualified': False,
+        'band_kind': _BAND_KIND, 'numerical_policy': _TWO_PHASE_POLICY,
+        'assumptions': ('fixed total mass flow and prescribed gas exit state; no coupled gas/particle solution',
             'condensed_mass_fraction is exhaust mass fraction, not initial propellant loading',
             'pressure thrust retained separately; positive reference momentum required',
             'specific kinetic energy ratio is particle/gas per-unit-mass energy, not total phase energy',
             'legacy performance_efficiency_range is a signed total-thrust-ratio alias',
-            'scenario interval has neither validated physical-bound nor statistical-coverage qualification'))
+            'scenario interval has neither validated physical-bound nor statistical-coverage qualification')}
 
 
 def calculate_two_phase_band(

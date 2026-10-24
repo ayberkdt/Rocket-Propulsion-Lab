@@ -3,9 +3,10 @@ from decimal import Decimal
 from fractions import Fraction
 from functools import lru_cache
 
-from rocket_propulsion.core.errors import DomainError, ConvergenceError
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
+
+from .burns.marginal_numerics import _PRECISIONS, _Intervals, _log_interval
 from .burns.numeric_outputs import _finite_rational
-from .burns.marginal_numerics import _Intervals, _log_interval, _PRECISIONS
 from .performance_numerics import _positive_enclosed_output
 
 _CYCLE_POLICY = 'exact_binary_pressure_ledgers_and_enclosed_component_cycle_v1'
@@ -68,9 +69,9 @@ def _power_feasible(cycle, policy, relation):
 
 def _fraction_outputs(cycle, policy, flow, specific, work):
     if not specific:
-        return dict(turbine_mass_flow_kg_s=Fraction(0),total_propellant_flow_kg_s=flow,
-                    pump_mass_flow_kg_s=flow,turbine_flow_fraction=Fraction(0),
-                    delivered_mass_fraction=Fraction(1),pump_power_w=Fraction(0))
+        return {'turbine_mass_flow_kg_s': Fraction(0),'total_propellant_flow_kg_s': flow,
+                    'pump_mass_flow_kg_s': flow,'turbine_flow_fraction': Fraction(0),
+                    'delivered_mass_fraction': Fraction(1),'pump_power_w': Fraction(0)}
     if cycle == 'gas-generator' and policy == 'shared-pump':
         turbine = flow*specific/(work-specific)
         total = flow*work/(work-specific)
@@ -83,9 +84,9 @@ def _fraction_outputs(cycle, policy, flow, specific, work):
         pumped = flow
         fraction = turbine/total
         delivered = flow/total
-    return dict(turbine_mass_flow_kg_s=turbine,total_propellant_flow_kg_s=total,
-                pump_mass_flow_kg_s=pumped,turbine_flow_fraction=fraction,
-                delivered_mass_fraction=delivered,pump_power_w=pumped*specific)
+    return {'turbine_mass_flow_kg_s': turbine,'total_propellant_flow_kg_s': total,
+                'pump_mass_flow_kg_s': pumped,'turbine_flow_fraction': fraction,
+                'delivered_mass_fraction': delivered,'pump_power_w': pumped*specific}
 
 
 def _dependent_bounds(cycle, policy, flow, specific, work, precision):
@@ -105,9 +106,9 @@ def _dependent_bounds(cycle, policy, flow, specific, work, precision):
         pumped = f
         fraction = math.div(turbine, total)
         delivered = math.div(f, total)
-    return dict(turbine_mass_flow_kg_s=turbine,total_propellant_flow_kg_s=total,
-                pump_mass_flow_kg_s=pumped,turbine_flow_fraction=fraction,
-                delivered_mass_fraction=delivered,pump_power_w=math.mul(pumped, s))
+    return {'turbine_mass_flow_kg_s': turbine,'total_propellant_flow_kg_s': total,
+                'pump_mass_flow_kg_s': pumped,'turbine_flow_fraction': fraction,
+                'delivered_mass_fraction': delivered,'pump_power_w': math.mul(pumped, s)}
 
 
 def component_power_outputs(cycle, policy, flow, specific, coefficient, exponent, ratio):
@@ -134,7 +135,7 @@ def component_power_outputs(cycle, policy, flow, specific, coefficient, exponent
                     _work_bounds(coefficient,exponent,ratio,precision),precision)
             names = ('turbine_mass_flow_kg_s','total_propellant_flow_kg_s','pump_mass_flow_kg_s',
                      'turbine_flow_fraction','delivered_mass_fraction','pump_power_w')
-            values = {name:_positive_enclosed_output(lambda p:bounds(p)[name],name) for name in names}
+            values = {name:_positive_enclosed_output(lambda p, *, name=name:bounds(p)[name],name) for name in names}
             # The warning is an explicitly heuristic display threshold. The
             # rounded coefficient does not enter any mass/power equation.
             high_fraction = values['turbine_flow_fraction'] > .08

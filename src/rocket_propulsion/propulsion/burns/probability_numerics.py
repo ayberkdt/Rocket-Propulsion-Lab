@@ -9,6 +9,7 @@ from fractions import Fraction
 from math import isfinite, isqrt, ldexp
 
 from rocket_propulsion.core.errors import DomainError
+
 from .numeric_outputs import _finite_rational, _fraction
 
 _PROBABILITY_POLICY = "exact_binary_normalized_joint_weights_and_rational_percentiles_v1"

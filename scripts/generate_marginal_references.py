@@ -1,6 +1,9 @@
 """Independent high-precision reference data; mpmath is not a runtime/test dependency."""
+import hashlib
+import json
+import sys
 from pathlib import Path
-import hashlib,json,sys
+
 import mpmath as mp
 
 assert mp.__version__=='1.3.0'

@@ -11,7 +11,11 @@ from decimal import Context, Decimal, localcontext
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.studies.sass import (
-    Criterion, DesignCase, design_sensitivity, project_from_dict, weighted_trade,
+    Criterion,
+    DesignCase,
+    design_sensitivity,
+    project_from_dict,
+    weighted_trade,
 )
 from tests.test_sass_studies import example_request, q
 

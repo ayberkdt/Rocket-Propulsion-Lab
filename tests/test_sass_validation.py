@@ -18,7 +18,10 @@ from unittest.mock import patch
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.studies.sass.artifacts import distinct_artifact_paths, write_artifact_pair
 from rocket_propulsion.studies.sass.validation import (
-    ValidationEvidence, ValidationSample, assess_validation, compare_validation_sample,
+    ValidationEvidence,
+    ValidationSample,
+    assess_validation,
+    compare_validation_sample,
 )
 from tests.test_sass_adversarial import q
 

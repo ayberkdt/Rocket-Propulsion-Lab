@@ -21,16 +21,23 @@ from math import isclose, isfinite
 from typing import Any, Literal
 
 from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError, InputError
-from rocket_propulsion.core.validation import integer, read_json_document, real, text, records, strings
-from rocket_propulsion.propulsion.burns.ensemble_documents import _handoff_document
-from rocket_propulsion.propulsion.burns.numeric_outputs import _finite_rational, _fraction
+from rocket_propulsion.core.validation import (
+    integer,
+    read_json_document,
+    real,
+    records,
+    strings,
+    text,
+)
 from rocket_propulsion.propulsion.burns import HierarchicalPropulsionEnsemble
+from rocket_propulsion.propulsion.burns.ensemble_documents import _handoff_document
 from rocket_propulsion.propulsion.burns.ensemble_serialization import (
     HIERARCHICAL_ENSEMBLE_SCHEMA,
     hierarchical_ensemble_from_dict,
     hierarchical_ensemble_hash,
     hierarchical_ensemble_to_dict,
 )
+from rocket_propulsion.propulsion.burns.numeric_outputs import _finite_rational, _fraction
 from rocket_propulsion.propulsion.burns.serialization import canonical_json_bytes
 from rocket_propulsion.propulsion.burns.tabulated import TabulatedBurnArtifact
 

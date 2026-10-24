@@ -5,6 +5,7 @@ and reconstructed content hashes do not authenticate measurements or campaigns.
 """
 
 from rocket_propulsion.core.errors import InputError
+
 from .exchange_documents import _array, _boolean, _number, _object, _string, _strings
 
 

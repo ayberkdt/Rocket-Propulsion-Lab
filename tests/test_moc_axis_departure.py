@@ -1,13 +1,22 @@
 """Independent radial-flow oracles and hostile axis-to-interior contracts."""
-from dataclasses import asdict,replace
-from math import ldexp,sqrt,nextafter,inf
+import itertools
 import unittest
+from dataclasses import asdict, replace
+from math import inf, ldexp, nextafter, sqrt
+
 import mpmath as mp
-from rocket_propulsion.core.errors import DomainError,ConvergenceError
-from rocket_propulsion.geometry import (MocFlowPoint,MocWallSegment,solve_moc_axis_point,
-    solve_moc_wall_point,solve_moc_axis_departure,MocAxisDepartureResult)
-from tests.test_moc_unit_process import exact_mp
+
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
+from rocket_propulsion.geometry import (
+    MocAxisDepartureResult,
+    MocFlowPoint,
+    MocWallSegment,
+    solve_moc_axis_departure,
+    solve_moc_axis_point,
+    solve_moc_wall_point,
+)
 from tests.test_moc_boundary import relative_error
+from tests.test_moc_unit_process import exact_mp
 
 
 def departure_fixture(*,axisymmetric=True,gamma=1.4,mach=2.,step=.05,compressing=False,precision=110):
@@ -27,8 +36,8 @@ def departure_fixture(*,axisymmetric=True,gamma=1.4,mach=2.,step=.05,compressing
         parent=m-sign*h;incoming=parent-sign*h
         incoming_turn=abs(nu(parent)-nu(incoming))/d*180/mp.pi
         turn=abs(nu(m)-nu(parent))/d*180/mp.pi
-        args=dict(incoming=point(incoming,incoming_turn),axis_history=tuple(point(parent-sign*i*h,0) for i in (2,1)),
-            gamma=gamma,axisymmetric=axisymmetric)
+        args={'incoming': point(incoming,incoming_turn),'axis_history': tuple(point(parent-sign*i*h,0) for i in (2,1)),
+            'gamma': gamma,'axisymmetric': axisymmetric}
         target=point(m,turn);minus=point(parent,2*turn)
         a2=(g+1)/(2+(g-1)*parent*parent);radius=2*(area(parent)/area(m))**(mp.mpf(1)/d)
         source=float(sign*a2*parent*mp.sqrt(a2)/radius) if axisymmetric else 0.
@@ -83,12 +92,12 @@ class MocAxisDepartureAttacks(unittest.TestCase):
 
     def case(self,**kw):
         args,minus,target,source=departure_fixture(**kw)
-        return dict(axis_result=solve_moc_axis_point(**args),minus_parent=minus),target,source
+        return {'axis_result': solve_moc_axis_point(**args),'minus_parent': minus},target,source
 
     def uniform(self,mach=2.):
         axis=solve_moc_axis_point(incoming=MocFlowPoint(0.,1.,mach,0.),
             axis_history=(MocFlowPoint(-2.,0.,mach,0.),MocFlowPoint(-1.,0.,mach,0.)))
-        return dict(axis_result=axis,minus_parent=MocFlowPoint(axis.point.x_m,2.,mach,0.))
+        return {'axis_result': axis,'minus_parent': MocFlowPoint(axis.point.x_m,2.,mach,0.)}
 
     def convergence(self,axisymmetric,compressing):
         for gamma,mach in ((1.4,2.),(1.22,3.)):
@@ -98,7 +107,7 @@ class MocAxisDepartureAttacks(unittest.TestCase):
                 r=self.solve(**inputs);errors.append(relative_error(r.point,target))
                 self.assertEqual(r.axis_source_term_per_m,inputs['axis_result'].source_term_per_m)
                 self.assertLessEqual(r.rounding_adjusted_residual_max,64*2**-52)
-            self.assertTrue(all(6<a/b<12 for a,b in zip(errors,errors[1:])),errors)
+            self.assertTrue(all(6<a/b<12 for a,b in itertools.pairwise(errors)),errors)
             self.assertLess(errors[-1],2e-7)
 
     def test_spherical_expansion_carries_nonzero_axis_source(self):self.convergence(True,False)
@@ -127,7 +136,7 @@ class MocAxisDepartureAttacks(unittest.TestCase):
                 inputs,_,expected=self.case(compressing=compress,step=h);r=self.solve(**inputs)
                 self.assertGreater(r.axis_source_term_per_m*expected,0.)
                 errors.append(abs(r.axis_source_term_per_m/expected-1))
-            self.assertTrue(all(3<a/b<6 for a,b in zip(errors,errors[1:])),errors)
+            self.assertTrue(all(3<a/b<6 for a,b in itertools.pairwise(errors)),errors)
             self.assertLess(errors[-1],1e-3)
 
     def test_off_axis_parent_requires_positive_radius(self):
@@ -166,7 +175,7 @@ class MocAxisDepartureAttacks(unittest.TestCase):
     def test_scale_covariance_uses_owned_axis_history_not_an_epsilon_radius(self):
         args,minus,_,_=departure_fixture();base=self.solve(axis_result=solve_moc_axis_point(**args),minus_parent=minus)
         for exponent in (-900,900):
-            def point(p):return replace(p,x_m=ldexp(p.x_m,exponent),radius_m=ldexp(p.radius_m,exponent))
+            def point(p, *, exponent=exponent):return replace(p,x_m=ldexp(p.x_m,exponent),radius_m=ldexp(p.radius_m,exponent))
             scaled={**args,'incoming':point(args['incoming']),'axis_history':tuple(point(p) for p in args['axis_history'])}
             r=self.solve(axis_result=solve_moc_axis_point(**scaled),minus_parent=point(minus))
             self.assertEqual((r.point.mach,r.point.flow_angle_deg,r.iterations),(base.point.mach,base.point.flow_angle_deg,base.iterations))
@@ -181,9 +190,9 @@ class MocAxisDepartureAttacks(unittest.TestCase):
 
     def test_result_state_diagnostics_source_and_labels_must_replay(self):
         r=self.solve(**self.case()[0])
-        for change in (dict(point=replace(r.point,mach=r.point.mach+.01)),dict(iterations=r.iterations+1),dict(equation_residual_max=1.),
-                       dict(rounding_adjusted_residual_max=1.),dict(coordinate_rounding_allowance_max=1.),dict(representation_limited=not r.representation_limited),
-                       dict(axis_source_term_per_m=0.),dict(axis_source_term_status='unrepresentable'),dict(solution_kind='constant_axis_departure')):
+        for change in ({'point': replace(r.point,mach=r.point.mach+.01)},{'iterations': r.iterations+1},{'equation_residual_max': 1.},
+                       {'rounding_adjusted_residual_max': 1.},{'coordinate_rounding_allowance_max': 1.},{'representation_limited': not r.representation_limited},
+                       {'axis_source_term_per_m': 0.},{'axis_source_term_status': 'unrepresentable'},{'solution_kind': 'constant_axis_departure'}):
             with self.subTest(change=change),self.assertRaises(DomainError):replace(r,**change)
 
     def test_hostile_policy_equality_does_not_bypass_plain_text_ownership(self):
@@ -195,17 +204,17 @@ class MocAxisDepartureAttacks(unittest.TestCase):
 
     def test_local_process_cannot_claim_global_error_or_hardware_qualification(self):
         r=self.solve(**self.uniform());self.assertIsNone(r.discretization_error_bound)
-        for change in (dict(physical_model_qualified=True),dict(full_nozzle_solution=True),dict(physical_model_qualified=0),
-                       dict(full_nozzle_solution=0),dict(discretization_error_bound=0.)):
+        for change in ({'physical_model_qualified': True},{'full_nozzle_solution': True},{'physical_model_qualified': 0},
+                       {'full_nozzle_solution': 0},{'discretization_error_bound': 0.}):
             with self.subTest(change=change),self.assertRaises(DomainError):replace(r,**change)
 
     def test_computed_axis_interior_axis_march_controls_accumulated_error(self):
         errors=[]
         for count in (4,8,16):
             axis,history,error=coupled_axis_march(count);errors.append(error)
-            self.assertTrue(all(b.x_m>a.x_m for a,b in zip(history,history[1:])))
+            self.assertTrue(all(b.x_m>a.x_m for a,b in itertools.pairwise(history)))
             self.assertGreater(axis.point.mach,2.)
-        self.assertTrue(all(3<a/b<6 for a,b in zip(errors,errors[1:])),errors)
+        self.assertTrue(all(3<a/b<6 for a,b in itertools.pairwise(errors)),errors)
         self.assertLess(errors[-1],2e-4)
 
     def test_uniform_computed_march_does_not_amplify_small_history_error(self):
@@ -213,7 +222,7 @@ class MocAxisDepartureAttacks(unittest.TestCase):
             with self.subTest(count=count):
                 history,error=uniform_perturbed_march(count)
                 self.assertLess(error,1e-9)
-                self.assertTrue(all(b.x_m>a.x_m for a,b in zip(history,history[1:])))
+                self.assertTrue(all(b.x_m>a.x_m for a,b in itertools.pairwise(history)))
 
     def test_unenforced_plus_compatibility_defect_is_visible_and_replayed(self):
         r=self.solve(**self.case()[0])
@@ -241,7 +250,7 @@ class MocAxisDepartureAttacks(unittest.TestCase):
         # Independently inverted energy states give represented velocities
         # u+4*2**-10 and u+2**-10 at x=-1,0: zero derivative at x=1,
         # but nonzero curvature. A zero source alone is not uniform flow.
-        from math import tan,asin
+        from math import asin, tan
         axis=solve_moc_axis_point(incoming=MocFlowPoint(0.,tan(asin(.5)),2.,0.),
             axis_history=(MocFlowPoint(-1.,0.,2.0086363055731224,0.),MocFlowPoint(0.,0.,2.002154418338075,0.)))
         self.assertEqual(axis.point,MocFlowPoint(1.,0.,2.,0.));self.assertEqual(axis.source_term_per_m,0.)

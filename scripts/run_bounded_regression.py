@@ -22,10 +22,10 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "output/assurance/regression"
 DEFERRED = (
     "tests/test_lunaris_integration.py::LunarisEndToEndTests",
-    "tests/test_adversarial_pulse_mode.py::DeltaVPlanAttackTests::"
-    "test_random_thrusters_and_hostile_requests_against_enumeration",
-    "tests/test_adversarial_pulse_mode.py::ImpulsePlanAttackTests::"
-    "test_random_impulse_requests_against_enumeration",
+    ("tests/test_adversarial_pulse_mode.py::DeltaVPlanAttackTests::"
+    "test_random_thrusters_and_hostile_requests_against_enumeration"),
+    ("tests/test_adversarial_pulse_mode.py::ImpulsePlanAttackTests::"
+    "test_random_impulse_requests_against_enumeration"),
 )
 MODULE_TIMEOUT_SECONDS = 120
 COLLECTION_TIMEOUT_SECONDS = 30
@@ -66,7 +66,7 @@ def run_module(path):
     cmd.extend("--deselect=" + name for name in DEFERRED)
     started = time.monotonic()
     try:
-        process = subprocess.run(cmd, cwd=ROOT, capture_output=True, timeout=MODULE_TIMEOUT_SECONDS)
+        process = subprocess.run(cmd, check=False, cwd=ROOT, capture_output=True, timeout=MODULE_TIMEOUT_SECONDS)
         log = process.stdout + process.stderr
         status = "passed" if process.returncode == 0 else "failed"
         return_code = process.returncode
@@ -120,7 +120,7 @@ def main():
     collect_command = [sys.executable, "-m", "pytest", "--collect-only", "-q"]
     started = time.monotonic()
     try:
-        process = subprocess.run(collect_command, cwd=ROOT, capture_output=True,
+        process = subprocess.run(collect_command, check=False, cwd=ROOT, capture_output=True,
                                  timeout=COLLECTION_TIMEOUT_SECONDS)
         collect_stdout, collect_stderr = process.stdout, process.stderr
         collection = {"status": "passed" if process.returncode == 0 else "failed",

@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from rocket_propulsion.core.errors import DomainError, InputError
+
 from .artifacts import distinct_artifact_paths, write_artifact_pair
 from .project import project_from_json
 from .report import build_project_html

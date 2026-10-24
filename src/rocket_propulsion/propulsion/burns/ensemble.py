@@ -18,16 +18,31 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass
+from fractions import Fraction
 from math import isfinite
 
 from rocket_propulsion.core.errors import DomainError
-from rocket_propulsion.core.validation import coerce_fields, name_value_pairs, records, strings, integer, real, text
+from rocket_propulsion.core.validation import (
+    coerce_fields,
+    integer,
+    name_value_pairs,
+    real,
+    records,
+    strings,
+    text,
+)
 
-from .scenarios import PropulsionScenarioEnsemble
-from fractions import Fraction
-from .numeric_outputs import _finite_rational, _fraction
 from .marginal_numerics import _SAMPLING_POLICY
-from .probability_numerics import _weight_ledger, _quantiles, _sqrt_output, _sample_moments, _relative_change, _joint_weight
+from .numeric_outputs import _finite_rational, _fraction
+from .probability_numerics import (
+    _joint_weight,
+    _quantiles,
+    _relative_change,
+    _sample_moments,
+    _sqrt_output,
+    _weight_ledger,
+)
+from .scenarios import PropulsionScenarioEnsemble
 from .tabulated import TabulatedBurnArtifact, scale_tabulated_artifact
 from .uncertainty import (
     UNCERTAINTY_REFERENCE_IDS,

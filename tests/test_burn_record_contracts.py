@@ -40,7 +40,7 @@ class BurnRecordContractAttacks(unittest.TestCase):
                               (self.point, 'commanded_throttle')):
             for bad in (True, False, '1', None, float('nan'), float('inf')):
                 with self.subTest(record=type(record).__name__, field=field, bad=bad):
-                    self.rejects(lambda: replace(record, **{field: bad}))
+                    self.rejects(lambda*, record=record, field=field, bad=bad: replace(record, **{field: bad}))
 
     def test_identifiers_roles_and_destinations_fail_with_field_context(self):
         for record, field in ((self.point.streams[0], 'stream_id'),
@@ -53,16 +53,16 @@ class BurnRecordContractAttacks(unittest.TestCase):
                               (self.definition, 'name'), (self.point, 'source')):
             for bad in (None, True, 1, [], '', ' '):
                 with self.subTest(record=type(record).__name__, field=field, bad=bad):
-                    self.rejects(lambda: replace(record, **{field: bad}))
+                    self.rejects(lambda*, record=record, field=field, bad=bad: replace(record, **{field: bad}))
 
     def test_boolean_flags_and_fractional_engine_counts_are_rejected(self):
         for field in ('tank_depleting', 'contributes_to_delivered_thrust'):
             for bad in ('false', 'true', 0, 1, None, []):
                 with self.subTest(field=field, bad=bad):
-                    self.rejects(lambda: replace(self.point.streams[0], **{field: bad}))
+                    self.rejects(lambda*, field=field, bad=bad: replace(self.point.streams[0], **{field: bad}))
         for bad in (True, False, 1.5, '1', None):
             with self.subTest(count=bad):
-                self.rejects(lambda: replace(self.point, active_engine_count=bad))
+                self.rejects(lambda*, bad=bad: replace(self.point, active_engine_count=bad))
 
     def test_recognized_enum_spellings_preserve_physical_dispatch_and_hash(self):
         point = example_operating_point()
@@ -112,7 +112,7 @@ class BurnRecordContractAttacks(unittest.TestCase):
                                    (self.definition, 'tanks', [None]),
                                    (self.definition, 'target', {})):
             with self.subTest(field=field, bad=bad):
-                self.rejects(lambda: replace(record, **{field: bad}))
+                self.rejects(lambda*, record=record, field=field, bad=bad: replace(record, **{field: bad}))
 
     def test_recoverable_isp_product_overflow_keeps_valid_full_input_scale(self):
         for precision in (100, 180):
@@ -164,7 +164,7 @@ class BurnRecordContractAttacks(unittest.TestCase):
         for pairs in ((('tank', 1., 'ignored'),), (('tank', True),), (('tank', -1.),),
                       (('tank', 1.), ('tank', 2.)), (('', 1.),), (('\ud800', 1.),), None, {'tank':1.}):
             with self.subTest(pairs=pairs):
-                self.rejects(lambda: m.PropulsionState(0., 10., pairs))
+                self.rejects(lambda*, pairs=pairs: m.PropulsionState(0., 10., pairs))
         pairs = [['tank', 1]]
         state = m.PropulsionState(0, 10, pairs)
         pairs[0][1] = 7.
@@ -172,16 +172,16 @@ class BurnRecordContractAttacks(unittest.TestCase):
         for field, bad in (('time_s', True), ('time_s', -1.), ('vehicle_mass_kg', 0.),
                             ('vehicle_mass_kg', float('nan'))):
             with self.subTest(field=field):
-                self.rejects(lambda: replace(state, **{field:bad}))
+                self.rejects(lambda*, field=field, bad=bad: replace(state, **{field:bad}))
 
     def test_profile_point_scalars_and_phases_reject_malformed_data(self):
         for point in (self.constant.profile[0], self.profiled.profile[0]):
             for field, bad in (('time_s', True), ('phase', None), ('vehicle_mass_kg', 0.),
                                 ('delivered_thrust_n', -1.), ('total_mass_flow_kg_s', float('nan'))):
                 with self.subTest(point=type(point).__name__, field=field):
-                    self.rejects(lambda: replace(point, **{field:bad}))
+                    self.rejects(lambda*, point=point, field=field, bad=bad: replace(point, **{field:bad}))
         for bad in (True, -1., 1.0001):
-            self.rejects(lambda: replace(self.profiled.profile[0], commanded_throttle=bad))
+            self.rejects(lambda*, bad=bad: replace(self.profiled.profile[0], commanded_throttle=bad))
         idle = replace(self.profiled.profile[0], commanded_throttle=0., realized_throttle=0.,
                        delivered_thrust_n=0., axial_thrust_n=0., total_mass_flow_kg_s=0.)
         self.assertEqual(idle.commanded_throttle, 0.)
@@ -196,7 +196,7 @@ class BurnRecordContractAttacks(unittest.TestCase):
                                   (self.constant.evidence,'rejected_steps',True),
                                   (self.constant.evidence,'absolute_tolerance',-1.)):
             with self.subTest(record=type(record).__name__, field=field):
-                self.rejects(lambda: replace(record, **{field:bad}))
+                self.rejects(lambda*, record=record, field=field, bad=bad: replace(record, **{field:bad}))
         self.assertEqual(replace(self.constant.evidence, segment_count=0,
                                 accepted_steps=0, absolute_tolerance=0.).accepted_steps, 0)
         self.assertEqual(replace(self.constant.evidence, accepted_steps=10**400).accepted_steps, 10**400)
@@ -210,10 +210,10 @@ class BurnRecordContractAttacks(unittest.TestCase):
         self.assertEqual(len(schedule.segments), 1)
         for bad in (None, {}, 'segments', [None], []):
             with self.subTest(segments=bad):
-                self.rejects(lambda: m.ThrottleSchedule(bad))
+                self.rejects(lambda*, bad=bad: m.ThrottleSchedule(bad))
         for bad in (-1., 1.01, True, '1'):
             with self.subTest(throttle=bad):
-                self.rejects(lambda: m.ThrottleSegment(1., bad, 1.))
+                self.rejects(lambda*, bad=bad: m.ThrottleSegment(1., bad, 1.))
 
     def test_result_snapshots_and_top_level_record_types_are_checked(self):
         for result in (self.constant, self.profiled):
@@ -225,7 +225,7 @@ class BurnRecordContractAttacks(unittest.TestCase):
             for field, bad in (('definition', {}), ('summary', None), ('evidence', {}),
                                 ('profile', [None]), ('schema', 'unknown'), ('input_hash', 'bad')):
                 with self.subTest(result=type(result).__name__, field=field):
-                    self.rejects(lambda: replace(result, **{field:bad}))
+                    self.rejects(lambda*, result=result, field=field, bad=bad: replace(result, **{field:bad}))
 
     def test_json_reader_cannot_whiten_raw_scalar_types_using_old_valid_hashes(self):
         for result in (self.constant, self.profiled):
@@ -340,7 +340,7 @@ class BurnRecordContractAttacks(unittest.TestCase):
                                   (self.constant.summary, 'binding_constraint', '\ud800'),
                                   (self.profiled.profile[0], 'phase', '\udfff')):
             with self.subTest(field=field):
-                self.rejects(lambda: replace(record, **{field:bad}))
+                self.rejects(lambda*, record=record, field=field, bad=bad: replace(record, **{field:bad}))
         # Non-depleting streams permit an empty tank identifier, but its text
         # must still be encodable; this branch has no nonblank-name shortcut.
         self.rejects(lambda: replace(self.point.streams[0], tank_depleting=False,

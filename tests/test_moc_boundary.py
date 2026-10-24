@@ -1,11 +1,18 @@
 """Analytic axis regularity, radial slip, marching histories and hostile records."""
+import itertools
+import unittest
 from dataclasses import asdict, replace
 from math import ldexp, sqrt
-import unittest
+
 import mpmath as mp
 
-from rocket_propulsion.core.errors import DomainError,ConvergenceError
-from rocket_propulsion.geometry import (MocFlowPoint,MocWallSegment,solve_moc_axis_point,solve_moc_wall_point)
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
+from rocket_propulsion.geometry import (
+    MocFlowPoint,
+    MocWallSegment,
+    solve_moc_axis_point,
+    solve_moc_wall_point,
+)
 from tests.test_moc_unit_process import exact_mp
 
 
@@ -27,12 +34,12 @@ def fixture(kind,*,axisymmetric=True,step=.05,mach=2.,gamma=1.4,precision=110):
         if kind=='axis':
             history=tuple(radial_point(float(m-i*h),0.,gamma,d,mach,precision) for i in (2,1))
             incoming=radial_point(float(m-h),float(turn),gamma,d,mach,precision)
-            return dict(incoming=incoming,axis_history=history,gamma=gamma,axisymmetric=axisymmetric),(2.,0.,mach,0.),source
+            return {'incoming': incoming,'axis_history': history,'gamma': gamma,'axisymmetric': axisymmetric},(2.,0.,mach,0.),source
         angle=20.;incoming=radial_point(float(m-h),float(exact_mp(angle)-turn),gamma,d,mach,precision)
         a=radial_point(float(m-2*h),angle,gamma,d,mach,precision);b=radial_point(float(m+h),angle,gamma,d,mach,precision)
         wall=MocWallSegment(a.x_m,a.radius_m,b.x_m,b.radius_m)
         target=radial_point(mach,angle,gamma,d,mach,precision)
-        return dict(incoming=incoming,wall_segment=wall,gamma=gamma,axisymmetric=axisymmetric),(target.x_m,target.radius_m,mach,angle),source
+        return {'incoming': incoming,'wall_segment': wall,'gamma': gamma,'axisymmetric': axisymmetric},(target.x_m,target.radius_m,mach,angle),source
 
 
 def relative_error(point,target):
@@ -51,9 +58,9 @@ def sink_fixture(kind,step=.025):
             return MocFlowPoint(float(4-radius*mp.cos(angle)),float(radius*mp.sin(angle)),float(z),float(-beta))
         delta=(nu(m+h)-nu(m))/2*180/mp.pi
         if kind=='axis':
-            return dict(incoming=point(m+h,delta),axis_history=(point(m+2*h,0),point(m+h,0))), (2.,0.,2.,0.)
+            return {'incoming': point(m+h,delta),'axis_history': (point(m+2*h,0),point(m+h,0))}, (2.,0.,2.,0.)
         angle=mp.mpf(20);a,b=point(m+2*h,angle),point(m-h,angle);target=point(m,angle)
-        return (dict(incoming=point(m+h,angle-delta),wall_segment=MocWallSegment(a.x_m,a.radius_m,b.x_m,b.radius_m)),
+        return ({'incoming': point(m+h,angle-delta),'wall_segment': MocWallSegment(a.x_m,a.radius_m,b.x_m,b.radius_m)},
                 (target.x_m,target.radius_m,2.,-20.))
 
 
@@ -64,8 +71,8 @@ class MocBoundaryAttacks(unittest.TestCase):
 
     def uniform(self,kind,mach=2.):
         incoming=MocFlowPoint(0.,1.,mach,0.)
-        if kind=='axis':return dict(incoming=incoming,axis_history=(MocFlowPoint(-2.,0.,mach,0.),MocFlowPoint(-1.,0.,mach,0.)))
-        return dict(incoming=incoming,wall_segment=MocWallSegment(0.,2.,2*mach,2.))
+        if kind=='axis':return {'incoming': incoming,'axis_history': (MocFlowPoint(-2.,0.,mach,0.),MocFlowPoint(-1.,0.,mach,0.))}
+        return {'incoming': incoming,'wall_segment': MocWallSegment(0.,2.,2*mach,2.)}
 
     def convergence(self,kind,axisymmetric):
         for gamma,mach in ((1.4,2.),(1.22,3.)):
@@ -74,7 +81,7 @@ class MocBoundaryAttacks(unittest.TestCase):
                 inputs,target,_=fixture(kind,axisymmetric=axisymmetric,step=step,mach=mach,gamma=gamma)
                 result=self.solve(kind,**inputs);errors.append(relative_error(result.point,target))
                 self.assertIs(result.physical_model_qualified,False);self.assertIs(result.full_nozzle_solution,False)
-            self.assertTrue(all(6<a/b<12 for a,b in zip(errors,errors[1:])),errors)
+            self.assertTrue(all(6<a/b<12 for a,b in itertools.pairwise(errors)),errors)
             self.assertLess(errors[-1],2e-7)
 
     def test_axisymmetric_axis_reflection_has_third_order_local_error(self):self.convergence('axis',True)
@@ -92,7 +99,7 @@ class MocBoundaryAttacks(unittest.TestCase):
             inputs,target=sink_fixture(kind,step);r=self.solve(kind,**inputs)
             self.assertLess(r.source_term_per_m,0.)
             errors.append(relative_error(r.point,target))
-        self.assertTrue(all(6<a/b<12 for a,b in zip(errors,errors[1:])),errors)
+        self.assertTrue(all(6<a/b<12 for a,b in itertools.pairwise(errors)),errors)
         self.assertLess(errors[-1],2e-7)
 
     def test_axis_compression_retains_negative_source_and_refines(self):self.sink_convergence('axis')
@@ -104,7 +111,7 @@ class MocBoundaryAttacks(unittest.TestCase):
             inputs,_,source=fixture('axis',step=step);r=self.solve('axis',**inputs)
             self.assertGreater(r.source_term_per_m,0.)
             errors.append(abs(r.source_term_per_m/source-1))
-        self.assertTrue(all(3<a/b<6 for a,b in zip(errors,errors[1:])),errors)
+        self.assertTrue(all(3<a/b<6 for a,b in itertools.pairwise(errors)),errors)
         self.assertLess(errors[-1],1e-3)
 
     def test_uniform_boundary_states_preserve_mach_and_closed_form_position(self):
@@ -132,7 +139,7 @@ class MocBoundaryAttacks(unittest.TestCase):
 
     def test_wall_segment_rejects_reversed_x_nonpositive_radius_and_boolean_scalars(self):
         w=self.uniform('wall')['wall_segment']
-        for change in (dict(x1_m=0.),dict(x0_m=9.),dict(radius0_m=0.),dict(radius1_m=-1.),dict(x0_m=True),dict(radius0_m='2')):
+        for change in ({'x1_m': 0.},{'x0_m': 9.},{'radius0_m': 0.},{'radius1_m': -1.},{'x0_m': True},{'radius0_m': '2'}):
             with self.subTest(change=change),self.assertRaises(DomainError):replace(w,**change)
 
     def test_finite_wall_segment_is_not_extrapolated(self):
@@ -178,14 +185,14 @@ class MocBoundaryAttacks(unittest.TestCase):
     def test_retained_solution_source_diagnostics_and_policy_replay(self):
         for kind in ('axis','wall'):
             r=self.solve(kind,**fixture(kind)[0])
-            for change in (dict(point=replace(r.point,mach=r.point.mach+.1)),dict(iterations=r.iterations+1),dict(source_term_per_m=0.),
-                           dict(source_term_status='unrepresentable'),dict(solution_kind='forged'),dict(numerical_policy='forged')):
+            for change in ({'point': replace(r.point,mach=r.point.mach+.1)},{'iterations': r.iterations+1},{'source_term_per_m': 0.},
+                           {'source_term_status': 'unrepresentable'},{'solution_kind': 'forged'},{'numerical_policy': 'forged'}):
                 with self.subTest(kind=kind,change=change),self.assertRaises(DomainError):replace(r,**change)
 
     def test_boundary_process_cannot_claim_a_nozzle_error_bound_or_hardware_qualification(self):
         for kind in ('axis','wall'):
             r=self.solve(kind,**self.uniform(kind));self.assertIsNone(r.discretization_error_bound)
-            for change in (dict(physical_model_qualified=True),dict(full_nozzle_solution=True),dict(physical_model_qualified=0),dict(discretization_error_bound=0.)):
+            for change in ({'physical_model_qualified': True},{'full_nozzle_solution': True},{'physical_model_qualified': 0},{'discretization_error_bound': 0.}):
                 with self.subTest(kind=kind,change=change),self.assertRaises(DomainError):replace(r,**change)
 
     def test_hostile_string_equality_cannot_hide_forged_boundary_policy(self):
@@ -208,7 +215,7 @@ class MocBoundaryAttacks(unittest.TestCase):
             history=[radial_point(1.8+i*step,0.,1.4,2) for i in (0,1)]
             for index in range(2,count+1):
                 mach=1.8+index*step
-                args,target,_=fixture('axis',step=step,mach=mach)
+                args,_target,_=fixture('axis',step=step,mach=mach)
                 # Rescale the independent fixture from its local Rf=2 to the
                 # common radial-flow normalization with R(M=2)=2.
                 desired=radial_point(mach,0.,1.4,2);factor=desired.x_m/2

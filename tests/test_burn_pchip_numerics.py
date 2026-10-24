@@ -5,16 +5,19 @@ import random
 import unittest
 from bisect import bisect_right
 from decimal import Decimal, localcontext
-from itertools import product
+from itertools import pairwise, product
 from math import isfinite, ldexp, nextafter, prod, ulp
 from sys import float_info
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.propulsion.burns import (
-    MonotoneCubicCurve, PerformanceAxis, PerformanceScalePoint,
-    RectilinearPerformanceSurface, ThrottleableEngineModel,
+    MonotoneCubicCurve,
+    PerformanceAxis,
+    PerformanceScalePoint,
+    RectilinearPerformanceSurface,
+    ThrottleableEngineModel,
 )
-from rocket_propulsion.propulsion.burns.interpolation import pchip_slopes, _hermite_segment
+from rocket_propulsion.propulsion.burns.interpolation import _hermite_segment, pchip_slopes
 from tests.test_burn_pulse_mode import synthetic_thruster
 
 
@@ -25,7 +28,7 @@ def decimal_reference(x, y, query, precision):
         xx = [Decimal.from_float(float(value)) for value in x]
         yy = [Decimal.from_float(float(value)) for value in y]
         q = Decimal.from_float(float(query))
-        widths = [b - a for a, b in zip(xx, xx[1:])]
+        widths = [b - a for a, b in pairwise(xx)]
         secants = [(b - a) / h for a, b, h in zip(yy, yy[1:], widths)]
 
         def endpoint(h0, h1, d0, d1):
@@ -56,11 +59,11 @@ def decimal_reference(x, y, query, precision):
 
         def de_casteljau(values):
             while len(values) > 1:
-                values = [(1-t)*a+t*b for a, b in zip(values, values[1:])]
+                values = [(1-t)*a+t*b for a, b in pairwise(values)]
             return values[0]
 
         value = de_casteljau(controls)
-        derivative = de_casteljau([3*(b-a)/h for a, b in zip(controls, controls[1:])])
+        derivative = de_casteljau([3*(b-a)/h for a, b in pairwise(controls)])
         return tuple(float(v) for v in slopes), float(value), float(derivative)
 
 
@@ -231,7 +234,7 @@ class PchipNumericalAttacks(unittest.TestCase):
                       for coordinate, a, b in zip((0., span), force, flow, strict=True)),
                 "synthetic-range", "d"*64, interpolation="cubic_hermite")
             with self.subTest(field=field, span=span):
-                self.assert_field(field, lambda: model.evaluate({"x": span/2}))
+                self.assert_field(field, lambda*, model=model, span=span: model.evaluate({"x": span/2}))
         value = surface((0., 1e308), (1e-300, 1e-300)).evaluate({"x": 5e307})
         self.assertEqual(value.force_scale_gradient, (("x", 0.),))
         self.assertEqual(value.mass_flow_scale_gradient, (("x", 0.),))

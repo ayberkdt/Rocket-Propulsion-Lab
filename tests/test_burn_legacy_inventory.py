@@ -117,7 +117,7 @@ class LegacyInventoryAttacks(unittest.TestCase):
                     query(bad, point, *args)
 
     def test_malformed_collection_point_and_tracking_flag_fail_typed(self):
-        tanks, point = ledger_fixture()
+        _tanks, point = ledger_fixture()
         for bad in (None, {}, 'tank', (None,)):
             with self.subTest(tanks=bad), self.assertRaises(DomainError):
                 inventory.validate_tank_coverage(bad, point)

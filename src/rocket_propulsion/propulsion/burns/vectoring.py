@@ -27,7 +27,6 @@ from rocket_propulsion.core.validation import read_json_document, real, records,
 
 from .serialization import canonical_sha256
 
-
 THRUST_VECTORING_SCHEMA = "rocket_propulsion_thrust_vectoring_v1"
 THRUST_VECTORING_REFERENCE_IDS = (
     "NASA-SP-8059",

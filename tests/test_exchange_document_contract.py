@@ -7,10 +7,10 @@ import unittest
 from rocket_propulsion.core.errors import InputError
 from rocket_propulsion.propulsion.burns import (
     PerformanceAxis,
-    RectilinearStreamPerformanceSurface,
-    StreamPerformanceScalePoint,
     PropagatorPropulsionBridge,
     PropulsionTimeline,
+    RectilinearStreamPerformanceSurface,
+    StreamPerformanceScalePoint,
 )
 from tests.test_burn_model_persistence import configured_bridge, evaluate
 from tests.test_burn_timeline import two_burn_timeline
@@ -44,12 +44,14 @@ class ExchangeDocumentAttacks(unittest.TestCase):
         raw = copy.deepcopy(model.to_dict())
         mutate(raw)
         for encoding in ("mapping", "json"):
-            with self.subTest(model=type(model).__name__, encoding=encoding):
-                with self.assertRaises(InputError):
-                    if encoding == "mapping":
-                        type(model).from_dict(raw)
-                    else:
-                        type(model).from_json(json.dumps(raw))
+            with (
+                self.subTest(model=type(model).__name__, encoding=encoding),
+                self.assertRaises(InputError),
+            ):
+                if encoding == "mapping":
+                    type(model).from_dict(raw)
+                else:
+                    type(model).from_json(json.dumps(raw))
 
     def test_unknown_root_fields_cannot_disappear(self):
         for model in documents():
@@ -68,13 +70,13 @@ class ExchangeDocumentAttacks(unittest.TestCase):
             ("artifact", "segments", 0),
         ):
             with self.subTest(path=path):
-                self.reject(model, lambda d: at(d, path).update(unmodeled=42))
+                self.reject(model, lambda d, *, path=path: at(d, path).update(unmodeled=42))
 
     def test_surface_unknown_axis_and_point_fields_cannot_disappear(self):
         for model in documents()[2:]:
             for path in (("axes", 0), ("points", 0)):
                 with self.subTest(model=type(model).__name__, path=path):
-                    self.reject(model, lambda d: at(d, path).update(unmodeled=42))
+                    self.reject(model, lambda d, *, path=path: at(d, path).update(unmodeled=42))
 
     def test_timeline_unknown_burn_jettison_and_bridge_fields_cannot_disappear(self):
         model = two_burn_timeline()
@@ -86,19 +88,19 @@ class ExchangeDocumentAttacks(unittest.TestCase):
             ("bridges", burn, "parameters", 0),
         ):
             with self.subTest(path=path):
-                self.reject(model, lambda d: at(d, path).update(unmodeled=42))
+                self.reject(model, lambda d, *, path=path: at(d, path).update(unmodeled=42))
 
     def test_bridge_declared_hash_links_must_match_nested_models(self):
         for key in ("artifact_hash", "performance_surface_hash", "stream_performance_surface_hash"):
             with self.subTest(key=key):
-                self.reject(configured_bridge(), lambda d: d.__setitem__(key, "0" * 64))
+                self.reject(configured_bridge(), lambda d, *, key=key: d.__setitem__(key, "0" * 64))
 
     def test_bridge_declared_semantics_and_reference_ids_are_checked(self):
         for key in ("force_semantics", "mass_semantics", "time_semantics", "reference_ids"):
             with self.subTest(key=key):
                 self.reject(
                     configured_bridge(),
-                    lambda d: d.__setitem__(
+                    lambda d, *, key=key: d.__setitem__(
                         key,
                         ["unreviewed-source"]
                         if key == "reference_ids"
@@ -111,7 +113,7 @@ class ExchangeDocumentAttacks(unittest.TestCase):
             with self.subTest(key=key):
                 self.reject(
                     configured_bridge(),
-                    lambda d: d["operating_condition_axes"][0].__setitem__(key, value),
+                    lambda d, *, key=key, value=value: d["operating_condition_axes"][0].__setitem__(key, value),
                 )
 
     def test_timeline_burn_bridge_hash_link_is_checked(self):
@@ -151,7 +153,7 @@ class ExchangeDocumentAttacks(unittest.TestCase):
         for model, keys in cases:
             for key in keys:
                 with self.subTest(key=key):
-                    self.reject(model, lambda d: d.pop(key))
+                    self.reject(model, lambda d, *, key=key: d.pop(key))
         self.reject(two_burn_timeline(), lambda d: d["burns"][0].pop("bridge_model_hash"))
 
     def test_json_array_fields_are_not_programmatic_tuple_or_mapping_shortcuts(self):
@@ -166,9 +168,8 @@ class ExchangeDocumentAttacks(unittest.TestCase):
                 raw[key] = replacement
                 with self.subTest(
                     model=type(model).__name__, replacement=type(replacement).__name__
-                ):
-                    with self.assertRaises(InputError):
-                        type(model).from_dict(raw)
+                ), self.assertRaises(InputError):
+                    type(model).from_dict(raw)
         model = configured_bridge()
         raw = model.to_dict()
         raw["stream_bindings"] = tuple(raw["stream_bindings"])
@@ -185,9 +186,8 @@ class ExchangeDocumentAttacks(unittest.TestCase):
         ):
             raw = configured_bridge().to_dict()
             raw[key] = value
-            with self.subTest(key=key):
-                with self.assertRaises(InputError):
-                    PropagatorPropulsionBridge.from_dict(raw)
+            with self.subTest(key=key), self.assertRaises(InputError):
+                PropagatorPropulsionBridge.from_dict(raw)
 
     def test_all_canonical_documents_roundtrip_without_identity_changes(self):
         for model in documents():
@@ -248,7 +248,7 @@ class ExchangeDocumentAttacks(unittest.TestCase):
         for key in ("name", "unit", "minimum", "maximum"):
             with self.subTest(key=key):
                 self.reject(
-                    configured_bridge(), lambda d: d["operating_condition_axes"][0].pop(key)
+                    configured_bridge(), lambda d, *, key=key: d["operating_condition_axes"][0].pop(key)
                 )
 
     def test_direct_reader_metadata_does_not_conflate_boolean_with_one(self):

@@ -17,7 +17,7 @@ from rocket_propulsion.propulsion.burns import (
 )
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 from tests.test_burn_model_persistence import configured_bridge, discrete_model
-from tests.test_burn_throttleable import engine, STATES
+from tests.test_burn_throttleable import STATES, engine
 
 
 def continuous():
@@ -38,12 +38,14 @@ class PowerDocumentAttacks(unittest.TestCase):
         document = raw(model)
         mutate(document)
         for encoding in ("mapping", "json"):
-            with self.subTest(model=type(model).__name__, encoding=encoding):
-                with self.assertRaises(InputError):
-                    if encoding == "mapping":
-                        type(model).from_dict(document)
-                    else:
-                        type(model).from_json(json.dumps(document))
+            with (
+                self.subTest(model=type(model).__name__, encoding=encoding),
+                self.assertRaises(InputError),
+            ):
+                if encoding == "mapping":
+                    type(model).from_dict(document)
+                else:
+                    type(model).from_json(json.dumps(document))
 
     def test_unknown_root_fields_do_not_disappear(self):
         for model in models():
@@ -70,7 +72,7 @@ class PowerDocumentAttacks(unittest.TestCase):
     def test_unknown_curve_fields_are_refused(self):
         for key in ("thrust_curve", "flow_curve"):
             model = engine(flow_curve=engine().thrust_curve)
-            self.refuse(model, lambda d: d[key].update(extrapolate=True))
+            self.refuse(model, lambda d, *, key=key: d[key].update(extrapolate=True))
 
     def test_declared_references_and_power_semantics_are_checked(self):
         for model in (discrete_model(), continuous(), engine()):
@@ -78,13 +80,13 @@ class PowerDocumentAttacks(unittest.TestCase):
         for key in ("force_semantics", "mass_semantics", "power_semantics"):
             for model in (discrete_model(), continuous()):
                 with self.subTest(key=key):
-                    self.refuse(model, lambda d: d.__setitem__(key, "different-semantics"))
+                    self.refuse(model, lambda d, *, key=key: d.__setitem__(key, "different-semantics"))
 
     def test_required_derived_metadata_cannot_be_deleted(self):
         for model in (discrete_model(), continuous(), engine()):
             self.refuse(model, lambda d: d.pop("reference_ids"))
         for key in ("force_semantics", "mass_semantics", "power_semantics"):
-            self.refuse(discrete_model(), lambda d: d.pop(key))
+            self.refuse(discrete_model(), lambda d, *, key=key: d.pop(key))
 
     def test_continuous_law_cannot_discard_a_supplied_table(self):
         table = discrete_model().throttle_law.table.to_dict()
@@ -117,9 +119,8 @@ class PowerDocumentAttacks(unittest.TestCase):
             for key in path[:-1]:
                 target = target[key]
             target[path[-1]] = tuple(target[path[-1]])
-            with self.subTest(path=path):
-                with self.assertRaises(InputError):
-                    type(model).from_dict(document)
+            with self.subTest(path=path), self.assertRaises(InputError):
+                type(model).from_dict(document)
 
     def test_plain_json_number_types_are_required(self):
         for value in (True, "1", float("inf"), float("nan")):
@@ -135,24 +136,24 @@ class PowerDocumentAttacks(unittest.TestCase):
             self.assertEqual(type(model).from_dict(raw(model)), model)
         for model in (discrete_model(), continuous()):
             opened = type(model).from_dict(raw(model))
-            kwargs = dict(
-                level_index=0,
-                available_power_w=1800.0,
-                vehicle_mass_kg=400.0,
-                direction=(1.0, 0.0, 0.0),
-                additional_states={"xenon_mass_kg": 20.0},
-            )
+            kwargs = {
+                "level_index": 0,
+                "available_power_w": 1800.0,
+                "vehicle_mass_kg": 400.0,
+                "direction": (1.0, 0.0, 0.0),
+                "additional_states": {"xenon_mass_kg": 20.0},
+            }
             self.assertEqual(opened.evaluate(**kwargs), model.evaluate(**kwargs))
             self.assertEqual(opened.switching_surfaces(0), model.switching_surfaces(0))
         model = engine()
         opened = type(model).from_dict(raw(model))
-        kwargs = dict(
-            throttle=0.7,
-            vehicle_mass_kg=1500.0,
-            direction=(1.0, 0.0, 0.0),
-            additional_states=STATES,
-            ambient_pressure_pa=10000.0,
-        )
+        kwargs = {
+            "throttle": 0.7,
+            "vehicle_mass_kg": 1500.0,
+            "direction": (1.0, 0.0, 0.0),
+            "additional_states": STATES,
+            "ambient_pressure_pa": 10000.0,
+        }
         self.assertEqual(opened.evaluate(**kwargs), model.evaluate(**kwargs))
 
     def test_optional_null_fields_and_null_curves_remain_supported(self):

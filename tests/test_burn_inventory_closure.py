@@ -13,11 +13,14 @@ from sys import float_info
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.propulsion.burns import (
-    PropellantMassClosure, PropagatorPropulsionBridge, StreamStateBinding,
-    TabulatedBurnArtifact, TabulatedBurnSegment, ThrottleableEngineModel,
+    PropagatorPropulsionBridge,
+    PropellantMassClosure,
+    StreamStateBinding,
+    TabulatedBurnArtifact,
+    TabulatedBurnSegment,
+    ThrottleableEngineModel,
 )
 from tests.test_burn_direction_numerics import engines
-
 
 TINY = float.fromhex("0x0.0000000000001p-1022")
 
@@ -92,18 +95,18 @@ class InventoryClosureAttacks(unittest.TestCase):
     def test_true_unrepresentable_inventory_and_residual_fields_fail_explicitly(self):
         for name, model in many_tanks().items():
             with self.subTest(model=name, field="tracked"):
-                self.assert_field("Tracked propellant mass", lambda: model.mass_closure(
+                self.assert_field("Tracked propellant mass", lambda*, model=model: model.mass_closure(
                     vehicle_mass_kg=1e308, non_propellant_mass_kg=0., additional_states={"a": 1e308, "b": 1e308}))
         for name, model in engines().items():
             with self.subTest(model=name, field="residual"):
-                self.assert_field("Mass closure residual", lambda: model.mass_closure(
+                self.assert_field("Mass closure residual", lambda*, model=model: model.mass_closure(
                     vehicle_mass_kg=1e308, non_propellant_mass_kg=0., additional_states={"tank": -1e308}))
 
     def test_relative_residual_range_errors_are_not_reported_as_zero_or_infinity(self):
         for name, model in engines().items():
             for vehicle, other, tracked in ((1e308, 1e308, TINY), (TINY, 0., 1e308)):
                 with self.subTest(model=name, vehicle=vehicle):
-                    self.assert_field("Relative mass closure residual", lambda: model.mass_closure(
+                    self.assert_field("Relative mass closure residual", lambda*, model=model, vehicle=vehicle, other=other, tracked=tracked: model.mass_closure(
                         vehicle_mass_kg=vehicle, non_propellant_mass_kg=other, additional_states={"tank": tracked}))
 
     def test_decision_uses_unrounded_ratio_when_displayed_records_coincide(self):

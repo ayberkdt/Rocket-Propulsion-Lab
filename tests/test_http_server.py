@@ -8,9 +8,9 @@ import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from http.server import ThreadingHTTPServer
+from unittest.mock import Mock, patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
-from unittest.mock import Mock, patch
 
 from rocket_propulsion.api import routes
 from rocket_propulsion.api.capabilities import SideraCapabilityProbe

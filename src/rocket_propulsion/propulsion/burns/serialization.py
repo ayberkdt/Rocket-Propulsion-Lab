@@ -118,9 +118,20 @@ def _array(value, label):
 def burn_result_from_dict(payload: dict[str, Any]) -> Any:
     """Validate exact v1/v2 structure, raw types, hashes and solver reproduction."""
     from .models import (
-        BurnDefinition, BurnProfilePoint, BurnResult, BurnSummary, BurnTarget,
-        EngineOperatingPoint, IntegrationEvidence, ProfiledBurnPoint, ProfiledBurnResult,
-        PropellantFlow, PropulsionState, TankDefinition, ThrottleSchedule, ThrottleSegment,
+        BurnDefinition,
+        BurnProfilePoint,
+        BurnResult,
+        BurnSummary,
+        BurnTarget,
+        EngineOperatingPoint,
+        IntegrationEvidence,
+        ProfiledBurnPoint,
+        ProfiledBurnResult,
+        PropellantFlow,
+        PropulsionState,
+        TankDefinition,
+        ThrottleSchedule,
+        ThrottleSegment,
     )
 
     if not isinstance(payload, dict):

@@ -10,7 +10,8 @@ from math import isfinite
 from sys import float_info
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
-from .burns.marginal_numerics import _Intervals, _log_interval, _PRECISIONS
+
+from .burns.marginal_numerics import _PRECISIONS, _Intervals, _log_interval
 
 _PERFORMANCE_POLICY = 'exact_binary_rational_ledgers_and_enclosed_log_exp_v1'
 _OVERFLOW_BOUNDARY = Fraction(float_info.max) + 2**970

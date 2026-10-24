@@ -63,10 +63,10 @@ from rocket_propulsion.core.validation import (
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
 from .direction import _direction_geometry
+from .exchange_documents import _metadata
 from .mass_closure import _MASS_CLOSURE_POLICY, _inventory_ledger
 from .numeric_outputs import _finite_rational, _fraction
-from .power_documents import _table_document, _power_document, _POWER_METADATA
-from .exchange_documents import _metadata
+from .power_documents import _POWER_METADATA, _power_document, _table_document
 from .power_modes import _POWER_MODE_POLICY, _mode_roots, _select_mode
 from .propagator import (
     BurnEventKind,

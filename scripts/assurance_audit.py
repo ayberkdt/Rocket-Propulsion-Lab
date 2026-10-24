@@ -215,8 +215,8 @@ CYCLE_COMPONENT_REVIEW = {
         '_cycle_values','calculate_engine_cycle'},
     'propulsion/cycle_numerics.py': {'_integer_root','_exact_turbine_work','_work_bounds',
         '_work_relation','_power_feasible','_fraction_outputs','_dependent_bounds',
-        'component_power_outputs','component_power_outputs.<lambda@125:41>',
-        'component_power_outputs.bounds','component_power_outputs.<lambda@137:53>'},
+        'component_power_outputs','component_power_outputs.<lambda@126:41>',
+        'component_power_outputs.bounds','component_power_outputs.<lambda@138:53>'},
     'api/routes.py': {'calculate_engine_cycle_route'},
 }
 PERFORMANCE_REVIEW = {
@@ -237,7 +237,7 @@ STUDY_SAMPLING_REVIEW = {
         'UncertaintyResult.__post_init__', '_validate_ranges', '_count', '_controls',
         '_method', '_affine', 'latin_hypercube_samples', 'monte_carlo_samples',
         '_evaluator', 'parameter_sweep', '_percentile', '_correlation', '_summaries',
-        '_sensitivities', '_sensitivities.<lambda@269:26>', '_warnings', 'propagate_uncertainty'},
+        '_sensitivities', '_sensitivities.<lambda@272:26>', '_warnings', 'propagate_uncertainty'},
     'api/routes.py': {'_number', '_study_request_integer', '_uncertainty_delta_v',
         '_validate_uncertainty_physical_ranges', 'calculate_uncertainty_route'},
 }

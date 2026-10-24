@@ -18,7 +18,10 @@ from rocket_propulsion.core.validation import integer, real, real_mapping, recor
 from rocket_propulsion.propulsion.burns.numeric_outputs import _finite_rational
 from rocket_propulsion.propulsion.burns.probability_numerics import _sqrt_output
 from rocket_propulsion.propulsion.burns.sample_statistics import (
-    _SUMMARY_POLICY, _linear_quantile, _pearson, _sample_ledger,
+    _SUMMARY_POLICY,
+    _linear_quantile,
+    _pearson,
+    _sample_ledger,
 )
 
 _SAMPLING_POLICY = 'exact_binary_affine_uniform_latent_strata_v1'
@@ -154,10 +157,10 @@ class UncertaintyResult:
         warnings = _warnings(method)
         if self.warnings and self.warnings != warnings:
             raise DomainError('Study warnings do not match the declared method.', field='Warnings')
-        for name, value in dict(method=method, seed=seed, sample_count=count, parameters=parameters,
-                                samples=samples, sensitivity=sensitivity, output_mean=mean,
-                                output_standard_deviation=deviation, output_percentiles=percentiles,
-                                warnings=warnings).items():
+        for name, value in {'method': method, 'seed': seed, 'sample_count': count, 'parameters': parameters,
+                                'samples': samples, 'sensitivity': sensitivity, 'output_mean': mean,
+                                'output_standard_deviation': deviation, 'output_percentiles': percentiles,
+                                'warnings': warnings}.items():
             object.__setattr__(self, name, value)
 
 

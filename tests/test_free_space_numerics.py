@@ -2,14 +2,14 @@
 
 import unittest
 from dataclasses import replace
-from fractions import Fraction
 from decimal import Decimal, localcontext
+from fractions import Fraction
 from math import inf, nextafter, ulp
 
 from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.propulsion.burns import burn_metrics as metrics_module
 from rocket_propulsion.propulsion.burns import free_space_burn_metrics, gauss_legendre
 from rocket_propulsion.propulsion.burns.propagator import PropagatorPropulsionBridge
-from rocket_propulsion.propulsion.burns import burn_metrics as metrics_module
 from tests.test_tabulated_ledger_numerics import history, segment
 
 
@@ -283,7 +283,7 @@ class FreeSpaceNumericalAttacks(unittest.TestCase):
             )
 
     def test_ambient_decimal_rounding_and_traps_do_not_change_metrics(self):
-        from decimal import Context, Inexact, ROUND_CEILING
+        from decimal import ROUND_CEILING, Context, Inexact
 
         artifact = history(segment(f0=3.0, q0=0.2))
         expected = free_space_burn_metrics(artifact, 10.0)

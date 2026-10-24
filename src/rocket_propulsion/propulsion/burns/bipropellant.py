@@ -38,8 +38,8 @@ from .feed_system import (
     RegulatedFeedState,
     RegulatedFeedSystem,
 )
-from .propagator import PropagatorPropulsionBridge, PropulsionDynamicsEvaluation
 from .numeric_outputs import _finite_rational
+from .propagator import PropagatorPropulsionBridge, PropulsionDynamicsEvaluation
 from .serialization import canonical_sha256
 
 BIPROPELLANT_DYNAMIC_FEED_SCHEMA = "rocket_propulsion_bipropellant_dynamic_feed_v1"

@@ -9,9 +9,18 @@ from math import nextafter, ulp
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.propulsion import STANDARD_GRAVITY_M_S2
 from rocket_propulsion.propulsion.burns import (
-    BurnDefinition, BurnTarget, BurnTargetKind, CutoffReason, EngineOperatingPoint,
-    FlowDestination, PropellantFlow, PropellantRole, TankDefinition,
-    burn_result_from_json, burn_result_to_json, simulate_constant_burn,
+    BurnDefinition,
+    BurnTarget,
+    BurnTargetKind,
+    CutoffReason,
+    EngineOperatingPoint,
+    FlowDestination,
+    PropellantFlow,
+    PropellantRole,
+    TankDefinition,
+    burn_result_from_json,
+    burn_result_to_json,
+    simulate_constant_burn,
 )
 from tests.test_burns import example_definition, example_operating_point
 

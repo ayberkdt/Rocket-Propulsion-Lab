@@ -14,7 +14,14 @@ from enum import Enum
 from math import isfinite
 
 from rocket_propulsion.core.errors import DomainError
-from rocket_propulsion.core.validation import coerce_fields, name_value_pairs, real, records, strings, text
+from rocket_propulsion.core.validation import (
+    coerce_fields,
+    name_value_pairs,
+    real,
+    records,
+    strings,
+    text,
+)
 
 from .numeric_outputs import _finite_rational, _fraction
 

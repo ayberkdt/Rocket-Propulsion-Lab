@@ -16,7 +16,10 @@ from decimal import Decimal, localcontext
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.propulsion.burns import (
-    DynamicFeedLine, DynamicFeedLineState, IdealPressurantGas, RegulatedFeedState,
+    DynamicFeedLine,
+    DynamicFeedLineState,
+    IdealPressurantGas,
+    RegulatedFeedState,
     RegulatedFeedSystem,
 )
 from tests.test_burn_feed_line import example_line
@@ -132,7 +135,7 @@ class FeedConservationOracles(unittest.TestCase):
             result = system.evaluate(state, 0.)
             with localcontext() as ctx:
                 ctx.prec = 75
-                g, gas_r = Decimal(gamma), Decimal(300.)
+                g, gas_r = Decimal(gamma), Decimal.from_float(300.)
                 cv = gas_r / (g - 1)
                 cp = g * cv
                 # Independent open-system first law, before rearranging Tdot.

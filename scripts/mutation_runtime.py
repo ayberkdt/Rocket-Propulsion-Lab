@@ -6,9 +6,9 @@ recursive calls see the same later patches as the original implementation.
 """
 import ast
 import inspect
-import textwrap
-import sys
 import io
+import sys
+import textwrap
 import unittest
 from contextlib import ExitStack
 from unittest.mock import patch
@@ -23,7 +23,7 @@ def compile_fault(function,before,after,label):
     original=inspect.unwrap(function)
     namespace=original.__globals__
     definitions={}
-    exec(compile(ast.parse(source.replace(before,after)),label,'exec'),namespace,definitions)
+    exec(compile(ast.parse(source.replace(before,after)),label,'exec'),namespace,definitions)  # noqa: S102 - Compile one trusted, source-bound mutation into isolated locals.
     replacement=definitions[function.__name__]
     target=replacement.fget if isinstance(replacement,property) else getattr(replacement,'__func__',replacement)
     if inspect.unwrap(target).__globals__ is not namespace:

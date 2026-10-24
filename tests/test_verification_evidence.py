@@ -7,10 +7,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import summarize_verification as reporting
 from scripts import run_bounded_regression as runner
-from scripts.summarize_verification import summarize, summarize_mutations
+from scripts import summarize_verification as reporting
 from scripts.run_bounded_regression import verification_inputs
+from scripts.summarize_verification import summarize, summarize_mutations
 
 
 class VerificationEvidenceAttacks(unittest.TestCase):
@@ -37,7 +37,7 @@ class VerificationEvidenceAttacks(unittest.TestCase):
                 with patch.object(runner, "ROOT", root), patch.object(runner, "OUT", output), \
                      patch.dict(runner.os.environ), \
                      patch.object(runner.sys, "argv", ["runner"]), \
-                     patch.object(runner, "verification_inputs", side_effect=lambda: verification_inputs(root)), \
+                     patch.object(runner, "verification_inputs", side_effect=lambda*, root=root: verification_inputs(root)), \
                      patch.object(runner.importlib.util, "find_spec", return_value=None), \
                      patch.object(runner.subprocess, "run", **run_options):
                     try:

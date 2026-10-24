@@ -4,7 +4,7 @@ Transcendental comparisons must certify a sign; unresolved comparisons fail
 typed. Inputs/probabilities are declared numbers, not validated physical laws.
 """
 
-from decimal import Context, Decimal, ROUND_FLOOR, ROUND_CEILING, ROUND_HALF_EVEN
+from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_EVEN, Context, Decimal
 from fractions import Fraction
 from functools import lru_cache
 from math import inf, isfinite, isqrt, nextafter
@@ -12,6 +12,7 @@ from statistics import NormalDist
 from struct import pack, unpack
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
+
 from .numeric_outputs import _finite_rational, _fraction
 
 _SAMPLING_POLICY = "open_binary_strata_latent_gaussian_and_certified_bounded_quantiles_v1"
@@ -75,7 +76,7 @@ def _inverse_grid(lower, upper, compare, hint=None):
 
 class _Intervals:
     def __init__(self, precision):
-        kwargs = dict(prec=precision, Emin=-999999999, Emax=999999999)
+        kwargs = {"prec": precision, "Emin": -999999999, "Emax": 999999999}
         self.down = Context(rounding=ROUND_FLOOR, **kwargs)
         self.up = Context(rounding=ROUND_CEILING, **kwargs)
         self.near = Context(rounding=ROUND_HALF_EVEN, **kwargs)

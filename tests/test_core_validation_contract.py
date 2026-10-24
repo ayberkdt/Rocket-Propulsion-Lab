@@ -10,8 +10,7 @@ from typing import Optional, Union
 
 from rocket_propulsion.core import validation as v
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.propulsion.burns import TabulatedBurnSegment
-from rocket_propulsion.propulsion.burns import TabulatedBurnArtifact
+from rocket_propulsion.propulsion.burns import TabulatedBurnArtifact, TabulatedBurnSegment
 
 
 @dataclass(frozen=True)
@@ -50,8 +49,9 @@ class OpaqueAnnotation:
 
 class CoreValidationAttacks(unittest.TestCase):
     def test_stream_metadata_uses_literal_normalization_for_non_depleting_paths(self):
-        from tests.test_burn_constant_numerics import mono
         from dataclasses import replace
+
+        from tests.test_burn_constant_numerics import mono
 
         definition, point = mono()
         base = point.streams[0]
@@ -238,7 +238,7 @@ class CoreValidationAttacks(unittest.TestCase):
     def test_iterator_value_failures_are_typed_without_partial_output(self):
         for error in (TypeError, ValueError, KeyError, IndexError, OverflowError):
 
-            def broken():
+            def broken(*, error=error):
                 yield 1.0
                 raise error("bad data iteration")
 
@@ -248,7 +248,7 @@ class CoreValidationAttacks(unittest.TestCase):
     def test_dataclass_scalar_types_optional_none_and_literal_identity(self):
         cls = make_dataclass(
             "Mixed",
-            [("mass", float), ("count", int), ("name", str), ("limit", Optional[float])],
+            [("mass", float), ("count", int), ("name", str), ("limit", Optional[float])],  # noqa: UP045 - Exercise legacy typing.Optional compatibility.
             frozen=True,
         )
         record = cls(1, 2, " ölçüm ", None)
@@ -297,7 +297,7 @@ class CoreValidationAttacks(unittest.TestCase):
         for error in (TypeError, ValueError, OverflowError):
 
             class BrokenFloat(float):
-                def __float__(self):
+                def __float__(self, *, error=error):
                     raise error("conversion failed")
 
             with self.subTest(error=error):
@@ -313,7 +313,7 @@ class CoreValidationAttacks(unittest.TestCase):
         for error in (TypeError, ValueError, OverflowError):
 
             class BrokenInteger(int):
-                def __int__(self):
+                def __int__(self, *, error=error):
                     raise error("conversion failed")
 
             with self.subTest(error=error):
@@ -376,7 +376,7 @@ class CoreValidationAttacks(unittest.TestCase):
         )
         for reader in readers:
             with self.subTest(reader=reader):
-                self.domain_failure(lambda: reader(BrokenIterator(), "data"), "data")
+                self.domain_failure(lambda*, reader=reader: reader(BrokenIterator(), "data"), "data")
 
     def test_vector_cardinality_check_reads_at_most_four_items(self):
         seen = []
@@ -472,8 +472,8 @@ class CoreValidationAttacks(unittest.TestCase):
 
     def test_optional_scalar_annotations_are_validated_without_evaluation(self):
         for annotation in (
-            Optional[float],
-            Union[None, float],
+            Optional[float],  # noqa: UP045 - Legacy annotations are deliberate validation fixtures.
+            Union[None, float],  # noqa: UP007 - Preserve typing.Union coverage beside modern syntax.
             "typing.Optional[float]",
             "float | None",
             "'float'",

@@ -1,18 +1,23 @@
 """Independent STL topology/orientation, exact interchange and hostile snapshots."""
+import csv
+import io
+import unittest
+import xml.etree.ElementTree as ET
 from collections import Counter
 from collections.abc import Mapping
-import csv
 from dataclasses import asdict, replace
 from decimal import Decimal, localcontext
 from fractions import Fraction
-import io
 from math import isfinite, pi, sin, ulp
-import unittest
-import xml.etree.ElementTree as ET
 
-from rocket_propulsion.core.errors import DomainError
-from rocket_propulsion.geometry import NozzleContour, NozzleStation, export_nozzle_contour, generate_rao_contour
 from rocket_propulsion.api import routes as api_routes
+from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.geometry import (
+    NozzleContour,
+    NozzleStation,
+    export_nozzle_contour,
+    generate_rao_contour,
+)
 
 
 def cylinder(radius=.125,length=.3,name='prescribed cylinder'):
@@ -165,9 +170,9 @@ class GeometryExportAttacks(unittest.TestCase):
 
     def test_bundle_replay_rejects_forged_text_and_qualification_flags(self):
         r=self.valid(cylinder())
-        for change in (dict(csv='forged'),dict(svg='forged'),dict(dxf='forged'),dict(stl='forged'),
-                       dict(manufacturing_qualified=True),dict(manufacturing_qualified=0),
-                       dict(physical_model_qualified=True),dict(serialization_policy='forged')):
+        for change in ({'csv': 'forged'},{'svg': 'forged'},{'dxf': 'forged'},{'stl': 'forged'},
+                       {'manufacturing_qualified': True},{'manufacturing_qualified': 0},
+                       {'physical_model_qualified': True},{'serialization_policy': 'forged'}):
             with self.subTest(change=change),self.assertRaises(DomainError):replace(r,**change)
 
     def test_mapping_round_trip_replays_and_snapshots_nested_station_records(self):
@@ -243,9 +248,9 @@ class GeometryExportAttacks(unittest.TestCase):
 
     def test_stored_unit_role_and_nominal_geometry_cannot_be_tampered(self):
         r=self.valid(cylinder())
-        for change in (dict(coordinate_unit='mm'),dict(mesh_role='manufacturable_wall')):
+        for change in ({'coordinate_unit': 'mm'},{'mesh_role': 'manufacturable_wall'}):
             with self.subTest(change=change),self.assertRaises(DomainError):replace(r,**change)
-        for change in (dict(throat_area_m2=2*r.inputs.throat_area_m2),dict(area_ratio=4.)):
+        for change in ({'throat_area_m2': 2*r.inputs.throat_area_m2},{'area_ratio': 4.}):
             with self.subTest(change=change),self.assertRaises(DomainError):replace(r.inputs,**change)
 
     def test_large_opposite_axial_coordinates_do_not_overflow_svg_span(self):
@@ -276,10 +281,10 @@ class GeometryExportAttacks(unittest.TestCase):
 class GeometryExportApiAttacks(unittest.TestCase):
     def test_all_geometry_modes_return_owned_export_policy_and_matching_coordinates(self):
         for mode in ('conical','preliminary','rao','moc'):
-            x=dict(throat_area_m2=.01,area_ratio=16.,contour=mode,station_count=41,
-                   characteristic_count=10,include_exports=True,angular_segments=8)
-            for invoke in (lambda:api_routes.dispatch_calculation('/api/v1/nozzle-contour',x),
-                           lambda:api_routes.calculate_nozzle_contour_route(x)):
+            x={'throat_area_m2': .01,'area_ratio': 16.,'contour': mode,'station_count': 41,
+                   'characteristic_count': 10,'include_exports': True,'angular_segments': 8}
+            for invoke in (lambda*, x=x:api_routes.dispatch_calculation('/api/v1/nozzle-contour',x),
+                           lambda*, x=x:api_routes.calculate_nozzle_contour_route(x)):
                 with self.subTest(mode=mode,path=invoke):
                     r=invoke();export=r['exports']
                     self.assertIs(export['manufacturing_qualified'],False)

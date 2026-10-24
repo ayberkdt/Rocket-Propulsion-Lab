@@ -2,13 +2,13 @@
 
 Synthetic mocked solver outputs test assembly only, never physical validation.
 """
+import sys
+import unittest
 from dataclasses import replace
 from decimal import Decimal, localcontext
 from fractions import Fraction
 from math import nextafter
 from types import SimpleNamespace
-import sys
-import unittest
 from unittest.mock import patch
 
 from rocket_propulsion.core.errors import DomainError
@@ -39,9 +39,9 @@ def independent_correlation(left,right):
 
 
 def synthetic_assembly(method='latin-hypercube'):
-    from tests import test_burn_uncertainty as physical_fixture
-    from tests import test_burn_hierarchical_ensemble as artifact_fixture
     from rocket_propulsion.propulsion.burns import scale_tabulated_artifact
+    from tests import test_burn_hierarchical_ensemble as artifact_fixture
+    from tests import test_burn_uncertainty as physical_fixture
     fixture=physical_fixture.BlowdownUncertaintyTests();fixture.setUp()
     other=artifact_fixture.HierarchicalPropulsionEnsembleTests();other.setUp()
     base=other.discrete.realizations[0].artifact
@@ -291,7 +291,7 @@ class SummaryRecordAttacks(unittest.TestCase):
         for arguments in ({'convergence_tolerance':True},{'convergence_tolerance':None},
                           {'reserve_mass_kg':True},{'sample_count':4.5},
                           {'parameters':None},{'method':None}):
-            kwargs=dict(parameters=fixture.parameters,sample_count=4,seed=1);kwargs.update(arguments)
+            kwargs={'parameters': fixture.parameters,'sample_count': 4,'seed': 1};kwargs.update(arguments)
             with patch.object(model,'simulate_pressure_fed_blowdown',side_effect=AssertionError('Invalid control reached solver')) as solve:
                 with self.subTest(arguments=arguments),self.assertRaises(DomainError):
                     model.simulate_blowdown_uncertainty(fixture.tank,fixture.point,fixture.law,**kwargs)
