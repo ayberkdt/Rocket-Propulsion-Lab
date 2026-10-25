@@ -52,6 +52,7 @@ from rocket_propulsion.core.metadata import WarningMessage
 from rocket_propulsion.core.validation import numeric_range_guard
 from rocket_propulsion.geometry import NozzleContour
 from rocket_propulsion.heat_transfer import conduction, convection, radiation
+from rocket_propulsion.heat_transfer.channel_wall import solve_channel_wall_section
 from rocket_propulsion.thermodynamics.materials import get_wall_material
 from rocket_propulsion.thermodynamics.real_fluids import reference_fluid
 from rocket_propulsion.thermodynamics.real_fluids.transport import transport_tp
@@ -154,8 +155,10 @@ class ChannelProfile:
         Strictly increasing axial stations (same origin as the contour).
     width_m, height_m, hot_wall_thickness_m : tuple of float
         Channel width, depth and hot-wall thickness at each station.
-    count : int
-        Number of channels (constant; bifurcation is not modelled).
+    count : int or tuple of int
+        Number of channels, or one count per table row: ``count[i]`` holds
+        from ``x_m[i]`` up to the next row, so a change between rows is a
+        bifurcation (or merge) at the later row's ``x``.
     roughness_m : float, default 0
         Absolute surface roughness.
     helix_angle_deg : float, default 0
@@ -177,7 +180,7 @@ class ChannelProfile:
     width_m: tuple[float, ...]
     height_m: tuple[float, ...]
     hot_wall_thickness_m: tuple[float, ...]
-    count: int
+    count: int | tuple[int, ...]
     roughness_m: float = 0.0
     helix_angle_deg: float = 0.0
 
@@ -196,7 +199,22 @@ class ChannelProfile:
             object.__setattr__(self, name, values)
         if any(b <= a for a, b in zip(self.x_m, self.x_m[1:], strict=False)):
             raise DomainError("x_m must be strictly increasing.", field="x_m")
-        _channel_scalars(self.count, self.roughness_m, self.helix_angle_deg)
+        if isinstance(self.count, tuple | list):
+            counts = tuple(self.count)
+            if len(counts) != len(self.x_m):
+                raise DomainError("count needs one entry per table row.", field="count")
+            for value in counts:
+                _channel_scalars(value, self.roughness_m, self.helix_angle_deg)
+            object.__setattr__(self, "count", counts)
+        else:
+            _channel_scalars(self.count, self.roughness_m, self.helix_angle_deg)
+
+    def count_at(self, x_m: float) -> int:
+        """Return the channel count at ``x_m`` (piecewise constant, right-continuous)."""
+        if isinstance(self.count, int):
+            return self.count
+        index = min(max(bisect_right(self.x_m, x_m) - 1, 0), len(self.x_m) - 1)
+        return self.count[index]
 
     def geometry_at(self, x_m: float) -> tuple[float, float, float]:
         """Return ``(width, height, hot-wall thickness)`` at ``x_m`` by linear interpolation."""
@@ -209,6 +227,53 @@ class ChannelProfile:
         weight = min(1.0, max(0.0, (x_m - x0) / (x1 - x0)))
         return tuple(column[index - 1] + weight * (column[index] - column[index - 1])  # type: ignore[return-value]
                      for column in (self.width_m, self.height_m, self.hot_wall_thickness_m))
+
+
+def sudden_area_change_coefficient(area_ratio: float, reynolds: float, friction_factor: float) -> float:
+    """Return the loss coefficient ``K1`` of a sudden area change, on the upstream velocity [1]_.
+
+    Parameters
+    ----------
+    area_ratio : float
+        Upstream over downstream flow area ``A1/A2`` (GFSSP's ``(D1/D2)^2``);
+        below one is an expansion, above one a reduction.
+    reynolds : float
+        Upstream Reynolds number.
+    friction_factor : float
+        Upstream Darcy friction factor.
+
+    Returns
+    -------
+    float
+        ``K1`` such that the total-pressure loss is ``K1 rho v1^2 / 2``.
+
+    Notes
+    -----
+    GFSSP v6 Eqs. (38)-(41): reduction ``(1.2 + 160/Re)((A1/A2)^2 - 1)`` for
+    ``Re <= 2500`` and ``(0.6 + 0.48 f)(A1/A2)((A1/A2) - 1)`` above; expansion
+    ``2 (1 - (A1/A2)^2)`` for ``Re <= 4000`` and ``(1 + 0.8 f)(1 - A1/A2)^2``
+    above (the Borda-Carnot loss as ``f -> 0``). The manual writes them for
+    round pipes with ``(D1/D2)^2``; for channels the flow-area ratio takes
+    its place.
+
+    References
+    ----------
+    .. [1] NASA-GFSSP6-AREA-CHANGE. GFSSP v6 user manual, Sects. 3.1.7.7 and
+           3.1.7.8, Eqs. (33), (38)-(41), printed pp. 42-45.
+    """
+    if not (isfinite(area_ratio) and area_ratio > 0.0 and isfinite(reynolds) and reynolds > 0.0
+            and isfinite(friction_factor) and friction_factor >= 0.0):
+        raise DomainError("Area ratio, Reynolds number and friction factor must be finite and positive.",
+                          field="area_ratio")
+    if area_ratio == 1.0:
+        return 0.0
+    if area_ratio > 1.0:  # reduction
+        if reynolds <= 2500.0:
+            return (1.2 + 160.0 / reynolds) * (area_ratio**2 - 1.0)
+        return (0.6 + 0.48 * friction_factor) * area_ratio * (area_ratio - 1.0)
+    if reynolds <= 4000.0:  # expansion
+        return 2.0 * (1.0 - area_ratio**2)
+    return (1.0 + 0.8 * friction_factor) * (1.0 - area_ratio) ** 2
 
 
 def _channel_scalars(count: object, roughness: object, helix: object) -> tuple[int, float, float]:
@@ -271,6 +336,7 @@ class ThermalStation:
     channel_width_m: float = 0.0
     channel_height_m: float = 0.0
     hot_wall_thickness_m: float = 0.0
+    hot_wall_mean_temperature_k: float = 0.0
 
 
 #: Coolant Mach number above which the march warns that the flow nears choking (library choice).
@@ -300,6 +366,8 @@ class RegenChamberResult:
         outlet state; measures the enthalpy inversion, not the march.
     warnings : tuple of WarningMessage
         Model statements and range notes.
+    wall_model : {"fin", "2d"}
+        Wall conduction model used.
     """
 
     stations: tuple[ThermalStation, ...]
@@ -311,6 +379,7 @@ class RegenChamberResult:
     wall_limit_temperature_k: float | None
     energy_balance_residual_w: float
     warnings: tuple[WarningMessage, ...]
+    wall_model: str = "fin"
 
 
 def bartz_coefficient(gas: HotGas, *, throat_radius_m: float, area_ratio: float, mach: float,
@@ -399,6 +468,7 @@ def solve_regen_chamber(
     wall_thermal_conductivity_w_m_k: float | None = None,
     coolant_correlation: CoolantCorrelation = "auto",
     gas_radiation: GasRadiation = "none",
+    wall_model: str = "fin",
 ) -> RegenChamberResult:
     """March the coupled gas-wall-coolant problem along the cooling channels [1]_, [2]_.
 
@@ -424,6 +494,15 @@ def solve_regen_chamber(
         Taylor applies to hydrogen only.
     gas_radiation : {"none", "wsgg"}, default "none"
         Add H2O/CO2 gas radiation where the WSGG fit range holds.
+    wall_model : {"fin", "2d"}, default "fin"
+        ``"fin"`` treats each land as a straight fin on a hot wall of uniform
+        temperature. ``"2d"`` solves steady two-dimensional conduction in the
+        half-pitch wall cross-section at every station
+        (:func:`~rocket_propulsion.heat_transfer.channel_wall.solve_channel_wall_section`),
+        iterating the Bartz and coolant coefficients on the field's mean wall
+        temperatures; ``hot_wall_temperature_k`` is then the peak over the
+        pitch (above the channel centre) and ``hot_wall_mean_temperature_k``
+        the mean. About 10 ms per station.
 
     Returns
     -------
@@ -452,12 +531,15 @@ def solve_regen_chamber(
     ``ds`` and travels ``ds/cos(beta)`` along the channel. As in RTE [1]_
     (Eqs. (14)-(16)), its static pressure falls by the Darcy friction drop
     with the two stations' mean density, velocity ``G/rho`` and hydraulic
-    diameter (Chen friction factor) plus the momentum drop
-    ``G_2^2/rho_2 - G_1^2/rho_1``, which accounts for the coolant
-    accelerating as it heats and as the flow area changes. The downstream
-    state is found by fixed-point iteration on the pressure to 1e-12. Sudden
-    area changes (bifurcation) carry extra losses that, as in RTE, are not
-    modelled.
+    diameter (Chen friction factor) plus the momentum change. The latter is
+    Euler's ``dp = -rho v dv`` for steady flow with ``rho v A`` constant [4]_,
+    integrated as ``(G_1 + G_2)/2 (v_2 - v_1)``; for a constant channel area
+    it equals RTE's ``G^2/rho_2 - G^2/rho_1``, and with a varying area it
+    keeps the reversible pressure change of the area change out of the loss.
+    Where the channel count changes (bifurcation or merge), the sudden change
+    of total flow area adds ``K1 rho_1 v_1^2/2`` with ``K1`` from
+    :func:`sudden_area_change_coefficient` [5]_. The downstream state is
+    found by fixed-point iteration on the pressure to 1e-12.
 
     References
     ----------
@@ -466,6 +548,10 @@ def solve_regen_chamber(
            https://ntrs.nasa.gov/api/citations/19710019929/downloads/19710019929.pdf
     .. [3] LIENHARD-AHTT-6.00. J. H. Lienhard IV and J. H. Lienhard V, "A Heat
            Transfer Textbook", v6.00, 2024, Ch. 4.
+    .. [4] NASA-GLENN-CD-NOZZLE. NASA Glenn Research Center, "Nozzle Design -
+           Converging/Diverging (CD) Nozzle": ``r V dV = -dp`` with
+           ``mdot = r V A``. https://www.grc.nasa.gov/www/k-12/airplane/nozzled.html
+    .. [5] NASA-GFSSP6-AREA-CHANGE. GFSSP v6 user manual, Eqs. (33), (38)-(41).
     """
 
     if coolant_correlation not in ("auto", "gnielinski", "taylor"):
@@ -474,12 +560,22 @@ def solve_regen_chamber(
         coolant_correlation = "taylor" if coolant.fluid in _HYDROGEN else "gnielinski"
     if coolant_correlation == "taylor" and coolant.fluid not in _HYDROGEN:
         raise InputError("Taylor's correlation applies to hydrogen coolant only.", field="coolant_correlation")
+    if wall_model not in ("fin", "2d"):
+        raise InputError("Wall model must be fin or 2d.", field="wall_model")
     if gas_radiation not in ("none", "wsgg"):
         raise InputError("Gas radiation must be none or wsgg.", field="gas_radiation")
-    count, roughness, cos_helix = _channel_scalars(channels.count, channels.roughness_m, channels.helix_angle_deg)
     if isinstance(channels, ChannelProfile):
         geometry_at = channels.geometry_at
+        count_at = channels.count_at
+        _, roughness, cos_helix = _channel_scalars(count_at(channels.x_m[0]), channels.roughness_m,
+                                                   channels.helix_angle_deg)
     else:
+        fixed_count, roughness, cos_helix = _channel_scalars(channels.count, channels.roughness_m,
+                                                             channels.helix_angle_deg)
+
+        def count_at(x_m: float) -> int:
+            return fixed_count
+
         constant = (_positive(channels.width_m, "width_m"), _positive(channels.height_m, "height_m"),
                     _positive(channels.hot_wall_thickness_m, "hot_wall_thickness_m"))
 
@@ -506,14 +602,16 @@ def solve_regen_chamber(
     order = list(reversed(range(len(stations)))) if coolant.counterflow else list(range(len(stations)))
     fluid = reference_fluid(coolant.fluid)
     geometry = {index: geometry_at(stations[index].x_m) for index in order}
+    counts = {index: count_at(stations[index].x_m) for index in order}
 
     def passage(index: int) -> tuple[float, float]:
         """Return the hydraulic diameter and mass flux at a station."""
         local_width, local_height, _ = geometry[index]
         area = local_width * local_height
-        return 2.0 * area / (local_width + local_height), mass_flow / (count * area)
+        return 2.0 * area / (local_width + local_height), mass_flow / (counts[index] * area)
 
     temperature, pressure = float(coolant.inlet_temperature_k), float(coolant.inlet_pressure_pa)
+    junctions, junction_loss = 0, 0.0
     inlet_state = fluid.state_tp(temperature, pressure)
     enthalpy = inlet_state.enthalpy_j_kg
     total_heat = 0.0
@@ -539,7 +637,7 @@ def solve_regen_chamber(
         station = stations[index]
         width, height, thickness = geometry[index]
         hydraulic, mass_flux = passage(index)
-        circumference_per_channel = 2.0 * pi * (station.radius_m + thickness) * cos_helix / count
+        circumference_per_channel = 2.0 * pi * (station.radius_m + thickness) * cos_helix / counts[index]
         land = circumference_per_channel - width
         if land <= 0.0:
             raise DomainError("Channels do not fit the circumference at this station.",
@@ -639,18 +737,46 @@ def solve_regen_chamber(
         coolant_velocity = mass_flux / local_state.density_kg_m3
         recording = True
         _, q_gas, h_gas, recovery, h_cool, efficiency = balance(hot_wall)
-        recording = False
         cold_wall = hot_wall - q_gas * thickness / conductivity
+        hot_wall_mean = hot_wall
+        if wall_model == "2d":
+            # fixed point on the mean wall temperatures; the fin solution is the start
+            mean_hot, mean_cold = hot_wall, cold_wall
+            for _ in range(60):
+                h_gas, recovery = bartz_coefficient(gas, throat_radius_m=contour.throat_radius_m,
+                                                    area_ratio=station.area_ratio, mach=station.mach,
+                                                    wall_temperature_k=mean_hot)
+                q_rad = radiative(mean_hot)
+                h_cool = coolant_coefficient(max(mean_cold, temperature))
+                section = solve_channel_wall_section(
+                    pitch_m=circumference_per_channel, channel_width_m=width, channel_height_m=height,
+                    hot_wall_thickness_m=thickness, thermal_conductivity_w_m_k=conductivity,
+                    gas_coefficient_w_m2_k=h_gas, recovery_temperature_k=recovery,
+                    coolant_coefficient_w_m2_k=h_cool, coolant_temperature_k=temperature,
+                    radiative_heat_flux_w_m2=q_rad)
+                settled = (abs(section.mean_hot_wall_temperature_k - mean_hot) <= 1.0e-9 * mean_hot
+                           and abs(section.mean_coolant_wall_temperature_k - mean_cold) <= 1.0e-9 * mean_cold)
+                mean_hot = section.mean_hot_wall_temperature_k
+                mean_cold = section.mean_coolant_wall_temperature_k
+                if settled:
+                    break
+            else:
+                raise ConvergenceError("2-D wall temperatures did not settle.", code="wall_2d_not_converged",
+                                       details={"x_m": station.x_m})
+            q_gas = section.mean_heat_flux_w_m2
+            hot_wall, hot_wall_mean, cold_wall = section.peak_hot_wall_temperature_k, mean_hot, mean_cold
+        recording = False
         solved[index] = ThermalStation(
             x_m=station.x_m, radius_m=station.radius_m, area_ratio=station.area_ratio, mach=station.mach,
             adiabatic_wall_temperature_k=recovery, gas_side_coefficient_w_m2_k=h_gas,
-            radiative_heat_flux_w_m2=q_gas - h_gas * (recovery - hot_wall), heat_flux_w_m2=q_gas,
+            radiative_heat_flux_w_m2=q_gas - h_gas * (recovery - hot_wall_mean), heat_flux_w_m2=q_gas,
             hot_wall_temperature_k=hot_wall, cold_wall_temperature_k=cold_wall,
             coolant_temperature_k=temperature, coolant_pressure_pa=pressure,
             coolant_side_coefficient_w_m2_k=h_cool, coolant_reynolds=reynolds,
             land_fin_efficiency=efficiency, wall_limit_margin_k=None if limit is None else limit - hot_wall,
             coolant_velocity_m_s=coolant_velocity, coolant_mach=coolant_velocity / local_state.speed_of_sound_m_s,
-            channel_width_m=width, channel_height_m=height, hot_wall_thickness_m=thickness)
+            channel_width_m=width, channel_height_m=height, hot_wall_thickness_m=thickness,
+            hot_wall_mean_temperature_k=hot_wall_mean)
         if step == len(order) - 1:
             break
         following_index = order[step + 1]
@@ -663,16 +789,27 @@ def solve_regen_chamber(
         enthalpy += heat / mass_flow
         density = local_state.density_kg_m3
         next_hydraulic, next_mass_flux = passage(following_index)
+        junction = 0.0
+        if counts[following_index] != counts[index]:
+            # bifurcation or merge: sudden change of the total flow area (GFSSP Eqs. (38)-(41))
+            total_area = mass_flow / mass_flux
+            next_total_area = mass_flow / next_mass_flux
+            coefficient = sudden_area_change_coefficient(total_area / next_total_area, reynolds, friction)
+            junction = coefficient * mass_flux**2 / (2.0 * density)
+            junctions += 1
+            junction_loss += junction
         next_temperature, next_pressure = temperature, pressure
         for _ in range(200):
-            # fixed-point iteration on the downstream state: Wadel Eqs. (14) and (16)
+            # fixed-point iteration on the downstream state: Wadel Eq. (14) and Euler's rho v dv = -dp
             next_temperature = _temperature_from_enthalpy(coolant.fluid, enthalpy, next_pressure, next_temperature)
             next_density = fluid.state_tp(next_temperature, next_pressure).density_kg_m3
             mean_density = 0.5 * (density + next_density)
-            mean_velocity = 0.5 * (mass_flux / density + next_mass_flux / next_density)
+            velocity, next_velocity = mass_flux / density, next_mass_flux / next_density
+            mean_velocity = 0.5 * (velocity + next_velocity)
             viscous = friction * path / (0.5 * (hydraulic + next_hydraulic)) * mean_density * mean_velocity**2 / 2.0
-            momentum = next_mass_flux**2 / next_density - mass_flux**2 / density
-            updated = pressure - viscous - momentum
+            # integral of rho v dv with the trapezoidal mean of rho v = G
+            momentum = 0.5 * (mass_flux + next_mass_flux) * (next_velocity - velocity)
+            updated = pressure - viscous - momentum - junction
             if updated <= 0.0:
                 raise DomainError("Coolant pressure drop exceeds the inlet pressure.",
                                   code="coolant_pressure_exhausted")
@@ -693,8 +830,11 @@ def solve_regen_chamber(
     hottest = max(item.hot_wall_temperature_k for item in ordered)
     warnings.append(WarningMessage(
         "rte_class_model",
-        "Quasi-one-dimensional station march; no axial wall conduction, no curvature or entrance "
-        "enhancement, frozen chamber gas properties; not validated against hardware data.",
+        "One-dimensional gas and coolant march with "
+        + ("two-dimensional wall conduction across channel and land" if wall_model == "2d"
+           else "a fin model of the land")
+        + "; no axial wall conduction, no curvature or entrance enhancement, frozen chamber gas "
+        "properties; not validated against hardware data.",
         severity="info"))
     for parameter, (stated, indices) in extrapolated.items():
         warnings.append(WarningMessage(
@@ -708,6 +848,12 @@ def solve_regen_chamber(
             f"Gas radiation uses 1 atm WSGG fits extrapolated in pressure; {radiation_skipped} station "
             "evaluations were outside the 300-2400 K fit range and got no radiation.",
             severity="critical" if radiation_skipped else "warning"))
+    if junctions:
+        warnings.append(WarningMessage(
+            "channel_count_change",
+            f"{junctions} channel-count change(s) add {junction_loss:.4g} Pa of sudden-area-change loss "
+            "(GFSSP square expansion/reduction); flow-splitting effects beyond the area change are not modelled.",
+            severity="info", field="channels"))
     fastest = max(ordered, key=lambda item: item.coolant_mach)
     if fastest.coolant_mach > COOLANT_MACH_WARNING:
         warnings.append(WarningMessage(
@@ -730,6 +876,7 @@ def solve_regen_chamber(
         wall_limit_temperature_k=limit,
         energy_balance_residual_w=residual,
         warnings=tuple(warnings),
+        wall_model=wall_model,
     )
 
 

@@ -25,8 +25,18 @@ from rocket_propulsion.heat_transfer.regen_chamber import (
   `ChannelProfile(x_m, width_m, height_m, hot_wall_thickness_m, count,
   roughness_m=0, helix_angle_deg=0)` tabulates width, depth and hot-wall
   thickness along the chamber (linear in x; the contour must lie inside the
-  table), for example channels narrowed at the throat. Helix angles from 0 to
-  75° are accepted.
+  table), for example channels narrowed at the throat; `count` may be one
+  value per row, so the channel count can change along the chamber
+  (bifurcation or merge). Helix angles from 0 to 75° are accepted.
+- `solve_regen_chamber(..., wall_model="2d")` replaces the land-fin model by a
+  two-dimensional finite-volume solution of the half-pitch wall cross-section
+  at every station (`heat_transfer.channel_wall.solve_channel_wall_section`):
+  hot face with Bartz film and gas radiation, coolant film on the channel
+  floor and side, adiabatic symmetry planes and land top, banded Cholesky
+  solve, Bartz and coolant coefficients iterated on the field's mean wall
+  temperatures. Stations then report the peak hot-wall temperature (above
+  the channel centre) and its mean. For the methane example the peak is
+  912.6 K against 894.2 K from the fin model, and the heat load 1 % lower.
 
 - `hot_gas_from_propellant(propellant_pair, chamber_pressure_pa,
   oxidizer_fuel_ratio=None, throat_radius_of_curvature_m)` builds the frozen
@@ -67,11 +77,17 @@ from rocket_propulsion.heat_transfer.regen_chamber import (
    coolant and recovery temperatures to 1e-9 relative.
 5. **March.** The coolant enthalpy rises by `q dA/ṁ` over each meridional
    segment and the coolant travels `ds/cos β` along its channel. Its static
-   pressure falls by the viscous and momentum drops of RTE (Wadel,
-   NASA/TM-1998-206313, eqs. (14)-(16)): the Darcy loss with the two
-   stations' mean density, velocity `G/ρ` and hydraulic diameter, plus
-   `G₂²/ρ₂ − G₁²/ρ₁`, the pressure spent accelerating the coolant as it heats
-   and as the flow area changes. The downstream state is found by fixed-point
+   pressure falls by the Darcy loss of RTE (Wadel, NASA/TM-1998-206313,
+   eq. (14)) with the two stations' mean density, velocity `G/ρ` and
+   hydraulic diameter, plus the momentum change from Euler's
+   `ρ v dv = −dp` with `ρ v A` constant (NASA Glenn, CD-nozzle page),
+   integrated as `(G₁ + G₂)/2 · (v₂ − v₁)`. For a constant channel area this
+   is RTE's `G²/ρ₂ − G²/ρ₁`; with a varying area it keeps the reversible
+   pressure change of the area out of the loss (the first version used
+   `G₂²/ρ₂ − G₁²/ρ₁` there, which is wrong when the area changes). Where the
+   channel count changes, the sudden change of total flow area adds
+   `K₁ ρ₁ v₁²/2` with `K₁` from GFSSP v6 eqs. (38)-(41) (square reduction or
+   expansion; the area ratio replaces `(D₁/D₂)²`). The downstream state is found by fixed-point
    iteration on the pressure to 1e-12 (`coolant_pressure_not_converged` if it
    does not contract, which happens only near choking). Temperature is
    recovered from enthalpy by Newton iteration on cₚ with a bisection
@@ -178,8 +194,9 @@ still developing, which Bartz does not model.
 - Quasi-one-dimensional: no axial conduction in the wall, no circumferential
   variation between land and channel centre, no curvature or entrance
   enhancement and frozen chamber gas properties.
-- The channel count is constant along the chamber; bifurcated channels and
-  the losses of sudden area changes are not modelled (RTE omits them too).
+- At a bifurcation only the sudden-area-change loss is modelled; flow
+  splitting and manifold effects are not. The wall model (fin or 2-D) has no
+  axial conduction and no closeout heat path.
 - Coolant boiling is refused (`coolant_boiling`); two-phase flow is not
   modelled. A coolant state outside a transport correlation's range stops the
   march with `DomainError`.

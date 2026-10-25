@@ -28,6 +28,7 @@ library functions each route calls. ``TRANSIENT_ROUTES`` and
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import asdict
 from math import ceil
 from typing import Any
@@ -81,6 +82,7 @@ from rocket_propulsion.propulsion.burns import (
     simulate_pressure_fed_blowdown,
 )
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
+from rocket_propulsion.studies.global_sensitivity import rank_sensitivity
 from rocket_propulsion.studies.sass import project_from_dict
 
 from .routes import _boolean, _enum_value, _integer, _number, _object, _objects
@@ -1460,6 +1462,32 @@ _UNCERTAINTY_METRICS = (
 )
 
 
+def _rank_sensitivities(parameters: Sequence[Any], realizations: dict[str, list[Any]]) -> list[dict[str, Any]]:
+    """Spearman, PRCC and SRRC of every metric to every sampled input [1]_.
+
+    Computed from the same seeded sample as the Pearson screening records;
+    a metric whose values are not all finite, or a sample too small for
+    PRCC, is reported with the reason instead.
+
+    References
+    ----------
+    .. [1] SAND2001-0417. Helton and Davis, Sect. 6, https://doi.org/10.2172/806696
+    """
+
+    inputs = {parameter.name: [float(value) for value in realizations[f"input_{parameter.name}"]]
+              for parameter in parameters}
+    records: list[dict[str, Any]] = []
+    for metric in _UNCERTAINTY_METRICS:
+        values = realizations[metric]
+        try:
+            if any(value is None for value in values):
+                raise DomainError(f"{metric} is undefined in some realizations.")
+            records.append(asdict(rank_sensitivity(inputs, [float(value) for value in values], output_name=metric)))
+        except DomainError as error:
+            records.append({"output": metric, "unavailable": str(error)})
+    return records
+
+
 def simulate_uncertainty_route(payload: dict[str, Any]) -> dict[str, Any]:
     """Propagate sourced input uncertainty through seeded blowdown realizations.
 
@@ -1657,6 +1685,7 @@ def simulate_uncertainty_route(payload: dict[str, Any]) -> dict[str, Any]:
         },
         "statistics": [asdict(item) for item in result.statistics],
         "sensitivity": [asdict(item) for item in result.sensitivity],
+        "global_sensitivity": _rank_sensitivities(result.parameters, realizations),
         "convergence": asdict(result.convergence),
         "histograms": {
             metric: _histogram(realizations[metric], values["histogram_bins"])

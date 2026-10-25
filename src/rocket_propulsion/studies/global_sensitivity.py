@@ -282,7 +282,10 @@ def rank_sensitivity(inputs: Mapping[str, Sequence[float]], output: Sequence[flo
     SRRC is the coefficient of the regression of ``rank(y)`` on all input
     ranks scaled by ``sd(rank x_j)/sd(rank y)``. Regressions use modified
     Gram-Schmidt with reorthogonalization. A constant input gets ``None``
-    coefficients; collinear inputs give ``None`` PRCC and SRRC.
+    coefficients; collinear inputs give ``None`` PRCC and SRRC. When the
+    other inputs reproduce the output ranks exactly (residual below 1e-9 of
+    the output's rank spread), PRCC is ``0/0`` and is returned as ``None``
+    with an ``output_determined_by_other_inputs`` warning.
 
     References
     ----------
@@ -346,13 +349,25 @@ def rank_sensitivity(inputs: Mapping[str, Sequence[float]], output: Sequence[flo
                          "a near-additive monotone function of the inputs; use Sobol indices.")))
 
     records = []
+    output_norm = sqrt(total)
+    determined: list[str] = []
     for index, name in enumerate(names):
         spearman = None if name in constant or output_constant else _correlation(rank_inputs[index], rank_output)
         prcc = None
         if name not in constant and not output_constant and full_rank:
             others = _orthonormal_basis([rank_inputs[j] for j in active if j != index])
-            prcc = _correlation(_residual(rank_inputs[index], others), _residual(rank_output, others))
+            output_residual = _residual(rank_output, others)
+            # if the other inputs already fix the output ranks, PRCC is 0/0: round-off, not information
+            if sqrt(fsum(r * r for r in output_residual)) > 1.0e-9 * output_norm:
+                prcc = _correlation(_residual(rank_inputs[index], others), output_residual)
+            else:
+                determined.append(name)
         records.append(RankSensitivity(name, spearman, prcc, srrc[name]))
+    if determined:
+        warnings.append(WarningMessage(
+            code="output_determined_by_other_inputs",
+            message=(f"The other inputs determine the output ranks exactly; the PRCC of {', '.join(determined)} "
+                     "is undefined.")))
     records.sort(key=lambda item: (item.prcc is None, -abs(item.prcc or 0.0)))
     return RankSensitivityResult(output_name, count, r_squared, tuple(records), tuple(warnings))
 

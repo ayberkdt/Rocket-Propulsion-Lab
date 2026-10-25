@@ -199,6 +199,7 @@ def regen_chamber_route(payload: dict[str, Any]) -> dict[str, Any]:
         channel_count, channel_width_m, channel_height_m, hot_wall_thickness_m : default
             100, 1.5 mm, 5 mm, 1 mm; channel_helix_angle_deg : float, default 0
         wall_material : str, default "grcop-84"
+        wall_model : {"fin", "2d"}, default "fin"
 
     Returns
     -------
@@ -235,7 +236,8 @@ def regen_chamber_route(payload: dict[str, Any]) -> dict[str, Any]:
                         inlet_temperature_k=_number(payload, "coolant_inlet_temperature_k", 120.0),
                         inlet_pressure_pa=_number(payload, "coolant_inlet_pressure_pa", 1.5e7),
                         mass_flow_kg_s=flow),
-        wall_material=_text(payload, "wall_material", "grcop-84"))
+        wall_material=_text(payload, "wall_material", "grcop-84"),
+        wall_model=_text(payload, "wall_model", "fin"))
     return _clean({"gas": gas, "fuel_flow_kg_s": fuel_flow, "coolant_flow_kg_s": flow, **asdict(result)})
 
 

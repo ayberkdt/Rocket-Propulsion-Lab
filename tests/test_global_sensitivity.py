@@ -128,6 +128,16 @@ class RankMeasuresKnowTheirLimits(unittest.TestCase):
                               base_samples=4096, bootstrap_resamples=0)
         self.assertGreater(sobol.indices[0].first_order, 0.9)
 
+    def test_output_fixed_by_one_input_leaves_the_other_prcc_undefined(self) -> None:
+        rng = random.Random(12)
+        a = [rng.random() for _ in range(80)]
+        b = [rng.random() for _ in range(80)]
+        result = rank_sensitivity({"a": a, "b": b}, [math.exp(3 * v) for v in a])
+        record = {r.parameter: r for r in result.coefficients}
+        self.assertEqual(record["a"].spearman, 1.0)
+        self.assertIsNone(record["b"].prcc)
+        self.assertIn("output_determined_by_other_inputs", {w.code for w in result.warnings})
+
     def test_constant_collinear_and_hostile_inputs(self) -> None:
         rng = random.Random(1)
         x = [rng.random() for _ in range(50)]
@@ -236,6 +246,47 @@ class SobolAgainstClosedForms(unittest.TestCase):
             sobol_indices(lambda p: 3.0, params)
         with self.assertRaises(DomainError):
             sobol_indices(lambda p: math.nan if p["x"] > 0.5 else 1.0, params)
+
+
+class BlowdownUncertaintyRoute(unittest.TestCase):
+    """Rank measures on the blowdown ensemble, recomputed from the realizations the route returns."""
+
+    def test_route_rank_measures_match_scipy_on_its_own_realizations(self) -> None:
+        out = dispatch_calculation("/api/v1/transient/uncertainty", {"sample_count": 64, "seed": 5})
+        series = out["series"]["realizations"]
+        self.assertEqual(series["point_count"], series["source_point_count"])  # nothing thinned
+        columns = series["columns"]
+        inputs = {name.removeprefix("input_"): np.array(values, dtype=float)
+                  for name, values in columns.items() if name.startswith("input_")}
+        self.assertGreaterEqual(len(inputs), 2)
+        for record in out["global_sensitivity"]:
+            metric = record["output"]
+            self.assertNotIn("unavailable", record, record)
+            expected, r2 = numpy_rank_measures(inputs, np.array(columns[metric], dtype=float))
+            with self.subTest(metric=metric):
+                self.assertAlmostEqual(record["rank_r_squared"], r2, delta=1e-9)
+                undefined = 0
+                for coefficient in record["coefficients"]:
+                    spearman, prcc, srrc = expected[coefficient["parameter"]]
+                    self.assertAlmostEqual(coefficient["spearman"], spearman, delta=1e-12)
+                    self.assertAlmostEqual(coefficient["srrc"], srrc, delta=1e-9)
+                    if coefficient["prcc"] is None:
+                        # only when another input fixes the output ranks exactly (|Spearman| = 1)
+                        undefined += 1
+                        self.assertTrue(any(abs(c["spearman"]) == 1.0 for c in record["coefficients"]
+                                            if c["parameter"] != coefficient["parameter"]))
+                    else:
+                        self.assertAlmostEqual(coefficient["prcc"], prcc, delta=1e-9)
+                codes = {w["code"] for w in record["warnings"]}
+                self.assertEqual(undefined > 0, "output_determined_by_other_inputs" in codes)
+                inadequate = "rank_regression_inadequate" in {w["code"] for w in record["warnings"]}
+                self.assertEqual(inadequate, record["rank_r_squared"] < RANK_R_SQUARED_ADEQUATE)
+        by_metric = {r["output"]: {c["parameter"]: c for c in r["coefficients"]} for r in out["global_sensitivity"]}
+        # physics: with the tank and cutoff pressure fixed, the propellant expelled (and so the
+        # impulse) is set by the initial tank pressure alone, monotonically
+        for metric in ("delivered_impulse_n_s", "consumed_propellant_kg"):
+            self.assertEqual(by_metric[metric]["initial_pressure_pa"]["spearman"], 1.0)
+            self.assertIsNone(by_metric[metric]["rated_delivered_thrust_n"]["prcc"])
 
 
 class RocketEquationThroughTheRoute(unittest.TestCase):

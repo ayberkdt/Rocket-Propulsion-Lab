@@ -37,6 +37,21 @@ documented scaling requirements.
   Sidera's public propagator and in Lunaris (`SIDERA_NATIVE_WRAPPER.md`,
   `LUNARIS_INTEGRATION.md`).
 
+- Independent-oracle tests (`ADVERSARIAL_TESTING.md`): compressible
+  relations, conduction, real-fluid EOS derivatives, Gibbs equilibrium,
+  kinetics, radiation view factors (Monte Carlo ray tracing), rocket
+  performance identities, vortex panels, global sensitivity (Ishigami and
+  rocket-equation closed forms) and the 2-D channel wall (an independent
+  `scipy.sparse` solve of the same cells agrees to 1e-9); each fix was
+  mutation-checked by re-introducing the defect.
+- Refusal at public boundaries: every field of every HTTP route is driven
+  with type garbage and with 0, -0, -1, 1e-300, ±1e300 and 10^9; only
+  library errors may escape and answers must be strict JSON
+  (`tests/test_api_adversarial_fuzz.py`). Combinations of extreme fields are
+  not enumerated.
+- Hot-fire comparisons of the regenerative-cooling gas side and heat load
+  (NASA TN D-6396, TN D-3532; `REGENERATIVE_COOLING.md`).
+
 Several comparisons are against wind-tunnel or flight-derived data (NACA TR
 824 section lift, NACA TR 1048 body normal force). Where the model disagrees
 with measurement the disagreement is reported, not tuned away: inviscid
@@ -57,10 +72,11 @@ normal force is 22–24 % above the TR 1048 measured point.
 - Documented scaling requirements from that test article to flight.
 
 No software change can supply these; they come from hardware tests. Until
-they exist, no claim of zero modelling error is possible. Individual models
-state validity ranges; refusal behavior needs verification at each public
-boundary. A passing suite does not prove that every out-of-range or malformed
-input is rejected. The current upstream reconciliation and remaining software
+they exist, no claim of zero modelling error is possible, and the passing
+suite is software evidence, not a TRL 5 demonstration. Individual models state
+validity ranges; the route fuzzer checks single-field refusal at every public
+boundary, but a passing suite does not prove that every combination of
+out-of-range or malformed inputs is rejected. The current upstream reconciliation and remaining software
 review are tracked in [CURRENT_UPSTREAM_REVIEW.md](CURRENT_UPSTREAM_REVIEW.md).
 
 ## References

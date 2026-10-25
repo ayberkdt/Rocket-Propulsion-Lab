@@ -1,5 +1,17 @@
 # Release notes
 
+Closed the remaining simplifications named in the previous entry. The
+regenerative solver gains an optional two-dimensional wall cross-section at
+every station (`wall_model="2d"`, peak hot-wall temperature above the
+channel centre, verified against an independent sparse solve), channel-count
+changes along the chamber with GFSSP sudden-area-change losses, and a
+corrected momentum term: Euler's `ρ v dv = −dp` replaces `Δ(G²/ρ)`, which is
+only right for a constant channel area and mis-counted the reversible
+pressure change of channels narrowed at the throat. The blowdown uncertainty
+route returns Spearman, PRCC and SRRC per metric; PRCC is reported as
+undefined (with a warning) when the other inputs already fix the output
+ranks, instead of returning round-off.
+
 Raised three simplified parts to engineering models. The regenerative-cooling
 solver accepts channels that vary along the chamber (`ChannelProfile`) and
 helical channels, and its coolant pressure drop now carries the RTE momentum
