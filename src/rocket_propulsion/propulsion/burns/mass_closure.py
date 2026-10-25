@@ -1,4 +1,16 @@
-"""Exact supplied-binary inventory arithmetic and portable decision evidence."""
+"""Exact mass-closure residuals for vehicle mass versus tracked propellant.
+
+The closure residual is ``m_vehicle - m_other - sum(m_propellant)``; it is
+formed from the exact rational values of the supplied binary64 masses [1]_ and
+exported once, together with the unrounded residual as an integer ratio so a
+consumer can make the same sign decision portably.
+
+References
+----------
+.. [1] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain
+       their exact binary value as a rational,
+       https://docs.python.org/3.12/library/fractions.html.
+"""
 
 from fractions import Fraction
 
@@ -10,7 +22,24 @@ _MASS_CLOSURE_POLICY = "exact_binary_inventory_residual_and_ratio_decision_v2"
 
 
 def _inventory_ledger(vehicle_mass, other_mass, inventories):
-    """Sum selected states before exporting; retain the unrounded residual ratio."""
+    """Return tracked mass, residual, relative residual and the exact residual ratio.
+
+    The tracked inventories are summed exactly before export and the residual
+    ``vehicle - other - tracked`` keeps its exact rational value [1]_ as
+    ``(numerator, denominator)`` strings.
+
+    Raises
+    ------
+    DomainError
+        If the vehicle mass is not positive, the other mass is negative, or an
+        exported value is not a finite float.
+
+    References
+    ----------
+    .. [1] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain
+           their exact binary value as a rational,
+           https://docs.python.org/3.12/library/fractions.html.
+    """
     vehicle, other = _fraction(vehicle_mass), _fraction(other_mass)
     if vehicle <= 0 or other < 0:
         raise DomainError("Vehicle mass must be positive and other mass non-negative.")
@@ -23,7 +52,14 @@ def _inventory_ledger(vehicle_mass, other_mass, inventories):
 
 
 def _closure_ratio(value, rounded_residual):
-    """Validate a supplied numerical ratio, or use a manual record's point value."""
+    """Return the exact residual ratio, or the reported residual when none is supplied.
+
+    Raises
+    ------
+    DomainError
+        If the ratio is not two integers with a positive denominator, or its
+        nearest float differs from ``rounded_residual``.
+    """
     label = "Mass closure residual ratio"
     if value is None:
         return _fraction(rounded_residual)

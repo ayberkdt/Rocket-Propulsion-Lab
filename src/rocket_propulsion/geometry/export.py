@@ -1,4 +1,25 @@
-"""Replayed preliminary text exchange of a closed sampled fluid domain."""
+"""Text exports of a sampled axisymmetric nozzle fluid domain.
+
+The exported CSV station table, SVG side view, DXF closed polyline and ASCII
+STL surface describe the closed fluid domain bounded by the sampled wall and
+the inlet and exit planes. They are intended for visualization and data
+exchange; they are neither a qualified wall design nor a manufacturing model.
+Every bundle is regenerated from its retained inputs on construction, so its
+text always matches those inputs. DXF output follows [1]_ and [2]_, ASCII STL
+output [3]_ and [4]_, and contour names obey the XML 1.0 character rules [5]_.
+
+References
+----------
+.. [1] AUTODESK-LWPOLYLINE. Autodesk, DXF lightweight-polyline subclass,
+       vertex/count and closure group codes.
+.. [2] AUTODESK-INSUNITS. Autodesk, drawing insertion unit convention.
+.. [3] LOC-STL-FAMILY. Library of Congress, STL format family: oriented
+       triangular surface and format limitations.
+.. [4] LOC-STL-ASCII. Library of Congress, ASCII STL records and metadata
+       limitations.
+.. [5] W3C-XML10. W3C, "Extensible Markup Language (XML) 1.0", fifth edition,
+       permitted characters and literal character data.
+"""
 
 from __future__ import annotations
 
@@ -20,7 +41,15 @@ _MESH_ROLE = 'closed_fluid_domain_visualization'
 
 
 def _owned(value, kind, label):
-    """Copy retained records, typing malformed protocols without hiding callbacks."""
+    """Return a fresh ``kind`` instance copied from a mapping or a ``kind`` record.
+
+    Raises
+    ------
+    DomainError
+        If ``value`` is neither a mapping nor a ``kind`` instance, or if
+        construction from it fails with a type, value, key, index, attribute
+        or overflow error. Other exceptions propagate unchanged.
+    """
     try:
         if isinstance(value, Mapping):
             return kind(**dict(value))
@@ -33,7 +62,37 @@ def _owned(value, kind, label):
 
 @dataclass(frozen=True, slots=True)
 class ContourExportInputs:
-    """Owned quantities consumed by export; no authentication of a flow solver."""
+    """Validated, owned copy of the contour quantities consumed by the export.
+
+    The record does not verify that the stations come from a particular flow
+    solver; it checks only their internal geometric consistency.
+
+    Attributes
+    ----------
+    contour : str
+        Contour name; it must not contain characters forbidden in XML 1.0
+        [1]_.
+    throat_area_m2 : float
+        Positive throat area in m^2.
+    area_ratio : float
+        Exit-to-throat area ratio, at least one.
+    stations : tuple of NozzleStation
+        At least two stations with strictly increasing ``x_m``, positive
+        radius, area, area ratio and stagnation ratios, and non-negative Mach.
+    angular_segments : int, default 32
+        Number of STL facets around the circumference, between 8 and 128.
+
+    Raises
+    ------
+    DomainError
+        If any field violates the constraints above or the redundant station
+        geometry disagrees beyond binary64 representation cells.
+
+    References
+    ----------
+    .. [1] W3C-XML10. W3C, "Extensible Markup Language (XML) 1.0", fifth edition,
+           permitted characters and literal character data.
+    """
     contour: str
     throat_area_m2: float
     area_ratio: float
@@ -73,7 +132,49 @@ class ContourExportInputs:
 
 @dataclass(frozen=True, slots=True)
 class ContourExportBundle:
-    """Replayed files for visualization/exchange, not a nozzle wall design."""
+    """Export texts for visualization and exchange, not a nozzle wall design.
+
+    Construction re-renders all four texts from ``inputs`` and rejects any
+    mismatch, so a bundle always reproduces from its retained inputs.
+
+    Attributes
+    ----------
+    csv : str
+        Station table with 17 significant digits per value.
+    svg : str
+        Independently scaled side view with model metadata.
+    dxf : str
+        Closed ``LWPOLYLINE`` of the upper and mirrored lower wall in metres
+        (``$INSUNITS`` = 6) [1]_, [2]_.
+    stl : str
+        ASCII STL surface of the closed fluid domain [3]_, [4]_.
+    inputs : ContourExportInputs
+        Retained source quantities.
+    coordinate_unit : str, default "m"
+        Coordinate unit of all texts; STL itself carries no unit.
+    mesh_role : str
+        Fixed statement that the mesh is a closed fluid-domain visualization.
+    manufacturing_qualified, physical_model_qualified : bool
+        Always ``False``.
+    serialization_policy : str
+        Identifier of the numeric serialization policy.
+
+    Raises
+    ------
+    DomainError
+        If a policy field differs from its fixed value, a qualification flag
+        is set, or a text does not reproduce from ``inputs``.
+
+    References
+    ----------
+    .. [1] AUTODESK-LWPOLYLINE. Autodesk, DXF lightweight-polyline subclass,
+           vertex/count and closure group codes.
+    .. [2] AUTODESK-INSUNITS. Autodesk, drawing insertion unit convention.
+    .. [3] LOC-STL-FAMILY. Library of Congress, STL format family: oriented
+           triangular surface and format limitations.
+    .. [4] LOC-STL-ASCII. Library of Congress, ASCII STL records and metadata
+           limitations.
+    """
 
     csv: str
     svg: str
@@ -104,6 +205,11 @@ class ContourExportBundle:
 
 
 def _csv(contour: ContourExportInputs) -> str:
+    """Return the station table as comma-separated text with a header row.
+
+    Values use 17 significant digits so every binary64 value round-trips
+    exactly; every line, including the last, ends with a newline.
+    """
     header = (
         "x_m,radius_m,area_m2,area_ratio,mach,"
         "pressure_total_ratio,temperature_total_ratio"
@@ -128,6 +234,18 @@ def _csv(contour: ContourExportInputs) -> str:
 
 
 def _svg(contour: ContourExportInputs) -> str:
+    """Return a 1200 x 500 SVG side view of the contour and its centreline.
+
+    The view is scaled independently in x and r with exact rational
+    arithmetic and is not a dimensioned drawing. The contour name is
+    XML-escaped, including carriage returns, before it is written into the
+    metadata element [1]_.
+
+    References
+    ----------
+    .. [1] W3C-XML10. W3C, "Extensible Markup Language (XML) 1.0", fifth edition,
+           permitted characters and literal character data.
+    """
     stations = contour.stations
     minimum_x = stations[0].x_m
     maximum_x = stations[-1].x_m
@@ -160,6 +278,19 @@ def _svg(contour: ContourExportInputs) -> str:
 
 
 def _dxf(contour: ContourExportInputs) -> str:
+    """Return a minimal DXF drawing with one closed lightweight polyline.
+
+    The header sets ``$INSUNITS`` to 6 (metres) [2]_. The ``LWPOLYLINE`` entity
+    lists the upper wall followed by the mirrored lower wall, with group code
+    90 giving the vertex count and group code 70 set to 1 (closed) [1]_.
+    Coordinates use 17 significant digits.
+
+    References
+    ----------
+    .. [1] AUTODESK-LWPOLYLINE. Autodesk, DXF lightweight-polyline subclass,
+           vertex/count and closure group codes.
+    .. [2] AUTODESK-INSUNITS. Autodesk, drawing insertion unit convention.
+    """
     points = [(station.x_m, station.radius_m) for station in contour.stations]
     points.extend((station.x_m, -station.radius_m) for station in reversed(contour.stations))
     output = ["0", "SECTION", "2", "HEADER", "9", "$ACADVER", "1", "AC1015", "9", "$INSUNITS", "70", "6", "0", "ENDSEC"]
@@ -176,6 +307,17 @@ def _normal_and_triangle(
     b: tuple[float, float, float],
     c: tuple[float, float, float],
 ) -> str:
+    """Return one ASCII STL ``facet`` record for the triangle ``(a, b, c)``.
+
+    The facet normal is computed from the serialized vertices and the vertex
+    order follows the right-hand rule [1]_.
+
+    References
+    ----------
+    .. [1] LOC-STL-ASCII. Library of Congress, ASCII STL records and metadata
+           limitations.
+    """
+
     unit = _unit_normal(a, b, c)
     lines = [f"  facet normal {unit[0]:.17g} {unit[1]:.17g} {unit[2]:.17g}", "    outer loop"]
     lines.extend(f"      vertex {x:.17g} {y:.17g} {z:.17g}" for x, y, z in (a, b, c))
@@ -184,6 +326,20 @@ def _normal_and_triangle(
 
 
 def _stl(contour: ContourExportInputs, angular_segments: int) -> str:
+    """Return a closed ASCII STL surface of the sampled fluid domain.
+
+    Adjacent station rings are joined by two triangles per angular segment,
+    and the inlet and exit planes are closed by triangle fans about the axis,
+    with outward-facing normals. STL carries no unit; coordinates are in
+    metres as declared by the enclosing bundle [1]_, [2]_.
+
+    References
+    ----------
+    .. [1] LOC-STL-FAMILY. Library of Congress, STL format family: oriented
+           triangular surface and format limitations.
+    .. [2] LOC-STL-ASCII. Library of Congress, ASCII STL records and metadata
+           limitations.
+    """
     rings = [_ring(station, angular_segments) for station in contour.stations]
     triangles: list[str] = []
     for left, right in pairwise(rings):
@@ -202,18 +358,53 @@ def _stl(contour: ContourExportInputs, angular_segments: int) -> str:
 
 @lru_cache(maxsize=1)
 def _render(inputs):
-    """Bound retained mesh memory while allowing factory/replay to share rendering."""
+    """Return ``(csv, svg, dxf, stl)`` for ``inputs``.
+
+    A one-entry cache lets :func:`export_nozzle_contour` and the bundle's
+    reproduction check share one rendering while bounding retained memory.
+    """
     return _csv(inputs), _svg(inputs), _dxf(inputs), _stl(inputs, inputs.angular_segments)
 
 
 def export_nozzle_contour(
     contour: NozzleContour, *, angular_segments: int = 32
 ) -> ContourExportBundle:
-    """Export a sampled closed fluid domain; no wall/flow/manufacturing qualification.
+    """Export a sampled closed fluid domain as CSV, SVG, DXF and ASCII STL text.
 
-    CSV/DXF/STL use 17 significant digits for binary64 coordinate round trips.
-    STL itself carries no standardized unit: consume ``coordinate_unit='m'``
-    from the enclosing bundle. SVG is an independently scaled viewport view.
+    Parameters
+    ----------
+    contour : NozzleContour
+        Contour whose stations define the wall.
+    angular_segments : int, default 32
+        Number of STL facets around the circumference, between 8 and 128.
+
+    Returns
+    -------
+    ContourExportBundle
+        The four texts with their retained inputs and fixed policy fields.
+
+    Raises
+    ------
+    DomainError
+        If ``contour`` is not a :class:`NozzleContour` or its stations fail
+        the checks of :class:`ContourExportInputs`.
+
+    Notes
+    -----
+    The export carries no wall, flow or manufacturing qualification. CSV, DXF
+    and STL use 17 significant digits for binary64 coordinate round trips.
+    STL itself carries no standardized unit [3]_: consume
+    ``coordinate_unit='m'`` from the enclosing bundle. DXF declares metres
+    through ``$INSUNITS`` [2]_ and stores the outline as a closed lightweight
+    polyline [1]_. SVG is an independently scaled viewport view.
+
+    References
+    ----------
+    .. [1] AUTODESK-LWPOLYLINE. Autodesk, DXF lightweight-polyline subclass,
+           vertex/count and closure group codes.
+    .. [2] AUTODESK-INSUNITS. Autodesk, drawing insertion unit convention.
+    .. [3] LOC-STL-FAMILY. Library of Congress, STL format family: oriented
+           triangular surface and format limitations.
     """
     if not isinstance(contour, NozzleContour):
         raise DomainError('A NozzleContour record is required.', field='Export contour')

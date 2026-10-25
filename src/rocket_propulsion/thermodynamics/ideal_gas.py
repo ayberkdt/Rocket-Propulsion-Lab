@@ -1,4 +1,12 @@
-"""Calorically perfect ideal-gas state relations."""
+"""Calorically perfect ideal-gas state relations.
+
+References
+----------
+.. [1] NASA-GAS. NASA Glenn Research Center, "Equation of State (Ideal Gas)",
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/equation-of-state-ideal-gas-2/
+.. [2] NASA Glenn Research Center, "Specific Heats",
+       https://www.grc.nasa.gov/www/k-12/airplane/specheat.html
+"""
 
 from dataclasses import dataclass
 from math import isfinite, sqrt
@@ -9,7 +17,39 @@ from rocket_propulsion.core.errors import DomainError
 
 @dataclass(frozen=True, slots=True)
 class IdealGasState:
-    """A complete SI-unit state for a calorically perfect ideal gas."""
+    """Complete SI state of a calorically perfect ideal gas.
+
+    Attributes
+    ----------
+    pressure_pa : float
+        Absolute static pressure, Pa.
+    temperature_k : float
+        Absolute static temperature, K.
+    density_kg_m3 : float
+        Static density, kg/m^3.
+    gas_constant_j_kg_k : float
+        Specific gas constant R, J/(kg K).
+    gamma : float
+        Ratio of specific heats cp/cv.
+    cp_j_kg_k, cv_j_kg_k : float
+        Constant-pressure and constant-volume specific heats, J/(kg K).
+    enthalpy_j_kg : float
+        Sensible enthalpy ``cp T`` referenced to 0 K, J/kg.
+    internal_energy_j_kg : float
+        Sensible internal energy ``cv T`` referenced to 0 K, J/kg.
+    speed_of_sound_m_s : float
+        ``sqrt(gamma R T)``, m/s.
+
+    References
+    ----------
+    .. [1] NASA-GAS. NASA Glenn Research Center, "Equation of State (Ideal Gas)",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/equation-of-state-ideal-gas-2/
+    .. [2] NASA Glenn Research Center, "Specific Heats",
+           https://www.grc.nasa.gov/www/k-12/airplane/specheat.html
+    .. [3] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953,
+           https://ntrs.nasa.gov/citations/19930091059
+    """
 
     pressure_pa: float
     temperature_k: float
@@ -31,20 +71,53 @@ def complete_ideal_gas_state(
     gas_constant_j_kg_k: float = AIR_SPECIFIC_GAS_CONSTANT_J_KG_K,
     gamma: float = 1.4,
 ) -> IdealGasState:
-    """Complete an ideal-gas state from exactly two of ``p``, ``T``, and ``rho``.
+    """Complete an ideal-gas state from exactly two of ``p``, ``T`` and ``rho``.
 
-    The missing state property follows from ``p = rho R T``. Calorically perfect
-    heat capacities use ``cv = R/(gamma-1)`` and ``cp = gamma*cv``.
+    Parameters
+    ----------
+    pressure_pa : float, optional
+        Absolute static pressure, Pa.
+    temperature_k : float, optional
+        Absolute static temperature, K.
+    density_kg_m3 : float, optional
+        Static density, kg/m^3.
+    gas_constant_j_kg_k : float, optional
+        Specific gas constant, J/(kg K). Defaults to the registered dry-air
+        value ``AIR_SPECIFIC_GAS_CONSTANT_J_KG_K``.
+    gamma : float, optional
+        Ratio of specific heats; must exceed one.
 
-    Args:
-        pressure_pa: Absolute static pressure in pascals.
-        temperature_k: Absolute static temperature in kelvin.
-        density_kg_m3: Static density in kilograms per cubic metre.
-        gas_constant_j_kg_k: Specific gas constant in J/(kg K).
-        gamma: Ratio of specific heats.
+    Returns
+    -------
+    IdealGasState
+        Complete immutable state in SI units.
 
-    Returns:
-        A complete immutable thermodynamic state in SI units.
+    Raises
+    ------
+    DomainError
+        If the gas constant or ``gamma`` is out of range, if not exactly two
+        state properties are supplied, or if a supplied property is not
+        finite and positive.
+
+    Notes
+    -----
+    The missing property follows from the thermal equation of state
+    ``p = rho R T`` [1]_. Calorically perfect heat capacities use
+    ``cp - cv = R`` and ``gamma = cp/cv`` [2]_, giving ``cv = R/(gamma - 1)``
+    and ``cp = gamma cv``. Enthalpy and internal energy are sensible values
+    referenced to 0 K, and the speed of sound is ``sqrt(gamma R T)`` [3]_. Real-gas
+    effects, dissociation and temperature-dependent heat capacities are not
+    modelled.
+
+    References
+    ----------
+    .. [1] NASA-GAS. NASA Glenn Research Center, "Equation of State (Ideal Gas)",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/equation-of-state-ideal-gas-2/
+    .. [2] NASA Glenn Research Center, "Specific Heats",
+           https://www.grc.nasa.gov/www/k-12/airplane/specheat.html
+    .. [3] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953,
+           https://ntrs.nasa.gov/citations/19930091059
     """
 
     if not isfinite(gas_constant_j_kg_k) or gas_constant_j_kg_k <= 0.0:

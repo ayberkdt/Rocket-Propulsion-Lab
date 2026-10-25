@@ -1,8 +1,20 @@
 """Bounded engine maps with independent force and propellant-stream scales.
 
-Unlike a single total-flow multiplier, this surface preserves oxidizer/fuel or
-other named stream response independently.  That makes mixture-ratio drift and
-component-specific feed sensitivities visible to a numerical propagator.
+Unlike a single total-flow multiplier, this surface carries the oxidizer, fuel
+or other named stream responses independently, so mixture-ratio drift [1]_ and
+component-specific feed sensitivities remain visible to a numerical
+propagator.  Engine performance is tabulated over operating parameters in the
+manner of the trajectory-facing tables of [2]_ and interpolated multilinearly
+inside the grid [3]_; extrapolation is refused.
+
+References
+----------
+.. [1] NASA, "Simulation Analysis of Computer-Controlled Pressurization for
+       Mixture Ratio Control". https://ntrs.nasa.gov/citations/20050206420
+.. [2] NASA, "Parametric Model of an Aerospike Rocket Engine".
+       https://ntrs.nasa.gov/citations/20000031654
+.. [3] SCIPY-1.14.1-REGULAR-GRID. SciPy 1.14.1, "RegularGridInterpolator",
+       rectilinear grids and linear interpolation.
 """
 
 from __future__ import annotations
@@ -50,12 +62,34 @@ STREAM_PERFORMANCE_SURFACE_REFERENCE_IDS = (
 class StreamPerformanceScalePoint:
     """One grid node with independent force and named-stream multipliers.
 
+    Parameters
+    ----------
+    coordinates : tuple of float
+        Non-empty node coordinates, one per surface axis.
+    force_scale : float
+        Positive multiplier on rated delivered thrust.
+    stream_flow_scales : tuple of (str, float)
+        Positive multiplier per uniquely named propellant stream; stored
+        sorted by name.
+
+    Raises
+    ------
+    DomainError
+        If a field has the wrong type, the coordinates are empty, a scale is
+        non-finite or not strictly positive, or a stream name is blank or
+        repeated.
+
+    Notes
+    -----
+    Separate stream multipliers let a map express mixture-ratio shifts [1]_
+    as well as the power-level dependence of a parametric engine table [2]_.
+
     References
     ----------
-    NASA computer-controlled mixture-ratio study:
-    https://ntrs.nasa.gov/citations/20050206420
-    NASA aerospike parametric engine model:
-    https://ntrs.nasa.gov/citations/20000031654
+    .. [1] NASA, "Simulation Analysis of Computer-Controlled Pressurization for
+           Mixture Ratio Control". https://ntrs.nasa.gov/citations/20050206420
+    .. [2] NASA, "Parametric Model of an Aerospike Rocket Engine".
+           https://ntrs.nasa.gov/citations/20000031654
     """
 
     coordinates: tuple[float, ...]
@@ -94,13 +128,37 @@ class StreamPerformanceScalePoint:
 
 @dataclass(frozen=True, slots=True)
 class StreamPerformanceSurfaceEvaluation:
-    """Interpolated force/stream scales and their analytic cell gradients.
+    """Interpolated force and stream scales with their analytic cell gradients.
+
+    Independent per-stream scales represent a mixture-ratio response of the
+    kind studied in [1]_; the reported cell and boundary axes record where in
+    the declared domain the evaluation lies, for the model-use reporting of
+    [2]_.
+
+    Attributes
+    ----------
+    conditions : tuple of (str, float)
+        Operating conditions in axis order, after endpoint snapping.
+    force_scale : float
+        Interpolated thrust multiplier.
+    stream_flow_scales : tuple of (str, float)
+        Interpolated multiplier per stream, sorted by stream name.
+    force_scale_gradient : tuple of (str, float)
+        Partial derivative of the thrust multiplier per axis, inside the cell.
+    stream_flow_scale_gradients : tuple of (str, tuple of (str, float))
+        Partial derivatives of each stream multiplier per axis.
+    cell_lower_coordinates, cell_upper_coordinates : tuple of float
+        Bounds of the interpolation cell that produced the values.
+    boundary_axes : tuple of str
+        Axes on which the condition lies on a grid line (within tolerance),
+        where the gradient is one-sided.
 
     References
     ----------
-    NASA computer-controlled mixture-ratio study:
-    https://ntrs.nasa.gov/citations/20050206420
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [1] NASA, "Simulation Analysis of Computer-Controlled Pressurization for
+           Mixture Ratio Control". https://ntrs.nasa.gov/citations/20050206420
+    .. [2] NASA-STD-7009B. NASA, "Standard for Models and Simulations", 2024.
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
     """
 
     conditions: tuple[tuple[str, float], ...]
@@ -115,22 +173,53 @@ class StreamPerformanceSurfaceEvaluation:
 
 @dataclass(frozen=True, slots=True)
 class RectilinearStreamPerformanceSurface:
-    """Complete N-D map of force and independent named-stream scales.
+    """Complete N-dimensional map of force and independent named-stream scales.
 
-    Every Cartesian node is required exactly once and every node must expose
-    the same stream identifiers.  Multilinear interpolation is performed on
-    force and each stream independently. Values beyond the endpoint tolerance
-    are refused; accepted round-off offsets are snapped to the endpoint.
+    Parameters
+    ----------
+    axes : tuple of PerformanceAxis
+        At least one uniquely named, unit-labelled grid axis.
+    points : tuple of StreamPerformanceScalePoint
+        Exactly one node per point of the Cartesian product of the axes.
+    source_id : str
+        Non-blank identifier of the data source.
+    source_sha256 : str
+        SHA-256 hex digest of the source data.
+    reference_ids : tuple of str, default STREAM_PERFORMANCE_SURFACE_REFERENCE_IDS
+        Non-empty, unique source identifiers.
+    schema : str, default STREAM_PERFORMANCE_SURFACE_SCHEMA
+        Document schema; only the current schema is accepted.
+
+    Raises
+    ------
+    DomainError
+        If a field has the wrong type, or the schema, axes, provenance fields
+        or grid violate the contract: missing or extra nodes, mismatched
+        dimensionality, or nodes exposing different stream identifiers.
+
+    Notes
+    -----
+    Every Cartesian node is required exactly once and every node exposes the
+    same stream identifiers.  Force and each stream are interpolated
+    multilinearly and independently [3]_, so mixture-ratio variation across
+    the map [1]_ is preserved; the grid layout follows the parameterized
+    engine tables of [2]_.  Conditions beyond a relative endpoint tolerance of
+    ``1e-12`` are refused; accepted round-off offsets are snapped to the
+    endpoint.  [4]_ and [5]_ give the transient-modelling and model-credibility
+    context.
 
     References
     ----------
-    NASA computer-controlled mixture-ratio study:
-    https://ntrs.nasa.gov/citations/20050206420
-    NASA aerospike parametric engine model:
-    https://ntrs.nasa.gov/citations/20000031654
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [1] NASA, "Simulation Analysis of Computer-Controlled Pressurization for
+           Mixture Ratio Control". https://ntrs.nasa.gov/citations/20050206420
+    .. [2] NASA, "Parametric Model of an Aerospike Rocket Engine".
+           https://ntrs.nasa.gov/citations/20000031654
+    .. [3] SCIPY-1.14.1-REGULAR-GRID. SciPy 1.14.1, "RegularGridInterpolator",
+           rectilinear grids and linear interpolation.
+    .. [4] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
+    .. [5] NASA-STD-7009B. NASA, "Standard for Models and Simulations", 2024.
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
     """
 
     axes: tuple[PerformanceAxis, ...]
@@ -193,34 +282,57 @@ class RectilinearStreamPerformanceSurface:
 
     @property
     def stream_ids(self) -> tuple[str, ...]:
-        """Return the stable sorted output-stream order.
+        """Stream identifiers in the stable, sorted output order [1]_.
 
         References
         ----------
-        NASA computer-controlled mixture-ratio study:
-        https://ntrs.nasa.gov/citations/20050206420
+        .. [1] NASA, "Simulation Analysis of Computer-Controlled Pressurization for
+               Mixture Ratio Control". https://ntrs.nasa.gov/citations/20050206420
         """
 
         return tuple(name for name, _ in self.points[0].stream_flow_scales)
 
     @property
     def surface_hash(self) -> str:
-        """Return content identity for grid, channels, and provenance.
+        """SHA-256 content identity of the grid, channels and provenance.
+
+        The hash covers the canonical document without its own hash field, so
+        any change to values, units or provenance changes the identity used
+        for traceable model reporting [1]_.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations", 2024.
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
         return canonical_sha256(self.to_dict(include_hash=False))
 
     def to_dict(self, *, include_hash: bool = True) -> dict[str, object]:
-        """Return deterministic JSON-compatible surface content.
+        """Return the deterministic, JSON-compatible surface document.
+
+        Parameters
+        ----------
+        include_hash : bool, default True
+            Whether to add the ``surface_hash`` field.
+
+        Returns
+        -------
+        dict
+            Schema, provenance, unit-labelled axes, nodes sorted by
+            coordinates, reference identifiers and interpolation policy.
+
+        Notes
+        -----
+        The document is versioned and unit-explicit in the manner of [2]_ and
+        supports the reporting requirements of [1]_.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-        CCSDS-502.0-B-3: https://ccsds.org/Pubs/502x0b3e1.pdf
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations", 2024.
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [2] CCSDS 502.0-B-3. CCSDS, "Orbit Data Messages".
+               https://ccsds.org/Pubs/502x0b3e1.pdf
         """
 
         payload: dict[str, object] = {
@@ -247,11 +359,22 @@ class RectilinearStreamPerformanceSurface:
         return payload
 
     def to_json(self, *, indent: int | None = 2) -> str:
-        """Serialize the complete hash-bound stream surface.
+        """Serialize the complete hash-bound stream surface as JSON text.
+
+        Parameters
+        ----------
+        indent : int or None, default 2
+            JSON indentation; ``None`` gives the compact form.
+
+        Returns
+        -------
+        str
+            Key-sorted JSON without NaN or infinity tokens [1]_.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+               Format". https://www.rfc-editor.org/rfc/rfc8259
         """
 
         return json.dumps(
@@ -266,9 +389,32 @@ class RectilinearStreamPerformanceSurface:
     def from_dict(cls, payload: Mapping[str, object]) -> RectilinearStreamPerformanceSurface:
         """Reopen a stream surface and reject semantic or hash changes.
 
+        Parameters
+        ----------
+        payload : Mapping
+            Document produced by `to_dict`.
+
+        Returns
+        -------
+        RectilinearStreamPerformanceSurface
+            The reconstructed, validated surface.
+
+        Raises
+        ------
+        InputError
+            If the document is malformed, its ``surface_hash`` does not match
+            its contents, or its numerical policies differ from the current
+            ones.
+
+        Notes
+        -----
+        Hash verification keeps a reopened map traceable to the reported
+        model [1]_.
+
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations", 2024.
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
         _surface_document(payload, streams=True)
@@ -308,22 +454,45 @@ class RectilinearStreamPerformanceSurface:
 
     @classmethod
     def from_json(cls, text: str) -> RectilinearStreamPerformanceSurface:
-        """Deserialize and integrity-check a stream surface.
+        """Deserialize and integrity-check a stream surface from JSON text.
+
+        Parameters
+        ----------
+        text : str
+            JSON document produced by `to_json`.
+
+        Returns
+        -------
+        RectilinearStreamPerformanceSurface
+            The reconstructed, validated surface.
+
+        Raises
+        ------
+        InputError
+            If the text is not a conforming JSON document [1]_ or fails the
+            checks of `from_dict`.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+               Format". https://www.rfc-editor.org/rfc/rfc8259
         """
 
         return read_json_document(text, "Stream-performance artifact", cls.from_dict)  # type: ignore[return-value]
 
     def validity_surfaces(self) -> tuple[PerformanceValiditySurface, ...]:
-        """Return lower and upper event roots for every input coordinate.
+        """Return lower and upper validity event surfaces for every axis.
+
+        Returns
+        -------
+        tuple of PerformanceValiditySurface
+            Two surfaces per axis, at its minimum and maximum, for a
+            propagator's event detection [1]_.
 
         References
         ----------
-        Orekit EventDetectorsProvider 13.1.5 API:
-        https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetectorsProvider.html
+        .. [1] Orekit 13.1.5, "PropulsionModel / EventDetector API", the
+               propagation-time force, parameter-driver and event contract.
         """
 
         return tuple(
@@ -348,17 +517,27 @@ class RectilinearStreamPerformanceSurface:
         )
 
     def grid_line_surfaces(self) -> tuple[PerformanceGridLineSurface, ...]:
-        """Return non-stopping roots at interior interpolation-grid lines.
+        """Return non-stopping event surfaces at interior grid lines.
 
-        A state-transition or variational-equation consumer should restart at
-        these derivative kinks even though the interpolated force and stream
-        flows remain continuous.
+        Returns
+        -------
+        tuple of PerformanceGridLineSurface
+            One surface per interior grid value of every axis.
+
+        Notes
+        -----
+        Multilinear interpolation [2]_ is continuous, but its gradient jumps
+        across grid lines.  A state-transition or variational-equation consumer
+        restarts integration at these derivative kinks, detected as propagator
+        events [1]_, even though the interpolated force and stream flows remain
+        continuous.
 
         References
         ----------
-        Orekit EventDetectorsProvider 13.1.5 API:
-        https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetectorsProvider.html
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] Orekit 13.1.5, "PropulsionModel / EventDetector API", the
+               propagation-time force, parameter-driver and event contract.
+        .. [2] SCIPY-1.14.1-REGULAR-GRID. SciPy 1.14.1, "RegularGridInterpolator",
+               rectilinear grids and linear interpolation.
         """
 
         return tuple(
@@ -373,13 +552,41 @@ class RectilinearStreamPerformanceSurface:
         )
 
     def evaluate(self, conditions: Mapping[str, float]) -> StreamPerformanceSurfaceEvaluation:
-        """Interpolate force/stream scales and analytic gradients.
+        """Interpolate force and stream scales with their analytic gradients.
+
+        Parameters
+        ----------
+        conditions : Mapping of str to float
+            One value per surface axis, keyed by axis name.
+
+        Returns
+        -------
+        StreamPerformanceSurfaceEvaluation
+            Interpolated multipliers, per-axis gradients and cell bounds.
+
+        Raises
+        ------
+        DomainError
+            If the condition names differ from the axis names, or a value lies
+            outside its axis by more than the endpoint tolerance
+            ``max(1e-12, 1e-12 * max(|min|, |max|))``.
+
+        Notes
+        -----
+        On the cell bracketing the condition, each output is the multilinear
+        blend ``sum_c w_c * v_c`` of its ``2**N`` corner values, where ``w_c``
+        is the product of the per-axis linear weights [2]_; the gradients are
+        the exact derivatives of the same polynomial.  Weights and sums are
+        accumulated in exact rational arithmetic and rounded once on export.
+        Independent stream multipliers preserve mixture-ratio variation [1]_.
+        Values within the endpoint tolerance are snapped to the endpoint.
 
         References
         ----------
-        NASA computer-controlled mixture-ratio study:
-        https://ntrs.nasa.gov/citations/20050206420
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] NASA, "Simulation Analysis of Computer-Controlled Pressurization for
+               Mixture Ratio Control". https://ntrs.nasa.gov/citations/20050206420
+        .. [2] SCIPY-1.14.1-REGULAR-GRID. SciPy 1.14.1, "RegularGridInterpolator",
+               rectilinear grids and linear interpolation.
         """
 
         supplied = real_mapping(conditions, "Operating conditions")

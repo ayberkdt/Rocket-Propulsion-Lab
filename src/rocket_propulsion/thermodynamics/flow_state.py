@@ -1,4 +1,17 @@
-"""Connections between static, total, and process thermodynamic states."""
+"""Connections between static, stagnation and process thermodynamic states.
+
+All relations assume a calorically perfect gas (constant ``cp``, ``cv`` and
+``gamma``).
+
+References
+----------
+.. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+       Compressible Flow", NACA Report 1135, 1953,
+       https://ntrs.nasa.gov/citations/19930091059
+.. [2] NASA-ENGINESIM-THEORY. NASA Glenn Research Center, ideal gas turbine
+       temperature/pressure and shaft-work relations,
+       https://www.grc.nasa.gov/www/k-12/airplane/EngineTheory.pdf
+"""
 
 from dataclasses import dataclass
 from math import isfinite, log, sqrt
@@ -9,7 +22,33 @@ from rocket_propulsion.core.errors import DomainError
 
 @dataclass(frozen=True, slots=True)
 class StagnationState:
-    """Static and stagnation properties for adiabatic perfect-gas flow."""
+    """Static and stagnation properties of adiabatic perfect-gas flow.
+
+    Attributes
+    ----------
+    mach : float
+        Local Mach number.
+    static_pressure_pa, stagnation_pressure_pa : float
+        Static and isentropic stagnation pressure, Pa.
+    static_temperature_k, stagnation_temperature_k : float
+        Static and stagnation temperature, K.
+    static_density_kg_m3, stagnation_density_kg_m3 : float
+        Static and isentropic stagnation density, kg/m^3.
+    speed_of_sound_m_s : float
+        Static speed of sound, m/s.
+    velocity_m_s : float
+        Flow speed ``M a``, m/s.
+    dynamic_pressure_pa : float
+        Conventional dynamic pressure ``rho V^2 / 2``, Pa.
+    static_enthalpy_j_kg, stagnation_enthalpy_j_kg : float
+        ``cp T`` and ``cp T0`` referenced to 0 K, J/kg.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953,
+           https://ntrs.nasa.gov/citations/19930091059
+    """
 
     mach: float
     static_pressure_pa: float
@@ -27,7 +66,37 @@ class StagnationState:
 
 @dataclass(frozen=True, slots=True)
 class IsentropicProcessResult:
-    """Ideal and efficiency-corrected compression or expansion state."""
+    """Ideal and efficiency-corrected compression or expansion state.
+
+    Attributes
+    ----------
+    process : {"compression", "expansion"}
+        Direction implied by the pressure ratio.
+    inlet_pressure_pa, outlet_pressure_pa : float
+        End pressures, Pa.
+    inlet_temperature_k : float
+        Inlet temperature, K.
+    ideal_outlet_temperature_k : float
+        Isentropic outlet temperature, K.
+    actual_outlet_temperature_k : float
+        Outlet temperature after applying the efficiency, K.
+    efficiency : float
+        Isentropic efficiency in (0, 1].
+    specific_work_j_kg : float
+        ``cp (T2 - T1)``; positive for compression (work input), negative for
+        expansion, J/kg.
+    entropy_change_j_kg_k : float
+        Specific entropy change between inlet and actual outlet, J/(kg K).
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953,
+           https://ntrs.nasa.gov/citations/19930091059
+    .. [2] NASA-ENGINESIM-THEORY. NASA Glenn Research Center, ideal gas turbine
+           temperature/pressure and shaft-work relations,
+           https://www.grc.nasa.gov/www/k-12/airplane/EngineTheory.pdf
+    """
 
     process: str
     inlet_pressure_pa: float
@@ -41,6 +110,7 @@ class IsentropicProcessResult:
 
 
 def _positive(value: float, label: str) -> None:
+    """Raise :class:`DomainError` unless ``value`` is finite and positive."""
     if not isfinite(value) or value <= 0.0:
         raise DomainError(f"{label} must be finite and greater than zero.")
 
@@ -55,9 +125,43 @@ def calculate_stagnation_state(
 ) -> StagnationState:
     """Connect a static perfect-gas flow state to its stagnation state.
 
-    Uses adiabatic, reversible relations and ``h0 = h + V²/2``. The dynamic
-    pressure is the conventional ``rho V²/2`` and is not equal to stagnation
-    pressure minus static pressure at finite Mach number.
+    Parameters
+    ----------
+    mach : float
+        Local Mach number; must be finite and positive.
+    static_pressure_pa : float
+        Absolute static pressure, Pa.
+    static_temperature_k : float
+        Absolute static temperature, K.
+    gamma : float, optional
+        Ratio of specific heats; must exceed one.
+    gas_constant_j_kg_k : float, optional
+        Specific gas constant, J/(kg K). Defaults to the registered dry-air
+        value ``AIR_SPECIFIC_GAS_CONSTANT_J_KG_K``.
+
+    Returns
+    -------
+    StagnationState
+        Static and stagnation properties.
+
+    Raises
+    ------
+    DomainError
+        If any input is non-finite or non-positive, or ``gamma <= 1``.
+
+    Notes
+    -----
+    With ``f = 1 + (gamma - 1) M^2 / 2`` the adiabatic, reversible
+    relations [1]_ are ``T0 = T f``, ``p0 = p f^(gamma/(gamma-1))`` and
+    ``rho0 = rho f^(1/(gamma-1))``, consistent with ``h0 = h + V^2/2``. The
+    dynamic pressure is the conventional ``rho V^2 / 2``; at finite Mach
+    number it is not equal to ``p0 - p``.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953,
+           https://ntrs.nasa.gov/citations/19930091059
     """
 
     for value, label in (
@@ -105,9 +209,51 @@ def calculate_isentropic_process(
 ) -> IsentropicProcessResult:
     """Calculate ideal and efficiency-corrected compression or expansion.
 
-    Compressor efficiency is ``(T2s-T1)/(T2-T1)``. Turbine/nozzle efficiency is
-    ``(T1-T2)/(T1-T2s)``. Specific work is positive for compression and negative
-    for expansion under the work-input sign convention.
+    Parameters
+    ----------
+    inlet_pressure_pa, outlet_pressure_pa : float
+        Absolute end pressures, Pa; they must differ. A higher outlet
+        pressure means compression.
+    inlet_temperature_k : float
+        Absolute inlet temperature, K.
+    efficiency : float, optional
+        Isentropic efficiency in (0, 1].
+    gamma : float, optional
+        Ratio of specific heats; must exceed one.
+    gas_constant_j_kg_k : float, optional
+        Specific gas constant, J/(kg K). Defaults to the registered dry-air
+        value ``AIR_SPECIFIC_GAS_CONSTANT_J_KG_K``.
+
+    Returns
+    -------
+    IsentropicProcessResult
+        Ideal and actual outlet temperatures, specific work and entropy
+        change.
+
+    Raises
+    ------
+    DomainError
+        If an input is non-finite or non-positive, ``gamma <= 1``, the
+        efficiency is outside (0, 1], or the pressures are equal.
+
+    Notes
+    -----
+    The isentropic outlet temperature is ``T2s = T1 (p2/p1)^((gamma-1)/gamma)``
+    [1]_. Compressor efficiency is ``(T2s - T1)/(T2 - T1)`` and
+    turbine/nozzle efficiency is ``(T1 - T2)/(T1 - T2s)`` [2]_. Specific work
+    ``cp (T2 - T1)`` is positive for compression and negative for expansion
+    (work-input sign convention). The entropy change is
+    ``cp ln(T2/T1) - R ln(p2/p1)``. The component is adiabatic and steady;
+    heat loss and kinetic-energy changes are not modelled.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953,
+           https://ntrs.nasa.gov/citations/19930091059
+    .. [2] NASA-ENGINESIM-THEORY. NASA Glenn Research Center, ideal gas turbine
+           temperature/pressure and shaft-work relations,
+           https://www.grc.nasa.gov/www/k-12/airplane/EngineTheory.pdf
     """
 
     for value, label in (

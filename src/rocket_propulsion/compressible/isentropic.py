@@ -1,4 +1,13 @@
-"""Isentropic relations for a calorically perfect gas."""
+"""Isentropic relations for a calorically perfect gas.
+
+The module evaluates the one-dimensional isentropic ratios of NACA Report 1135
+[1]_ and inverts them for Mach number.
+
+References
+----------
+.. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+       Compressible Flow", NACA Report 1135, 1953.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +20,29 @@ from rocket_propulsion.core.numerics import bisect_monotonic
 
 @dataclass(frozen=True, slots=True)
 class IsentropicResult:
-    """Dimensionless isentropic properties associated with a Mach number."""
+    """Dimensionless isentropic properties associated with a Mach number [1]_.
+
+    Attributes
+    ----------
+    mach : float
+        Local Mach number.
+    mach_angle_deg : float or None
+        Mach angle ``asin(1/M)`` in degrees; ``None`` for subsonic flow.
+    prandtl_meyer_deg : float or None
+        Prandtl-Meyer function in degrees; ``None`` for subsonic flow.
+    pressure_total_ratio, density_total_ratio, temperature_total_ratio : float
+        Static-to-stagnation ratios ``p/p0``, ``rho/rho0`` and ``T/T0``.
+    pressure_critical_ratio, density_critical_ratio, temperature_critical_ratio : float
+        Ratios ``p/p*``, ``rho/rho*`` and ``T/T*`` to the sonic state at the
+        same stagnation condition.
+    area_critical_ratio : float
+        Area ratio ``A/A*`` for the same mass flow.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    """
 
     mach: float
     mach_angle_deg: float | None
@@ -26,29 +57,53 @@ class IsentropicResult:
 
 
 def _validate_gamma(gamma: float) -> None:
+    """Raise :class:`DomainError` unless ``gamma`` is finite and greater than one."""
     if not isfinite(gamma) or gamma <= 1.0:
         raise DomainError("Gamma must be finite and greater than 1.")
 
 
 def _validate_mach(mach: float) -> None:
+    """Raise :class:`DomainError` unless ``mach`` is finite and positive."""
     if not isfinite(mach) or mach <= 0.0:
         raise DomainError("Mach number must be finite and greater than 0.")
 
 
 def calculate_isentropic(mach: float, gamma: float = 1.4) -> IsentropicResult:
-    """Calculate perfect-gas isentropic flow relations.
+    """Calculate perfect-gas isentropic flow relations at one Mach number.
 
-    Uses ``T/T0 = 1 / (1 + (gamma-1) M²/2)`` and its pressure and density
-    power laws. Starred properties are referenced to the sonic state at the
-    same stagnation condition. Mach and Prandtl-Meyer angles are defined only
-    for ``M >= 1`` and are returned as ``None`` below sonic speed.
+    Parameters
+    ----------
+    mach : float
+        Local Mach number, finite and strictly positive.
+    gamma : float, default 1.4
+        Ratio of specific heats, finite and strictly greater than one.
 
-    Args:
-        mach: Local Mach number, strictly positive.
-        gamma: Ratio of specific heats, strictly greater than one.
+    Returns
+    -------
+    IsentropicResult
+        Immutable set of flow ratios and, for ``M >= 1``, angles in degrees.
 
-    Returns:
-        An immutable set of flow ratios and angles in degrees.
+    Raises
+    ------
+    DomainError
+        If ``mach`` or ``gamma`` is outside its domain.
+
+    Notes
+    -----
+    With ``X = 1 + (gamma - 1) M^2 / 2`` the stagnation ratios are
+    ``T/T0 = 1/X``, ``p/p0 = X^(-gamma/(gamma-1))`` and
+    ``rho/rho0 = X^(-1/(gamma-1))`` [1]_. Starred properties are referenced to
+    the sonic state at the same stagnation condition, and
+    ``A/A* = (1/M) (2 X/(gamma+1))^((gamma+1)/(2(gamma-1)))``. The Mach angle
+    ``mu = asin(1/M)`` and the Prandtl-Meyer function
+    ``nu = sqrt((gamma+1)/(gamma-1)) atan(sqrt((gamma-1)/(gamma+1) (M^2-1)))
+    - atan(sqrt(M^2-1))`` [1]_ are defined only for ``M >= 1`` and are
+    returned as ``None`` below sonic speed.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
     """
 
     _validate_gamma(gamma)
@@ -96,16 +151,48 @@ def mach_from_isentropic(
     value: float,
     gamma: float = 1.4,
 ) -> float:
-    """Recover Mach number from an isentropic property.
+    """Recover Mach number from one isentropic property.
 
-    Supported inputs are ``mach``, ``mach_angle_deg``, ``prandtl_meyer_deg``,
-    ``pressure_total_ratio``, ``density_total_ratio``,
-    ``temperature_total_ratio``, ``pressure_critical_ratio``,
-    ``density_critical_ratio``, ``temperature_critical_ratio``,
-    ``area_ratio_subsonic``, and ``area_ratio_supersonic``.
+    Parameters
+    ----------
+    input_kind : str
+        Name of the supplied property: ``mach``, ``mach_angle_deg``,
+        ``prandtl_meyer_deg``, ``pressure_total_ratio``,
+        ``density_total_ratio``, ``temperature_total_ratio``,
+        ``pressure_critical_ratio``, ``density_critical_ratio``,
+        ``temperature_critical_ratio``, ``area_ratio_subsonic`` or
+        ``area_ratio_supersonic``.
+    value : float
+        Finite value of that property (angles in degrees).
+    gamma : float, default 1.4
+        Ratio of specific heats, finite and strictly greater than one.
 
-    Area ratio is double-valued and therefore requires an explicit branch.
-    Numerical inversions use robust monotonic bisection.
+    Returns
+    -------
+    float
+        Mach number that reproduces ``value`` under
+        :func:`calculate_isentropic`.
+
+    Raises
+    ------
+    DomainError
+        If ``input_kind`` is unsupported, ``value`` is not finite, or
+        ``value`` lies outside the range of the selected property: Mach angle
+        in ``(0, 90]`` degrees, Prandtl-Meyer angle below its ``M -> infinity``
+        limit, positive flow ratios, or ``A/A* >= 1``.
+
+    Notes
+    -----
+    The Mach angle is inverted in closed form, ``M = 1/sin(mu)``. All other
+    properties are inverted by monotonic bisection of the forward relations of
+    [1]_ on a bracket inside ``1e-8 <= M <= 1000``. The area ratio is
+    double-valued, so the subsonic or supersonic branch must be named
+    explicitly; ``A/A* = 1`` returns ``M = 1`` on either branch.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
     """
 
     _validate_gamma(gamma)

@@ -1,7 +1,22 @@
-"""Validated constant-flow ledgers, exact for supplied binary inputs only.
+"""Constant-flow tank inventory ledgers with exact binary-input arithmetic.
 
-These helpers use explicit stream rates, not rounded declared engine totals.
-Arithmetic exactness does not establish physical model or measurement validity.
+Each tank-depleting stream of an :class:`EngineOperatingPoint` drains one
+declared tank at its own mass-flow rate, so a tank's remaining mass after a
+time ``t`` at constant flow is ``m(t) = m_loaded - t * sum(mdot_i)`` [1]_.
+The helpers use the explicit stream rates, not rounded declared engine totals,
+and evaluate every sum and reserve decision on the exact rational values of
+the supplied binary64 inputs [2]_ before a single checked float export.
+
+Arithmetic exactness does not establish physical-model or measurement
+validity; the ledgers assume constant flow and no unaccounted losses.
+
+References
+----------
+.. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+       Elements", 9th ed., Wiley, 2017.
+.. [2] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain their
+       exact binary value as a rational,
+       https://docs.python.org/3.12/library/fractions.html.
 """
 
 from __future__ import annotations
@@ -18,7 +33,7 @@ from .numeric_outputs import _finite_rational
 
 
 def _role(value, label):
-    """Compare recognized role spellings without altering caller records."""
+    """Return ``value`` as a :class:`PropellantRole` without altering the caller's record."""
     if not isinstance(value, str):
         raise DomainError(f"{label} must be a recognized propellant role.", field=label)
     try:
@@ -28,7 +43,7 @@ def _role(value, label):
 
 
 def _checked_streams(operating_point):
-    """Validate ledger inputs and retain exact rates for tracked paths only."""
+    """Validate the operating-point streams and return exact rates of tank-depleting paths."""
     if not isinstance(operating_point, EngineOperatingPoint):
         raise DomainError("Operating point must be an EngineOperatingPoint.", field="Operating point")
     result = []
@@ -47,7 +62,7 @@ def _checked_streams(operating_point):
 
 
 def _checked_tanks(tanks):
-    """Copy and validate ordered inventory, rejecting ambiguous identifiers."""
+    """Validate tanks in order, rejecting duplicate identifiers and invalid reserves."""
     result = []
     seen = set()
     for tank in records(tanks, TankDefinition, "Tanks"):
@@ -66,7 +81,7 @@ def _checked_tanks(tanks):
 
 
 def _group_rates(streams):
-    """Sum all paths before any binary64 rate export."""
+    """Sum the exact stream rates per tank before any binary64 export."""
     result = {}
     for _, tank, _, _, rate in streams:
         result[tank] = result.get(tank, Fraction(0)) + rate
@@ -74,7 +89,14 @@ def _group_rates(streams):
 
 
 def _checked_inventory(tanks, operating_point):
-    """Resolve every tracked path, including zero flow, to one compatible tank."""
+    """Resolve every tracked path, including zero flow, to one compatible tank.
+
+    Raises
+    ------
+    DomainError
+        If a stream names an unknown tank or its propellant or role differs
+        from the tank's.
+    """
     inventory = _checked_tanks(tanks)
     streams = _checked_streams(operating_point)
     index = {row[0]: row for row in inventory}
@@ -90,7 +112,31 @@ def _checked_inventory(tanks, operating_point):
 
 
 def flow_by_tank(operating_point: EngineOperatingPoint) -> dict[str, float]:
-    """Export grouped tracked rates once; reject a non-finite grouped output."""
+    """Return the total tank-depleting mass flow drawn from each tank.
+
+    Parameters
+    ----------
+    operating_point : EngineOperatingPoint
+        Operating point whose ``tank_depleting`` streams are grouped by
+        ``tank_id``.
+
+    Returns
+    -------
+    dict of str to float
+        Mass flow per tank, in kg/s.  The exact per-tank sum of stream rates
+        [1]_ is rounded once on export.
+
+    Raises
+    ------
+    DomainError
+        If a stream is invalid or a grouped rate is not representable as a
+        finite float.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
     return {name: _finite_rational(rate, f"Tank {name!r} flow")
             for name, rate in _group_rates(_checked_streams(operating_point)).items()}
 
@@ -98,20 +144,66 @@ def flow_by_tank(operating_point: EngineOperatingPoint) -> dict[str, float]:
 def validate_tank_coverage(
     tanks: tuple[TankDefinition, ...], operating_point: EngineOperatingPoint
 ) -> None:
-    """Require unambiguous, valid tanks for all tank-depleting streams."""
+    """Require a valid, unambiguous tank for every tank-depleting stream.
+
+    Parameters
+    ----------
+    tanks : tuple of TankDefinition
+        Tanks with unique identifiers and ``0 <= reserve <= loaded`` mass.
+    operating_point : EngineOperatingPoint
+        Operating point whose ``tank_depleting`` streams are checked.
+
+    Raises
+    ------
+    DomainError
+        If a tank or stream is invalid, a tank identifier is duplicated, or a
+        stream names an unknown tank or one with a different propellant or
+        role.
+    """
     _checked_inventory(tanks, operating_point)
 
 
 def tank_duration_limit(
     tanks: tuple[TankDefinition, ...], operating_point: EngineOperatingPoint
 ) -> tuple[float, str | None]:
-    """Return the greatest safe binary64 forward time and first binding tank.
+    """Return the greatest safe binary64 burn time and the first binding tank.
 
-    A finite physical cutoff rounds downward when needed, so a query at the
-    returned finite time cannot cross a reserve. A cutoff below the smallest
-    positive float returns zero; one above the largest finite float returns
-    infinity with its binding tank. No positive drain returns (infinity, None).
-    Exact ties retain the supplied tank order.
+    Parameters
+    ----------
+    tanks : tuple of TankDefinition
+        Tanks with loaded and reserve masses, in kg.
+    operating_point : EngineOperatingPoint
+        Constant-flow operating point drawing on the tanks.
+
+    Returns
+    -------
+    duration_s : float
+        Time, in s, at which the first tank reaches its reserve at constant
+        flow, ``min_i (m_loaded,i - m_reserve,i) / mdot_i`` [1]_.  ``inf`` when
+        the cutoff exceeds the largest finite float.
+    binding_tank : str or None
+        Identifier of the tank that sets the limit; ``None`` when no tank has
+        a positive drain (the duration is then ``inf``).
+
+    Raises
+    ------
+    DomainError
+        If the tanks or streams are invalid or inconsistent.
+
+    Notes
+    -----
+    The exact rational cutoff is rounded downward to the adjacent
+    representable float when needed [2]_, so a query at the returned finite
+    time cannot cross a reserve.  A cutoff below the smallest positive float
+    returns zero.  Exact ties retain the supplied tank order.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [2] PYTHON-3.12-NEXTAFTER. Python 3.12, ``math.nextafter``: adjacent
+           representable floating-point values,
+           https://docs.python.org/3.12/library/math.html#math.nextafter.
     """
     tanks, rates = _checked_inventory(tanks, operating_point)
     shortest = None
@@ -134,10 +226,39 @@ def tank_duration_limit(
 def tank_masses_at(
     tanks: tuple[TankDefinition, ...], operating_point: EngineOperatingPoint, time_s: float
 ) -> tuple[tuple[str, float], ...]:
-    """Export inventories after a finite nonnegative constant-flow time.
+    """Return each tank's remaining mass after a constant-flow time.
 
-    Reserve decisions precede rounding, with no tolerance admitting a real
-    crossing. Nonzero masses outside binary64 output range fail explicitly.
+    Parameters
+    ----------
+    tanks : tuple of TankDefinition
+        Tanks with loaded and reserve masses, in kg.
+    operating_point : EngineOperatingPoint
+        Constant-flow operating point drawing on the tanks.
+    time_s : float
+        Finite, non-negative elapsed burn time, in s.
+
+    Returns
+    -------
+    tuple of (str, float)
+        ``(tank_id, m_loaded - mdot * t)`` [1]_ in kg, in the supplied tank
+        order.
+
+    Raises
+    ------
+    DomainError
+        If ``time_s`` is negative or non-finite, the inputs are invalid, a
+        tank falls below its reserve, or a non-zero mass is outside the
+        binary64 output range.
+
+    Notes
+    -----
+    Reserve decisions use the exact remaining mass before rounding; no
+    tolerance admits a real reserve crossing.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
     """
     time = real(time_s, "Inventory time")
     if time < 0:

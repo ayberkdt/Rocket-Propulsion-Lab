@@ -1,7 +1,27 @@
-"""Range-safe free-space quadrature with directed positive-integral enclosures.
+"""Free-space burn metrics with directed enclosures of the numerical error.
 
-Bounds concern the declared piecewise-linear binary inputs and numerical
-integration/rounding only. They are not measurement or physical-model uncertainty.
+For a tabulated burn with piecewise-linear thrust ``F(t)`` and total mass flow
+``q(t)`` the module integrates the external-force-free velocity change
+``dv = integral F / m dt`` with ``m(t) = m0 - integral q dt`` [1]_, the
+acceleration-weighted centroid time, and the effective exhaust velocity
+``c = dv / ln(m0 / mf)`` [1]_.  Integrals use Gauss-Legendre quadrature [2]_
+and are enclosed by directed-rounding decimal sums [3]_ over exact rational
+inputs [4]_.
+
+The reported bounds concern the declared piecewise-linear binary inputs,
+numerical integration and output rounding only.  They are not measurement or
+physical-model uncertainty, and gravity, drag and attitude motion are
+excluded.
+
+References
+----------
+.. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation",
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/.
+.. [2] NIST DLMF §3.5(v), "Gauss quadrature", https://dlmf.nist.gov/3.5#v.
+.. [3] PYTHON-3.12-DECIMAL. Python 3.12, "decimal": precision contexts and
+       exact float conversion, https://docs.python.org/3.12/library/decimal.html.
+.. [4] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain
+       their exact binary value as a rational.
 """
 
 from __future__ import annotations
@@ -20,9 +40,31 @@ from .tabulated import TabulatedBurnArtifact, _artifact_ledger, _segment_ledger
 
 
 def gauss_legendre(points: int) -> tuple[tuple[float, ...], tuple[float, ...]]:
-    """Validate before the rule cache; return binary64 nodes/weights on [-1, 1].
+    """Return the Gauss-Legendre nodes and weights on ``[-1, 1]``.
 
-    References: NIST DLMF 3.5(v), https://dlmf.nist.gov/3.5#v
+    Parameters
+    ----------
+    points : int
+        Number of nodes, between 1 and 200.  The value is validated before the
+        cached rule is consulted.
+
+    Returns
+    -------
+    nodes, weights : tuple of float
+        Binary64 nodes (the zeros of the Legendre polynomial ``P_n``) and the
+        weights ``2 / ((1 - x**2) P_n'(x)**2)`` [1]_, in matching order.
+
+    Raises
+    ------
+    DomainError
+        If ``points`` is not an integer in ``[1, 200]``.
+    ConvergenceError
+        If a Newton iteration for a node does not converge; no unconverged
+        rule is returned.
+
+    References
+    ----------
+    .. [1] NIST DLMF §3.5(v), "Gauss quadrature", https://dlmf.nist.gov/3.5#v.
     """
     points = integer(points, "Quadrature points")
     if not 1 <= points <= 200:
@@ -32,7 +74,17 @@ def gauss_legendre(points: int) -> tuple[tuple[float, ...], tuple[float, ...]]:
 
 @lru_cache(maxsize=16)
 def _gauss_legendre_rule(points):
-    """Compute a converged Newton rule; no unconverged rule is returned."""
+    """Compute the ``points``-node Gauss-Legendre rule by Newton iteration.
+
+    Nodes are the zeros of ``P_n``, found from the three-term recurrence for
+    ``P_n`` and its derivative; weights are ``2 / ((1 - x**2) P_n'(x)**2)``
+    [1]_.  A ``ConvergenceError`` is raised rather than returning an
+    unconverged rule.
+
+    References
+    ----------
+    .. [1] NIST DLMF §3.5(v), "Gauss quadrature", https://dlmf.nist.gov/3.5#v.
+    """
 
     def legendre(x):
         previous, current = 1.0, x
@@ -60,12 +112,23 @@ def _gauss_legendre_rule(points):
 
 
 def _decimal(value):
-    """Convert an exact rational under the caller's isolated rounding context."""
+    """Convert an exact rational to ``Decimal`` under the caller's rounding context."""
     return Decimal(value.numerator) / Decimal(value.denominator)
 
 
 def _mass_intervals(artifact, initial, force_scale, flow_scale):
-    """Bisect exact time fractions until each leaf loses at most half its mass."""
+    """Yield exact sub-intervals on which the vehicle loses at most half its mass.
+
+    Within each linear segment the remaining mass is the exact quadratic
+    ``m(x) = m_start - h (q0 x + (q1 - q0) x**2 / 2)`` of the normalized time
+    ``x``; a leaf is bisected until ``m(b) >= m(a) / 2``.  Each item is
+    ``(start, h, f0, f1, q0, q1, mass)`` with exact rational values.
+
+    Raises
+    ------
+    DomainError
+        If the mass reaches zero or below within the burn.
+    """
     mass_start = initial
     for segment in artifact.segments:
         duration = _segment_ledger(segment)[0]
@@ -100,7 +163,19 @@ def _mass_intervals(artifact, initial, force_scale, flow_scale):
 
 
 def _quadrature(interval, points):
-    """Evaluate integrated contributions before Decimal conversion, never F/m as float."""
+    """Return the quadrature estimate of ``dv`` and its time moment on one leaf.
+
+    The weighted sum of ``F(x) / m(x)`` over the Gauss-Legendre nodes [1]_
+    uses weights normalized to their exact sum.  Each term is formed exactly
+    and only then converted to a 96-digit decimal [2]_; ``F / m`` is never
+    evaluated in binary floating point.
+
+    References
+    ----------
+    .. [1] NIST DLMF §3.5(v), "Gauss quadrature", https://dlmf.nist.gov/3.5#v.
+    .. [2] PYTHON-3.12-DECIMAL. Python 3.12, "decimal": precision contexts and
+           exact float conversion.
+    """
     start, h, f0, f1, q0, q1, mass = interval
     nodes, weights = gauss_legendre(points)
     weight_sum = sum((_fraction(w) for w in weights), Fraction(0))
@@ -118,13 +193,26 @@ def _quadrature(interval, points):
 
 @lru_cache(maxsize=512)
 def _bernstein_enclosure(interval, precision=96):
-    """Directed positive Bernstein sums plus an explicit geometric tail.
+    """Enclose ``dv`` and its time moment on one leaf with directed Bernstein sums.
 
-    u(x) is the consumed mass fraction, with degree-two Bernstein coefficients
-    (0, h*q0/(2*m), h*(q0+q1)/(2*m)). All lie in [0, r], r <= 1/2.
-    F/(1-u) = sum F*u**k. Product coefficients are nonnegative; integrals are
-    coefficient means. The omitted integral is at most integral(F)*r**(K+1)/(1-r).
-    The moment tail is additionally bounded by the leaf's global end time.
+    Notes
+    -----
+    ``u(x)`` is the consumed mass fraction of the leaf, with degree-two
+    Bernstein coefficients ``(0, h q0 / (2 m), h (q0 + q1) / (2 m))``, all in
+    ``[0, r]`` with ``r <= 1/2``.  The integrand is expanded as
+    ``F / (1 - u) = sum_k F u**k``.  Product coefficients are non-negative, so
+    each integral is the mean of its Bernstein coefficients.  The omitted
+    integral after ``K`` terms is at most ``integral(F) r**(K + 1) / (1 - r)``;
+    the moment tail is additionally bounded by the leaf's global end time.
+    Lower and upper sums use floor and ceiling decimal rounding [1]_.
+
+    Returns ``(dv_lower, dv_upper, moment_lower, moment_upper)`` as exact
+    rationals.
+
+    References
+    ----------
+    .. [1] PYTHON-3.12-DECIMAL. Python 3.12, "decimal": precision contexts and
+           exact float conversion.
     """
     start, h, f0, f1, q0, q1, mass = interval
     if f0 == f1 == 0:
@@ -177,7 +265,25 @@ def _bernstein_enclosure(interval, precision=96):
 
 
 def _mass_log_enclosure(initial, remaining, minimum_precision=96):
-    """Bound ln(initial/remaining), retaining tiny relative consumption before ln."""
+    """Return directed lower and upper bounds of ``ln(initial / remaining)``.
+
+    The decimal precision grows with the digits of the relative consumption,
+    so a tiny consumed fraction is retained before the logarithm.  The bounds
+    are taken under floor and ceiling rounding and widened by one unit in the
+    last place [1]_.  The logarithm is the mass-ratio term of the ideal rocket
+    equation [2]_.
+
+    Raises
+    ------
+    ConvergenceError
+        If the lower bound is not positive.
+
+    References
+    ----------
+    .. [1] PYTHON-3.12-DECIMAL. Python 3.12, "decimal": precision contexts and
+           exact float conversion.
+    .. [2] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation".
+    """
     loss_ratio = (initial - remaining) / initial
     precision = max(
         minimum_precision, 80 + len(str(loss_ratio.denominator)) - len(str(loss_ratio.numerator))
@@ -195,7 +301,20 @@ def _mass_log_enclosure(initial, remaining, minimum_precision=96):
 
 
 def _upper_output(value, label):
-    """Round an error bound outward, including positive subnormal bounds."""
+    """Export a non-negative error bound rounded upward to the next float.
+
+    Positive subnormal bounds are rounded outward with ``math.nextafter`` [1]_.
+
+    Raises
+    ------
+    DomainError
+        If the bound is negative or exceeds the finite float range.
+
+    References
+    ----------
+    .. [1] PYTHON-3.12-NEXTAFTER. Python 3.12, "math.nextafter",
+           https://docs.python.org/3.12/library/math.html#math.nextafter.
+    """
     if value < 0:
         raise DomainError(f"{label} must be nonnegative.", field=label)
     if value == 0:
@@ -210,13 +329,19 @@ def _upper_output(value, label):
 
 
 def _reference_integrals(intervals, precision):
-    """Sum directed leaf enclosures without rounding their decimal rationals."""
+    """Sum the directed leaf enclosures exactly, without re-rounding them."""
     rows = tuple(_bernstein_enclosure(interval, precision) for interval in intervals)
     return tuple(sum((row[index] for row in rows), Fraction(0)) for index in range(4))
 
 
 def _exact_integrals(intervals):
-    """Resolve polynomial accelerations exactly, including binary range ties."""
+    """Return exact ``(dv, moment)`` when every leaf has a polynomial acceleration.
+
+    Two cases are integrated in closed form: zero flow (constant mass, linear
+    thrust) and constant flow with ``F / m`` constant.  Exact results also
+    resolve ties at the edge of the float range.  ``None`` means at least one
+    leaf needs the numerical path.
+    """
     dv = moment = Fraction(0)
     for start, h, f0, f1, q0, q1, mass in intervals:
         if f0 == f1 == 0:
@@ -235,7 +360,16 @@ def _exact_integrals(intervals):
 
 
 def _constant_exhaust(intervals):
-    """Recognize F=c*q identities before approximate logarithmic division."""
+    """Return the exact constant ``c`` when ``F = c q`` at every leaf end, else ``None``.
+
+    With a constant effective exhaust velocity the rocket-equation quotient
+    ``dv / ln(m0 / mf)`` equals ``c`` exactly [1]_, so no approximate
+    logarithmic division is needed.
+
+    References
+    ----------
+    .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation".
+    """
     candidate = None
     for _, _, f0, f1, q0, q1, _ in intervals:
         for force, flow in ((f0, q0), (f1, q1)):
@@ -251,10 +385,17 @@ def _constant_exhaust(intervals):
 
 
 def _range_output(value, lower, upper, label):
-    """Resolve representability from the enclosure, not an underflowed approximation.
+    """Export ``value`` after deciding representability from its enclosure.
 
-    A None result asks for a tighter reference interval. True zero and exact
-    ties can be resolved by exact polynomial/constant-exhaust identities.
+    Representability is decided from ``[lower, upper]``, not from an
+    approximation that may have underflowed or overflowed.  ``None`` asks the
+    caller for a tighter reference interval.  A true zero and exact ties are
+    resolved by the exact polynomial and constant-exhaust identities.
+
+    Raises
+    ------
+    DomainError
+        If the whole enclosure lies outside the non-zero finite float range.
     """
 
     def rounded(number):
@@ -278,13 +419,55 @@ def _range_output(value, lower, upper, label):
 
 @dataclass(frozen=True, slots=True)
 class FreeSpaceBurnMetrics:
-    """Rounded free-space metrics; numerical bounds exclude physical uncertainty.
+    """Rounded free-space burn metrics with numerical error bounds.
 
-    References: NIST DLMF 3.5(v), https://dlmf.nist.gov/3.5#v;
-    Python Decimal, https://docs.python.org/3.12/library/decimal.html.
-    The model-specific enclosure derivation and assumptions are recorded in
-    docs/FREE_SPACE_TABULATED_NUMERICS_REVIEW.md; these sources do not independently
-    validate the implementation or establish physical-model uncertainty.
+    Parameters
+    ----------
+    initial_mass_kg, final_mass_kg : float
+        Vehicle mass before and after the burn, in kg; positive, with
+        ``final_mass_kg <= initial_mass_kg``.
+    consumed_propellant_kg : float
+        Integrated propellant consumption, in kg.
+    delta_v_m_s : float
+        External-force-free velocity change ``integral F / m dt`` [1]_, in m/s.
+    impulsive_equivalent_time_s : float
+        Acceleration-weighted centroid time of the burn, in s.
+    effective_exhaust_velocity_m_s : float or None
+        ``dv / ln(m0 / mf)`` [1]_, in m/s; ``None`` when nothing is consumed.
+    quadrature_points : int
+        Gauss-Legendre nodes per leaf [2]_.
+    delta_v_error_estimate_m_s : float
+        Upper bound of the numerical delta-v error, in m/s.
+    error_estimate_kind : str, optional
+        Name of the error-bound method.
+    integration_subintervals : int, optional
+        Number of mass-partition leaves.
+    centroid_error_bound_s : float or None, optional
+        Upper bound of the numerical centroid error, in s.
+    effective_exhaust_velocity_error_bound_m_s : float or None, optional
+        Upper bound of the numerical effective-exhaust-velocity error, in m/s.
+
+    Raises
+    ------
+    DomainError
+        If a mass is not positive, the final mass exceeds the initial mass,
+        or a metric or bound is negative.
+
+    Notes
+    -----
+    The bounds cover quadrature and output rounding of the declared
+    piecewise-linear inputs only; they are enclosed with directed decimal
+    arithmetic [3]_.  They exclude measurement and physical-model
+    uncertainty, and the cited sources do not independently validate this
+    implementation.
+
+    References
+    ----------
+    .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/.
+    .. [2] NIST DLMF §3.5(v), "Gauss quadrature", https://dlmf.nist.gov/3.5#v.
+    .. [3] PYTHON-3.12-DECIMAL. Python 3.12, "decimal": precision contexts and
+           exact float conversion, https://docs.python.org/3.12/library/decimal.html.
     """
 
     initial_mass_kg: float
@@ -331,12 +514,53 @@ def free_space_burn_metrics(
     mass_flow_scale: float = 1.0,
     quadrature_points: int = 16,
 ) -> FreeSpaceBurnMetrics:
-    """Integrate each declared linear segment with a normalized 2n-point rule.
+    """Compute free-space delta-v, centroid time and effective exhaust velocity.
 
-    Exact mass decisions and geometric mass partitions precede quadrature.
-    Directed Bernstein reference sums independently enclose delta-v and moment;
-    public error bounds include rule error and output rounding, not sensor/model error.
-    References: NIST DLMF 3.5(v), https://dlmf.nist.gov/3.5#v
+    Parameters
+    ----------
+    artifact : TabulatedBurnArtifact
+        Burn with piecewise-linear thrust and total mass flow.
+    initial_mass_kg : float
+        Vehicle mass at burn start, in kg; positive.
+    thrust_scale, mass_flow_scale : float, optional
+        Positive multipliers on the tabulated thrust and mass flow.
+    quadrature_points : int, optional
+        ``n`` in ``[1, 100]``; each leaf uses a normalized ``2n``-point
+        Gauss-Legendre rule [2]_.
+
+    Returns
+    -------
+    FreeSpaceBurnMetrics
+        Rounded metrics with directed numerical error bounds.
+
+    Raises
+    ------
+    DomainError
+        If the artifact type, mass, scales or point count are invalid, if the
+        burn consumes at least the whole initial mass, or if a result lies
+        outside the finite float range.
+    ConvergenceError
+        If the output range stays unresolved after reference refinement.
+
+    Notes
+    -----
+    The velocity change is ``dv = integral F / m dt`` with
+    ``m(t) = m0 - integral q dt``, and the effective exhaust velocity is
+    ``dv / ln(m0 / mf)`` [1]_.  Exact mass decisions and a geometric mass
+    partition (each leaf loses at most half its mass) precede quadrature.
+    Directed Bernstein reference sums enclose delta-v and its time moment
+    independently of the quadrature, with floor/ceiling decimal rounding
+    [3]_.  The public error bounds include rule error and output rounding,
+    not sensor or physical-model error.  Gravity and other external forces
+    are excluded.
+
+    References
+    ----------
+    .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/.
+    .. [2] NIST DLMF §3.5(v), "Gauss quadrature", https://dlmf.nist.gov/3.5#v.
+    .. [3] PYTHON-3.12-DECIMAL. Python 3.12, "decimal": precision contexts and
+           exact float conversion, https://docs.python.org/3.12/library/decimal.html.
     """
     if not isinstance(artifact, TabulatedBurnArtifact):
         raise DomainError("Burn metrics require a TabulatedBurnArtifact.", field="artifact")

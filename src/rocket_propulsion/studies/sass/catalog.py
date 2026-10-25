@@ -2,9 +2,20 @@
 
 References
 ----------
-MOOG-COLD, ARIANE-1N, ARIANE-10N: manufacturer nominal characteristics.
-NASA-SOA26: ECAPS row, ranges only. BUSEK-BIT3 / BUSEK-RF: unresolved page discrepancy.
-NASA-SE-6: keep data provenance and system/component boundaries visible.
+.. [1] MOOG-COLD. Moog, "Cold Gas Thrusters: Performance Characteristics";
+       manufacturer nominal characteristics.
+.. [2] ARIANE-1N. ArianeGroup, "1 N Monopropellant Hydrazine Thruster"; manufacturer
+       nominal characteristics.
+.. [3] ARIANE-10N. ArianeGroup, "10 N Bipropellant Thruster"; manufacturer nominal
+       characteristics.
+.. [4] NASA-SOA26. NASA, "State-of-the-Art of Small Spacecraft Technology: In-Space
+       Propulsion"; ECAPS row, ranges only.
+.. [5] BUSEK-BIT3. Busek, "BIT-3 RF Ion Thruster product page"; unresolved page
+       discrepancy.
+.. [6] BUSEK-RF. Busek, "RF Ion Thrusters product family page"; unresolved page
+       discrepancy.
+.. [7] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+       Management"; keep data provenance and system/component boundaries visible.
 """
 
 from __future__ import annotations
@@ -21,14 +32,34 @@ from .evidence import AnalysisResult, Citation, CitedScalar, derived
 
 @dataclass(frozen=True, slots=True)
 class CatalogField:
-    """A scalar, interval or one-sided bound with its original interpretation.
+    """A published scalar, interval or one-sided bound with its original interpretation.
 
-    A maximum is NOT a nominal operating point. Different fields in the same
-    table need not be simultaneously attainable.
+    A maximum is NOT a nominal operating point, and different fields of the same
+    table need not be simultaneously attainable [1]_.
+
+    Attributes
+    ----------
+    name : str
+        Field name, for example ``'thrust'`` or ``'isp'``.
+    kind : {'nominal', 'range', 'upper_bound'}
+        Interpretation of the published value.
+    lower : CitedScalar or None
+        Published lower value; equal to ``upper`` for a nominal field and None for an
+        upper bound.
+    upper : CitedScalar
+        Published upper or nominal value.
+
+    Raises
+    ------
+    DomainError
+        If the kind is unknown, a bound is not published evidence, units differ, an
+        interval is reversed, or a nominal field has two values.
 
     References
     ----------
-    NASA-SOA26: section 4.5, survey envelopes are not technology limits or coupled maps.
+    .. [1] NASA-SOA26. NASA, "State-of-the-Art of Small Spacecraft Technology: In-Space
+           Propulsion"; section 4.5, survey envelopes are not technology limits or
+           coupled maps.
     """
 
     name: str
@@ -41,7 +72,8 @@ class CatalogField:
 
         References
         ----------
-        NASA-SE-6: section 6.6, preserve source-data semantics.
+        .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+               Management"; section 6.6, preserve source-data semantics.
         """
         text(self.name, "catalog field")
         if not isinstance(self.kind, str) or self.kind not in {"nominal", "range", "upper_bound"}:
@@ -64,12 +96,39 @@ class CatalogField:
 
 @dataclass(frozen=True, slots=True)
 class ThrusterRecord:
-    """Published hardware record; mass_scope prevents component/system confusion.
+    """Published hardware record with an explicit mass scope.
+
+    ``mass_scope`` states whether the dry mass covers a thruster head, a thruster with
+    valve or an integrated system, so component and system masses are not confused
+    [1]_. Every textual fact and every number carries its source [2]_.
+
+    Attributes
+    ----------
+    key : str
+        Exact variant identifier.
+    name, family, propellant : str
+        Display name, technology family and propellant.
+    mass_scope : str
+        Hardware covered by the published dry mass.
+    fields : tuple of CatalogField
+        Uniquely named published specifications.
+    citations : tuple of Citation
+        Sources of the textual information.
+    limitations : tuple of str
+        Evidence limitations of the record.
+
+    Raises
+    ------
+    DomainError
+        If a text field is empty, fields are missing or duplicated, or citations or
+        limitations are missing.
 
     References
     ----------
-    NASA-SOA26: section 4.5, integrated systems versus thruster heads.
-    NASA-SE-6: section 6.6, source-specific technical data.
+    .. [1] NASA-SOA26. NASA, "State-of-the-Art of Small Spacecraft Technology: In-Space
+           Propulsion"; section 4.5, integrated systems versus thruster heads.
+    .. [2] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; section 6.6, source-specific technical data.
     """
 
     key: str
@@ -86,7 +145,8 @@ class ThrusterRecord:
 
         References
         ----------
-        NASA-SE-6: section 6.6, source identification and metadata.
+        .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+               Management"; section 6.6, source identification and metadata.
         """
         for label in ("key", "name", "family", "propellant", "mass_scope"):
             text(getattr(self, label), label)
@@ -104,11 +164,26 @@ class ThrusterRecord:
         object.__setattr__(self, "limitations", limitations)
 
     def field(self, name: str) -> CatalogField:
-        """Retrieve the sourced specification without replacing missing data by zero.
+        """Return a published specification without replacing missing data by zero.
+
+        Parameters
+        ----------
+        name : str
+            Field name.
+
+        Returns
+        -------
+        CatalogField
+
+        Raises
+        ------
+        DomainError
+            If the record has no published field of that name.
 
         References
         ----------
-        NASA-SE-6: section 6.6, retrievable source data.
+        .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+               Management"; section 6.6, retrievable source data.
         """
         for item in self.fields:
             if item.name == name:
@@ -122,7 +197,9 @@ def _field(name: str, kind: str, low: float | None, high: float, unit: str,
 
     References
     ----------
-    BIPM-SI: SI prefixes; NASA-SE-6: section 6.6, preserve the original row locator.
+    .. [1] BIPM-SI. BIPM, "SI Brochure, 9th edition"; SI prefixes.
+    .. [2] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; section 6.6, preserve the original row locator.
     """
     citations = (Citation(source_id, locator),)
     return CatalogField(name, kind,  # type: ignore[arg-type]
@@ -212,21 +289,42 @@ THRUSTERS = (
 
 
 def list_thrusters() -> tuple[ThrusterRecord, ...]:
-    """Return the immutable, dated records with all missing-data distinctions intact.
+    """Return the immutable, dated catalogue records.
+
+    Returns
+    -------
+    tuple of ThrusterRecord
+        All records, with nominal, range and upper-bound distinctions intact [1]_.
 
     References
     ----------
-    NASA-SE-6: section 6.6, provenance-preserving technical data.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; section 6.6, provenance-preserving technical data.
     """
     return THRUSTERS
 
 
 def thruster(key: str) -> ThrusterRecord:
-    """Resolve a catalog record by its exact variant identifier.
+    """Resolve a catalogue record by its exact variant identifier.
+
+    Parameters
+    ----------
+    key : str
+        Variant identifier, for example ``'moog-058e151'``.
+
+    Returns
+    -------
+    ThrusterRecord
+
+    Raises
+    ------
+    DomainError
+        If no record has that identifier.
 
     References
     ----------
-    NASA-SE-6: sections 6.5/6.6, configuration identity and technical data.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; sections 6.5/6.6, configuration identity and technical data.
     """
     for item in THRUSTERS:
         if item.key == key:
@@ -235,17 +333,47 @@ def thruster(key: str) -> ThrusterRecord:
 
 
 def nominal_operating_point(key: str, *, require_validated: bool = False) -> AnalysisResult:
-    """Use only published nominal thrust/Isp and expose rounded flow inconsistency.
+    """Build a constant study point from published nominal thrust and Isp only.
 
-    No point is constructed for ECAPS interval-only data or BIT-3 maxima.
-    Derived flow closes F/(g0*Isp); any independently published flow remains a
-    separate channel rather than silently changing thrust or Isp.
+    Parameters
+    ----------
+    key : str
+        Catalogue variant identifier.
+    require_validated : bool, default False
+        Request independently validated joint operating data. No record contains
+        such data, so True always raises.
+
+    Returns
+    -------
+    AnalysisResult
+        ``thrust``, ``isp`` and ``closed_mass_flow``; when a mass flow is published,
+        also ``reported_mass_flow`` and ``reported_flow_relative_difference``.
+
+    Raises
+    ------
+    DomainError
+        If the key is unknown, ``require_validated`` is not a bool or is True, or the
+        record has no paired nominal thrust and Isp.
+
+    Notes
+    -----
+    The closed flow is mdot = F / (g0 * Isp) [1]_ from the labelled nominal
+    characteristics [2]_ [3]_ [4]_. An independently published flow remains a separate
+    channel and its relative difference is reported, not interpreted as measurement
+    uncertainty. No point is constructed from interval-only survey data or from
+    maxima [5]_.
 
     References
     ----------
-    NASA-ISP: mdot=F/(g0*Isp).
-    MOOG-COLD, ARIANE-1N, ARIANE-10N: labelled nominal characteristics.
-    NASA-SOA26: unpaired survey ranges cannot define a performance map.
+    .. [1] NASA-ISP. NASA Glenn Research Center, "Specific Impulse"; mdot=F/(g0*Isp).
+    .. [2] MOOG-COLD. Moog, "Cold Gas Thrusters: Performance Characteristics"; labelled
+           nominal characteristics.
+    .. [3] ARIANE-1N. ArianeGroup, "1 N Monopropellant Hydrazine Thruster"; labelled
+           nominal characteristics.
+    .. [4] ARIANE-10N. ArianeGroup, "10 N Bipropellant Thruster"; labelled nominal
+           characteristics.
+    .. [5] NASA-SOA26. NASA, "State-of-the-Art of Small Spacecraft Technology: In-Space
+           Propulsion"; unpaired survey ranges cannot define a performance map.
     """
     item = thruster(key)
     if not isinstance(require_validated, bool):

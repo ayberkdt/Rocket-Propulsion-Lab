@@ -1,4 +1,17 @@
-"""Optional, fail-closed adapter from propulsion results to Sidera burns."""
+"""Optional, fail-closed adapter from propulsion burn results to Sidera burns.
+
+The adapter inspects only the installed public Sidera interface and never
+searches local source paths. Hand-off documents can be produced without
+Sidera; native objects are built only when a compatible installation is
+found.
+
+References
+----------
+.. [1] NASA-ISP. NASA Glenn Research Center, "Specific Impulse",
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+.. [2] CCSDS 502.0-B-3. CCSDS, "Orbit Data Messages", Recommended Standard
+       502.0-B-3, https://ccsds.org/Pubs/502x0b3e1.pdf
+"""
 
 from __future__ import annotations
 
@@ -34,7 +47,25 @@ _FRAMES = ("inertial", "ric", "vnb")
 
 
 def inspect_sidera_capabilities() -> SideraCapabilities:
-    """Inspect installed public Sidera contracts without searching local paths."""
+    """Inspect the installed public Sidera interface and report its capabilities.
+
+    Returns
+    -------
+    SideraCapabilities
+        ``status="unavailable"`` when Sidera cannot be imported,
+        ``"incompatible"`` when its public propagation facade cannot be read
+        or ``FiniteBurn``/``ManeuverPlan`` do not expose the required
+        contract, and ``"supported"`` otherwise.
+
+    Notes
+    -----
+    Only ``sidera`` and ``sidera.core.propagation`` are imported; local
+    paths are never searched. ``FiniteBurn`` is compatible when its
+    constructor accepts every field the adapter writes. Provider
+    sub-capabilities are inferred from constructor parameter names; a
+    provider whose signature cannot be inspected is reported as present
+    without sub-capabilities.
+    """
 
     try:
         sidera = import_module("sidera")
@@ -122,6 +153,7 @@ def inspect_sidera_capabilities() -> SideraCapabilities:
 
 
 def _normalized_direction(direction: tuple[float, float, float]) -> tuple[float, float, float]:
+    """Return the unit vector of ``direction`` rounded once per component."""
     return _directed_vector(direction, 1., label="Sidera unit direction")
 
 
@@ -133,6 +165,12 @@ def _validated_export_inputs(
     frame: str,
     require_exact: bool,
 ) -> tuple[tuple[float, float, float], str]:
+    """Validate export inputs and return ``(unit direction, normalized frame)``.
+
+    The burn result is re-opened through its public integrity boundary
+    (serialization and hash verification) before use. With
+    ``require_exact`` the result must be eligible for exact constant export.
+    """
     if not isinstance(result, (BurnResult, ProfiledBurnResult)):
         raise DomainError("Sidera export requires a BurnResult or ProfiledBurnResult.")
     # Re-open the artifact through the public integrity boundary before using it.
@@ -154,7 +192,57 @@ def export_sidera_artifact(
     frame: Literal["inertial", "ric", "vnb"] = "inertial",
     mode: Literal["exact", "equivalent_constant"] = "exact",
 ) -> dict[str, Any]:
-    """Create an exact or explicitly approximate hand-off without importing Sidera."""
+    """Create a Sidera finite-burn hand-off document without importing Sidera.
+
+    Parameters
+    ----------
+    result : BurnResult or ProfiledBurnResult
+        Verified burn artifact; it is re-opened through its integrity
+        boundary first.
+    t_start_s : float
+        Burn start time in the consumer's time scale, s.
+    direction : tuple of float
+        Thrust direction in ``frame``; normalized on export.
+    frame : {"inertial", "ric", "vnb"}, optional
+        Sidera finite-burn frame.
+    mode : {"exact", "equivalent_constant"}, optional
+        ``"exact"`` requires a burn that is exactly representable as a
+        constant burn; ``"equivalent_constant"`` reduces any burn to a
+        constant one and records the reduction.
+
+    Returns
+    -------
+    dict
+        ``{"schema": "sidera_maneuver_plan_v1", "maneuvers": [...],
+        "manifest": {...}}`` with one ``finite_burn`` maneuver and a
+        manifest of source hashes, semantics and omitted domains.
+
+    Raises
+    ------
+    DomainError
+        If ``mode`` or ``frame`` is unsupported, ``result`` is not a burn
+        result or fails re-verification, the direction or start time is
+        invalid, or exact export is requested for an ineligible burn.
+
+    Notes
+    -----
+    Thrust is the net axial thrust after hardware cant. For exact export
+    ``thrust = axial total impulse / duration`` and ``isp_s`` is the
+    rocket-equivalent specific impulse, so ``isp_s`` with standard gravity
+    represents the total tank drain [1]_. Profiled results are always
+    reduced. The equivalent-constant reduction preserves duration, total
+    impulse and total propellant, not the force-time history or the
+    trajectory response. ``throttle`` is written as 1 because the operating
+    point already contains the delivered thrust. The manifest follows the
+    versioned, unit-explicit exchange practice of [2]_.
+
+    References
+    ----------
+    .. [1] NASA-ISP. NASA Glenn Research Center, "Specific Impulse",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+    .. [2] CCSDS 502.0-B-3. CCSDS, "Orbit Data Messages", Recommended Standard
+           502.0-B-3, https://ccsds.org/Pubs/502x0b3e1.pdf
+    """
 
     if not isinstance(mode, str) or mode not in ("exact", "equivalent_constant"):
         raise DomainError("Sidera export mode must be exact or equivalent_constant.")
@@ -228,7 +316,38 @@ def to_native_finite_burn(
     direction: tuple[float, float, float],
     frame: Literal["inertial", "ric", "vnb"] = "inertial",
 ) -> Any:
-    """Construct Sidera's public ``FiniteBurn`` or fail with a typed error."""
+    """Construct Sidera's public ``FiniteBurn`` from an exactly constant burn.
+
+    Parameters
+    ----------
+    result : BurnResult or ProfiledBurnResult
+        Verified burn artifact eligible for exact constant export.
+    t_start_s : float
+        Burn start time, s.
+    direction : tuple of float
+        Thrust direction in ``frame``.
+    frame : {"inertial", "ric", "vnb"}, optional
+        Sidera finite-burn frame.
+
+    Returns
+    -------
+    object
+        ``sidera.core.propagation.FiniteBurn``.
+
+    Raises
+    ------
+    FeatureUnavailableError
+        If no compatible Sidera installation is found; ``details`` carries
+        the observed capabilities.
+    DomainError
+        If the burn or the export inputs are invalid (see
+        :func:`export_sidera_artifact`).
+
+    References
+    ----------
+    .. [1] NASA-ISP. NASA Glenn Research Center, "Specific Impulse",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+    """
 
     capabilities = inspect_sidera_capabilities()
     if not capabilities.constant_burn_exact:
@@ -250,7 +369,36 @@ def to_native_maneuver_plan(
     direction: tuple[float, float, float],
     frame: Literal["inertial", "ric", "vnb"] = "inertial",
 ) -> Any:
-    """Wrap the exact native finite burn in Sidera's public ``ManeuverPlan``."""
+    """Wrap the exact native finite burn in Sidera's public ``ManeuverPlan``.
+
+    Parameters
+    ----------
+    result : BurnResult or ProfiledBurnResult
+        Verified burn artifact eligible for exact constant export.
+    t_start_s : float
+        Burn start time, s.
+    direction : tuple of float
+        Thrust direction in ``frame``.
+    frame : {"inertial", "ric", "vnb"}, optional
+        Sidera finite-burn frame.
+
+    Returns
+    -------
+    object
+        ``sidera.core.propagation.ManeuverPlan`` holding one ``FiniteBurn``.
+
+    Raises
+    ------
+    FeatureUnavailableError
+        If no compatible Sidera installation is found.
+    DomainError
+        If the burn or the export inputs are invalid.
+
+    References
+    ----------
+    .. [1] NASA-ISP. NASA Glenn Research Center, "Specific Impulse",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+    """
 
     burn = to_native_finite_burn(result, t_start_s=t_start_s, direction=direction, frame=frame)
     maneuver_plan = import_module("sidera.core.propagation").ManeuverPlan

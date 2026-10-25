@@ -1,9 +1,22 @@
 """Planar minimum-length nozzle method of characteristics.
 
-The characteristic compatibility equations are solved in the planar field.
-An optional first-order axisymmetric area mapping preserves the requested
-throat and exit radii; it is deliberately labelled as a correction rather than
-a full axisymmetric source-term MOC solution.
+The characteristic compatibility equations of steady, irrotational,
+constant-gamma supersonic flow are solved in the planar field [1]_, with the
+Prandtl-Meyer function supplying the Riemann invariants [2]_. An optional
+first-order axisymmetric area mapping preserves the requested throat and exit
+radii; it is labelled as a correction, not a full axisymmetric source-term
+MOC solution. The NASA Glenn design-tool page [3]_ is cited as design context
+only.
+
+References
+----------
+.. [1] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+       compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+.. [2] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+       Compressible Flow", NACA Report 1135, 1953.
+.. [3] NASA Glenn Research Center, "Inlets and Nozzles Design and Analysis
+       Software", method-of-characteristics design-tool context.
+       https://www.nasa.gov/glenn/research/inlets-and-nozzles/design-analysis-software/
 """
 
 from __future__ import annotations
@@ -21,7 +34,37 @@ from .nozzle_contour import NozzleContour, NozzleStation
 
 @dataclass(frozen=True, slots=True)
 class CharacteristicPoint:
-    """One solved node in the planar characteristic mesh."""
+    """One solved node in the planar characteristic mesh.
+
+    Attributes
+    ----------
+    row, column : int
+        Mesh indices: ``row`` is the expansion-fan characteristic and
+        ``column`` the position along it from the centreline.
+    x_m, radius_m : float
+        Mapped node position in m.
+    flow_angle_deg, prandtl_meyer_deg, mach_angle_deg : float
+        Flow angle ``theta``, Prandtl-Meyer angle ``nu`` and Mach angle ``mu``.
+    mach : float
+        Mach number.
+    k_plus_deg, k_minus_deg : float
+        Riemann invariants ``theta - nu`` and ``theta + nu`` in degrees.
+    boundary : str
+        ``"centerline"``, ``"wall"`` or ``"interior"``.
+
+    Notes
+    -----
+    ``nu`` and ``mu`` are related to Mach number by the Prandtl-Meyer
+    function and ``mu = asin(1/M)`` [1]_; the invariants are constant along
+    the characteristic families of planar irrotational flow [2]_.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    .. [2] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+           compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+    """
 
     row: int
     column: int
@@ -38,7 +81,32 @@ class CharacteristicPoint:
 
 @dataclass(frozen=True, slots=True)
 class MocResiduals:
-    """Boundary and target residuals for an MOC design."""
+    """Boundary and target residuals for an MOC design.
+
+    Attributes
+    ----------
+    wall_tangency_max_deg : float
+        Largest difference between a mapped wall-segment angle and the mean
+        flow angle of its end nodes.
+    centerline_symmetry_max_deg : float
+        Largest absolute flow angle on the centreline.
+    exit_mach_absolute : float
+        ``|M_wall,exit - M_target|`` with ``M_target`` from the isentropic area
+        ratio [2]_.
+
+    Notes
+    -----
+    Wall tangency and centreline symmetry are the boundary conditions of the
+    characteristic net [1]_; the residuals measure how well the discrete net
+    meets them.
+
+    References
+    ----------
+    .. [1] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+           compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+    .. [2] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    """
 
     wall_tangency_max_deg: float
     centerline_symmetry_max_deg: float
@@ -47,7 +115,41 @@ class MocResiduals:
 
 @dataclass(frozen=True, slots=True)
 class MocDesign:
-    """Common nozzle contour plus the characteristic net and evidence."""
+    """Common nozzle contour plus the characteristic net and its diagnostics.
+
+    Attributes
+    ----------
+    contour : NozzleContour
+        Mapped contour with isentropic converging stations and characteristic
+        wall stations.
+    characteristic_lines : tuple of tuple of CharacteristicPoint
+        Mesh nodes grouped by expansion-fan characteristic.
+    geometry_mode : str
+        ``"axisymmetric-area-corrected"`` or ``"planar"``.
+    exit_mach_target, exit_mach_computed : float
+        Target exit Mach number from the area ratio and the last wall-node
+        Mach number.
+    characteristic_count : int
+        Number of expansion-fan characteristics.
+    residuals : MocResiduals
+        Wall, centreline and exit-Mach residuals.
+    refined_length_change_relative : float
+        Relative change in diverging length when the characteristic count is
+        doubled (capped at 80); a mesh-sensitivity indicator, not an error
+        bound.
+    source, source_url : str
+        Design-context reference.
+
+    Notes
+    -----
+    The net is a planar characteristic solution [1]_ mapped to the requested
+    radii; see :func:`generate_moc_nozzle`.
+
+    References
+    ----------
+    .. [1] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+           compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+    """
 
     contour: NozzleContour
     characteristic_lines: tuple[tuple[CharacteristicPoint, ...], ...]
@@ -63,6 +165,8 @@ class MocDesign:
 
 @dataclass(slots=True)
 class _Point:
+    """Mutable working node used while the normalized mesh is built."""
+
     theta: float
     nu: float
     mach: float
@@ -82,6 +186,14 @@ def _intersection(
     y2: float,
     slope2: float,
 ) -> tuple[float, float]:
+    """Return the intersection of two straight lines given by point and slope.
+
+    Raises
+    ------
+    ConvergenceError
+        If the slopes differ by less than 1e-12 (parallel characteristics).
+    """
+
     denominator = slope1 - slope2
     if abs(denominator) < 1.0e-12:
         raise ConvergenceError(
@@ -93,6 +205,22 @@ def _intersection(
 
 
 def _state_gamma(theta: float, nu: float, gamma: float) -> _Point:
+    """Return the node state for flow angle ``theta`` and Prandtl-Meyer angle ``nu``.
+
+    Mach number is obtained by inverting the Prandtl-Meyer function [1]_;
+    ``mu = asin(1/M)`` and the invariants are ``K+ = theta - nu`` and
+    ``K- = theta + nu`` (degrees).
+
+    Raises
+    ------
+    ConvergenceError
+        If ``nu`` is negative.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    """
     if nu < 0.0:
         raise ConvergenceError(
             "MOC produced a negative Prandtl-Meyer angle.",
@@ -107,6 +235,32 @@ def _state_gamma(theta: float, nu: float, gamma: float) -> _Point:
 def _normalized_mesh(
     *, exit_mach: float, gamma: float, characteristic_count: int
 ) -> tuple[list[list[_Point]], list[_Point]]:
+    """Build the normalized minimum-length mesh with unit throat half-height.
+
+    Notes
+    -----
+    A sharp-corner expansion fan at the throat turns the wall to
+    ``theta_max = nu(M_exit)/2`` in ``characteristic_count`` equal steps.
+    Centreline nodes have ``theta = 0``; interior nodes take ``theta`` and
+    ``nu`` from the invariants ``K+`` and ``K-`` carried along the two
+    families; wall nodes cancel the incoming wave so the wall turns back to
+    axial flow [1]_. Node positions intersect straight characteristic segments
+    whose slopes, ``tan(theta + mu)`` for ``C+`` and ``tan(theta - mu)`` for
+    ``C-``, use angles averaged over the two end nodes [2]_.
+
+    Returns
+    -------
+    tuple
+        ``(rows, wall)``: mesh rows by fan characteristic, and wall nodes from
+        the throat to the exit.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    .. [2] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+           compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+    """
     exit_nu = calculate_isentropic(exit_mach, gamma).prandtl_meyer_deg
     assert exit_nu is not None
     maximum_wall_angle = 0.5 * exit_nu
@@ -246,6 +400,15 @@ def _build_design(
     characteristic_count: int,
     axisymmetric_correction: bool,
 ) -> tuple[NozzleContour, tuple[tuple[CharacteristicPoint, ...], ...], MocResiduals]:
+    """Solve the normalized mesh and map it to the requested throat and exit radii.
+
+    The planar wall height ``y`` is mapped linearly from ``[1, y_exit]`` to
+    ``[r_t, r_t sqrt(area_ratio)]`` and ``x`` is scaled by the same factor;
+    interior nodes are scaled with the local wall height. The mapped wall
+    therefore reproduces the requested exit area, but it is not an
+    axisymmetric characteristic solution. A cosine converging section of
+    length ``1.5 r_t`` from a chamber radius of ``2.5 r_t`` is prepended.
+    """
     exit_mach = mach_from_isentropic("area_ratio_supersonic", area_ratio, gamma)
     rows, wall = _normalized_mesh(
         exit_mach=exit_mach,
@@ -412,7 +575,58 @@ def generate_moc_nozzle(
     characteristic_count: int = 20,
     axisymmetric_correction: bool = True,
 ) -> MocDesign:
-    """Generate a minimum-length characteristic contour and refined evidence."""
+    """Generate a minimum-length characteristic contour and a refinement check.
+
+    Parameters
+    ----------
+    throat_area_m2 : float
+        Throat area in m^2, finite and positive.
+    area_ratio : float
+        Exit-to-throat area ratio, greater than one.
+    gamma : float, default 1.22
+        Ratio of specific heats, greater than one.
+    characteristic_count : int, default 20
+        Number of expansion-fan characteristics, between 5 and 80.
+    axisymmetric_correction : bool, default True
+        Label the mapped contour as axisymmetric-area-corrected
+        (``"moc-axisymmetric-corrected"``) instead of ``"moc-planar"``.
+
+    Returns
+    -------
+    MocDesign
+        Contour, characteristic net, residuals and refinement indicator.
+
+    Raises
+    ------
+    DomainError
+        If an input is outside its domain.
+    ConvergenceError
+        If the characteristic construction degenerates (parallel
+        characteristics, negative Prandtl-Meyer angle or a wall that does not
+        expand).
+
+    Notes
+    -----
+    The design exit Mach number comes from the supersonic isentropic area
+    ratio [2]_. The planar minimum-length net is built with the compatibility
+    relations ``theta -+ nu = const`` along ``C+``/``C-`` [1]_, [2]_ and mapped
+    to the requested radii. The design is repeated with twice the
+    characteristic count (capped at 80) and the relative change in diverging
+    length is reported as a mesh-sensitivity indicator. The divergence
+    efficiency is set to one because the contour is designed for axial exit
+    flow; viscous and real-gas effects are not included. The NASA Glenn
+    design-tool page [3]_ is design context, not validation.
+
+    References
+    ----------
+    .. [1] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+           compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+    .. [2] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    .. [3] NASA Glenn Research Center, "Inlets and Nozzles Design and Analysis
+           Software", method-of-characteristics design-tool context.
+           https://www.nasa.gov/glenn/research/inlets-and-nozzles/design-analysis-software/
+    """
 
     if not isfinite(throat_area_m2) or throat_area_m2 <= 0.0:
         raise DomainError("Throat area must be finite and positive.")

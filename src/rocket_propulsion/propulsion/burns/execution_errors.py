@@ -19,7 +19,22 @@ design instead need compact second-moment models:
     slowly wandering thrust or flow scale during long low-thrust arcs.
 
 Pointing statistics come from attitude control and remain the consumer's
-input; this module only supplies the propulsion-owned terms.
+input; this module only supplies the propulsion-owned terms. Prior/consider
+covariance, Gauss-Markov process noise and execution-error models follow [1]_;
+the execution-error model originates in [2]_, and covariance mapping uses the
+first-order law of propagation of uncertainty [3]_ [4]_.
+
+References
+----------
+.. [1] NASA/TP-2018-219822, "Navigation Filter Best Practices".
+       https://ntrs.nasa.gov/citations/20180003657
+.. [2] C. R. Gates, "A Simplified Model of Midcourse Maneuver Execution
+       Errors", JPL Technical Report 32-504, 1963.
+.. [3] JCGM 100:2008, "Evaluation of Measurement Data - Guide to the Expression
+       of Uncertainty in Measurement".
+       https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf
+.. [4] NIST-TN1297-COVARIANCE. NIST TN 1297 Appendix A, first-order
+       measurement uncertainty with sensitivity coefficients and covariance.
 """
 
 from __future__ import annotations
@@ -57,7 +72,13 @@ Matrix = tuple[tuple[float, ...], ...]
 
 
 def _cholesky(matrix: Matrix) -> Matrix | None:
-    """Return the lower Cholesky factor, or ``None`` if not positive semidefinite."""
+    """Return a lower Cholesky factor, or ``None`` if not positive semidefinite.
+
+    A diagonal residual down to ``-tol`` is treated as zero, with
+    ``tol = max(1e-300, 1e-12 max_i |a_ii|)``; a zero pivot then requires the
+    rest of its column to vanish within ``tol``. The factor of a singular
+    positive semidefinite matrix therefore has zero columns.
+    """
 
     size = len(matrix)
     lower = [[0.0] * size for _ in range(size)]
@@ -83,16 +104,39 @@ def _cholesky(matrix: Matrix) -> Matrix | None:
 class PropulsionParameterPrior:
     """Gaussian prior (mean and covariance) over named bridge drivers.
 
-    Parameters not listed are treated as known.  The covariance must be
-    symmetric positive semidefinite; it is stored in the parameters' own units
-    (dimensionless scales, seconds for timing bias).
+    The prior serves as the a-priori or consider covariance of the drivers in
+    orbit determination and linear covariance analysis [1]_. Parameters not
+    listed are treated as known.
+
+    Parameters
+    ----------
+    parameter_names : tuple of str
+        Unique, nonempty driver names.
+    mean : tuple of float
+        Finite prior means in the drivers' own units (dimensionless scales,
+        seconds for timing bias).
+    covariance : tuple of tuple of float
+        Finite, symmetric (relative tolerance ``1e-12``) positive semidefinite
+        covariance in the same units [2]_.
+    source, rationale : str
+        Nonempty provenance and justification.
+    reference_ids : tuple of str, optional
+        Nonempty, unique source identifiers.
+    schema : str, optional
+        Fixed schema identifier.
+
+    Raises
+    ------
+    DomainError
+        If any constraint above is violated.
 
     References
     ----------
-    NASA-20180003657 (Navigation Filter Best Practices):
-    https://ntrs.nasa.gov/citations/20180003657
-    JCGM 100:2008, section 5.2:
-    https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf
+    .. [1] NASA/TP-2018-219822, "Navigation Filter Best Practices".
+           https://ntrs.nasa.gov/citations/20180003657
+    .. [2] JCGM 100:2008, section 5.2, "Evaluation of Measurement Data -
+           Guide to the Expression of Uncertainty in Measurement".
+           https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf
     """
 
     parameter_names: tuple[str, ...]
@@ -152,15 +196,41 @@ class PropulsionParameterPrior:
         mean: Mapping[str, float] | None = None,
         correlation: Mapping[tuple[str, str], float] | None = None,
     ) -> PropulsionParameterPrior:
-        """Build a prior from sigmas, optional means and pairwise correlations.
+        """Build a prior from standard deviations and pairwise correlations.
 
-        Missing means default to the bridge reference values (1 for scales,
-        0 for timing bias); a name without a known default must be given.
+        The covariance is ``C_ij = r_ij s_i s_j`` [1]_ with ``r_ii = 1`` and
+        unspecified pairs uncorrelated.
+
+        Parameters
+        ----------
+        standard_deviations : mapping of str to float
+            Finite, nonnegative sigma of each driver; defines the order.
+        source, rationale : str
+            Nonempty provenance and justification.
+        mean : mapping of str to float, optional
+            Means of listed drivers. Missing means default to the bridge
+            reference values (1 for ``thrust_scale`` and ``mass_flow_scale``,
+            0 for ``ignition_time_bias_s``); any other name must be given.
+        correlation : mapping of (str, str) to float, optional
+            Coefficients in ``[-1, 1]`` for pairs of distinct listed drivers;
+            applied symmetrically.
+
+        Returns
+        -------
+        PropulsionParameterPrior
+            The constructed prior.
+
+        Raises
+        ------
+        DomainError
+            If an argument has the wrong type or value, or the resulting
+            covariance is not positive semidefinite.
 
         References
         ----------
-        JCGM 100:2008, section 5.2:
-        https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf
+        .. [1] JCGM 100:2008, section 5.2, "Evaluation of Measurement Data -
+               Guide to the Expression of Uncertainty in Measurement".
+               https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf
         """
 
         if not isinstance(standard_deviations, Mapping):
@@ -219,8 +289,9 @@ class PropulsionParameterPrior:
         With calibrated scales ``T`` (thrust), ``I`` (specific impulse) and
         optional ``A`` (axial efficiency), the bridge drivers are
         ``thrust_scale = T A`` and ``mass_flow_scale = T / I``.  First-order
-        propagation (JCGM 100 law of propagation of uncertainty) gives
-        ``P = J C J^T``.  ``C`` uses the marginal process variances of the
+        propagation (law of propagation of uncertainty [1]_ [2]_) gives
+        ``P = J C J^T`` with Jacobian ``J`` of the mapping at the consensus
+        means.  ``C`` uses the marginal process variances of the
         selected ``scope`` and the calibration's effective (possibly
         regularized) correlation, exactly as ``residual_model`` does.
 
@@ -233,11 +304,49 @@ class PropulsionParameterPrior:
         is ignored.  The ignition-time sigma is not observable from scale
         calibration and must be supplied explicitly to be included.
 
+        Parameters
+        ----------
+        calibration : HotFireMultivariateCalibration
+            Paired calibration containing ``thrust_scale`` and
+            ``specific_impulse_scale``.
+        scope : CalibrationScope, optional
+            Population or same-engine variances and correlation.
+        artifact_includes_consensus : bool, optional
+            Return the relative residual about one (default) or the absolute
+            consensus mean and covariance.
+        ignition_time_bias_sigma_s : float or None, optional
+            Nonnegative ignition-time sigma [s]; adds an uncorrelated
+            ``ignition_time_bias_s`` driver.
+
+        Returns
+        -------
+        PropulsionParameterPrior
+            Prior over ``thrust_scale``, ``mass_flow_scale`` and, optionally,
+            ``ignition_time_bias_s``, for use as an a-priori or consider
+            covariance [3]_.
+
+        Raises
+        ------
+        DomainError
+            If the calibration or scope is invalid, a required scale is
+            missing, the same-engine correlation is undefined, or the sigma is
+            negative.
+
+        Notes
+        -----
+        The mapping is first order [2]_; it holds only while the relative
+        variances are small enough for the linearization of ``T A`` and
+        ``T / I`` about the consensus means to be adequate.
+
         References
         ----------
-        JCGM 100:2008, section 5.1.2:
-        https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf
-        NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
+        .. [1] JCGM 100:2008, section 5.1.2, "Evaluation of Measurement Data -
+               Guide to the Expression of Uncertainty in Measurement".
+               https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf
+        .. [2] NIST-TN1297-COVARIANCE. NIST TN 1297 Appendix A, first-order
+               measurement uncertainty with sensitivity coefficients and covariance.
+        .. [3] NASA/TP-2018-219822, "Navigation Filter Best Practices".
+               https://ntrs.nasa.gov/citations/20180003657
         """
 
         if not isinstance(calibration, HotFireMultivariateCalibration):
@@ -326,12 +435,23 @@ class PropulsionParameterPrior:
 
     @property
     def standard_deviations(self) -> tuple[float, ...]:
-        """Return the square roots of the covariance diagonal."""
+        """Return the prior standard deviations ``sqrt(C_ii)`` in name order."""
 
         return tuple(sqrt(max(self.covariance[i][i], 0.0)) for i in range(len(self.mean)))
 
     def relative_covariance(self) -> Matrix:
-        """Return ``C_ij / (mean_i mean_j)``; every mean must be non-zero."""
+        """Return the relative covariance ``C_ij / (mean_i mean_j)``.
+
+        Returns
+        -------
+        tuple of tuple of float
+            Dimensionless covariance of the relative deviations.
+
+        Raises
+        ------
+        DomainError
+            If any mean is zero.
+        """
 
         if any(value == 0.0 for value in self.mean):
             raise DomainError("Relative covariance requires non-zero means.")
@@ -344,7 +464,10 @@ class PropulsionParameterPrior:
         )
 
     def variance_of(self, name: str) -> float:
-        """Return one marginal variance, or zero for a parameter not in the prior."""
+        """Return the variance of ``name``, or zero for a driver not in the prior.
+
+        A driver absent from the prior is treated as known.
+        """
 
         if name not in self.parameter_names:
             return 0.0
@@ -352,13 +475,30 @@ class PropulsionParameterPrior:
         return self.covariance[position][position]
 
     def check_against(self, parameters: tuple[EstimableParameter, ...]) -> tuple[str, ...]:
-        """Validate against bridge drivers; return warnings for 3-sigma bound overlap.
+        """Validate the prior against bridge drivers and flag 3-sigma bound overlap.
 
-        Unknown names and means outside the driver bounds fail closed.
+        Parameters
+        ----------
+        parameters : tuple of EstimableParameter
+            Drivers of the propagator bridge.
+
+        Returns
+        -------
+        tuple of str
+            One warning per driver whose ``mean -/+ 3 sigma`` interval leaves
+            the driver bounds; such a prior can push an estimator to a bound
+            [1]_.
+
+        Raises
+        ------
+        DomainError
+            If a prior name is not a driver or a mean violates its driver
+            bounds.
 
         References
         ----------
-        NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
+        .. [1] NASA/TP-2018-219822, "Navigation Filter Best Practices".
+               https://ntrs.nasa.gov/citations/20180003657
         """
 
         parameters = records(parameters, EstimableParameter, "Bridge parameters")
@@ -380,12 +520,27 @@ class PropulsionParameterPrior:
 
     @property
     def prior_hash(self) -> str:
-        """Return content identity of names, moments and provenance."""
+        """SHA-256 hex digest of the canonical prior content without its hash.
+
+        A reproducible content identity of names, moments and provenance, not
+        an authentication.
+        """
 
         return canonical_sha256(self.to_dict(include_hash=False))
 
     def to_dict(self, *, include_hash: bool = True) -> dict[str, object]:
-        """Return deterministic JSON-compatible prior content."""
+        """Return the deterministic JSON-compatible prior document.
+
+        Parameters
+        ----------
+        include_hash : bool, optional
+            Add ``prior_hash`` computed over the document without it.
+
+        Returns
+        -------
+        dict
+            Schema, names, mean, covariance, provenance and references.
+        """
 
         payload: dict[str, object] = {
             "schema": self.schema,
@@ -402,7 +557,31 @@ class PropulsionParameterPrior:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, object]) -> PropulsionParameterPrior:
-        """Reopen a prior and reject malformed or hash-altered content."""
+        """Reopen a prior document and verify its content hash.
+
+        Parameters
+        ----------
+        payload : mapping
+            Decoded JSON document [1]_ [2]_ produced by :meth:`to_dict`.
+
+        Returns
+        -------
+        PropulsionParameterPrior
+            The validated prior.
+
+        Raises
+        ------
+        InputError
+            If the document is malformed, violates the prior constraints, or
+            its ``prior_hash`` does not match the content.
+
+        References
+        ----------
+        .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+               Format". https://www.rfc-editor.org/rfc/rfc8259
+        .. [2] PYTHON-3.12-JSON. Python 3.12, ``json``: encoder/decoder hooks,
+               duplicate-member and nonstandard numeric token behavior.
+        """
 
         if not isinstance(payload, Mapping):
             raise InputError("Parameter-prior artifact root must be an object.")
@@ -426,7 +605,8 @@ class PropulsionParameterPrior:
 def delta_v_log_sensitivities(consumed_mass_fraction: float) -> tuple[float, float]:
     """Return ``(dlnDv/ds_T, dlnDv/ds_m)`` for a duration-terminated burn.
 
-    For constant effective exhaust velocity and a fixed burn duration,
+    From the ideal rocket equation [1]_, for constant effective exhaust
+    velocity and a fixed burn duration,
     ``Dv = (s_T / s_m) c ln(1 / (1 - s_m mu))`` where ``mu`` is the nominal
     consumed fraction of initial mass.  At ``s_T = s_m = 1``::
 
@@ -434,11 +614,30 @@ def delta_v_log_sensitivities(consumed_mass_fraction: float) -> tuple[float, flo
         dlnDv/ds_m = -1 + mu / ((1 - mu) (-ln(1 - mu)))   (~ mu/2 for small mu)
 
     A flow-scale error mostly cancels: it changes both the exhaust velocity
-    and the propellant consumed.
+    and the propellant consumed. The sensitivities feed the proportional
+    magnitude term of the execution-error model [2]_.
+
+    Parameters
+    ----------
+    consumed_mass_fraction : float
+        Nominal consumed fraction ``mu`` of initial mass, in ``(0, 1)``.
+
+    Returns
+    -------
+    tuple of float
+        Logarithmic sensitivities to the thrust and mass-flow scales.
+
+    Raises
+    ------
+    DomainError
+        If ``mu`` is not in ``(0, 1)``.
 
     References
     ----------
-    NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
+    .. [1] NASA Glenn, "Ideal Rocket Equation".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
+    .. [2] NASA/TP-2018-219822, "Navigation Filter Best Practices".
+           https://ntrs.nasa.gov/citations/20180003657
     """
 
     mu = real(consumed_mass_fraction, "Consumed mass fraction")
@@ -459,13 +658,31 @@ class GatesExecutionErrorModel:
     proportional magnitude error [-], ``sa`` fixed transverse error [m/s] and
     ``sp`` proportional pointing error [rad], all one-sigma.  The transverse
     term applies independently to each of the two axes perpendicular to
-    ``e``.  Original model: C. R. Gates, "A Simplified Model of Midcourse
-    Maneuver Execution Errors", JPL Technical Report 32-504, 1963.
+    ``e``.  The model originates in [1]_ and is used for maneuver execution
+    errors in navigation filters [2]_.
+
+    Parameters
+    ----------
+    fixed_magnitude_sigma_m_s : float
+        ``sr`` [m/s], finite and nonnegative.
+    proportional_magnitude_sigma : float
+        ``ss`` [-], finite and nonnegative.
+    fixed_pointing_sigma_m_s : float
+        ``sa`` [m/s], finite and nonnegative.
+    proportional_pointing_sigma_rad : float
+        ``sp`` [rad], finite and nonnegative.
+
+    Raises
+    ------
+    DomainError
+        If a sigma is negative or not finite.
 
     References
     ----------
-    NASA-20180003657 (Navigation Filter Best Practices):
-    https://ntrs.nasa.gov/citations/20180003657
+    .. [1] C. R. Gates, "A Simplified Model of Midcourse Maneuver Execution
+           Errors", JPL Technical Report 32-504, 1963.
+    .. [2] NASA/TP-2018-219822, "Navigation Filter Best Practices".
+           https://ntrs.nasa.gov/citations/20180003657
     """
 
     fixed_magnitude_sigma_m_s: float
@@ -502,13 +719,38 @@ class GatesExecutionErrorModel:
         covariance of ``thrust_scale`` and ``mass_flow_scale`` (a scale not in
         the prior contributes nothing).  Valid for duration-terminated burns;
         an accelerometer (delta-v) cutoff removes most of this term and leaves
-        its own resolution error in the fixed magnitude sigma instead.
+        its own resolution error in the fixed magnitude sigma instead [1]_.
+        The quadratic form is the first-order propagation of the correlated
+        relative scale uncertainty [2]_.
+
+        Parameters
+        ----------
+        prior : PropulsionParameterPrior
+            Prior with nonzero means for the listed scales.
+        consumed_mass_fraction : float
+            Nominal consumed mass fraction in ``(0, 1)``.
+        fixed_magnitude_sigma_m_s, fixed_pointing_sigma_m_s : float
+            ``sr`` and ``sa`` [m/s].
+        proportional_pointing_sigma_rad : float
+            ``sp`` [rad], supplied by attitude control.
+
+        Returns
+        -------
+        GatesExecutionErrorModel
+            Model with the derived ``ss``.
+
+        Raises
+        ------
+        DomainError
+            If the prior type, a mean, the mass fraction or a sigma is invalid.
 
         References
         ----------
-        NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
-        JCGM 100:2008, section 5.2:
-        https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf
+        .. [1] NASA/TP-2018-219822, "Navigation Filter Best Practices".
+               https://ntrs.nasa.gov/citations/20180003657
+        .. [2] JCGM 100:2008, section 5.2, "Evaluation of Measurement Data -
+               Guide to the Expression of Uncertainty in Measurement".
+               https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf
         """
 
         if not isinstance(prior, PropulsionParameterPrior):
@@ -539,6 +781,13 @@ class GatesExecutionErrorModel:
 
     @staticmethod
     def _unit(delta_v: tuple[float, float, float]) -> tuple[tuple[float, float, float], float]:
+        """Return the unit direction and magnitude of a nonzero delta-v.
+
+        Raises
+        ------
+        DomainError
+            If ``delta_v`` is not a finite 3-vector or is zero.
+        """
         delta_v = vector3(delta_v, "Delta-v")
         magnitude = sqrt(sum(value * value for value in delta_v))
         if magnitude <= 0.0:
@@ -546,7 +795,20 @@ class GatesExecutionErrorModel:
         return tuple(value / magnitude for value in delta_v), magnitude  # type: ignore[return-value]
 
     def along_and_transverse_variance(self, delta_v_magnitude_m_s: float) -> tuple[float, float]:
-        """Return the along-burn and per-transverse-axis variances [m^2/s^2]."""
+        """Return the along-burn and per-transverse-axis variances [m^2/s^2].
+
+        ``(sr**2 + V**2 ss**2, sa**2 + V**2 sp**2)`` for magnitude ``V`` [1]_.
+
+        Raises
+        ------
+        DomainError
+            If the magnitude is negative or not finite.
+
+        References
+        ----------
+        .. [1] C. R. Gates, "A Simplified Model of Midcourse Maneuver Execution
+               Errors", JPL Technical Report 32-504, 1963.
+        """
 
         delta_v_magnitude_m_s = real(delta_v_magnitude_m_s, "Delta-v magnitude")
         if delta_v_magnitude_m_s < 0.0:
@@ -560,9 +822,29 @@ class GatesExecutionErrorModel:
     def covariance(self, delta_v: tuple[float, float, float]) -> Matrix:
         """Return the 3x3 execution-error covariance in the frame of ``delta_v``.
 
+        ``Q = s_along**2 e e^T + s_trans**2 (I - e e^T)`` [1]_ [2]_.
+
+        Parameters
+        ----------
+        delta_v : tuple of float
+            Nonzero commanded velocity change [m/s].
+
+        Returns
+        -------
+        tuple of tuple of float
+            Symmetric covariance [m^2/s^2].
+
+        Raises
+        ------
+        DomainError
+            If ``delta_v`` is invalid or zero.
+
         References
         ----------
-        NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
+        .. [1] C. R. Gates, "A Simplified Model of Midcourse Maneuver Execution
+               Errors", JPL Technical Report 32-504, 1963.
+        .. [2] NASA/TP-2018-219822, "Navigation Filter Best Practices".
+               https://ntrs.nasa.gov/citations/20180003657
         """
 
         unit, magnitude = self._unit(delta_v)
@@ -581,9 +863,33 @@ class GatesExecutionErrorModel:
     ) -> tuple[float, float, float]:
         """Return one executed delta-v drawn from the Gaussian error model.
 
+        Independent normal errors are drawn along ``e`` and along two unit
+        axes perpendicular to it, with the variances of
+        :meth:`along_and_transverse_variance` [1]_ [2]_.
+
+        Parameters
+        ----------
+        delta_v : tuple of float
+            Nonzero commanded velocity change [m/s].
+        generator : random.Random
+            Random stream; the draw is reproducible for a given state.
+
+        Returns
+        -------
+        tuple of float
+            Executed velocity change [m/s].
+
+        Raises
+        ------
+        DomainError
+            If the generator type or ``delta_v`` is invalid.
+
         References
         ----------
-        NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
+        .. [1] C. R. Gates, "A Simplified Model of Midcourse Maneuver Execution
+               Errors", JPL Technical Report 32-504, 1963.
+        .. [2] NASA/TP-2018-219822, "Navigation Filter Best Practices".
+               https://ntrs.nasa.gov/citations/20180003657
         """
 
         if not isinstance(generator, random.Random):
@@ -614,12 +920,26 @@ class FirstOrderGaussMarkov:
     ``q = 2 sigma^2 / tau``, so the steady-state standard deviation is
     ``sigma``.  Over a step ``dt`` the exact discrete form is
     ``x_{k+1} = phi x_k + w_k`` with ``phi = exp(-dt / tau)`` and
-    ``Var(w_k) = sigma^2 (1 - phi^2)``.
+    ``Var(w_k) = sigma^2 (1 - phi^2)`` [1]_.
+
+    Parameters
+    ----------
+    parameter_name : str
+        Name of the driver whose deviation is modeled.
+    steady_state_sigma : float
+        ``sigma``, finite and nonnegative, in the driver's units.
+    time_constant_s : float
+        Correlation time ``tau`` [s], finite and positive.
+
+    Raises
+    ------
+    DomainError
+        If a value is invalid.
 
     References
     ----------
-    NASA-20180003657 (Navigation Filter Best Practices):
-    https://ntrs.nasa.gov/citations/20180003657
+    .. [1] NASA/TP-2018-219822, "Navigation Filter Best Practices".
+           https://ntrs.nasa.gov/citations/20180003657
     """
 
     parameter_name: str
@@ -641,24 +961,55 @@ class FirstOrderGaussMarkov:
 
     @property
     def power_spectral_density(self) -> float:
-        """Return ``q = 2 sigma^2 / tau`` [unit^2/s]."""
+        """Return the white-noise spectral density ``q = 2 sigma^2 / tau`` [unit^2/s]."""
 
         return 2.0 * self.steady_state_sigma**2 / self.time_constant_s
 
     def transition(self, dt_s: float) -> float:
-        """Return ``phi = exp(-|dt| / tau)``."""
+        """Return the state transition ``phi = exp(-|dt| / tau)`` over ``dt_s``.
+
+        Raises
+        ------
+        DomainError
+            If ``dt_s`` is not finite.
+        """
 
         dt_s = real(dt_s, "Gauss-Markov step")
         return exp(-abs(dt_s) / self.time_constant_s)
 
     def discrete_noise_variance(self, dt_s: float) -> float:
-        """Return ``sigma^2 (1 - phi^2)`` for a step of ``dt_s``."""
+        """Return the exact discrete noise variance ``sigma^2 (1 - phi^2)`` over ``dt_s``."""
 
         phi = self.transition(dt_s)
         return self.steady_state_sigma**2 * (1.0 - phi * phi)
 
     def propagate(self, mean: float, variance: float, dt_s: float) -> tuple[float, float]:
-        """Propagate the deviation's mean and variance over ``dt_s``."""
+        """Propagate the deviation's mean and variance over ``dt_s``.
+
+        ``m' = phi m`` and ``P' = phi**2 P + sigma**2 (1 - phi**2)`` [1]_.
+
+        Parameters
+        ----------
+        mean, variance : float
+            Current mean and nonnegative variance.
+        dt_s : float
+            Step [s]; its sign is ignored.
+
+        Returns
+        -------
+        tuple of float
+            Propagated ``(mean, variance)``.
+
+        Raises
+        ------
+        DomainError
+            If an input is not finite or the variance is negative.
+
+        References
+        ----------
+        .. [1] NASA/TP-2018-219822, "Navigation Filter Best Practices".
+               https://ntrs.nasa.gov/citations/20180003657
+        """
 
         mean = real(mean, "Gauss-Markov mean")
         variance = real(variance, "Gauss-Markov variance")
@@ -672,11 +1023,33 @@ class FirstOrderGaussMarkov:
     ) -> tuple[float, ...]:
         """Draw one exact discrete realization at increasing ``times_s``.
 
-        Without ``initial`` the first value is drawn from the steady state.
+        Without ``initial`` the first value is drawn from the steady state
+        ``N(0, sigma**2)``. Each later value applies the exact discrete
+        transition and noise variance for its step [1]_.
+
+        Parameters
+        ----------
+        times_s : tuple of float
+            Finite, strictly increasing sample times [s].
+        generator : random.Random
+            Random stream.
+        initial : float or None, optional
+            Deviation at the first time.
+
+        Returns
+        -------
+        tuple of float
+            Deviation at each time; empty for no times.
+
+        Raises
+        ------
+        DomainError
+            If the generator type, times or initial value are invalid.
 
         References
         ----------
-        NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
+        .. [1] NASA/TP-2018-219822, "Navigation Filter Best Practices".
+               https://ntrs.nasa.gov/citations/20180003657
         """
 
         if not isinstance(generator, random.Random):

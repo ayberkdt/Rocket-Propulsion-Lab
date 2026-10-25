@@ -11,7 +11,7 @@ Two throttle laws are provided:
 
 ``DiscreteThrottlePath``
     An ordered subset of a hash-verified tabulated throttle table (e.g. an
-    ion/Hall thruster qualification table).  The highest level whose required
+    ion/Hall thruster throttle table [1]_).  The highest level whose required
     input power fits the available power is selected, with an optional
     up-switch hysteresis band so that power noise near a threshold does not
     chatter between levels.  Within a level thrust and flow are constant, so
@@ -19,26 +19,47 @@ Two throttle laws are provided:
     explicit events.
 ``FixedEfficiencyThrottle``
     A continuous law with constant total efficiency ``eta`` and specific
-    impulse.  From jet power ``P_jet = T g0 Isp / 2 = eta P``::
+    impulse.  The jet power referenced to bus input power [2]_ is
+    ``P_jet = T g0 Isp / 2 = eta P``, so::
 
         T = 2 eta P / (g0 Isp),     mdot = T / (g0 Isp)
 
-    between a minimum (start) and a maximum (saturation) input power.  This
-    gives a non-zero, analytic ``dT/dP`` for low-thrust trajectory
+    between a minimum (start) and a maximum (saturation) input power, with
+    ``g0`` the registered ``STANDARD_GRAVITY_M_S2`` and ``Isp = T / (mdot g0)``
+    [3]_.  The law has a non-zero, analytic ``dT/dP`` for low-thrust trajectory
     optimization.
 
 The discrete level index is a propagator-owned mode state, as in an
-event-driven maneuver model: the consumer initializes it with
+event-driven maneuver model [4]_: the consumer initializes it with
 :meth:`PowerLimitedPropulsionModel.select_level`, registers
 :meth:`~PowerLimitedPropulsionModel.switching_surfaces` for the current level,
 and applies that surface's ``to_level`` after a directed crossing. Exact
 threshold ratios preserve signs when displayed thresholds coincide; targets
 coalesce levels crossed by the first representable input power beyond a root.
-The consumer must handle initial zeros, crossing direction and event resets.
-This does not certify its event clock or prevent roots missed within a step.
-``evaluate`` never changes the level by itself, so Runge-Kutta
-stages that probe slightly past a switching root stay on a smooth branch; the
-evaluation reports any ``power_deficit_w`` instead.
+The consumer handles initial zeros, crossing direction and event resets; this
+module does not certify the consumer's event clock and cannot detect roots
+that a step-wise sign-change detector misses within one step [5]_.
+``evaluate`` never changes the level by itself, so Runge-Kutta stages that
+probe slightly past a switching root stay on a smooth branch; the evaluation
+reports any ``power_deficit_w`` instead.
+
+The throttle-table values are caller-supplied data.  The model is not
+validated against thruster hardware.
+
+References
+----------
+.. [1] NASA-20090004685. NASA, "NASA's Evolutionary Xenon Thruster (NEXT) Ion
+       Propulsion System Information Summary",
+       https://ntrs.nasa.gov/citations/20090004685.
+.. [2] NASA-CR-2004-213099. NASA, "Development and Characterization of
+       High-Efficiency, High-Specific Impulse Xenon Hall Thrusters", printed
+       p. 14, eqs. (2-9)-(2-10).
+.. [3] NASA-ISP. NASA Glenn Research Center, "Specific Impulse",
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/.
+.. [4] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+       EventDetector" API.
+.. [5] SCIPY-1.14.1-IVP. SciPy 1.14.1, "solve_ivp": event sign-change
+       detection; multiple roots within one step may be missed.
 """
 
 from __future__ import annotations
@@ -90,6 +111,13 @@ OFF_LEVEL = -1
 
 
 def _positive(value: float, label: str) -> float:
+    """Return ``value`` as a finite real number greater than zero.
+
+    Raises
+    ------
+    DomainError
+        If the value is not a finite real number or is not positive.
+    """
     number = real(value, label)
     if number <= 0.0:
         raise DomainError(f"{label} must be finite and greater than zero.")
@@ -97,6 +125,7 @@ def _positive(value: float, label: str) -> float:
 
 
 def _nonnegative(value: float, label: str) -> float:
+    """Return ``value`` as a finite, non-negative real number or raise ``DomainError``."""
     number = real(value, label)
     if number < 0.0:
         raise DomainError(f"{label} must be finite and non-negative.")
@@ -104,23 +133,40 @@ def _nonnegative(value: float, label: str) -> float:
 
 
 def _strings_blank(value: object, label: str) -> tuple[str, ...]:
+    """Return a tuple of strings; blank entries are left for the caller to reject."""
     return strings(value, label, allow_blank=True)
 
 
 def _set(instance: object, name: str, value: object) -> None:
+    """Assign a normalized field on a frozen, slotted dataclass instance."""
     object.__setattr__(instance, name, value)
 
 
 
 
 def _sha256_hex(value: str, label: str) -> None:
+    """Require a 64-character lower-case hexadecimal SHA-256 digest."""
     text(value, label)
     if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
         raise DomainError(f"{label} must be a lower-case SHA-256 hex digest.")
 
 
 def _level_efficiency(level):
-    """Exact jet/input power ratio of already validated binary level scalars."""
+    """Return the exact total efficiency ``T**2 / (2 mdot P)`` of one level.
+
+    The jet power ``T**2 / (2 mdot)`` divided by the bus input power ``P`` is
+    the total efficiency referenced to spacecraft input power [1]_.  The ratio
+    is formed from the exact rational values of already validated binary
+    scalars [2]_, so no rounding occurs before the caller's comparison.
+
+    References
+    ----------
+    .. [1] NASA-CR-2004-213099. NASA, "Development and Characterization of
+           High-Efficiency, High-Specific Impulse Xenon Hall Thrusters",
+           printed p. 14, eqs. (2-9)-(2-10).
+    .. [2] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain
+           their exact binary value as a rational.
+    """
     return _fraction(level.thrust_n)**2 / (
         2 * _fraction(level.mass_flow_kg_s) * _fraction(level.input_power_w))
 
@@ -129,17 +175,42 @@ def _level_efficiency(level):
 class ElectricThrottleLevel:
     """One supplied electric-thruster operating point.
 
-    ``input_power_w`` is the power drawn from the spacecraft bus by the
-    thruster string (power-processing unit input), which is the quantity the
-    power model must supply.  The derived total efficiency
-    ``T^2 / (2 mdot P)`` is the ratio of jet power to input power and must not
-    exceed the retained numerical consistency ceiling ``1.0 + 1e-12``.
-    This check is not a calibrated efficiency uncertainty or qualification
-    record. Ratios use exact binary-input arithmetic before checked output.
+    Parameters
+    ----------
+    level_id : str
+        Non-empty identifier, unique within its throttle table.
+    input_power_w : float
+        Power drawn from the spacecraft bus by the thruster string
+        (power-processing unit input), in W; the quantity the power model
+        must supply.  Finite and positive.
+    thrust_n : float
+        Thrust at this level, in N.  Finite and positive.
+    mass_flow_kg_s : float
+        Propellant mass flow at this level, in kg/s.  Finite and positive.
+
+    Raises
+    ------
+    DomainError
+        If a field is non-finite, non-positive or blank, or if the implied
+        total efficiency exceeds the numerical consistency ceiling.
+
+    Notes
+    -----
+    The derived total efficiency ``T**2 / (2 mdot P)`` is the ratio of jet
+    power to bus input power [2]_ and must not exceed the numerical
+    consistency ceiling ``1.0 + 1e-12``.  This check is not a calibrated
+    efficiency uncertainty or a qualification record.  Ratios use exact
+    binary-input arithmetic before a checked float export.  Operating points
+    of the kind tabulated in [1]_ are supplied by the caller; none is shipped.
 
     References
     ----------
-    NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
+    .. [1] NASA-20090004685. NASA, "NASA's Evolutionary Xenon Thruster (NEXT)
+           Ion Propulsion System Information Summary",
+           https://ntrs.nasa.gov/citations/20090004685.
+    .. [2] NASA-CR-2004-213099. NASA, "Development and Characterization of
+           High-Efficiency, High-Specific Impulse Xenon Hall Thrusters",
+           printed p. 14, eqs. (2-9)-(2-10).
     """
 
     level_id: str
@@ -159,7 +230,21 @@ class ElectricThrottleLevel:
 
     @property
     def specific_impulse_s(self) -> float:
-        """Return ``T / (g0 mdot)`` in seconds."""
+        """Specific impulse ``Isp = T / (g0 mdot)`` in s.
+
+        ``g0`` is the registered ``STANDARD_GRAVITY_M_S2``; the definition
+        follows [1]_.
+
+        Raises
+        ------
+        DomainError
+            If the exact quotient cannot be exported as a finite float.
+
+        References
+        ----------
+        .. [1] NASA-ISP. NASA Glenn Research Center, "Specific Impulse",
+               https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/.
+        """
 
         return _finite_rational(
             _fraction(self.thrust_n) / (_fraction(STANDARD_GRAVITY_M_S2) * _fraction(self.mass_flow_kg_s)),
@@ -167,23 +252,61 @@ class ElectricThrottleLevel:
 
     @property
     def total_efficiency(self) -> float:
-        """Return jet power over input power, ``T^2 / (2 mdot P)``."""
+        """Total efficiency, jet power over bus input power ``T**2 / (2 mdot P)``.
+
+        Raises
+        ------
+        DomainError
+            If the exact ratio cannot be exported as a finite float.
+
+        References
+        ----------
+        .. [1] NASA-CR-2004-213099. NASA, "Development and Characterization of
+               High-Efficiency, High-Specific Impulse Xenon Hall Thrusters",
+               printed p. 14, eqs. (2-9)-(2-10).
+        """
 
         return _finite_rational(_level_efficiency(self), "Throttle level total efficiency")
 
 
 @dataclass(frozen=True, slots=True)
 class ElectricThrottleTable:
-    """Tabulated points with caller-supplied source identifiers and digest.
+    """Hash-bound table of electric-thruster operating points.
 
-    Content identities support reproducible reopening. Source metadata alone
-    does not authenticate data or prove a qualification/acceptance campaign.
+    Parameters
+    ----------
+    levels : tuple of ElectricThrottleLevel
+        At least one level; identifiers must be unique.
+    source_id : str
+        Non-empty, caller-supplied identifier of the data source.
+    source_sha256 : str
+        Lower-case hexadecimal SHA-256 digest of the source data.
+    reference_ids : tuple of str, optional
+        Non-empty, unique reference identifiers.
+    schema : str, optional
+        Must equal ``ELECTRIC_THROTTLE_TABLE_SCHEMA``.
+
+    Raises
+    ------
+    DomainError
+        If the schema is unsupported, the table is empty, identifiers or
+        references are blank or duplicated, or the digest is malformed.
+
+    Notes
+    -----
+    Throttle tables of this form (input power, thrust, mass flow) follow [1]_.
+    Content identities support reproducible reopening of a versioned,
+    unit-explicit exchange document [2]_.  Source metadata alone does not
+    authenticate data or demonstrate a qualification or acceptance campaign.
     No level is interpolated or extrapolated.
 
     References
     ----------
-    NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
-    CCSDS-502.0-B-3: https://ccsds.org/Pubs/502x0b3e1.pdf
+    .. [1] NASA-20090004685. NASA, "NASA's Evolutionary Xenon Thruster (NEXT)
+           Ion Propulsion System Information Summary",
+           https://ntrs.nasa.gov/citations/20090004685.
+    .. [2] CCSDS 502.0-B-3, "Orbit Data Messages",
+           https://ccsds.org/Pubs/502x0b3e1.pdf.
     """
 
     levels: tuple[ElectricThrottleLevel, ...]
@@ -214,7 +337,23 @@ class ElectricThrottleTable:
             raise DomainError("Throttle-table references must be unique.")
 
     def level(self, level_id: str) -> ElectricThrottleLevel:
-        """Return one level by identifier or fail closed."""
+        """Return the level with identifier ``level_id``.
+
+        Parameters
+        ----------
+        level_id : str
+            Identifier of a level in this table.
+
+        Returns
+        -------
+        ElectricThrottleLevel
+            The matching level.
+
+        Raises
+        ------
+        DomainError
+            If no level has that identifier.
+        """
 
         for level in self.levels:
             if level.level_id == level_id:
@@ -223,12 +362,23 @@ class ElectricThrottleTable:
 
     @property
     def table_hash(self) -> str:
-        """Return content identity of levels and provenance."""
+        """SHA-256 content identity of the levels and provenance fields."""
 
         return canonical_sha256(self.to_dict(include_hash=False))
 
     def to_dict(self, *, include_hash: bool = True) -> dict[str, object]:
-        """Return deterministic JSON-compatible table content."""
+        """Return the deterministic, JSON-compatible table content.
+
+        Parameters
+        ----------
+        include_hash : bool, optional
+            Add the ``table_hash`` member computed over the other members.
+
+        Returns
+        -------
+        dict
+            Schema, provenance, reference identifiers and levels.
+        """
 
         payload: dict[str, object] = {
             "schema": self.schema,
@@ -250,7 +400,23 @@ class ElectricThrottleTable:
         return payload
 
     def to_json(self, *, indent: int | None = 2) -> str:
-        """Serialize the complete hash-bound table."""
+        """Serialize the complete hash-bound table as JSON text.
+
+        Parameters
+        ----------
+        indent : int or None, optional
+            Indentation passed to :func:`json.dumps`; ``None`` is compact.
+
+        Returns
+        -------
+        str
+            Key-sorted JSON without ``NaN`` or ``Infinity`` tokens [1]_.
+
+        References
+        ----------
+        .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data
+               Interchange Format", https://www.rfc-editor.org/rfc/rfc8259.
+        """
 
         return json.dumps(
             self.to_dict(), allow_nan=False, ensure_ascii=False, indent=indent, sort_keys=True
@@ -258,7 +424,24 @@ class ElectricThrottleTable:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, object]) -> ElectricThrottleTable:
-        """Reopen a table and reject malformed or hash-altered content."""
+        """Reopen a table document and verify its content hash.
+
+        Parameters
+        ----------
+        payload : Mapping
+            Document produced by :meth:`to_dict` with ``include_hash=True``.
+
+        Returns
+        -------
+        ElectricThrottleTable
+            The reconstructed table.
+
+        Raises
+        ------
+        InputError
+            If the document is malformed or its ``table_hash`` does not match
+            the recomputed content hash.
+        """
 
         _table_document(payload)
         try:
@@ -288,7 +471,28 @@ class ElectricThrottleTable:
 
     @classmethod
     def from_json(cls, text: str) -> ElectricThrottleTable:
-        """Deserialize and integrity-check a JSON throttle table."""
+        """Parse JSON text and reopen it with :meth:`from_dict`.
+
+        Parameters
+        ----------
+        text : str
+            RFC 8259 JSON document [1]_.
+
+        Returns
+        -------
+        ElectricThrottleTable
+            The reconstructed, hash-verified table.
+
+        Raises
+        ------
+        InputError
+            If the text is not a valid document or fails the hash check.
+
+        References
+        ----------
+        .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data
+               Interchange Format", https://www.rfc-editor.org/rfc/rfc8259.
+        """
 
         return read_json_document(text, "Electric throttle-table artifact", cls.from_dict)
 
@@ -297,9 +501,31 @@ class ElectricThrottleTable:
 class LevelOperatingPoint:
     """Thrust, flow and power of the active level at one available power.
 
+    Parameters
+    ----------
+    level_index : int
+        Index of the level within its throttle law.
+    level_id : str
+        Identifier of the level or continuous law.
+    thrust_n : float
+        Thrust, in N.
+    mass_flow_kg_s : float
+        Propellant mass flow, in kg/s.
+    input_power_w : float
+        Bus input power drawn at this point, in W.
+    required_power_w : float
+        Minimum input power that sustains the level, in W.
+    thrust_wrt_available_power : float
+        ``dT/dP`` with respect to available power, in N/W; zero inside a
+        discrete level and above continuous saturation.
+    mass_flow_wrt_available_power : float
+        ``d(mdot)/dP``, in kg/(s W).
+
     References
     ----------
-    NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
+    .. [1] NASA-20090004685. NASA, "NASA's Evolutionary Xenon Thruster (NEXT)
+           Ion Propulsion System Information Summary",
+           https://ntrs.nasa.gov/citations/20090004685.
     """
 
     level_index: int
@@ -314,7 +540,7 @@ class LevelOperatingPoint:
 
 @dataclass(frozen=True, slots=True)
 class _ExactLevelPoint:
-    """Private binary-input ledger; export only at a public record boundary."""
+    """Exact rational operating point, exported to floats only at a public record."""
 
     level_index: int
     level_id: str
@@ -326,6 +552,7 @@ class _ExactLevelPoint:
     mass_flow_wrt_available_power: Fraction
 
     def export(self) -> LevelOperatingPoint:
+        """Return the checked float record, raising ``DomainError`` on overflow."""
         return LevelOperatingPoint(
             self.level_index, self.level_id,
             _finite_rational(self.thrust_n, "Continuous thrust"),
@@ -341,24 +568,50 @@ class _ExactLevelPoint:
 class PowerSwitchSurface:
     """Signed root on available power that changes the throttle level.
 
-    ``value = available_power_w - threshold_exact_w`` with checked float
-    export. ``threshold_w`` is only the nearest-float display; the normalized
-    integer ``threshold_ratio`` retains the actual root. A ``decreasing`` surface
-    fires when the value crosses zero from above (power fell below what the
-    current level needs); an ``increasing`` surface fires when it crosses from
-    below (power supports an upgrade plus hysteresis). The target can skip
-    intermediate levels when several thresholds share one representable
-    power guard. At upward equality a mode is eligible; downward equality
-    still sustains it until a strictly lower input. The consumer applies the
-    directed target, handles initial zero values and resets detectors rather
-    than treating a constant zero as a new crossing. An ``either`` surface has
-    ``to_level == from_level``: it only marks a derivative kink, fires in both
-    directions, and asks for an integrator restart.
+    Parameters
+    ----------
+    event_id : str
+        Non-empty event identifier.
+    threshold_w : float
+        Nearest-float display of the exact threshold, in W.
+    crossing : {"increasing", "decreasing", "either"}
+        Direction in which the surface fires.
+    from_level, to_level : int
+        Mode before and after the crossing; ``-1`` is off.
+    threshold_ratio : tuple of int, optional
+        Exact threshold as ``(numerator, denominator)`` with a positive
+        denominator.  When omitted, the exact value of ``threshold_w`` is used.
+
+    Raises
+    ------
+    DomainError
+        If a level is below ``-1``, the threshold is not finite, the crossing
+        is unknown, the target is inconsistent with the crossing direction,
+        or ``threshold_w`` is not the nearest float of ``threshold_ratio``.
+
+    Notes
+    -----
+    The event function is ``value = available_power_w - threshold_exact_w``
+    with a checked float export.  ``threshold_w`` is only the nearest-float
+    display; the normalized integer ``threshold_ratio`` retains the actual
+    root [2]_.  A ``decreasing`` surface fires when the value crosses zero
+    from above (power fell below what the current level needs); an
+    ``increasing`` surface fires when it crosses from below (power supports
+    an upgrade plus hysteresis).  The target can skip intermediate levels
+    when several thresholds share one representable power guard.  At upward
+    equality a mode is eligible; at downward equality it is sustained until a
+    strictly lower input.  The consumer applies the directed target, handles
+    initial zero values and resets detectors rather than treating a constant
+    zero as a new crossing [1]_.  An ``either`` surface has
+    ``to_level == from_level``: it only marks a derivative kink, fires in
+    both directions, and requests an integrator restart.
 
     References
     ----------
-    Orekit EventDetector 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+    .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+           EventDetector" API.
+    .. [2] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain
+           their exact binary value as a rational.
     """
 
     event_id: str
@@ -401,18 +654,35 @@ class PowerSwitchSurface:
 
     @property
     def threshold_exact_w(self) -> Fraction:
-        """Exact threshold; threshold_w is its nearest-float display."""
+        """Exact threshold in W; ``threshold_w`` is its nearest-float display."""
         return Fraction(*self.threshold_ratio)
 
     def value(self, available_power_w: float) -> float:
-        """Export the exact input-minus-threshold residual, or fail typed."""
+        """Return the event function ``available_power_w - threshold_exact_w``.
+
+        Parameters
+        ----------
+        available_power_w : float
+            Available bus power, in W.
+
+        Returns
+        -------
+        float
+            The exact residual, rounded once to the nearest float.
+
+        Raises
+        ------
+        DomainError
+            If the input is not a finite real number or the residual cannot
+            be exported as a finite float.
+        """
 
         return _finite_rational(_fraction(real(available_power_w, "Available power")) - self.threshold_exact_w,
                                 "Power-switch residual")
 
 
 def _mode_data(law):
-    """Declared inputs of the two built-in relay laws, without float export."""
+    """Return exact required powers, hysteresis and identifiers of a built-in law."""
     if isinstance(law, DiscreteThrottlePath):
         return (tuple(_fraction(level.input_power_w) for level in law.levels),
                 _fraction(law.up_switch_hysteresis_w), tuple(level.level_id for level in law.levels))
@@ -420,6 +690,17 @@ def _mode_data(law):
 
 
 def _law_surfaces(law, current_level, margin=Fraction(0), *, include_kink=False):
+    """Return the power-switch surfaces of a built-in law from ``current_level``.
+
+    ``margin`` shifts every exact threshold from effective to available
+    power.  With ``include_kink`` a continuous law also returns its
+    mode-preserving saturation surface.  Event semantics follow [1]_.
+
+    References
+    ----------
+    .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+           EventDetector" API.
+    """
     required, hysteresis, identifiers = _mode_data(law)
     saturation = _fraction(law.maximum_power_w) if include_kink and isinstance(law, FixedEfficiencyThrottle) else None
     specs = _mode_roots(required, hysteresis, current_level, identifiers, margin, saturation=saturation)
@@ -432,15 +713,38 @@ def _law_surfaces(law, current_level, margin=Fraction(0), *, include_kink=False)
 class DiscreteThrottlePath:
     """Ordered throttle levels with strictly increasing required power.
 
+    Parameters
+    ----------
+    table : ElectricThrottleTable
+        Table that supplies the levels.
+    level_ids : tuple of str
+        Non-empty, unique level identifiers in path order.
+    up_switch_hysteresis_w : float, optional
+        Non-negative power added to every up-switch threshold, in W.
+    path_id : str, optional
+        Non-empty path identifier.
+
+    Raises
+    ------
+    DomainError
+        If ``table`` is not an :class:`ElectricThrottleTable`, an identifier
+        is unknown, blank or repeated, the hysteresis is negative, or the
+        required power is not strictly increasing along the path.
+
+    Notes
+    -----
     ``up_switch_hysteresis_w`` raises only the up-switch threshold: from level
     ``k`` the model moves to ``k+1`` when power reaches
     ``P_{k+1} + hysteresis``, but drops back only when power falls below
     ``P_k``.  Starting from off, the lowest level likewise needs
-    ``P_0 + hysteresis``.
+    ``P_0 + hysteresis``.  Level data of the form tabulated in [1]_ are
+    used as supplied, without interpolation.
 
     References
     ----------
-    NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
+    .. [1] NASA-20090004685. NASA, "NASA's Evolutionary Xenon Thruster (NEXT)
+           Ion Propulsion System Information Summary",
+           https://ntrs.nasa.gov/citations/20090004685.
     """
 
     table: ElectricThrottleTable
@@ -485,14 +789,42 @@ class DiscreteThrottlePath:
     ) -> DiscreteThrottlePath:
         """Build the path that maximizes ``thrust`` or ``specific_impulse``.
 
+        Parameters
+        ----------
+        table : ElectricThrottleTable
+            Source table.
+        objective : {"thrust", "specific_impulse"}, optional
+            Quantity the path maximizes at each power.
+        up_switch_hysteresis_w : float, optional
+            Up-switch hysteresis of the returned path, in W.
+
+        Returns
+        -------
+        DiscreteThrottlePath
+            Path with identifier ``"max-<objective>"``.
+
+        Raises
+        ------
+        DomainError
+            If ``table`` is not an :class:`ElectricThrottleTable` or the
+            objective is unknown.
+
+        Notes
+        -----
         Levels are visited in increasing required power; a level enters the
         path only if it strictly improves the objective over every cheaper
         level already on the path, so more power never selects a worse level.
-        At equal power the better level wins.
+        At equal power the better level wins.  The specific-impulse score is
+        ``T / mdot``, which orders levels as ``Isp`` does [2]_.  Throttle-table
+        form follows [1]_.
 
         References
         ----------
-        NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
+        .. [1] NASA-20090004685. NASA, "NASA's Evolutionary Xenon Thruster
+               (NEXT) Ion Propulsion System Information Summary",
+               https://ntrs.nasa.gov/citations/20090004685.
+        .. [2] NASA-ISP. NASA Glenn Research Center, "Specific Impulse",
+               https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/.
         """
 
         if not isinstance(table, ElectricThrottleTable):
@@ -520,31 +852,94 @@ class DiscreteThrottlePath:
 
     @property
     def levels(self) -> tuple[ElectricThrottleLevel, ...]:
-        """Return the path levels in increasing required power."""
+        """Path levels in increasing required power."""
 
         return self._levels
 
     def select_level(self, available_power_w: float, current_level: int | None) -> int:
-        """Return the level index for ``available_power_w`` (``-1`` = off)."""
+        """Return the hysteretic level index for an available power.
+
+        Parameters
+        ----------
+        available_power_w : float
+            Power available to the thruster string, in W.
+        current_level : int or None
+            Current mode (``-1`` is off); ``None`` initializes without
+            hysteresis memory.
+
+        Returns
+        -------
+        int
+            Selected level index, or ``-1`` (off).
+
+        Raises
+        ------
+        DomainError
+            If the power is not a finite real number or the current level is
+            invalid.
+        """
 
         required, hysteresis, _ = _mode_data(self)
         return _select_mode(_fraction(real(available_power_w, "Available power")), required, hysteresis, current_level)
 
     def switching_surfaces(self, current_level: int) -> tuple[PowerSwitchSurface, ...]:
-        """Return the down- and up-switch roots for the current level."""
+        """Return the down- and up-switch surfaces of ``current_level``.
+
+        Parameters
+        ----------
+        current_level : int
+            Current mode; ``-1`` is off.
+
+        Returns
+        -------
+        tuple of PowerSwitchSurface
+            Directed surfaces in effective power.
+
+        References
+        ----------
+        .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+               EventDetector" API.
+        """
 
         return _law_surfaces(self, current_level)
 
     def operating_point(self, level_index: int, available_power_w: float) -> LevelOperatingPoint:
-        """Return the constant operating point of ``level_index``."""
+        """Return the constant operating point of ``level_index``.
+
+        Parameters
+        ----------
+        level_index : int
+            Index of an on level.
+        available_power_w : float
+            Available power, in W; it does not change a discrete level's
+            thrust or flow.
+
+        Returns
+        -------
+        LevelOperatingPoint
+            Tabulated thrust, flow and input power with zero power slopes.
+
+        Raises
+        ------
+        DomainError
+            If the index is outside the path or the power is not finite.
+
+        References
+        ----------
+        .. [1] NASA-20090004685. NASA, "NASA's Evolutionary Xenon Thruster
+               (NEXT) Ion Propulsion System Information Summary",
+               https://ntrs.nasa.gov/citations/20090004685.
+        """
 
         return _operating_point_ledger(self, level_index, real(available_power_w, "Available power")).export()
 
     @property
     def level_count(self) -> int:
+        """Number of levels on the path."""
         return len(self.level_ids)
 
     def manifest(self) -> dict[str, object]:
+        """Return the JSON-compatible law description used in model manifests."""
         return {
             "law": "discrete_throttle_path",
             "path_id": self.path_id,
@@ -555,7 +950,20 @@ class DiscreteThrottlePath:
 
 
 def _fixed_gain(law):
-    """Retain the exact binary-input thrust/power ratio until each output."""
+    """Return the exact thrust-to-power gain ``2 eta / (g0 Isp)`` in N/W.
+
+    From ``P_jet = T g0 Isp / 2 = eta P`` [1]_ with ``g0`` the registered
+    ``STANDARD_GRAVITY_M_S2``.  The gain stays an exact rational until each
+    output is exported [2]_.
+
+    References
+    ----------
+    .. [1] NASA-CR-2004-213099. NASA, "Development and Characterization of
+           High-Efficiency, High-Specific Impulse Xenon Hall Thrusters",
+           printed p. 14, eqs. (2-9)-(2-10).
+    .. [2] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain
+           their exact binary value as a rational.
+    """
     return 2 * _fraction(law.total_efficiency) / (
         _fraction(STANDARD_GRAVITY_M_S2) * _fraction(law.specific_impulse_s))
 
@@ -564,15 +972,49 @@ def _fixed_gain(law):
 class FixedEfficiencyThrottle:
     """Continuous constant-efficiency, constant-Isp power-to-thrust law.
 
+    Parameters
+    ----------
+    total_efficiency : float
+        Jet power over bus input power, in ``(0, 1]``.
+    specific_impulse_s : float
+        Specific impulse, in s.  Finite and positive.
+    minimum_power_w : float
+        Shutdown power, in W.  Finite and positive.
+    maximum_power_w : float
+        Saturation power, in W; must exceed ``minimum_power_w``.
+    start_hysteresis_w : float, optional
+        Non-negative power added to the start threshold, in W.
+    law_id : str, optional
+        Non-empty law identifier.
+
+    Raises
+    ------
+    DomainError
+        If a value is non-finite or outside its range, or the maximum power
+        does not exceed the minimum.
+
+    Notes
+    -----
     Between ``minimum_power_w`` and ``maximum_power_w`` the thruster uses all
-    available power: ``T = 2 eta P / (g0 Isp)`` and ``mdot = T / (g0 Isp)``.
-    Above the maximum it saturates (``dT/dP = 0``); below the minimum it is
-    off.  Level ``0`` is on and ``-1`` is off.  The start threshold is
-    ``minimum_power_w + start_hysteresis_w``.
+    available power.  With the jet power ``P_jet = T g0 Isp / 2 = eta P``
+    referenced to bus input power [1]_ and ``Isp = T / (mdot g0)`` [2]_::
+
+        T = 2 eta P / (g0 Isp),     mdot = T / (g0 Isp)
+
+    where ``g0`` is the registered ``STANDARD_GRAVITY_M_S2``.  Above the
+    maximum the law saturates (``dT/dP = 0``); below the minimum it is off.
+    Level ``0`` is on and ``-1`` is off.  The start threshold is
+    ``minimum_power_w + start_hysteresis_w``.  Constant efficiency and
+    specific impulse over the power range are modelling assumptions, not
+    hardware data.
 
     References
     ----------
-    NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
+    .. [1] NASA-CR-2004-213099. NASA, "Development and Characterization of
+           High-Efficiency, High-Specific Impulse Xenon Hall Thrusters",
+           printed p. 14, eqs. (2-9)-(2-10).
+    .. [2] NASA-ISP. NASA Glenn Research Center, "Specific Impulse",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/.
     """
 
     total_efficiency: float
@@ -598,36 +1040,118 @@ class FixedEfficiencyThrottle:
 
     @property
     def level_count(self) -> int:
+        """Number of on modes; always ``1``."""
         return 1
 
     @property
     def thrust_per_watt_n_w(self) -> float:
-        """Return ``2 eta / (g0 Isp)``."""
+        """Thrust-to-power gain ``2 eta / (g0 Isp)`` in N/W.
+
+        References
+        ----------
+        .. [1] NASA-CR-2004-213099. NASA, "Development and Characterization of
+               High-Efficiency, High-Specific Impulse Xenon Hall Thrusters",
+               printed p. 14, eqs. (2-9)-(2-10).
+        """
 
         return _finite_rational(_fixed_gain(self), "Continuous thrust/power gain")
 
     def select_level(self, available_power_w: float, current_level: int | None) -> int:
-        """Return ``0`` when the thruster runs and ``-1`` when it is off."""
+        """Return ``0`` when the thruster runs and ``-1`` when it is off.
+
+        Parameters
+        ----------
+        available_power_w : float
+            Power available to the thruster, in W.
+        current_level : int or None
+            Current mode; ``None`` initializes without hysteresis memory.
+
+        Returns
+        -------
+        int
+            ``0`` (on) or ``-1`` (off).
+
+        Raises
+        ------
+        DomainError
+            If the power is not finite or the current level is invalid.
+        """
 
         required, hysteresis, _ = _mode_data(self)
         return _select_mode(_fraction(real(available_power_w, "Available power")), required, hysteresis, current_level)
 
     def switching_surfaces(self, current_level: int) -> tuple[PowerSwitchSurface, ...]:
-        """Return the shutdown root when on, or the start root when off."""
+        """Return the shutdown surface when on, or the start surface when off.
+
+        Parameters
+        ----------
+        current_level : int
+            ``0`` (on) or ``-1`` (off).
+
+        Returns
+        -------
+        tuple of PowerSwitchSurface
+            Directed mode-changing surfaces in effective power.
+
+        References
+        ----------
+        .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+               EventDetector" API.
+        """
 
         return _law_surfaces(self, current_level)
 
     def kink_surfaces(self) -> tuple[PowerSwitchSurface, ...]:
-        """Return the non-mode-changing saturation root where ``dT/dP`` jumps."""
+        """Return the mode-preserving saturation surface where ``dT/dP`` jumps.
+
+        Returns
+        -------
+        tuple of PowerSwitchSurface
+            The ``either`` surface at ``maximum_power_w``, or an empty tuple
+            when that power exceeds every finite float.
+
+        References
+        ----------
+        .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+               EventDetector" API.
+        """
 
         return tuple(surface for surface in _law_surfaces(self, 0, include_kink=True) if surface.crossing == "either")
 
     def operating_point(self, level_index: int, available_power_w: float) -> LevelOperatingPoint:
-        """Return thrust and flow using ``min(P, P_max)`` and their power slopes."""
+        """Return thrust, flow and their power slopes at ``min(P, P_max)``.
+
+        Parameters
+        ----------
+        level_index : int
+            Must be ``0``.
+        available_power_w : float
+            Effective available power, in W.  Negative power is clamped to
+            zero.
+
+        Returns
+        -------
+        LevelOperatingPoint
+            Thrust ``T = 2 eta P / (g0 Isp)`` and flow ``mdot = T / (g0 Isp)``
+            [1]_, with the right-hand power derivative at zero power and zero
+            slopes at or above saturation.
+
+        Raises
+        ------
+        DomainError
+            If the index is not ``0`` or the power is not finite.
+
+        References
+        ----------
+        .. [1] NASA-CR-2004-213099. NASA, "Development and Characterization of
+               High-Efficiency, High-Specific Impulse Xenon Hall Thrusters",
+               printed p. 14, eqs. (2-9)-(2-10).
+        """
 
         return _operating_point_ledger(self, level_index, real(available_power_w, "Available power")).export()
 
     def manifest(self) -> dict[str, object]:
+        """Return the JSON-compatible law description used in model manifests."""
         return {
             "law": "fixed_efficiency",
             "law_id": self.law_id,
@@ -640,7 +1164,27 @@ class FixedEfficiencyThrottle:
 
 
 def _operating_point_ledger(law, level_index, available_power_w):
-    """Keep built-in law values exact across duty/driver scaling in a model."""
+    """Return the exact operating point of a built-in law.
+
+    A discrete level returns its tabulated values with zero power slopes.  The
+    continuous law evaluates ``T = 2 eta P / (g0 Isp)`` and
+    ``mdot = T / (g0 Isp)`` [1]_ at ``P = min(max(P_avail, 0), P_max)``.
+    Values stay exact rationals [2]_ so that duty-cycle and parameter scaling
+    in :class:`PowerLimitedPropulsionModel` round only once per output.
+
+    Raises
+    ------
+    DomainError
+        If the level index is outside the law or the power is not finite.
+
+    References
+    ----------
+    .. [1] NASA-CR-2004-213099. NASA, "Development and Characterization of
+           High-Efficiency, High-Specific Impulse Xenon Hall Thrusters",
+           printed p. 14, eqs. (2-9)-(2-10).
+    .. [2] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain
+           their exact binary value as a rational.
+    """
     level_index = integer(level_index, "Throttle level index")
     available_power_w = _fraction(available_power_w, "Available power")
     if not 0 <= level_index < law.level_count:
@@ -664,16 +1208,33 @@ def _operating_point_ledger(law, level_index, available_power_w):
 class ElectricPropulsionPartials:
     """Analytic local derivatives of one power-limited evaluation.
 
-    ``acceleration_wrt_direction`` is ``da_i/dd_j`` for the supplied, not
-    necessarily unit, direction ``d``.  Available-power partials let a
-    consumer chain the thrust law with its own power model
-    (``dP/dr`` from solar distance, eclipse factors); they are zero inside a
-    discrete level and above continuous saturation.
+    Parameters
+    ----------
+    acceleration_wrt_mass : tuple of float
+        ``da/dm = -F / m**2``, in m/(s**2 kg).
+    acceleration_wrt_direction : tuple of tuple of float
+        ``da_i/dd_j`` for the supplied, not necessarily unit, direction ``d``.
+    acceleration_wrt_available_power : tuple of float
+        ``da/dP``, in m/(s**2 W).
+    mass_rate_wrt_available_power : float
+        ``d(dm/dt)/dP``, in kg/(s W).
+    acceleration_wrt_parameters : tuple of (str, tuple of float)
+        Acceleration partials with respect to each named parameter.
+    mass_rate_wrt_parameters : tuple of (str, float)
+        Mass-rate partials with respect to each named parameter.
+
+    Notes
+    -----
+    Available-power partials let a consumer chain the thrust law with its own
+    power model (``dP/dr`` from solar distance, eclipse factors); they are
+    zero inside a discrete level and above continuous saturation.  The set of
+    partials mirrors the propagation-time force, mass-derivative and
+    parameter-driver contract of [1]_.
 
     References
     ----------
-    Orekit PropulsionModel 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+    .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel"
+           API.
     """
 
     acceleration_wrt_mass: tuple[float, float, float]
@@ -692,14 +1253,55 @@ class ElectricPropulsionPartials:
 class ElectricPropulsionEvaluation:
     """Force, drain, power use and partials at one propagator call.
 
+    Parameters
+    ----------
+    active : bool
+        Whether the thruster produces thrust at this call.
+    level_index : int
+        Commanded mode; ``-1`` is off.
+    level_id : str or None
+        Identifier of the active level, ``None`` when inactive.
+    thrust_n : float
+        Axial thrust after duty cycle and parameter scaling, in N.
+    force_vector_n : tuple of float
+        Thrust along the resolved direction, in N.
+    acceleration_m_s2 : tuple of float
+        Thrust acceleration ``F / m``, in m/s**2.
+    mass_derivative_kg_s : float
+        Vehicle mass derivative (negative propellant drain), in kg/s.
+    additional_state_derivatives : tuple of (str, float)
+        Derivative of the tracked propellant state, in kg/s.
+    available_power_w : float
+        Available bus power supplied by the caller, in W.
+    consumed_power_w : float
+        Bus input power drawn, scaled by the duty cycle, in W.
+    power_deficit_w : float
+        Non-negative shortfall of effective power below the level
+        requirement, in W.
+    specific_impulse_s : float or None
+        ``T / (g0 mdot)`` in s [2]_, or ``None`` without flow.
+    parameters : tuple of (str, float)
+        Resolved parameter values.
+    inhibited_by : tuple of str
+        Inventory limits that suppressed thrust.
+    partials : ElectricPropulsionPartials
+        Local analytic derivatives.
+
+    Notes
+    -----
     ``power_deficit_w`` is positive when the commanded level needs more power
-    than is available, which happens legitimately in Runge-Kutta stages just
+    than is available, which occurs legitimately in Runge-Kutta stages just
     past a down-switch root.  A deficit after an accepted step means the
-    consumer missed a switching event.
+    consumer missed a switching event.  Level data follow the throttle-table
+    form of [1]_.
 
     References
     ----------
-    NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
+    .. [1] NASA-20090004685. NASA, "NASA's Evolutionary Xenon Thruster (NEXT)
+           Ion Propulsion System Information Summary",
+           https://ntrs.nasa.gov/citations/20090004685.
+    .. [2] NASA-ISP. NASA Glenn Research Center, "Specific Impulse",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/.
     """
 
     active: bool
@@ -726,16 +1328,50 @@ _ZERO3 = (0.0, 0.0, 0.0)
 class PowerLimitedPropulsionModel:
     """Immutable power-limited electric propulsion model for propagation.
 
-    ``power_margin_w`` is subtracted from the available power before level
-    selection (for example a housekeeping reserve).  ``duty_cycle`` scales
-    thrust, flow and consumed power to represent an averaged on/off firing
-    pattern; it is not a substitute for modelling individual pulses.
+    Parameters
+    ----------
+    throttle_law : DiscreteThrottlePath or FixedEfficiencyThrottle
+        Power-to-thrust law.
+    propellant_state_name : str, optional
+        Name of the tracked propellant-mass additional state.
+    propellant_reserve_kg : float or None, optional
+        Non-negative propellant reserve that stops thrust, in kg.
+    protected_dry_mass_kg : float or None, optional
+        Positive vehicle mass below which thrust stops, in kg.
+    power_margin_w : float, optional
+        Non-negative power subtracted from the available power before level
+        selection (for example a housekeeping reserve), in W.
+    duty_cycle : float, optional
+        Factor in ``(0, 1]`` that scales thrust, flow and consumed power.
+    parameters : tuple of EstimableParameter, optional
+        Exactly ``thrust_scale`` and ``mass_flow_scale``; defaults are created
+        when empty.
+    model_id : str, optional
+        Non-empty model identifier.
+    schema : str, optional
+        Must equal ``POWER_LIMITED_PROPULSION_SCHEMA``.
+
+    Raises
+    ------
+    DomainError
+        If the schema or law type is unsupported, a value is out of range,
+        or the parameter set is not exactly ``thrust_scale`` and
+        ``mass_flow_scale``.
+
+    Notes
+    -----
+    ``duty_cycle`` represents an averaged on/off firing pattern; it is not a
+    substitute for modelling individual pulses.  Throttle data take the form
+    of [1]_; the force, mass-derivative, parameter-driver and event interface
+    follows [2]_.
 
     References
     ----------
-    NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
-    Orekit PropulsionModel 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+    .. [1] NASA-20090004685. NASA, "NASA's Evolutionary Xenon Thruster (NEXT)
+           Ion Propulsion System Information Summary",
+           https://ntrs.nasa.gov/citations/20090004685.
+    .. [2] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel"
+           API.
     """
 
     throttle_law: DiscreteThrottlePath | FixedEfficiencyThrottle
@@ -791,7 +1427,13 @@ class PowerLimitedPropulsionModel:
             )
 
     def effective_power_w(self, available_power_w: float) -> float:
-        """Return available power minus the declared margin."""
+        """Return available power minus ``power_margin_w``, in W.
+
+        Raises
+        ------
+        DomainError
+            If the power is not finite or the difference overflows.
+        """
 
         return _finite_rational(
             _fraction(available_power_w, "Available power") - _fraction(self.power_margin_w),
@@ -800,9 +1442,29 @@ class PowerLimitedPropulsionModel:
     def select_level(self, available_power_w: float, current_level: int | None = None) -> int:
         """Initialize (``current_level=None``) or update the throttle mode.
 
+        Parameters
+        ----------
+        available_power_w : float
+            Available bus power, in W; the margin is subtracted exactly.
+        current_level : int or None, optional
+            Current mode (``-1`` is off); ``None`` initializes without
+            hysteresis memory.
+
+        Returns
+        -------
+        int
+            Selected level index, or ``-1`` (off).
+
+        Raises
+        ------
+        DomainError
+            If the power is not finite or the current level is invalid.
+
         References
         ----------
-        NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
+        .. [1] NASA-20090004685. NASA, "NASA's Evolutionary Xenon Thruster
+               (NEXT) Ion Propulsion System Information Summary",
+               https://ntrs.nasa.gov/citations/20090004685.
         """
 
         if type(self.throttle_law) in (DiscreteThrottlePath, FixedEfficiencyThrottle):
@@ -812,12 +1474,30 @@ class PowerLimitedPropulsionModel:
         return self.throttle_law.select_level(self.effective_power_w(available_power_w), current_level)
 
     def switching_surfaces(self, current_level: int) -> tuple[PowerSwitchSurface, ...]:
-        """Return mode-changing roots expressed in *available* power.
+        """Return the power-switch surfaces expressed in *available* power.
+
+        Parameters
+        ----------
+        current_level : int
+            Current mode; ``-1`` is off.
+
+        Returns
+        -------
+        tuple of PowerSwitchSurface
+            Mode-changing surfaces with exact thresholds shifted by
+            ``power_margin_w``; while a continuous law is on, also its
+            mode-preserving saturation kink.
+
+        Raises
+        ------
+        DomainError
+            If the current level is invalid or cannot be sustained by any
+            finite bus power.
 
         References
         ----------
-        Orekit EventDetector 13.1.5 API:
-        https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+        .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+               EventDetector" API.
         """
 
         if type(self.throttle_law) in (DiscreteThrottlePath, FixedEfficiencyThrottle):
@@ -839,12 +1519,17 @@ class PowerLimitedPropulsionModel:
         )
 
     def inventory_surfaces(self) -> tuple[BurnEventSurface, ...]:
-        """Return stopping dry-mass and propellant-reserve roots.
+        """Return the stopping dry-mass and propellant-reserve event surfaces.
+
+        Returns
+        -------
+        tuple of BurnEventSurface
+            One surface per declared limit; empty when no limit is set.
 
         References
         ----------
-        Orekit EventDetector 13.1.5 API:
-        https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+        .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+               EventDetector" API.
         """
 
         surfaces: list[BurnEventSurface] = []
@@ -872,7 +1557,23 @@ class PowerLimitedPropulsionModel:
     def resolved_parameters(
         self, overrides: Mapping[str, float] | None = None
     ) -> dict[str, float]:
-        """Resolve named overrides against the bounded driver definitions."""
+        """Resolve named overrides against the bounded parameter definitions.
+
+        Parameters
+        ----------
+        overrides : Mapping of str to float, optional
+            Values for a subset of the declared parameters.
+
+        Returns
+        -------
+        dict of str to float
+            Every declared parameter, at its override or reference value.
+
+        Raises
+        ------
+        DomainError
+            If a name is unknown or a value violates its bounds.
+        """
 
         supplied = real_mapping(overrides, "Parameter overrides")
         known = {parameter.name for parameter in self.parameters}
@@ -887,7 +1588,20 @@ class PowerLimitedPropulsionModel:
         }
 
     def manifest(self, *, include_hash: bool = True) -> dict[str, object]:
-        """Return a deterministic, integration-reviewable model manifest."""
+        """Return the deterministic model manifest.
+
+        Parameters
+        ----------
+        include_hash : bool, optional
+            Add ``model_hash``, the SHA-256 of the canonical manifest without
+            that member.
+
+        Returns
+        -------
+        dict
+            Law, limits, numerical policies, semantics, parameters and
+            reference identifiers.
+        """
 
         payload: dict[str, object] = {
             "schema": self.schema,
@@ -924,13 +1638,12 @@ class PowerLimitedPropulsionModel:
     def to_dict(self) -> dict[str, object]:
         """Return the complete, reopenable model document.
 
-        The manifest (with ``model_hash``) is extended with the full throttle
-        table of a discrete path.  :meth:`from_dict` refuses a document whose
-        recomputed hashes differ.
-
-        References
-        ----------
-        NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
+        Returns
+        -------
+        dict
+            The manifest with ``model_hash``, extended with the full throttle
+            table of a discrete path.  :meth:`from_dict` refuses a document
+            whose recomputed hashes differ.
         """
 
         document = self.manifest()
@@ -939,7 +1652,23 @@ class PowerLimitedPropulsionModel:
         return document
 
     def to_json(self, *, indent: int | None = 2) -> str:
-        """Serialize the complete model document."""
+        """Serialize the complete model document as JSON text.
+
+        Parameters
+        ----------
+        indent : int or None, optional
+            Indentation passed to :func:`json.dumps`; ``None`` is compact.
+
+        Returns
+        -------
+        str
+            Key-sorted JSON without ``NaN`` or ``Infinity`` tokens [1]_.
+
+        References
+        ----------
+        .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data
+               Interchange Format", https://www.rfc-editor.org/rfc/rfc8259.
+        """
 
         return json.dumps(
             self.to_dict(), allow_nan=False, ensure_ascii=False, indent=indent, sort_keys=True
@@ -947,11 +1676,24 @@ class PowerLimitedPropulsionModel:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, object]) -> PowerLimitedPropulsionModel:
-        """Rebuild a model and verify the table and model hashes.
+        """Rebuild a model document and verify its hashes and metadata.
 
-        References
+        Parameters
         ----------
-        NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
+        payload : Mapping
+            Document produced by :meth:`to_dict`.
+
+        Returns
+        -------
+        PowerLimitedPropulsionModel
+            The reconstructed model.
+
+        Raises
+        ------
+        InputError
+            If the document is malformed, the law is unknown, the table or
+            model hash does not match, or the numerical policies or declared
+            metadata differ from those of the reconstructed model.
         """
 
         _power_document(payload)
@@ -1011,13 +1753,34 @@ class PowerLimitedPropulsionModel:
 
     @classmethod
     def from_json(cls, text: str) -> PowerLimitedPropulsionModel:
-        """Deserialize and integrity-check a model document."""
+        """Parse JSON text and rebuild it with :meth:`from_dict`.
+
+        Parameters
+        ----------
+        text : str
+            RFC 8259 JSON document [1]_.
+
+        Returns
+        -------
+        PowerLimitedPropulsionModel
+            The reconstructed, hash-verified model.
+
+        Raises
+        ------
+        InputError
+            If the text is not a valid document or fails verification.
+
+        References
+        ----------
+        .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data
+               Interchange Format", https://www.rfc-editor.org/rfc/rfc8259.
+        """
 
         return read_json_document(text, "Power-limited model document", cls.from_dict)
 
     @property
     def model_hash(self) -> str:
-        """Content identity of the throttle law, limits and semantics."""
+        """SHA-256 content identity of the throttle law, limits and semantics."""
 
         return canonical_sha256(self.manifest(include_hash=False))
 
@@ -1030,9 +1793,29 @@ class PowerLimitedPropulsionModel:
     ) -> PropellantMassClosure:
         """Compare vehicle mass with the tracked propellant state.
 
+        Parameters
+        ----------
+        vehicle_mass_kg : float
+            Propagated vehicle mass, in kg.  Finite and positive.
+        additional_states : Mapping of str to float
+            Propagated additional states; must contain the propellant state.
+        non_propellant_mass_kg : float
+            Non-negative mass that is not propellant, in kg.
+
+        Returns
+        -------
+        PropellantMassClosure
+            Mass-closure ledger of vehicle, non-propellant and propellant mass.
+
+        Raises
+        ------
+        DomainError
+            If a mass is out of range or the propellant state is missing.
+
         References
         ----------
-        NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
+        .. [1] NASA SP-8112, "Pressurization Systems for Liquid Rockets",
+               https://ntrs.nasa.gov/citations/19760015212.
         """
 
         vehicle_mass_kg = _positive(vehicle_mass_kg, "Vehicle mass")
@@ -1059,17 +1842,56 @@ class PowerLimitedPropulsionModel:
     ) -> ElectricPropulsionEvaluation:
         """Evaluate thrust, drain and partials for the commanded mode.
 
-        ``level_index`` is the propagator-owned mode (``-1`` = off).  The
-        model does not switch it; see :meth:`select_level`.  As in
-        :meth:`PropagatorPropulsionBridge.evaluate`, pass
-        ``apply_inventory_limits=False`` when dry-mass and reserve roots are
-        located by the consumer.
+        Parameters
+        ----------
+        level_index : int
+            Propagator-owned mode (``-1`` is off).  The model does not switch
+            it; see :meth:`select_level`.
+        available_power_w : float
+            Available bus power, in W.
+        vehicle_mass_kg : float
+            Vehicle mass, in kg.  Finite and positive.
+        direction : tuple of float
+            Thrust direction; it need not be a unit vector.
+        additional_states : Mapping of str to float
+            Propagated additional states, including the propellant state.
+        parameter_overrides : Mapping of str to float, optional
+            Values for ``thrust_scale`` and ``mass_flow_scale``.
+        apply_inventory_limits : bool, optional
+            Suppress thrust at the protected dry mass or propellant reserve.
+            Pass ``False`` when the consumer locates those roots, as with
+            :meth:`PropagatorPropulsionBridge.evaluate`.
+
+        Returns
+        -------
+        ElectricPropulsionEvaluation
+            Force, acceleration, mass derivative, power use and partials.
+
+        Raises
+        ------
+        DomainError
+            If the level index is outside the law, an input is non-finite or
+            out of range, the propellant state is missing, or a parameter
+            override is unknown or out of bounds.
+
+        Notes
+        -----
+        Thrust and flow are the law's operating point at the effective power,
+        scaled by ``duty_cycle`` and the ``thrust_scale`` and
+        ``mass_flow_scale`` parameters.  The acceleration is ``F / m`` along
+        the resolved direction, the mass derivative is the negative flow, and
+        ``Isp = T / (g0 mdot)`` [2]_.  Level data take the form of [1]_; the
+        returned quantities mirror the propagation contract of [3]_.
 
         References
         ----------
-        NASA-20090004685: https://ntrs.nasa.gov/citations/20090004685
-        Orekit PropulsionModel 13.1.5 API:
-        https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+        .. [1] NASA-20090004685. NASA, "NASA's Evolutionary Xenon Thruster
+               (NEXT) Ion Propulsion System Information Summary",
+               https://ntrs.nasa.gov/citations/20090004685.
+        .. [2] NASA-ISP. NASA Glenn Research Center, "Specific Impulse",
+               https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/.
+        .. [3] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel"
+               API.
         """
 
         level_index = integer(level_index, "Throttle level index")
@@ -1130,7 +1952,7 @@ class PowerLimitedPropulsionModel:
         if type(self.throttle_law) in (DiscreteThrottlePath, FixedEfficiencyThrottle):
             point = _operating_point_ledger(self.throttle_law, level_index, effective_power)
         else:
-            # Retain subclass callback behavior at its existing public boundary.
+            # A subclassed law keeps its own public operating_point callback.
             point = self.throttle_law.operating_point(level_index, effective_power)
         duty = self.duty_cycle
         base_thrust = _fraction(point.thrust_n) * _fraction(duty)

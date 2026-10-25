@@ -2,8 +2,10 @@
 
 References
 ----------
-BIPM-SI: disjoint phase energy and watt=joule/second.
-NASA-7009B: numerical implementation limits, distinct from physical uncertainty.
+.. [1] BIPM-SI. BIPM, "SI Brochure, 9th edition"; disjoint phase energy and
+       watt=joule/second.
+.. [2] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+       numerical implementation limits, distinct from physical uncertainty.
 """
 
 from fractions import Fraction
@@ -13,18 +15,41 @@ from .rational_numerics import binary_ledger
 
 def solve_power_budget(firing: float, on_time: float, duty: float,
                        standby: float, warmup: float, warmup_time: float) -> tuple:
-    """Evaluate validated binary inputs exactly before converting final channels.
+    """Evaluate the phase energy ledger exactly before converting the final channels.
 
-    Standby duration is t*(1-duty)/duty. Subtracting two rounded elapsed times
-    can erase or double this phase near continuous duty. Rational evaluation
-    also preserves sums whose individual binary products would underflow.
-    Physical inputs remain analyst assumptions; exact arithmetic does not
-    establish their validity or quantify their uncertainty.
+    Parameters
+    ----------
+    firing, standby, warmup : float
+        Phase bus powers, W.
+    on_time, warmup_time : float
+        Firing on-time and warm-up duration, s.
+    duty : float
+        Duty fraction in (0, 1].
+
+    Returns
+    -------
+    tuple of (str, float, str)
+        ``energy``, ``elapsed_time``, ``peak_bus_power`` and ``average_bus_power``.
+
+    Raises
+    ------
+    DomainError
+        If an output is not representable.
+
+    Notes
+    -----
+    Standby duration is t_on * (1 - duty) / duty; E = sum(P_i * t_i) and average power
+    is E / elapsed time [1]_. Subtracting two rounded elapsed times could erase or
+    double the standby phase near continuous duty, and exact rational evaluation also
+    keeps sums whose individual binary products would underflow [2]_. Exact
+    arithmetic does not validate the inputs or quantify their uncertainty.
 
     References
     ----------
-    BIPM-SI: E=sum(P_i*t_i), average power=E/total_time.
-    NASA-7009B: numerical domain and finite representation boundaries.
+    .. [1] BIPM-SI. BIPM, "SI Brochure, 9th edition"; E=sum(P_i*t_i), average
+           power=E/total_time.
+    .. [2] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+           numerical domain and finite representation boundaries.
     """
     p, t, d, idle, warm, tw = map(Fraction, (firing, on_time, duty, standby, warmup, warmup_time))
     standby_time = t * (1 - d) / d

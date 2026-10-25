@@ -1,4 +1,19 @@
-"""Experimental equilibrium-chamber and nozzle-expansion comparisons."""
+"""Experimental equilibrium-chamber and nozzle-expansion comparisons.
+
+A chamber state from an HP equilibrium solve [1]_ is expanded to the same
+exit pressure twice: with frozen composition and constant properties
+(ideal-nozzle relations [2]_), and isentropically with shifting equilibrium
+composition. Both use the frozen-chamber throat mass flow. The results are
+screening values and are not validated against NASA CEA or engine data.
+
+References
+----------
+.. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+       Equilibrium Compositions and Applications, Part I: Analysis".
+       https://ntrs.nasa.gov/citations/19950013764
+.. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+       Elements", 9th ed., Wiley, 2017.
+"""
 
 from __future__ import annotations
 
@@ -25,7 +40,26 @@ from .species import get_species
 
 @dataclass(frozen=True, slots=True)
 class PropellantPair:
-    """Source-labelled preset for local screening and optional CEA runs."""
+    """Source-labelled preset for local screening and optional CEA runs.
+
+    Attributes
+    ----------
+    key, name : str
+        Preset key and display name.
+    fuel_species : str or None
+        Bundled fuel species for the local provider; ``None`` when only the
+        CEA provider can represent the fuel.
+    oxidizer_species : str
+        Bundled oxidizer species.
+    minimum_oxidizer_fuel_ratio, maximum_oxidizer_fuel_ratio : float
+        Default sweep range of the oxidizer-to-fuel mass ratio.
+    reference_oxidizer_fuel_ratio : float
+        Reference mass ratio of the preset.
+    cea_fuel_name, cea_oxidizer_name : str
+        Reactant names for CEA input decks.
+    source : str
+        Basis of the preset values.
+    """
 
     key: str
     name: str
@@ -81,7 +115,34 @@ PROPELLANT_PAIRS: dict[str, PropellantPair] = {
 
 @dataclass(frozen=True, slots=True)
 class EquilibriumExpansionResult:
-    """Isentropic-equilibrium exit using a frozen chamber/throat mass flow."""
+    """Isentropic-equilibrium exit using a frozen chamber/throat mass flow.
+
+    The exit state is a shifting-equilibrium expansion [1]_; thrust uses the
+    momentum and pressure terms [2]_.
+
+    Attributes
+    ----------
+    exit_state : EquilibriumResult
+        Equilibrium state at the exit pressure with the chamber entropy.
+    exit_velocity_m_s : float
+        ``sqrt(2 (h_c - h_e))``.
+    thrust_n : float
+        ``mdot V_e + (p_e - p_a) A_e``.
+    thrust_coefficient : float
+        ``F / (p_c A_t)``.
+    specific_impulse_s : float
+        ``F / (mdot g0)``.
+    warnings : tuple of WarningMessage
+        Statement of the hybrid frozen/equilibrium approximation.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part I: Analysis".
+           https://ntrs.nasa.gov/citations/19950013764
+    .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
 
     exit_state: EquilibriumResult
     exit_velocity_m_s: float
@@ -93,7 +154,28 @@ class EquilibriumExpansionResult:
 
 @dataclass(frozen=True, slots=True)
 class ChemistryNozzleComparison:
-    """Frozen and equilibrium expansion from one equilibrium chamber state."""
+    """Frozen and equilibrium expansion from one equilibrium chamber state.
+
+    Frozen expansion uses ideal-nozzle relations [2]_; equilibrium expansion
+    is isentropic with shifting composition [1]_.
+
+    Attributes
+    ----------
+    chamber : EquilibriumResult
+        HP equilibrium chamber state.
+    frozen : NozzleResult
+        Ideal nozzle with frozen chamber ``gamma`` and gas constant.
+    equilibrium : EquilibriumExpansionResult
+        Isentropic shifting-equilibrium expansion to the frozen exit pressure.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part I: Analysis".
+           https://ntrs.nasa.gov/citations/19950013764
+    .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
 
     chamber: EquilibriumResult
     frozen: NozzleResult
@@ -102,7 +184,33 @@ class ChemistryNozzleComparison:
 
 @dataclass(frozen=True, slots=True)
 class OxidizerFuelSweepPoint:
-    """One O/F point with chamber and both expansion-mode performance."""
+    """One O/F point with chamber and both expansion-mode performance.
+
+    Values come from :func:`compare_nozzle_chemistry` [1]_, [2]_.
+
+    Attributes
+    ----------
+    oxidizer_fuel_ratio : float
+        Oxidizer-to-fuel mass ratio.
+    adiabatic_flame_temperature_k, molecular_mass_kg_mol, gamma : float
+        Chamber equilibrium temperature, molar mass and frozen ``gamma``.
+    characteristic_velocity_m_s : float
+        Frozen ``c*``.
+    frozen_thrust_coefficient, frozen_vacuum_specific_impulse_s : float
+        Frozen-expansion vacuum performance.
+    equilibrium_thrust_coefficient, equilibrium_vacuum_specific_impulse_s : float
+        Equilibrium-expansion vacuum performance.
+    maximum_element_relative_residual : float
+        Chamber element-conservation residual.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part I: Analysis".
+           https://ntrs.nasa.gov/citations/19950013764
+    .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
 
     oxidizer_fuel_ratio: float
     adiabatic_flame_temperature_k: float
@@ -118,7 +226,31 @@ class OxidizerFuelSweepPoint:
 
 @dataclass(frozen=True, slots=True)
 class OxidizerFuelSweep:
-    """Source-labelled O/F screening result."""
+    """Source-labelled O/F screening result.
+
+    Points are computed as in :func:`generate_oxidizer_fuel_sweep` [1]_, [2]_.
+
+    Attributes
+    ----------
+    pair : PropellantPair
+        Propellant preset.
+    chamber_pressure_pa, area_ratio : float
+        Fixed chamber pressure and nozzle area ratio.
+    points : tuple of OxidizerFuelSweepPoint
+        Results in increasing O/F.
+    provider, provider_version : str
+        Equilibrium provider used.
+    warnings : tuple of WarningMessage
+        Statement of the gaseous-reactant reference state.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part I: Analysis".
+           https://ntrs.nasa.gov/citations/19950013764
+    .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
 
     pair: PropellantPair
     chamber_pressure_pa: float
@@ -130,7 +262,24 @@ class OxidizerFuelSweep:
 
 
 def get_propellant_pair(key: str) -> PropellantPair:
-    """Return a propellant preset by a case-insensitive key."""
+    """Return a propellant preset by a case-insensitive key.
+
+    Parameters
+    ----------
+    key : str
+        Preset key; case, ``/`` and ``-`` separators are normalized, so
+        ``"lox/lh2"`` selects ``"LOX_LH2"``.
+
+    Returns
+    -------
+    PropellantPair
+        Preset record.
+
+    Raises
+    ------
+    InputError
+        If the key is unknown (code ``unknown_propellant_pair``).
+    """
 
     normalized = key.strip().upper().replace("/", "_").replace("-", "_")
     try:
@@ -145,7 +294,27 @@ def get_propellant_pair(key: str) -> PropellantPair:
 
 
 def reactants_for_mass_ratio(pair: PropellantPair, ratio: float) -> dict[str, float]:
-    """Build one-mole-fuel reactants from an oxidizer/fuel mass ratio."""
+    """Build one-mole-fuel reactants from an oxidizer/fuel mass ratio.
+
+    Parameters
+    ----------
+    pair : PropellantPair
+        Preset with a bundled fuel species.
+    ratio : float
+        Oxidizer-to-fuel mass ratio, finite and positive.
+
+    Returns
+    -------
+    dict of str to float
+        ``{fuel: 1.0, oxidizer: ratio M_fuel / M_oxidizer}`` in mol.
+
+    Raises
+    ------
+    InputError
+        If the preset has no bundled fuel species (code ``provider_required``).
+    DomainError
+        If ``ratio`` is not finite and positive.
+    """
 
     if pair.fuel_species is None:
         raise InputError(
@@ -173,6 +342,31 @@ def _isentropic_equilibrium_exit(
     chamber_pressure_pa: float,
     throat_area_m2: float,
 ) -> EquilibriumExpansionResult:
+    """Expand isentropically in shifting equilibrium to ``exit_pressure_pa``.
+
+    Raises
+    ------
+    DomainError
+        If the chamber entropy is not bracketed or the enthalpy drop is not
+        positive.
+
+    Notes
+    -----
+    The exit temperature is bisected in ``[200 K, T_c]`` until the
+    equilibrium entropy at the exit pressure equals the chamber entropy [1]_.
+    The exit velocity follows from the energy equation,
+    ``V_e = sqrt(2 (h_c - h_e))``, and thrust from
+    ``F = mdot V_e + (p_e - p_a) A_e`` [2]_, with the frozen-chamber throat
+    mass flow.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part I: Analysis".
+           https://ntrs.nasa.gov/citations/19950013764
+    .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
     target_entropy = chamber.entropy_j_k
     low = 200.0
     high = chamber.temperature_k
@@ -247,7 +441,51 @@ def compare_nozzle_chemistry(
     reactant_temperature_k: float = 298.15,
     provider: EquilibriumProvider | None = None,
 ) -> ChemistryNozzleComparison:
-    """Compare frozen and experimental equilibrium nozzle expansion."""
+    """Compare frozen and experimental equilibrium nozzle expansion.
+
+    Parameters
+    ----------
+    reactants : mapping of str to float
+        Reactant amounts in mol per species key.
+    chamber_pressure_pa : float
+        Chamber pressure in Pa.
+    area_ratio : float
+        Exit-to-throat area ratio.
+    ambient_pressure_pa : float, default 0.0
+        Ambient pressure in Pa.
+    throat_area_m2 : float, default 1.0
+        Throat area in m^2.
+    reactant_temperature_k : float, default 298.15
+        Reactant temperature in K.
+    provider : EquilibriumProvider, optional
+        Equilibrium provider; :class:`LocalEquilibriumProvider` by default.
+
+    Returns
+    -------
+    ChemistryNozzleComparison
+        Chamber state with frozen and equilibrium expansions.
+
+    Raises
+    ------
+    InputError, DomainError, ConvergenceError
+        Propagated from the equilibrium provider and the nozzle relations.
+
+    Notes
+    -----
+    The chamber is an HP equilibrium state [1]_. The frozen expansion uses the
+    chamber ``gamma`` and gas constant in the ideal-nozzle relations [2]_; the
+    equilibrium expansion is isentropic to the same exit pressure with the
+    frozen throat mass flow. Kinetic, two-phase, boundary-layer and divergence
+    losses are not included.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part I: Analysis".
+           https://ntrs.nasa.gov/citations/19950013764
+    .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
 
     active_provider = provider or LocalEquilibriumProvider()
     chamber_problem = EquilibriumProblem.hp(
@@ -293,7 +531,50 @@ def generate_oxidizer_fuel_sweep(
     point_count: int = 9,
     provider: EquilibriumProvider | None = None,
 ) -> OxidizerFuelSweep:
-    """Generate chamber, c-star, coefficient, and Isp curves over O/F."""
+    """Generate chamber, c-star, coefficient, and Isp curves over O/F.
+
+    Parameters
+    ----------
+    propellant_pair : str
+        Preset key accepted by :func:`get_propellant_pair`.
+    chamber_pressure_pa : float
+        Chamber pressure in Pa.
+    area_ratio : float
+        Exit-to-throat area ratio.
+    minimum_ratio, maximum_ratio : float, optional
+        Sweep limits; the preset range is used when omitted.
+    point_count : int, default 9
+        Number of evenly spaced O/F points, between 3 and 41.
+    provider : EquilibriumProvider, optional
+        Equilibrium provider; :class:`LocalEquilibriumProvider` by default.
+
+    Returns
+    -------
+    OxidizerFuelSweep
+        Per-point chamber and vacuum performance.
+
+    Raises
+    ------
+    InputError
+        If the preset is unknown or needs the CEA provider.
+    DomainError
+        If the limits are not positive and increasing or the point count is
+        out of range.
+
+    Notes
+    -----
+    Each point calls :func:`compare_nozzle_chemistry` with vacuum ambient
+    pressure [1]_, [2]_. Local sweeps use bundled gaseous reactants at
+    298.15 K; liquid-propellant reference states require the CEA adapter.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part I: Analysis".
+           https://ntrs.nasa.gov/citations/19950013764
+    .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
 
     pair = get_propellant_pair(propellant_pair)
     low = pair.minimum_oxidizer_fuel_ratio if minimum_ratio is None else minimum_ratio

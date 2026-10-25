@@ -1,7 +1,17 @@
-"""Closed raw JSON records for hierarchical ensembles and their Sidera handoff.
+"""Closed JSON record schemas for hierarchical ensembles and the Sidera handoff.
 
-Nested artifacts keep their own reader/identity contract. Source identifiers
-and reconstructed content hashes do not authenticate measurements or campaigns.
+The checks operate on the raw decoded JSON before any model is built: every
+object must have exactly its declared members, and every member must have the
+declared JSON type [1]_ [2]_. Nested artifacts keep their own reader and
+identity contract. Source identifiers and reconstructed content hashes do not
+authenticate measurements or campaigns.
+
+References
+----------
+.. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+       Format". https://www.rfc-editor.org/rfc/rfc8259
+.. [2] PYTHON-3.12-JSON. Python 3.12, ``json``: encoder/decoder hooks,
+       duplicate-member and nonstandard numeric token behavior.
 """
 
 from rocket_propulsion.core.errors import InputError
@@ -10,6 +20,13 @@ from .exchange_documents import _array, _boolean, _number, _object, _string, _st
 
 
 def _integer(value, label):
+    """Require a JSON integer (a Python ``int`` that is not a ``bool``).
+
+    Raises
+    ------
+    InputError
+        If ``value`` is not exactly of type ``int``.
+    """
     if type(value) is not int:
         raise InputError(f"{label} must be a JSON integer.", field=label)
 
@@ -26,6 +43,27 @@ def _record(
     opaque=(),
     optional=(),
 ):
+    """Check a closed JSON object and the JSON type of each named member.
+
+    Parameters
+    ----------
+    value : object
+        Decoded JSON value.
+    label : str
+        Record name used in errors.
+    texts, numbers, integers, booleans, arrays : tuple of str, optional
+        Required members of each JSON type.
+    opaque : tuple of str, optional
+        Required members whose content is validated elsewhere.
+    optional : tuple of str, optional
+        Members that may be absent; their types are checked by the caller.
+
+    Raises
+    ------
+    InputError
+        If the object has missing or unsupported members or a member has the
+        wrong type.
+    """
     required = set(texts) | set(numbers) | set(integers) | set(booleans) | set(arrays) | set(opaque)
     _object(value, required, label, optional)
     for key in texts:
@@ -41,6 +79,14 @@ def _record(
 
 
 def _definition(value):
+    """Check the raw record of a conditional definition and its parameters.
+
+    Raises
+    ------
+    InputError
+        If the definition, a parameter or the optional correlation is
+        malformed.
+    """
     _record(
         value,
         "Conditional definition",
@@ -74,6 +120,13 @@ def _definition(value):
 
 
 def _ensemble_document(payload):
+    """Check the closed raw schema of a hierarchical ensemble document.
+
+    Raises
+    ------
+    InputError
+        If the root or any nested record is malformed.
+    """
     _record(
         payload,
         "Hierarchical ensemble",
@@ -170,6 +223,15 @@ def _ensemble_document(payload):
 
 
 def _handoff_document(payload):
+    """Check the closed raw schema of a Sidera ensemble handoff document.
+
+    Each job must carry a three-component direction.
+
+    Raises
+    ------
+    InputError
+        If the root or any job record is malformed.
+    """
     _record(
         payload,
         "Sidera ensemble handoff",

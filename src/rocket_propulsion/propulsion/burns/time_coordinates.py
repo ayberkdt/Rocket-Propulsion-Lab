@@ -1,7 +1,16 @@
-"""Binary clock coordinates; canonical events are rounded once from exact sums.
+"""Mapping between absolute binary64 epochs and exact profile-relative times.
 
-An epoch clock that maps distinct profile boundaries to the same binary64 time
-cannot represent that profile. No minimum relative duration is imposed.
+A profile boundary ``t_k`` is placed on the absolute clock as the canonical
+date ``round(ignition + bias + t_k)``, rounded once from the exact rational
+sum [1]_.  An epoch clock that maps distinct profile boundaries to the same
+binary64 time cannot represent that profile and is rejected.  No minimum
+relative duration is imposed.
+
+References
+----------
+.. [1] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain
+       their exact binary value as a rational,
+       https://docs.python.org/3.12/library/fractions.html.
 """
 
 import itertools
@@ -19,13 +28,19 @@ _TIME_POLICY = 'exact_relative_clock_and_once_rounded_epoch_events_v1'
 
 @lru_cache(maxsize=128)
 def _epoch_table(segments, ignition, bias):
-    """Compatibility entry point for a complete profile's event table."""
+    """Return the clock table of a complete profile (no cutoff horizon)."""
     return _clock_table(_profile_boundaries(segments, None), ignition, bias)
 
 
 @lru_cache(maxsize=256)
 def _profile_boundaries(segments, horizon):
-    """Retain only active boundaries and one exact optional cutoff coordinate."""
+    """Return the profile boundaries up to an optional exact cutoff ``horizon``.
+
+    Raises
+    ------
+    DomainError
+        If ``horizon`` lies outside ``[0, end of history]``.
+    """
     if horizon is None:
         return (0.0,) + tuple(segment.end_time_s for segment in segments)
     horizon = Fraction(horizon)
@@ -38,12 +53,33 @@ def _profile_boundaries(segments, horizon):
 
 @lru_cache(maxsize=128)
 def _clock_table(boundaries, ignition, bias):
-    """Return canonical dates and unambiguous supported formation aliases.
+    """Return canonical boundary dates and their unambiguous float aliases.
 
-    Canonical dates have priority. Aliases from either binary addition order
-    are accepted only when they name one boundary and no other canonical date.
-    Losing information in an alternative addition order cannot invalidate an
-    otherwise representable canonical clock.
+    Each canonical date is the exact sum ``ignition + bias + t_k`` rounded
+    once [1]_.  Canonical dates have priority.  Dates produced by either
+    binary addition order, ``(ignition + bias) + t_k`` or
+    ``ignition + (bias + t_k)``, are accepted as aliases only when they name
+    one boundary and no other canonical date.  A loss of information in an
+    alternative addition order does not invalidate an otherwise representable
+    canonical clock.
+
+    Returns
+    -------
+    canonical : tuple of float
+        Strictly increasing canonical dates.
+    images : tuple of (float, float or Fraction)
+        Sorted ``(date, boundary)`` pairs, canonical dates and aliases.
+
+    Raises
+    ------
+    DomainError
+        If two successive boundaries share one canonical date.
+
+    References
+    ----------
+    .. [1] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain
+           their exact binary value as a rational,
+           https://docs.python.org/3.12/library/fractions.html.
     """
     offset = Fraction(ignition) + Fraction(bias)
     canonical = tuple(_finite_rational(offset + Fraction(t), 'Absolute profile boundary')
@@ -67,7 +103,19 @@ def _clock_table(boundaries, ignition, bias):
 
 
 def _epoch_profile_time(segments, time, ignition, bias, *, horizon=None, allow_aliases=True):
-    """Preserve exact cancellation; map only an explicitly represented event."""
+    """Return the exact profile-relative time of an absolute clock reading.
+
+    A reading equal to a canonical boundary date (or, with
+    ``allow_aliases``, a supported alias) maps to that boundary exactly;
+    any other reading maps to ``time - ignition - bias`` evaluated without
+    rounding [1]_.
+
+    References
+    ----------
+    .. [1] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain
+           their exact binary value as a rational,
+           https://docs.python.org/3.12/library/fractions.html.
+    """
     boundaries = _profile_boundaries(segments, horizon)
     dates, images = _clock_table(boundaries, ignition, bias)
     if not allow_aliases:

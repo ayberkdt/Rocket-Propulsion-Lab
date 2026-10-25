@@ -2,7 +2,8 @@
 
 References
 ----------
-NASA-SE-6: 6.2.1.2.4 and 6.8, sensitivity to requirements and assumptions.
+.. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+       Management"; 6.2.1.2.4 and 6.8, sensitivity to requirements and assumptions.
 """
 
 from __future__ import annotations
@@ -21,11 +22,27 @@ from .rational_numerics import binary_ledger
 
 @dataclass(frozen=True, slots=True)
 class DesignCase:
-    """A sourced change of mission requirement or bus mass, not a hardware extrapolation.
+    """A sourced change of mission requirement or bus mass; not a hardware extrapolation.
+
+    Attributes
+    ----------
+    name : str
+        Unique case name.
+    delta_v_scale : CitedScalar
+        Multiplier of every nominal delta-v allocation; non-negative.
+    bus_dry_mass_scale : CitedScalar
+        Multiplier of the bus dry mass; positive.
+
+    Raises
+    ------
+    DomainError
+        If the name is empty or a multiplier is out of domain.
 
     References
     ----------
-    NASA-SE-6: 6.2.1.2.4, functional/sensitivity analysis of changed requirements.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; 6.2.1.2.4, functional/sensitivity analysis of changed
+           requirements.
     """
 
     name: str
@@ -37,7 +54,8 @@ class DesignCase:
 
         References
         ----------
-        NASA-SE-6: 6.8, assumptions and sensitivity in decision analysis.
+        .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+               Management"; 6.8, assumptions and sensitivity in decision analysis.
         """
         text(self.name, "sensitivity case name")
         quantity(self.delta_v_scale, "1", minimum=0)
@@ -53,8 +71,10 @@ def _scaled_quantity(value: CitedScalar, factor: CitedScalar, methods: tuple[Cit
 
     References
     ----------
-    NASA-SE-6: 6.2/6.8, traceable hypothetical input changes.
-    NASA-7009B: declared numerical domain and finite representation limits.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; 6.2/6.8, traceable hypothetical input changes.
+    .. [2] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+           declared numerical domain and finite representation limits.
     """
     scaled = Fraction(value.value) * Fraction(factor.value)
     binary = binary_ledger((("scaled_quantity", scaled, value.unit),), "Design sensitivity")[0][1]
@@ -63,15 +83,37 @@ def _scaled_quantity(value: CitedScalar, factor: CitedScalar, methods: tuple[Cit
 
 def design_sensitivity(request: dict[str, object], cases: tuple[DesignCase, ...]
                         ) -> tuple[ProjectStudy, ...]:
-    """Rerun explicit scenario changes; no probability or convergence claim is invented.
+    """Rerun a validated request under explicit scenario changes.
 
-    All cases start from the same validated request. Catalogue thrust/Isp,
-    selection anchors and margins are preserved. Scaling the mission request
-    is a hypothetical requirement change, never a performance-map extrapolation.
+    Parameters
+    ----------
+    request : dict
+        Valid project request (see :func:`project_from_dict`).
+    cases : tuple of DesignCase
+        Non-empty, uniquely named scenarios.
+
+    Returns
+    -------
+    tuple of ProjectStudy
+        One study per case, in input order.
+
+    Raises
+    ------
+    DomainError
+        If the request or a case is invalid or a scaled quantity is not
+        representable.
+
+    Notes
+    -----
+    All cases start from the same validated request. Catalogue thrust and Isp,
+    selection anchors and margins are preserved; scaling is a hypothetical
+    requirement change [1]_, never a performance-map extrapolation. No probability or
+    convergence claim is made.
 
     References
     ----------
-    NASA-SE-6: 6.2.1.2.4 and 6.8.1.2.4, requirement and decision sensitivities.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; 6.2.1.2.4 and 6.8.1.2.4, requirement and decision sensitivities.
     """
     project_from_dict(request)
     scenarios = records(cases, DesignCase, "sensitivity cases")

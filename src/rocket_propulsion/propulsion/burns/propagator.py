@@ -1,10 +1,21 @@
 """Propagation-ready force, mass-flow, event, and sensitivity contract.
 
-This module deliberately stops at the propulsion/astrodynamics boundary.  It
-does not own epochs, frames, attitude laws, or orbit integration.  A numerical
-propagator supplies relative time, current mass, a resolved thrust direction,
-and any tracked tank states; the bridge returns simultaneous translational and
-mass derivatives plus the event surfaces that make discontinuities explicit.
+This module stops at the propulsion/astrodynamics boundary.  It does not own
+epochs, frames, attitude laws, or orbit integration.  A numerical propagator
+supplies relative time, current mass, a resolved thrust direction, and any
+tracked tank states; the bridge returns simultaneous translational and mass
+derivatives, analytic partials, and the event surfaces that make
+discontinuities explicit, following the propulsion-model boundary of [1]_.
+The tabulated profile is a transient engine history of the kind described in
+[2]_; it is caller-supplied and not validated against hardware here.
+
+References
+----------
+.. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+       EventDetector" API: force, mass-derivative, parameter-driver and
+       event contract.
+.. [2] NASA-20040000363. NASA, "Transient Mathematical Modeling for Liquid
+       Rocket Engine Systems", https://ntrs.nasa.gov/citations/20040000363.
 """
 
 from __future__ import annotations
@@ -57,10 +68,15 @@ PROPAGATOR_BRIDGE_REFERENCE_IDS = (
 class BurnEventKind(str, Enum):
     """Kinds of root surfaces exposed to a numerical propagator.
 
+    ``START``, ``PROFILE_BOUNDARY`` and ``STOP`` are time events of the
+    tabulated profile; ``DRY_MASS`` and ``TANK_RESERVE`` are inventory events
+    [1]_.
+
     References
     ----------
-    Orekit EventDetectorsProvider 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetectorsProvider.html
+    .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+           EventDetector" API: force, mass-derivative, parameter-driver and
+           event contract.
     """
 
     START = "start"
@@ -74,14 +90,32 @@ class BurnEventKind(str, Enum):
 class EstimableParameter:
     """One bounded parameter-driver definition for orbit estimation.
 
-    ``scale`` is a recommended finite-difference/normalization scale; it does
-    not alter the physical value.  The bridge uses immutable parameter names so
-    an estimator cannot silently reorder a positional parameter vector.
+    Parameters
+    ----------
+    name : str
+        Parameter name; models address parameters by name, so an estimator
+        cannot silently reorder a positional parameter vector [1]_.
+    reference_value : float
+        Nominal value, inside ``[minimum, maximum]``.
+    scale : float
+        Positive finite-difference/normalization scale; it does not alter the
+        physical value.
+    minimum, maximum : float
+        Finite bounds with ``minimum < maximum``.
+    unit : str
+        Non-empty unit label (``"1"`` for dimensionless scales).
+
+    Raises
+    ------
+    DomainError
+        If a value is non-finite, the scale is not positive, the bounds are
+        empty, the reference value is out of bounds, or the unit is blank.
 
     References
     ----------
-    Orekit ParameterDriversProvider 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/utils/ParameterDriversProvider.html
+    .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+           EventDetector" API: force, mass-derivative, parameter-driver and
+           event contract.
     """
 
     name: str
@@ -111,7 +145,23 @@ class EstimableParameter:
             raise DomainError("Estimable parameter unit must not be empty.")
 
     def validate(self, value: float) -> float:
-        """Return a finite in-bounds value or fail closed."""
+        """Return ``value`` if it is finite and inside the parameter bounds.
+
+        Parameters
+        ----------
+        value : float
+            Candidate parameter value.
+
+        Returns
+        -------
+        float
+            The validated value.
+
+        Raises
+        ------
+        DomainError
+            If the value is non-finite or outside ``[minimum, maximum]``.
+        """
 
         numeric = real(value, f"Parameter {self.name!r}")
         if not self.minimum <= numeric <= self.maximum:
@@ -125,11 +175,23 @@ class EstimableParameter:
 class StreamStateBinding:
     """Map one artifact stream to one propagator additional-mass state.
 
-    Several streams may drain the same state; their derivatives are summed.
+    Parameters
+    ----------
+    stream_id : str
+        Identifier of a stream in the tabulated artifact.
+    state_name : str
+        Name of the propagator's additional state (a tank mass) that the
+        stream drains.
+
+    Notes
+    -----
+    Several streams may drain the same state; their derivatives are summed,
+    so each tank's mass derivative is minus the total flow drawn from it [1]_.
 
     References
     ----------
-    NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
+    .. [1] NASA-SP-8112. NASA, "Pressurization Systems for Liquid Rockets",
+           https://ntrs.nasa.gov/citations/19760015212.
     """
 
     stream_id: str
@@ -142,11 +204,31 @@ class StreamStateBinding:
 
 @dataclass(frozen=True, slots=True)
 class AdditionalStateConstraint:
-    """Minimum permitted value for a tracked tank or propellant state.
+    """Minimum permitted value (reserve) of a tracked tank or propellant state.
+
+    Parameters
+    ----------
+    state_name : str
+        Name of a bound additional state.
+    minimum_value : float
+        Finite, non-negative reserve in the state's unit.
+    label : str, optional
+        Human-readable label of the limit.
+
+    Raises
+    ------
+    DomainError
+        If the minimum is negative or non-finite.
+
+    Notes
+    -----
+    Reserve propellant is held back from the burn, as in pressure-fed
+    propellant budgeting [1]_.
 
     References
     ----------
-    NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
+    .. [1] NASA-SP-8112. NASA, "Pressurization Systems for Liquid Rockets",
+           https://ntrs.nasa.gov/citations/19760015212.
     """
 
     state_name: str
@@ -167,16 +249,37 @@ class AdditionalStateConstraint:
 class BurnEventSurface:
     """A signed root function with explicit propulsion-stop semantics.
 
-    Time surfaces use ``g = t - (t_event + ignition_time_bias)``.  Mass
-    surfaces use ``g = current - minimum``.  A zero therefore means the
-    propagator must land exactly on the discontinuity and recompute the right
-    hand derivative.  ``stops_burn`` does not request termination of the orbit
-    propagation; it only inhibits this propulsion model.
+    Parameters
+    ----------
+    event_id : str
+        Stable identifier of the event.
+    kind : BurnEventKind
+        Event category.
+    stops_burn : bool
+        Whether crossing the root inhibits this propulsion model.  It does not
+        request termination of the orbit propagation.
+    relative_time_s : float or None, optional
+        Profile time of a time event, in s.
+    state_name : str or None, optional
+        Additional state of a tank-reserve event.
+    threshold : float or None, optional
+        Limit value of a dry-mass or reserve event.
+
+    Notes
+    -----
+    Time surfaces use ``g = t - (t_event + ignition_time_bias)``; mass
+    surfaces use ``g = current - minimum``.  A zero means the propagator lands
+    exactly on the discontinuity and recomputes the right-hand derivative
+    [1]_.  Roots are located from sign changes of ``g``, so a step-wise
+    detector can miss multiple roots inside one step [2]_.
 
     References
     ----------
-    Orekit EventDetector 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+    .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+           EventDetector" API: force, mass-derivative, parameter-driver and
+           event contract.
+    .. [2] SCIPY-1.14.1-IVP. SciPy 1.14.1, "solve_ivp": event sign-change
+           detection; multiple roots within one step may be missed.
     """
 
     event_id: str
@@ -194,7 +297,32 @@ class BurnEventSurface:
         additional_states: Mapping[str, float],
         ignition_time_bias_s: float = 0.0,
     ) -> float:
-        """Evaluate the signed event function without hidden state."""
+        """Evaluate the signed event function ``g``; the surface holds no state.
+
+        Parameters
+        ----------
+        relative_time_s : float
+            Propagation time relative to nominal ignition, in s.
+        vehicle_mass_kg : float
+            Current vehicle mass, in kg.
+        additional_states : Mapping of str to float
+            Current additional-state values; must contain ``state_name`` for
+            a reserve event.
+        ignition_time_bias_s : float, optional
+            Ignition-time bias added to a time event, in s.
+
+        Returns
+        -------
+        float
+            ``t - (t_event + bias)`` for a time event, ``m - threshold`` for a
+            dry-mass event, or ``state - threshold`` for a reserve event.
+
+        Raises
+        ------
+        DomainError
+            If an input is non-finite, the surface is malformed, or the
+            required state is missing.
+        """
 
         relative_time_s = real(relative_time_s, "Event evaluation time")
         vehicle_mass_kg = real(vehicle_mass_kg, "Event evaluation vehicle mass")
@@ -216,22 +344,44 @@ class BurnEventSurface:
 class PropulsionPartials:
     """Analytic local derivatives for variational equations and estimation.
 
-    Acceleration partials are expressed in the same resolved frame as the
-    supplied direction.  At a command discontinuity the ignition-time partial
-    is intentionally reported as non-smooth instead of inventing a derivative.
+    Attributes
+    ----------
+    acceleration_wrt_mass : tuple of float
+        ``da/dm``, in m/(s**2 kg).
+    acceleration_wrt_parameters, mass_rate_wrt_parameters : tuple
+        Named partials with respect to the estimable parameters.
+    additional_state_rates_wrt_parameters : tuple
+        Per-parameter partials of each bound state's drain.
+    acceleration_wrt_conditions, mass_rate_wrt_conditions : tuple
+        Named partials with respect to performance-surface conditions.
+    additional_state_rates_wrt_conditions : tuple
+        Per-condition partials of each bound state's drain.
+    nonsmooth_parameters : tuple of str
+        Parameters whose derivative does not exist at this point.
+    acceleration_wrt_direction : tuple of tuple of float
+        3x3 Jacobian ``J[i][j] = da_i/dd_j``.
+    acceleration_wrt_ambient_pressure : tuple of float
+        ``da/dp_a``, in m/(s**2 Pa).
 
-    ``acceleration_wrt_direction`` is the 3x3 Jacobian ``J[i][j] = da_i/dd_j``
-    with respect to the *supplied* (not necessarily unit) direction vector
-    ``d``.  Because the bridge normalizes ``d``,
-    ``J = (T/m) (I - u u^T) / |d|``, where T is signed axial thrust:
-    only the component of a perturbation
-    perpendicular to the thrust axis changes the acceleration.  A consumer
-    that parameterizes pointing by angles chains this with ``dd/dangle``.
+    Notes
+    -----
+    Acceleration partials are expressed in the same resolved frame as the
+    supplied direction [1]_.  At a command discontinuity the ignition-time
+    partial is reported as non-smooth instead of an invented derivative.
+
+    ``acceleration_wrt_direction`` is taken with respect to the *supplied*
+    (not necessarily unit) direction vector ``d``.  Because the bridge
+    normalizes ``d``, ``J = (T/m) (I - u u^T) / |d|``, where ``T`` is the
+    signed axial thrust and ``u = d / |d|``: only the component of a
+    perturbation perpendicular to the thrust axis changes the acceleration.
+    A consumer that parameterizes pointing by angles chains this with
+    ``dd/dangle``.
 
     References
     ----------
-    Orekit PropulsionModel 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+    .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+           EventDetector" API: force, mass-derivative, parameter-driver and
+           event contract.
     """
 
     acceleration_wrt_mass: tuple[float, float, float]
@@ -256,11 +406,53 @@ class PropulsionPartials:
 class PropulsionDynamicsEvaluation:
     """Simultaneous force and inventory derivative at one propagator call.
 
+    Attributes
+    ----------
+    relative_time_s : float
+        Queried time relative to nominal ignition, in s.
+    effective_profile_time_s : float
+        Profile time after the ignition-time bias, in s.
+    active : bool
+        Whether the burn produces thrust at this point.
+    phase : str
+        Profile phase label, or ``"off"`` / ``"inhibited"``.
+    axial_thrust_n : float
+        Signed net axial thrust, in N.
+    force_vector_n, acceleration_m_s2 : tuple of float
+        Force (N) and acceleration (m/s**2) along the resolved direction.
+    mass_derivative_kg_s : float
+        Vehicle mass derivative (negative drain), in kg/s.
+    additional_state_derivatives : tuple of (str, float)
+        Derivative of each bound state, in its unit per second.
+    parameters : tuple of (str, float)
+        Resolved estimable-parameter values.
+    inhibited_by : tuple of str
+        Inventory limits that inhibited the burn.
+    partials : PropulsionPartials
+        Analytic local derivatives.
+    operating_conditions : tuple of (str, float)
+        Performance-surface conditions used.
+    performance_force_scale, performance_mass_flow_scale : float
+        Multipliers applied by the performance surface.
+    ambient_pressure_pa : float or None
+        Ambient pressure used for the pressure-thrust term, in Pa.
+    pressure_thrust_loss_n : float
+        ``p_a A_e`` subtracted from the vacuum thrust, in N.
+    net_thrust_margin_n : float or None
+        Net-thrust root monitored by the consumer while firing, in N.
+
+    Notes
+    -----
+    The record follows the propulsion-model boundary of [1]_ for a transient
+    engine history [2]_.
+
     References
     ----------
-    NASA-20040000363: https://ntrs.nasa.gov/citations/20040000363
-    Orekit PropulsionModel 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+    .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+           EventDetector" API: force, mass-derivative, parameter-driver and
+           event contract.
+    .. [2] NASA-20040000363. NASA, "Transient Mathematical Modeling for Liquid
+           Rocket Engine Systems", https://ntrs.nasa.gov/citations/20040000363.
     """
 
     relative_time_s: float
@@ -287,18 +479,47 @@ class PropulsionDynamicsEvaluation:
 class PropellantMassClosure:
     """Vehicle-mass versus tracked-propellant bookkeeping residual.
 
-    ``residual_kg = vehicle_mass - non_propellant_mass - sum(bound states)``.
+    Parameters
+    ----------
+    vehicle_mass_kg : float
+        Positive propagated vehicle mass, in kg.
+    non_propellant_mass_kg : float
+        Non-negative mass not represented by a bound state, in kg.
+    tracked_propellant_kg : float
+        Sum of the bound propellant states, in kg.
+    residual_kg : float
+        ``vehicle_mass - non_propellant_mass - tracked_propellant``, in kg.
+    relative_residual : float
+        ``residual_kg / vehicle_mass_kg``.
+    residual_ratio : tuple of (str, str) or None, optional
+        Exact residual as integer numerator and denominator text [3]_; when
+        omitted, the float ``residual_kg`` is taken as exact.
+
+    Raises
+    ------
+    DomainError
+        If a mass is invalid, the ratio is malformed or contradicts
+        ``residual_kg``, or ``relative_residual`` contradicts the ratio.
+
+    Notes
+    -----
     With complete stream binding and consistent initial conditions the
     residual stays at integration round-off for the whole burn, because the
-    total drain equals the sum of the bound stream drains.  A growing residual
-    reveals inconsistent initial states, an unbound stream, or a consumer that
-    integrates the vehicle mass and tank states with different derivatives.
+    total drain equals the sum of the bound stream drains [1]_, [2]_.  A
+    growing residual reveals inconsistent initial states, an unbound stream,
+    or a consumer that integrates the vehicle mass and tank states with
+    different derivatives.
 
     References
     ----------
-    NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-    Orekit PropulsionModel 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+    .. [1] NASA-SP-8112. NASA, "Pressurization Systems for Liquid Rockets",
+           https://ntrs.nasa.gov/citations/19760015212.
+    .. [2] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+           EventDetector" API: force, mass-derivative, parameter-driver and
+           event contract.
+    .. [3] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain
+           their exact binary value as a rational,
+           https://docs.python.org/3.12/library/fractions.html.
     """
 
     vehicle_mass_kg: float
@@ -325,7 +546,23 @@ class PropellantMassClosure:
         object.__setattr__(self, "residual_ratio", (str(ratio.numerator), str(ratio.denominator)))
 
     def is_closed(self, *, absolute_tolerance_kg: float) -> bool:
-        """Compare the unrounded numerical residual with a finite nonnegative tolerance."""
+        """Return whether the exact residual satisfies ``|residual| <= tolerance``.
+
+        Parameters
+        ----------
+        absolute_tolerance_kg : float
+            Finite, non-negative tolerance, in kg.
+
+        Returns
+        -------
+        bool
+            Comparison of the exact, unrounded residual with the tolerance.
+
+        Raises
+        ------
+        DomainError
+            If the tolerance is negative or non-finite.
+        """
 
         absolute_tolerance_kg = real(absolute_tolerance_kg, "Mass-closure tolerance")
         if absolute_tolerance_kg < 0.0:
@@ -335,11 +572,24 @@ class PropellantMassClosure:
 
 
 def _validated_states(additional_states: Mapping[str, float] | None) -> dict[str, float]:
+    """Return the additional states as a validated ``{name: finite float}`` dict."""
     return real_mapping(additional_states, "Additional states")
 
 
 def _mass_profile(segment: TabulatedBurnSegment, time_s: float, hold: bool):
-    """Evaluate the mass profile exactly before grouping/scaling its channels."""
+    """Return exact total and per-stream flows and their time slopes on a segment.
+
+    Each channel is linearly interpolated between the segment end points,
+    ``mdot(t) = mdot_0 + (t - t_0) / (t_1 - t_0) * (mdot_1 - mdot_0)``, or held
+    at its start value with zero slope when ``hold`` is set.  Values stay
+    exact rationals [1]_ so grouping and scaling round only once.
+
+    References
+    ----------
+    .. [1] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain
+           their exact binary value as a rational,
+           https://docs.python.org/3.12/library/fractions.html.
+    """
     start, end = _fraction(segment.start_time_s), _fraction(segment.end_time_s)
     duration = end - start
     fraction = Fraction(0) if hold else (_fraction(time_s) - start) / duration
@@ -362,16 +612,30 @@ def _mass_profile(segment: TabulatedBurnSegment, time_s: float, hold: bool):
 class PropulsionDerivativeJump:
     """Left-minus-right propulsion derivatives at one time event.
 
+    Attributes
+    ----------
+    relative_time_s : float
+        Event time relative to nominal ignition, in s.
+    acceleration_m_s2 : tuple of float
+        ``a(left) - a(right)``, in m/s**2.
+    mass_derivative_kg_s : float
+        ``mdot(left) - mdot(right)``, in kg/s.
+    additional_state_derivatives : tuple of (str, float)
+        Left-minus-right derivative of each bound state.
+
+    Notes
+    -----
     For a consumer integrating sensitivities ``S = dy/dp``, an event whose
     time ``tau`` depends on a parameter requires the saltation update
-    ``S+ = S- + (f- - f+) dtau/dp``.  Profile time events move one-for-one
-    with ``ignition_time_bias_s`` (``dtau/db = 1``) and not with the scale
-    drivers, so the propulsion part of ``f- - f+`` is exactly this jump.
+    ``S+ = S- + (f- - f+) dtau/dp``; maneuver execution errors in navigation
+    filtering are treated in [1]_.  Profile time events move one-for-one with
+    ``ignition_time_bias_s`` (``dtau/db = 1``) and not with the scale drivers,
+    so the propulsion part of ``f- - f+`` is exactly this jump.
 
     References
     ----------
-    NASA-20180003657 (Navigation Filter Best Practices):
-    https://ntrs.nasa.gov/citations/20180003657
+    .. [1] NASA-20180003657. NASA, "Navigation Filter Best Practices"
+           (NASA/TP-2018-219822), https://ntrs.nasa.gov/citations/20180003657.
     """
 
     relative_time_s: float
@@ -384,28 +648,74 @@ class PropulsionDerivativeJump:
 class PropagatorPropulsionBridge:
     """Immutable tabulated propulsion model for numerical orbit propagation.
 
-    The returned force is the artifact's *axial* force: cant/divergence already
-    represented by the producer is not applied twice.  Vehicle and per-stream
-    mass derivatives are negative drains.  ``thrust_scale`` and
-    ``mass_flow_scale`` are independent so orbit determination can estimate
-    force and propellant bookkeeping without fabricating an Isp constraint;
-    upstream calibrated realizations should normally leave both at one.
+    Parameters
+    ----------
+    artifact : TabulatedBurnArtifact
+        Hash-verified thrust and mass-flow history; re-opened through
+        :meth:`TabulatedBurnArtifact.from_dict` before it is accepted.
+    performance_surface : RectilinearPerformanceSurface or None, optional
+        Total-flow multipliers over operating conditions.
+    stream_performance_surface : RectilinearStreamPerformanceSurface or None, optional
+        Stream-resolved multipliers; exclusive with ``performance_surface``.
+        Its stream identifiers must equal the artifact's.
+    stream_bindings : tuple of StreamStateBinding, optional
+        At most one binding per artifact stream.
+    state_constraints : tuple of AdditionalStateConstraint, optional
+        At most one reserve per bound state.
+    protected_dry_mass_kg : float or None, optional
+        Finite, positive dry-mass limit, in kg.
+    require_complete_stream_binding : bool, optional
+        Require every artifact stream to be bound.
+    parameters : tuple of EstimableParameter, optional
+        Exactly ``thrust_scale``, ``mass_flow_scale`` and
+        ``ignition_time_bias_s``; defaults are created when empty.
+    nozzle_exit_area_m2 : float or None, optional
+        Finite, positive axial-projected total nozzle exit area, in m**2.
+    model_id : str, optional
+        Model identifier.
+    schema : str, optional
+        Must equal ``PROPAGATOR_BRIDGE_SCHEMA``.
 
-    ``nozzle_exit_area_m2`` (optional) is the axial-projected total exit area.
-    When set, the artifact force is interpreted as vacuum thrust and the
-    ambient-pressure term ``p_a A_e`` is subtracted at evaluation time.
+    Raises
+    ------
+    DomainError
+        If a field is invalid, both performance surfaces are given, bindings
+        or constraints are duplicated or reference unknown streams or states,
+        complete binding is required but missing, ambient pressure is also a
+        performance-surface axis, or the parameter set is not exactly the
+        three expected drivers.
+    InputError
+        If the artifact fails its integrity check.
+
+    Notes
+    -----
+    The returned force is the artifact's *axial* force: cant and divergence
+    already represented by the producer are not applied twice.  Vehicle and
+    per-stream mass derivatives are negative drains.  ``thrust_scale`` and
+    ``mass_flow_scale`` are independent so orbit determination can estimate
+    force and propellant bookkeeping without imposing an Isp constraint;
+    calibrated upstream realizations normally leave both at one.
+
+    With ``nozzle_exit_area_m2`` set, the artifact force is the vacuum thrust
+    and the ambient-pressure term is subtracted at evaluation time,
+    ``F = F_vac - p_a A_e`` [3]_.
 
     ``ignition_time_bias_s`` shifts the entire profile and all date events by
     the same amount.  Its derivative is analytic inside linear segments and is
-    marked non-smooth at every declared boundary.
+    marked non-smooth at every declared boundary.  The force, mass-derivative,
+    parameter-driver and event contract follows [1]_; the profile is a
+    caller-supplied transient history [2]_.
 
     References
     ----------
-    Orekit PropulsionModel 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
-    Orekit Maneuver 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/Maneuver.html
-    NASA-20040000363: https://ntrs.nasa.gov/citations/20040000363
+    .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+           EventDetector" API: force, mass-derivative, parameter-driver and
+           event contract.
+    .. [2] NASA-20040000363. NASA, "Transient Mathematical Modeling for Liquid
+           Rocket Engine Systems", https://ntrs.nasa.gov/citations/20040000363.
+    .. [3] NASA-STEADY-ROCKET-THRUST. NASA Glenn Research Center, momentum and
+           pressure thrust equation,
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust/.
     """
 
     artifact: TabulatedBurnArtifact
@@ -533,12 +843,24 @@ class PropagatorPropulsionBridge:
 
     @property
     def model_hash(self) -> str:
-        """Content identity binding source artifact and propagation semantics."""
+        """SHA-256 content identity of the source artifact and propagation semantics."""
 
         return canonical_sha256(self.manifest(include_hash=False))
 
     def manifest(self, *, include_hash: bool = True) -> dict[str, object]:
-        """Return a deterministic, integration-reviewable model manifest."""
+        """Return the deterministic model manifest recorded with integrations.
+
+        Parameters
+        ----------
+        include_hash : bool, optional
+            Add the ``model_hash`` member computed over the other members.
+
+        Returns
+        -------
+        dict
+            Source hashes, semantics and numerical-policy labels, bindings,
+            constraints, parameters and reference identifiers.
+        """
 
         payload: dict[str, object] = {
             "schema": self.schema,
@@ -606,7 +928,8 @@ class PropagatorPropulsionBridge:
             "reference_ids": list(PROPAGATOR_BRIDGE_REFERENCE_IDS),
         }
         if self.nozzle_exit_area_m2 is not None:
-            # Present only when used, so vacuum-only bridge identities are unchanged.
+            # Present only when used, so a vacuum-only bridge identity does not
+            # depend on this field.
             payload["nozzle_exit_area_m2"] = self.nozzle_exit_area_m2
             payload["force_semantics"] = (
                 "vacuum_axial_thrust_minus_ambient_pressure_times_exit_area"
@@ -618,14 +941,23 @@ class PropagatorPropulsionBridge:
     def to_dict(self) -> dict[str, object]:
         """Return the complete, reopenable bridge document.
 
-        The manifest (with ``model_hash``) is extended with the full source
-        artifact and optional performance surface, each carrying its own
-        content hash.  :meth:`from_dict` rebuilds the bridge and refuses any
-        document whose recomputed ``model_hash`` differs.
+        Returns
+        -------
+        dict
+            The manifest (with ``model_hash``) extended with the full source
+            artifact and optional performance surfaces, each carrying its own
+            content hash.
+
+        Notes
+        -----
+        :meth:`from_dict` rebuilds the bridge and refuses any document whose
+        recomputed ``model_hash`` differs, so a recorded model is reproducible
+        as required for simulation records [1]_.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009.
         """
 
         document = self.manifest()
@@ -641,7 +973,23 @@ class PropagatorPropulsionBridge:
         return document
 
     def to_json(self, *, indent: int | None = 2) -> str:
-        """Serialize the complete bridge document."""
+        """Serialize the complete bridge document as JSON text.
+
+        Parameters
+        ----------
+        indent : int or None, optional
+            Indentation passed to :func:`json.dumps`; ``None`` is compact.
+
+        Returns
+        -------
+        str
+            Key-sorted JSON without ``NaN`` or ``Infinity`` tokens [1]_.
+
+        References
+        ----------
+        .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data
+               Interchange Format", https://www.rfc-editor.org/rfc/rfc8259.
+        """
 
         return json.dumps(
             self.to_dict(), allow_nan=False, ensure_ascii=False, indent=indent, sort_keys=True
@@ -651,9 +999,33 @@ class PropagatorPropulsionBridge:
     def from_dict(cls, payload: Mapping[str, object]) -> PropagatorPropulsionBridge:
         """Rebuild a bridge and verify every nested hash and the model hash.
 
+        Parameters
+        ----------
+        payload : Mapping
+            Document produced by :meth:`to_dict`.
+
+        Returns
+        -------
+        PropagatorPropulsionBridge
+            The reconstructed bridge.
+
+        Raises
+        ------
+        InputError
+            If the document is malformed, a nested or model hash does not
+            match, or its numerical-policy or metadata members differ from the
+            rebuilt manifest.
+        DomainError
+            If a reconstructed field violates the bridge constraints.
+
+        Notes
+        -----
+        Hash verification makes a recorded model reproducible [1]_.
+
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009.
         """
 
         _bridge_document(payload)
@@ -711,14 +1083,57 @@ class PropagatorPropulsionBridge:
 
     @classmethod
     def from_json(cls, text: str) -> PropagatorPropulsionBridge:
-        """Deserialize and integrity-check a bridge document."""
+        """Parse JSON text and rebuild the bridge with :meth:`from_dict`.
+
+        Parameters
+        ----------
+        text : str
+            RFC 8259 JSON document [1]_.
+
+        Returns
+        -------
+        PropagatorPropulsionBridge
+            The reconstructed, hash-verified bridge.
+
+        Raises
+        ------
+        InputError
+            If the text is not a valid document or fails a hash check.
+
+        References
+        ----------
+        .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data
+               Interchange Format", https://www.rfc-editor.org/rfc/rfc8259.
+        """
 
         return read_json_document(text, "Propagator bridge document", cls.from_dict)
 
     def resolved_parameters(
         self, overrides: Mapping[str, float] | None = None
     ) -> Mapping[str, float]:
-        """Resolve named overrides against immutable driver definitions."""
+        """Resolve named overrides against the bounded parameter definitions.
+
+        Parameters
+        ----------
+        overrides : Mapping of str to float or None, optional
+            Values replacing the reference values of named parameters.
+
+        Returns
+        -------
+        Mapping of str to float
+            Read-only mapping of every parameter to its validated value.
+
+        Raises
+        ------
+        DomainError
+            If a name is unknown or a value is non-finite or out of bounds.
+
+        References
+        ----------
+        .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+               EventDetector" API: force, mass-derivative, parameter-driver and
+               event contract.
+        """
 
         supplied = real_mapping(overrides, "Parameter overrides")
         known = {parameter.name for parameter in self.parameters}
@@ -734,7 +1149,20 @@ class PropagatorPropulsionBridge:
         return MappingProxyType(resolved)
 
     def event_surfaces(self) -> tuple[BurnEventSurface, ...]:
-        """Return every time and inventory discontinuity exactly once."""
+        """Return every time and inventory discontinuity exactly once.
+
+        Returns
+        -------
+        tuple of BurnEventSurface
+            Start, each interior profile boundary, stop, and, when declared,
+            the dry-mass and per-state reserve surfaces [1]_.
+
+        References
+        ----------
+        .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+               EventDetector" API: force, mass-derivative, parameter-driver and
+               event contract.
+        """
 
         surfaces = [BurnEventSurface("burn:start", BurnEventKind.START, False, relative_time_s=0.0)]
         for index, segment in enumerate(self.artifact.segments[:-1], start=1):
@@ -776,13 +1204,26 @@ class PropagatorPropulsionBridge:
         return tuple(surfaces)
 
     def operating_condition_surfaces(self) -> tuple[PerformanceValiditySurface, ...]:
-        """Return state-domain roots for the optional performance surface.
+        """Return the validity-domain roots of the optional performance surface.
+
+        Returns
+        -------
+        tuple of PerformanceValiditySurface
+            Roots at the edges of the surface's declared condition domain;
+            empty without a surface.
+
+        Notes
+        -----
+        A model is used only inside its stated domain of validity [1]_; the
+        roots are registered with the propagator's event detection [2]_.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-        Orekit EventDetectorsProvider 13.1.5 API:
-        https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetectorsProvider.html
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009.
+        .. [2] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+               EventDetector" API: force, mass-derivative, parameter-driver and
+               event contract.
         """
 
         if self.performance_surface is None and self.stream_performance_surface is None:
@@ -801,13 +1242,31 @@ class PropagatorPropulsionBridge:
     ) -> PropellantMassClosure:
         """Compare propagated vehicle mass with the bound tank states.
 
-        ``non_propellant_mass_kg`` is everything not represented by a bound
-        state (dry structure, pressurant, unbound or untracked propellant).
-        Each bound state is counted once even if several streams drain it.
+        Parameters
+        ----------
+        vehicle_mass_kg : float
+            Finite, positive propagated vehicle mass, in kg.
+        additional_states : Mapping of str to float
+            Current value of every bound state, in kg.
+        non_propellant_mass_kg : float
+            Finite, non-negative mass not represented by a bound state (dry
+            structure, pressurant, unbound or untracked propellant), in kg.
+
+        Returns
+        -------
+        PropellantMassClosure
+            Residual ``m_vehicle - m_other - sum(bound states)``; each bound
+            state is counted once even if several streams drain it.
+
+        Raises
+        ------
+        DomainError
+            If a mass is invalid or a bound state is missing.
 
         References
         ----------
-        NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
+        .. [1] NASA-SP-8112. NASA, "Pressurization Systems for Liquid Rockets",
+               https://ntrs.nasa.gov/citations/19760015212.
         """
 
         vehicle_mass_kg = real(vehicle_mass_kg, "Vehicle mass")
@@ -844,12 +1303,45 @@ class PropagatorPropulsionBridge:
     ) -> PropulsionDerivativeJump:
         """Return ``f(left) - f(right)`` for the saltation update at a time event.
 
+        Parameters
+        ----------
+        relative_time_s : float
+            Event time relative to nominal ignition, in s.
+        vehicle_mass_kg : float
+            Finite, positive current vehicle mass, in kg.
+        direction : tuple of float
+            Non-zero thrust direction in the propagator's resolved frame; it is
+            normalized internally.
+        additional_states : Mapping of str to float, optional
+            Current value of every bound additional state.
+        operating_conditions : Mapping of str to float, optional
+            Performance-surface conditions; only allowed with a surface.
+        parameter_overrides : Mapping of str to float, optional
+            Values of ``thrust_scale``, ``mass_flow_scale`` and
+            ``ignition_time_bias_s`` that replace the reference values.
+        ambient_pressure_pa : float or None, optional
+            Non-negative ambient pressure, in Pa, as for :meth:`evaluate`.
+
+        Returns
+        -------
+        PropulsionDerivativeJump
+            Left-minus-right acceleration and drains.
+
+        Raises
+        ------
+        DomainError
+            If an input is invalid (see :meth:`evaluate`).
+
+        Notes
+        -----
         Inventory limits are not applied, so the jump is the profile's own
-        discontinuity.  See :class:`PropulsionDerivativeJump`.
+        discontinuity.  Its use in sensitivity propagation is described in
+        :class:`PropulsionDerivativeJump` and [1]_.
 
         References
         ----------
-        NASA-20180003657: https://ntrs.nasa.gov/citations/20180003657
+        .. [1] NASA-20180003657. NASA, "Navigation Filter Best Practices"
+               (NASA/TP-2018-219822), https://ntrs.nasa.gov/citations/20180003657.
         """
 
         common = {
@@ -870,9 +1362,39 @@ class PropagatorPropulsionBridge:
                                   **kwargs) -> PropulsionDerivativeJump:
         """Return the saltation jump at a represented canonical epoch event.
 
-        Inventory limits are excluded, as for :meth:`time_event_jump`.
-        References: NASA-20180003657,
-        https://ntrs.nasa.gov/citations/20180003657; docs/TABULATED_TIME_CONTRACT_REVIEW.md.
+        Parameters
+        ----------
+        time_s : float
+            Absolute propagation time of the event, in s.
+        ignition_time_s : float
+            Absolute nominal ignition time, in s.
+        **kwargs
+            Remaining keyword arguments of :meth:`evaluate_at_epoch`, except
+            ``side`` and ``apply_inventory_limits``.
+
+        Returns
+        -------
+        PropulsionDerivativeJump
+            Left-minus-right acceleration and drains.
+
+        Raises
+        ------
+        DomainError
+            If an input is invalid (see :meth:`evaluate_at_epoch`).
+
+        Notes
+        -----
+        Inventory limits are excluded, as for :meth:`time_event_jump`.  The
+        sensitivity update is described in :class:`PropulsionDerivativeJump`
+        and [1]_; the absolute clock is resolved exactly [2]_.
+
+        References
+        ----------
+        .. [1] NASA-20180003657. NASA, "Navigation Filter Best Practices"
+               (NASA/TP-2018-219822), https://ntrs.nasa.gov/citations/20180003657.
+        .. [2] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain
+               their exact binary value as a rational,
+               https://docs.python.org/3.12/library/fractions.html.
         """
         kwargs = dict(kwargs)
         kwargs['apply_inventory_limits'] = False
@@ -884,7 +1406,7 @@ class PropagatorPropulsionBridge:
 
     @staticmethod
     def _jump_from_evaluations(left, right) -> PropulsionDerivativeJump:
-        """Use identical output subtraction for relative and epoch saltation APIs."""
+        """Subtract two evaluations; shared by the relative and epoch jump methods."""
         right_states = dict(right.additional_state_derivatives)
         return PropulsionDerivativeJump(
             relative_time_s=left.relative_time_s,
@@ -901,13 +1423,22 @@ class PropagatorPropulsionBridge:
     def operating_condition_grid_surfaces(self) -> tuple[PerformanceGridLineSurface, ...]:
         """Return non-stopping derivative-kink roots of the performance surface.
 
+        Returns
+        -------
+        tuple of PerformanceGridLineSurface
+            One root per interior grid line; empty without a surface.
+
+        Notes
+        -----
         A consumer registers these next to :meth:`operating_condition_surfaces`
-        and restarts integration on each crossing, as for profile boundaries.
+        and restarts integration on each crossing, as for profile boundaries
+        [1]_.
 
         References
         ----------
-        Orekit EventDetectorsProvider 13.1.5 API:
-        https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetectorsProvider.html
+        .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+               EventDetector" API: force, mass-derivative, parameter-driver and
+               event contract.
         """
 
         if self.performance_surface is None and self.stream_performance_surface is None:
@@ -920,6 +1451,7 @@ class PropagatorPropulsionBridge:
     def _segment_at(
         self, effective_time_s: float, side: str
     ) -> tuple[TabulatedBurnSegment | None, bool]:
+        """Return the segment owning an exact profile time on ``side`` and a boundary flag."""
         artifact = self.artifact
         effective_time_s = _fraction(effective_time_s)
         at_boundary = artifact._is_boundary_time(effective_time_s)
@@ -947,11 +1479,94 @@ class PropagatorPropulsionBridge:
                  side: str = 'right', apply_inventory_limits: bool = True,
                  ambient_pressure_pa: float | None = None,
                  boundary_tolerance_s: float | None = None) -> PropulsionDynamicsEvaluation:
-        """Evaluate supplied relative coordinates; only exact boundaries select limits.
+        """Evaluate force, drains, event-safe activity and analytic partials.
 
-        Optional fields and explicit snapping follow :meth:`_evaluate`.
-        References: docs/TABULATED_TIME_CONTRACT_REVIEW.md; Orekit PropulsionModel,
-        https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+        Parameters
+        ----------
+        relative_time_s : float
+            Finite propagation time relative to nominal ignition, in s.
+        vehicle_mass_kg : float
+            Finite, positive current vehicle mass, in kg.
+        direction : tuple of float
+            Non-zero thrust direction in the propagator's resolved frame; it is
+            normalized internally.
+        additional_states : Mapping of str to float, optional
+            Current value of every bound additional state.
+        operating_conditions : Mapping of str to float, optional
+            Performance-surface conditions; only allowed with a surface.
+        parameter_overrides : Mapping of str to float, optional
+            Values of ``thrust_scale``, ``mass_flow_scale`` and
+            ``ignition_time_bias_s`` that replace the reference values.
+        side : {'right', 'left'}, optional
+            Limit taken exactly at a discontinuity.
+        apply_inventory_limits : bool, optional
+            Zero the output at or below a dry-mass or reserve limit.
+        ambient_pressure_pa : float or None, optional
+            Non-negative ambient pressure, in Pa; required while firing when
+            ``nozzle_exit_area_m2`` is set and refused otherwise.
+        boundary_tolerance_s : float or None, optional
+            Caller-owned window within which a time snaps to a profile
+            boundary; ``None`` uses exact relative coordinates.
+
+        Returns
+        -------
+        PropulsionDynamicsEvaluation
+            Force, acceleration, drains and partials; exact zeros outside the
+            shifted firing interval or when an inventory limit inhibits the
+            burn.
+
+        Raises
+        ------
+        DomainError
+            If an input is invalid, a bound state is missing, conditions are
+            supplied without a surface, or ambient pressure is missing while
+            firing with ``nozzle_exit_area_m2`` (or supplied without it).
+
+        Notes
+        -----
+        ``side`` selects the limiting value exactly at discontinuities: normal
+        integration uses ``'right'`` after an event reset; event localization
+        may query both sides.  Only exact boundary coordinates select a
+        one-sided limit.  Outside the shifted firing interval the method
+        returns exact zeros rather than extrapolating the profile.
+
+        ``apply_inventory_limits=True`` zeroes the output when the vehicle
+        mass or a constrained state is at or below its limit plus
+        ``INVENTORY_LIMIT_TOLERANCE``.  This is a safety net for consumers
+        without event handling.  It makes the right-hand side discontinuous
+        *inside* an integration step: a Runge-Kutta stage that probes just
+        past a reserve root sees zero drain, so the step under-drains and a
+        root located on that step is biased by a fraction of the step.  A
+        consumer that registers the dry-mass and reserve
+        :meth:`event_surfaces`, locates their roots and switches the burn off
+        itself passes ``False``.  The profile is never extrapolated in time
+        either way.
+
+        With ``nozzle_exit_area_m2`` set, the artifact's axial thrust is the
+        *vacuum* thrust and ``F = F_vac - p_a A_e``, ``dF/dp_a = -A_e`` [2]_.
+        The net thrust is not clamped; ``net_thrust_margin_n`` is the root a
+        consumer monitors to stop the burn before the net force reverses.  It
+        is defined only while the burn is firing (``None`` otherwise), so the
+        consumer enables that root between the burn's start and stop events.
+
+        Absolute-clock consumers use :meth:`evaluate_at_epoch`;
+        :class:`PropulsionTimeline` does so.  Shifted coordinates keep their
+        exact rational position [3]_ through segment ownership and
+        interpolation, even when the displayed time rounds onto a boundary.
+        Numerical clock rules do not establish sensor accuracy.  The
+        evaluation contract follows [1]_.
+
+        References
+        ----------
+        .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+               EventDetector" API: force, mass-derivative, parameter-driver and
+               event contract.
+        .. [2] NASA-STEADY-ROCKET-THRUST. NASA Glenn Research Center, momentum and
+               pressure thrust equation,
+               https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust/.
+        .. [3] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain
+               their exact binary value as a rational,
+               https://docs.python.org/3.12/library/fractions.html.
         """
         arguments = locals().copy()
         arguments.pop('self')
@@ -960,12 +1575,47 @@ class PropagatorPropulsionBridge:
     def evaluate_at_epoch(self, *, time_s: float, ignition_time_s: float,
                           vehicle_mass_kg: float, direction: tuple[float,float,float],
                           **kwargs) -> PropulsionDynamicsEvaluation:
-        """Resolve a binary absolute clock without an arbitrary snap window.
+        """Evaluate at an absolute binary64 clock reading without a snap window.
 
-        Distinct profile boundaries require distinct once-rounded absolute
-        dates. Unambiguous addition-order aliases retain one-sided limits.
-        References: docs/TABULATED_TIME_CONTRACT_REVIEW.md; Python Fraction,
-        https://docs.python.org/3.12/library/fractions.html.
+        Parameters
+        ----------
+        time_s : float
+            Finite absolute propagation time, in s.
+        ignition_time_s : float
+            Finite absolute nominal ignition time, in s.
+        vehicle_mass_kg : float
+            Finite, positive current vehicle mass, in kg.
+        direction : tuple of float
+            Non-zero thrust direction in the resolved frame.
+        **kwargs
+            Remaining keyword arguments of :meth:`evaluate` other than
+            ``relative_time_s``.
+
+        Returns
+        -------
+        PropulsionDynamicsEvaluation
+            As for :meth:`evaluate`, with ``relative_time_s`` the exact
+            difference ``time_s - ignition_time_s`` rounded once.
+
+        Raises
+        ------
+        DomainError
+            If an input is invalid, ``relative_time_s`` is supplied, or the
+            absolute clock cannot distinguish successive profile boundaries.
+
+        Notes
+        -----
+        Each profile boundary maps to the once-rounded absolute date
+        ``ignition + bias + t_k``; distinct boundaries require distinct
+        dates.  A reading equal to such a date, or to an unambiguous
+        addition-order alias of it, selects that boundary's one-sided limit;
+        any other reading maps to its exact profile time [1]_.
+
+        References
+        ----------
+        .. [1] PYTHON-3.12-FRACTION. Python 3.12, "fractions": float inputs retain
+               their exact binary value as a rational,
+               https://docs.python.org/3.12/library/fractions.html.
         """
         time_s = real(time_s, 'Absolute propagation time')
         if '_resolved_profile_time' in kwargs or 'relative_time_s' in kwargs:
@@ -994,44 +1644,25 @@ class PropagatorPropulsionBridge:
         boundary_tolerance_s: float | None = None,
         _resolved_profile_time: Fraction | None = None,
     ) -> PropulsionDynamicsEvaluation:
-        """Evaluate force, drains, event-safe activity, and analytic partials.
+        """Shared implementation of :meth:`evaluate` and :meth:`evaluate_at_epoch`.
 
-        ``side`` selects the limiting value exactly at discontinuities.  Normal
-        integration should use ``right`` after an event reset; event localization
-        may query both sides.  Outside the shifted firing interval the method
-        returns exact zeros rather than extrapolating the profile.
-
-        ``apply_inventory_limits`` (default ``True``) zeroes the output when the
-        vehicle mass or a constrained tank state is at or below its limit.  This
-        is a safety net for consumers without event handling.  It makes the
-        right-hand side discontinuous *inside* an integration step: a
-        Runge-Kutta stage that probes just past a reserve root sees zero drain,
-        so the step under-drains and a root located on that step is biased by a
-        fraction of the step.  A consumer that registers the dry-mass and
-        reserve :meth:`event_surfaces`, locates their roots and then switches
-        the burn off itself should pass ``False``.  Time-domain behaviour is
-        unchanged: the profile is still never extrapolated.
-
-        With ``nozzle_exit_area_m2`` set, the artifact's axial thrust is the
-        *vacuum* thrust and ``ambient_pressure_pa`` is required while firing:
-        ``F = F_vac - p_a A_e``, ``dF/dp_a = -A_e``.  The net thrust is not
-        clamped; ``net_thrust_margin_n`` is the root a consumer monitors to
-        stop the burn before the net force reverses.  It is defined only while
-        the burn is firing (``None`` otherwise), so the consumer enables that
-        root between the burn's start and stop events.
-
-        ``boundary_tolerance_s`` is an explicit caller-owned snap window;
-        the default is exact relative coordinates. Absolute-clock consumers
-        use :meth:`evaluate_at_epoch`; :class:`PropulsionTimeline` does so.
-        Shifted coordinates retain their exact rational position through
-        ownership and interpolation, even when the displayed time rounds onto
-        a boundary. Numerical clock rules do not establish sensor accuracy.
+        ``_resolved_profile_time`` is the exact profile coordinate already
+        resolved from an absolute clock; when ``None`` it is
+        ``relative_time_s - ignition_time_bias_s``.  The axial thrust is
+        ``F = F_vac - p_a A_e`` when a nozzle exit area is declared [2]_, and
+        the tabulated transient history [3]_ is never extrapolated.  The full
+        contract is documented on :meth:`evaluate` and follows [1]_.
 
         References
         ----------
-        Orekit PropulsionModel 13.1.5 API:
-        https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
-        NASA-20040000363: https://ntrs.nasa.gov/citations/20040000363
+        .. [1] OREKIT-13.1.5-PROPULSION-MODEL. Orekit 13.1.5, "PropulsionModel /
+               EventDetector" API: force, mass-derivative, parameter-driver and
+               event contract.
+        .. [2] NASA-STEADY-ROCKET-THRUST. NASA Glenn Research Center, momentum and
+               pressure thrust equation,
+               https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust/.
+        .. [3] NASA-20040000363. NASA, "Transient Mathematical Modeling for Liquid
+               Rocket Engine Systems", https://ntrs.nasa.gov/citations/20040000363.
         """
 
         if side not in ("left", "right"):

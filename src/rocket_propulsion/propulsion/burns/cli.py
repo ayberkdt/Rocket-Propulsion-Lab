@@ -1,4 +1,17 @@
-"""Command-line surface for standalone propulsion burns."""
+"""Command-line interface for standalone propulsion burns.
+
+Subcommands of ``rocket-propulsion burn``:
+
+``simulate``
+    Run a constant or profiled burn from a JSON request; optionally write the
+    canonical result JSON and an HTML report.
+``validate``
+    Reopen a canonical burn-result JSON file and verify that it reproduces.
+``tabulate-trace``
+    Convert an SI thrust/flow CSV trace into a tabulated burn artifact.
+``export``
+    Export a burn result as an exact or reduced constant burn for Sidera.
+"""
 
 from __future__ import annotations
 
@@ -16,7 +29,14 @@ from .tabulated import InterpolationPolicy, tabulated_artifact_from_csv
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the ``rocket-propulsion burn`` command tree."""
+    """Build the ``rocket-propulsion burn`` argument parser.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        Parser with the ``simulate``, ``validate``, ``tabulate-trace`` and
+        ``export`` subcommands.
+    """
 
     parser = argparse.ArgumentParser(prog="rocket-propulsion burn")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -66,6 +86,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _read_text(path: Path) -> str:
+    """Read a UTF-8 file, raising ``InputError`` if it cannot be read."""
     try:
         return path.read_text(encoding="utf-8")
     except OSError as error:
@@ -73,6 +94,7 @@ def _read_text(path: Path) -> str:
 
 
 def _write_text(path: Path, text: str) -> None:
+    """Write UTF-8 text, raising ``InputError`` if the file cannot be written."""
     try:
         path.write_text(text, encoding="utf-8")
     except OSError as error:
@@ -80,7 +102,29 @@ def _write_text(path: Path, text: str) -> None:
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
-    """Run a burn command and return a process-style status code."""
+    """Run one ``rocket-propulsion burn`` subcommand.
+
+    Parameters
+    ----------
+    arguments : sequence of str, optional
+        Command-line arguments without the program name; ``None`` reads
+        ``sys.argv``.
+
+    Returns
+    -------
+    int
+        Process exit status: ``0`` on success, ``2`` when ``simulate`` stops
+        before its target is achieved.
+
+    Raises
+    ------
+    InputError
+        If an input file cannot be read or is not a JSON object, a result
+        document fails its integrity checks, or an output file cannot be
+        written.
+    SystemExit
+        Raised by :mod:`argparse` for invalid command-line arguments.
+    """
 
     options = build_parser().parse_args(arguments)
     if options.command == "simulate":

@@ -1,19 +1,30 @@
 """Model-form and qualification-to-flight propulsion discrepancy evidence.
 
-Hot-fire repeatability does not cover bias between a model and reality or the
-change between qualification and flight application domains. This module keeps
-those epistemic effects separate from aleatory engine/run variation, calibrates
-them from independent ratio evidence, and composes them without applying one
-physical scale twice by accident.
+Hot-fire repeatability does not cover bias between a model and reality, nor the
+change between qualification and flight application domains [1]_ [2]_. This
+module keeps those epistemic effects separate from aleatory engine/run
+variation, calibrates them from independent validation-ratio evidence [3]_ with
+the Mandel-Paule random-effects estimator [4]_ [5]_, and composes them with the
+hot-fire calibration so that no physical scale is corrected twice.
+
+A discrepancy calibration is valid only inside its declared applicability
+domain; it is a constant factor, not an extrapolating response surface [6]_.
 
 References
 ----------
-NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-NASA-HDBK-7009: https://ntrs.nasa.gov/citations/20140002378
-NASA multiple-validation calibration: https://ntrs.nasa.gov/citations/20150006032
-NASA-SP-2009-569: https://ntrs.nasa.gov/citations/20090023159
-NIST Dataplot consensus mean:
-https://www.itl.nist.gov/div898/software/dataplot/refman1/auxillar/consmean.htm
+.. [1] NASA-STD-7009B, "Standard for Models and Simulations".
+       https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+.. [2] NASA-HDBK-7009, "NASA Handbook for Models and Simulations".
+       https://ntrs.nasa.gov/citations/20140002378
+.. [3] NASA, "Calibration of Predictor Models Using Multiple Validation
+       Experiments". https://ntrs.nasa.gov/citations/20150006032
+.. [4] PAULE-MANDEL-1982. R. C. Paule and J. Mandel, "Consensus Values and
+       Weighting Factors", J. Res. Natl. Bur. Stand. 87(5), 377-385, 1982.
+.. [5] NIST Dataplot, "Consensus Mean" (heteroscedastic random effects and
+       Mandel-Paule estimation).
+       https://www.itl.nist.gov/div898/software/dataplot/refman1/auxillar/consmean.htm
+.. [6] NASA/SP-2009-569, "Bayesian Inference for NASA Probabilistic Risk and
+       Reliability Analysis". https://ntrs.nasa.gov/citations/20090023159
 """
 
 from __future__ import annotations
@@ -59,17 +70,25 @@ _ALLOWED_TARGET_SCALES = {
 
 
 class DiscrepancyKind(str, Enum):
-    """Epistemic physical meaning assigned to validation-ratio evidence.
+    """Epistemic physical meaning assigned to validation-ratio evidence [1]_ [2]_.
 
-    ``MODEL_FORM`` represents measured/model residual structure after parameter
-    calibration. ``QUALIFICATION_TO_FLIGHT`` represents a flight-domain to
-    qualification-domain performance ratio. The kinds are kept distinct so one
-    data set cannot silently serve both roles.
+    The kinds are kept distinct so that one data set cannot silently serve both
+    roles.
+
+    Attributes
+    ----------
+    MODEL_FORM
+        Measured/model residual structure remaining after parameter
+        calibration.
+    QUALIFICATION_TO_FLIGHT
+        Ratio of flight-domain to qualification-domain performance.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-HDBK-7009: https://ntrs.nasa.gov/citations/20140002378
+    .. [1] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [2] NASA-HDBK-7009, "NASA Handbook for Models and Simulations".
+           https://ntrs.nasa.gov/citations/20140002378
     """
 
     MODEL_FORM = "model-form"
@@ -78,17 +97,36 @@ class DiscrepancyKind(str, Enum):
 
 @dataclass(frozen=True, slots=True)
 class DiscrepancyRatioObservation:
-    """One positive target/reference ratio with standard uncertainty.
+    """One positive target/reference ratio with its standard uncertainty.
 
-    For model-form evidence, ``ratio`` is observed divided by predicted
-    performance. For qualification transfer, it is flight-representative
-    divided by qualification-domain performance. All observations pooled in a
-    calibration must share one explicit ``applicability_id``.
+    Parameters
+    ----------
+    case_id : str
+        Nonempty validation-case identifier.
+    applicability_id : str
+        Nonempty applicability domain; all observations pooled in one
+        calibration must share it.
+    ratio : float
+        Positive finite ratio. For model-form evidence it is observed divided
+        by predicted performance [1]_; for qualification transfer it is
+        flight-representative divided by qualification-domain performance.
+    standard_uncertainty : float
+        Finite, nonnegative standard uncertainty of the referent ratio [2]_.
+    source : str
+        Nonempty provenance.
+
+    Raises
+    ------
+    DomainError
+        If any constraint above is violated.
 
     References
     ----------
-    NASA multiple-validation calibration: https://ntrs.nasa.gov/citations/20150006032
-    NIST TN 1297: https://www.nist.gov/pml/nist-technical-note-1297
+    .. [1] NASA, "Calibration of Predictor Models Using Multiple Validation
+           Experiments". https://ntrs.nasa.gov/citations/20150006032
+    .. [2] NIST TN 1297, "Guidelines for Evaluating and Expressing the Uncertainty
+           of NIST Measurement Results", 1994.
+           https://www.nist.gov/pml/nist-technical-note-1297
     """
 
     case_id: str
@@ -116,12 +154,38 @@ def qualified_scale_component_name(
     uncertainty_class: UncertaintyClass,
     component_id: str,
 ) -> str:
-    """Return the ensemble name for one factor acting on a physical scale.
+    """Return the ensemble name of one factor acting on a physical scale.
+
+    The name ``"<target>::<class>:<component>"`` lets several factors multiply
+    the same scale while each keeps its aleatory or epistemic classification
+    [1]_ [2]_.
+
+    Parameters
+    ----------
+    target_scale : str
+        ``thrust_scale``, ``specific_impulse_scale``, ``time_scale`` or
+        ``axial_efficiency_scale``.
+    uncertainty_class : UncertaintyClass
+        Classification encoded in the name.
+    component_id : str
+        Nonempty component identifier without ``"::"``.
+
+    Returns
+    -------
+    str
+        Qualified component name.
+
+    Raises
+    ------
+    DomainError
+        If the target, component identifier or class is invalid.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-SP-2009-569: https://ntrs.nasa.gov/citations/20090023159
+    .. [1] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [2] NASA/SP-2009-569, "Bayesian Inference for NASA Probabilistic Risk and
+           Reliability Analysis". https://ntrs.nasa.gov/citations/20090023159
     """
 
     normalized_target = target_scale.strip()
@@ -142,17 +206,55 @@ def qualified_scale_component_name(
 class ScaleDiscrepancyCalibration:
     """Random-effects estimate of one epistemic propulsion scale discrepancy.
 
-    The consensus ratio is a deterministic correction. Predictive epistemic
-    variance combines between-case discrepancy and standard uncertainty of the
-    consensus correction. Measurement uncertainty informs the fit but is not
-    relabelled as physical engine variability.
+    The consensus ratio is a deterministic correction. The predictive epistemic
+    variance combines the between-case discrepancy variance and the squared
+    standard uncertainty of the consensus correction. Referent measurement
+    uncertainty informs the fit but is not relabelled as physical engine
+    variability [1]_ [2]_. Instances are produced by
+    :func:`calibrate_scale_discrepancy`.
+
+    Parameters
+    ----------
+    target_scale, component_id : str
+        Corrected scale and component identifier.
+    kind : DiscrepancyKind
+        Physical meaning of the evidence.
+    applicability_id : str
+        Common applicability domain of the observations.
+    evidence_id : str
+        Identifier of the evidence set, used to detect double counting.
+    method, source, rationale : str
+        Method identifier, provenance and justification.
+    observations : tuple of DiscrepancyRatioObservation
+        Input ratios.
+    consensus_scale : float
+        Mandel-Paule weighted mean ratio ``mu`` [3]_ [4]_.
+    consensus_standard_uncertainty : float
+        ``(sum_i w_i)**-0.5`` with ``w_i = 1 / (tau**2 + u_i**2)``.
+    between_case_variance : float
+        Mandel-Paule between-case variance ``tau**2``.
+    predictive_epistemic_variance : float
+        ``tau**2 + (sum_i w_i)**-1``.
+    evidence : MandelPauleEvidence
+        Solver evidence.
+    relative_tolerance : float
+        Mandel-Paule tolerance.
+    maximum_iterations : int
+        Mandel-Paule iteration limit.
+    reference_ids, warnings : tuple of str
+        Source identifiers and interpretation warnings.
 
     References
     ----------
-    NASA multiple-validation calibration: https://ntrs.nasa.gov/citations/20150006032
-    NASA-HDBK-7009: https://ntrs.nasa.gov/citations/20140002378
-    NIST Dataplot consensus mean:
-    https://www.itl.nist.gov/div898/software/dataplot/refman1/auxillar/consmean.htm
+    .. [1] NASA, "Calibration of Predictor Models Using Multiple Validation
+           Experiments". https://ntrs.nasa.gov/citations/20150006032
+    .. [2] NASA-HDBK-7009, "NASA Handbook for Models and Simulations".
+           https://ntrs.nasa.gov/citations/20140002378
+    .. [3] PAULE-MANDEL-1982. R. C. Paule and J. Mandel, "Consensus Values and
+           Weighting Factors", J. Res. Natl. Bur. Stand. 87(5), 377-385, 1982.
+    .. [4] NIST Dataplot, "Consensus Mean" (heteroscedastic random effects and
+           Mandel-Paule estimation).
+           https://www.itl.nist.gov/div898/software/dataplot/refman1/auxillar/consmean.htm
     """
 
     target_scale: str
@@ -176,11 +278,10 @@ class ScaleDiscrepancyCalibration:
 
     @property
     def calibration_hash(self) -> str:
-        """Return a SHA-256 over evidence, assumptions, results, and sources.
+        """SHA-256 hex digest of the canonical JSON of the complete record.
 
-        References
-        ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        The digest covers evidence, assumptions, results and sources; it is a
+        reproducible content identity, not an authentication of the data.
         """
 
         return hashlib.sha256(canonical_json_bytes(self)).hexdigest()
@@ -190,12 +291,38 @@ class ScaleDiscrepancyCalibration:
         *,
         coverage_factor: float = 3.0,
     ) -> UncertainParameter:
-        """Return a bounded epistemic factor after applying consensus correction.
+        """Return the bounded epistemic residual factor after consensus correction.
+
+        Apply ``consensus_scale`` to the deterministic artifact first. The
+        returned truncated-normal factor is centered at one with relative
+        standard deviation ``r = sqrt(predictive_epistemic_variance) / mu`` and
+        bounds ``[max(1e-12, 1 - k r), 1 + k r]`` for coverage factor ``k``
+        [1]_. It is classified as epistemic [2]_ [3]_.
+
+        Parameters
+        ----------
+        coverage_factor : float, optional
+            Positive finite truncation half-width in standard deviations.
+
+        Returns
+        -------
+        UncertainParameter
+            Epistemic factor with a qualified component name.
+
+        Raises
+        ------
+        DomainError
+            If ``coverage_factor`` is invalid or the predictive variance is zero.
 
         References
         ----------
-        NASA-HDBK-7009: https://ntrs.nasa.gov/citations/20140002378
-        NASA-SP-2009-569: https://ntrs.nasa.gov/citations/20090023159
+        .. [1] NIST TN 1297, "Guidelines for Evaluating and Expressing the Uncertainty
+               of NIST Measurement Results", 1994.
+               https://www.nist.gov/pml/nist-technical-note-1297
+        .. [2] NASA-HDBK-7009, "NASA Handbook for Models and Simulations".
+               https://ntrs.nasa.gov/citations/20140002378
+        .. [3] NASA/SP-2009-569, "Bayesian Inference for NASA Probabilistic Risk and
+               Reliability Analysis". https://ntrs.nasa.gov/citations/20090023159
         """
 
         if not isfinite(coverage_factor) or coverage_factor <= 0.0:
@@ -225,9 +352,15 @@ class ScaleDiscrepancyCalibration:
     def to_dict(self, *, include_hash: bool = True) -> dict[str, Any]:
         """Return the complete versioned discrepancy-calibration document.
 
-        References
+        Parameters
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        include_hash : bool, optional
+            Add ``calibration_hash`` to the document.
+
+        Returns
+        -------
+        dict
+            JSON-compatible document with ``schema`` and every record field.
         """
 
         payload = json.loads(canonical_json_bytes(self).decode("utf-8"))
@@ -237,11 +370,27 @@ class ScaleDiscrepancyCalibration:
         return payload
 
     def to_json(self, *, indent: int | None = 2) -> str:
-        """Serialize the discrepancy calibration as deterministic JSON.
+        """Serialize the discrepancy calibration as JSON with sorted keys.
+
+        Non-finite numbers are rejected, so the output is standard JSON [1]_
+        [2]_.
+
+        Parameters
+        ----------
+        indent : int or None, optional
+            Indentation passed to ``json.dumps``.
+
+        Returns
+        -------
+        str
+            JSON text of :meth:`to_dict`.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+               Format". https://www.rfc-editor.org/rfc/rfc8259
+        .. [2] PYTHON-3.12-JSON. Python 3.12, ``json``: encoder/decoder hooks,
+               duplicate-member and nonstandard numeric token behavior.
         """
 
         return json.dumps(
@@ -254,11 +403,26 @@ class ScaleDiscrepancyCalibration:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> ScaleDiscrepancyCalibration:
-        """Recompute and integrity-check a persisted discrepancy calibration.
+        """Rebuild a discrepancy calibration and verify that it reproduces.
 
-        References
+        The calibration is recomputed from the stored observations and
+        controls; the stored hash and every stored field must match.
+
+        Parameters
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        payload : dict
+            Document produced by :meth:`to_dict`.
+
+        Returns
+        -------
+        ScaleDiscrepancyCalibration
+            The recomputed calibration.
+
+        Raises
+        ------
+        InputError
+            If the document is malformed, has another schema, or its hash or
+            content does not reproduce.
         """
 
         if not isinstance(payload, dict):
@@ -297,11 +461,19 @@ class ScaleDiscrepancyCalibration:
 
     @classmethod
     def from_json(cls, text: str) -> ScaleDiscrepancyCalibration:
-        """Parse and integrity-check a discrepancy-calibration JSON document.
+        """Parse strict JSON text [1]_ [2]_ and verify it with :meth:`from_dict`.
+
+        Raises
+        ------
+        InputError
+            If the text is not valid JSON or the document does not reproduce.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+               Format". https://www.rfc-editor.org/rfc/rfc8259
+        .. [2] PYTHON-3.12-JSON. Python 3.12, ``json``: encoder/decoder hooks,
+               duplicate-member and nonstandard numeric token behavior.
         """
 
         return read_json_document(text, "Discrepancy calibration", cls.from_dict)
@@ -319,20 +491,66 @@ def calibrate_scale_discrepancy(
     relative_tolerance: float = 1e-10,
     maximum_iterations: int = 200,
 ) -> ScaleDiscrepancyCalibration:
-    """Calibrate a correction and predictive epistemic discrepancy factor.
+    """Calibrate a consensus correction and predictive epistemic discrepancy.
 
-    Independent validation ratios are combined with a heteroscedastic
-    Mandel-Paule random-effects model. The predictive variance for a future
-    application combines estimated between-case variance and uncertainty of the
-    consensus bias. This is a constant discrepancy within one declared
-    applicability domain, not an extrapolating response surface.
+    Parameters
+    ----------
+    target_scale : str
+        ``thrust_scale``, ``specific_impulse_scale``, ``time_scale`` or
+        ``axial_efficiency_scale``.
+    component_id : str
+        Nonempty component identifier without ``"::"``.
+    kind : DiscrepancyKind
+        Physical meaning of the evidence.
+    observations : tuple of DiscrepancyRatioObservation
+        At least three independent cases with unique ``case_id`` and one
+        common ``applicability_id``.
+    evidence_id, source, rationale : str
+        Nonempty evidence identifier, provenance and justification.
+    relative_tolerance : float, optional
+        Positive tolerance of the Mandel-Paule solve.
+    maximum_iterations : int, optional
+        Iteration limit of the Mandel-Paule solve, at least ten.
+
+    Returns
+    -------
+    ScaleDiscrepancyCalibration
+        Consensus correction, between-case and predictive variances, solver
+        evidence and warnings.
+
+    Raises
+    ------
+    DomainError
+        If the inputs violate the constraints above or the variance solve does
+        not converge.
+
+    Notes
+    -----
+    Independent validation ratios ``x_i`` with referent uncertainties ``u_i``
+    [1]_ are combined with the heteroscedastic Mandel-Paule model [2]_ [3]_:
+    ``tau**2`` solves ``sum_i w_i (x_i - mu)**2 = k - 1`` with
+    ``w_i = 1 / (tau**2 + u_i**2)`` and weighted mean
+    ``mu = sum_i w_i x_i / sum_i w_i`` [4]_. The predictive variance of the
+    discrepancy in a future application within the same domain is
+    ``tau**2 + (sum_i w_i)**-1``, the between-case variance plus the squared
+    inverse-variance standard uncertainty of the consensus. This is a constant
+    discrepancy within one declared applicability domain, not an extrapolating
+    response surface [5]_. With fewer than six cases the random-effects
+    uncertainty can be too narrow [3]_.
 
     References
     ----------
-    NASA multiple-validation calibration: https://ntrs.nasa.gov/citations/20150006032
-    NASA-HDBK-7009: https://ntrs.nasa.gov/citations/20140002378
-    NIST Dataplot consensus mean:
-    https://www.itl.nist.gov/div898/software/dataplot/refman1/auxillar/consmean.htm
+    .. [1] NASA, "Calibration of Predictor Models Using Multiple Validation
+           Experiments". https://ntrs.nasa.gov/citations/20150006032
+    .. [2] PAULE-MANDEL-1982. R. C. Paule and J. Mandel, "Consensus Values and
+           Weighting Factors", J. Res. Natl. Bur. Stand. 87(5), 377-385, 1982.
+    .. [3] NIST Dataplot, "Consensus Mean" (heteroscedastic random effects and
+           Mandel-Paule estimation).
+           https://www.itl.nist.gov/div898/software/dataplot/refman1/auxillar/consmean.htm
+    .. [4] NIST-WEIGHTED-MEAN. NIST Dataplot, "Weighted Mean", equation 2-20,
+           normalized weighted mean.
+    .. [5] NASA-HDBK-7009, "NASA Handbook for Models and Simulations".
+           https://ntrs.nasa.gov/citations/20140002378
     """
 
     observations = tuple(observations)
@@ -407,17 +625,45 @@ def calibrate_scale_discrepancy(
 
 @dataclass(frozen=True, slots=True)
 class LayeredCalibrationPlan:
-    """Deterministic corrections plus separated aleatory/epistemic factors.
+    """Deterministic corrections plus separated aleatory and epistemic factors.
 
-    The plan is directly consumable by ``ScenarioConditionalUncertainty``.
-    Deterministic consensus factors must be applied once through
-    ``corrected_artifact`` before the conditional residual definition is used.
+    Deterministic consensus factors are applied once through
+    :meth:`corrected_artifact`; the conditional definition then samples only the
+    residual factors [1]_ [2]_ [3]_. Instances are produced by
+    :func:`build_layered_calibration_plan`.
+
+    Parameters
+    ----------
+    scenario_id, applicability_id : str
+        Scenario and applicability domain of the plan.
+    hot_fire_evidence_id : str
+        Identifier of the hot-fire evidence set.
+    hot_fire_calibration_hash : str
+        Hash of the paired hot-fire calibration.
+    discrepancy_hashes : tuple of str
+        Hashes of the discrepancy calibrations.
+    deterministic_scales : tuple of (str, float)
+        Unique, supported scale names with positive finite products of all
+        consensus factors.
+    conditional_definition : ScenarioConditionalUncertainty
+        Residual definition for the same scenario.
+    reference_ids, warnings : tuple of str
+        Source identifiers and interpretation warnings.
+
+    Raises
+    ------
+    DomainError
+        If the scenario does not match the definition, or the deterministic
+        scales are duplicated, unsupported, nonpositive or non-finite.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-HDBK-7009: https://ntrs.nasa.gov/citations/20140002378
-    NASA-SP-2009-569: https://ntrs.nasa.gov/citations/20090023159
+    .. [1] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [2] NASA-HDBK-7009, "NASA Handbook for Models and Simulations".
+           https://ntrs.nasa.gov/citations/20140002378
+    .. [3] NASA/SP-2009-569, "Bayesian Inference for NASA Probabilistic Risk and
+           Reliability Analysis". https://ntrs.nasa.gov/citations/20090023159
     """
 
     scenario_id: str
@@ -441,11 +687,10 @@ class LayeredCalibrationPlan:
 
     @property
     def plan_hash(self) -> str:
-        """Return the provenance identity for the complete layered plan.
+        """SHA-256 hex digest of the canonical JSON of the complete plan.
 
-        References
-        ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        The digest is a reproducible provenance identity, not an
+        authentication of the evidence.
         """
 
         return hashlib.sha256(canonical_json_bytes(self)).hexdigest()
@@ -453,11 +698,30 @@ class LayeredCalibrationPlan:
     def corrected_artifact(self, artifact: TabulatedBurnArtifact) -> TabulatedBurnArtifact:
         """Apply all deterministic consensus corrections exactly once.
 
+        The thrust, specific-impulse, time and axial-efficiency scales are
+        applied through ``scale_tabulated_artifact``, which keeps delivered
+        thrust [1]_, specific impulse and mass flow ``F / (g0 Isp)`` [2]_
+        consistent. The plan hash and source calibration hashes are recorded as
+        provenance [3]_.
+
+        Parameters
+        ----------
+        artifact : TabulatedBurnArtifact
+            Uncorrected deterministic artifact.
+
+        Returns
+        -------
+        TabulatedBurnArtifact
+            Corrected artifact.
+
         References
         ----------
-        NASA rocket thrust equation:
-        https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] NASA Glenn, "Rocket Thrust Equation".
+               https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
+        .. [2] NASA Glenn, "Specific Impulse".
+               https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+        .. [3] NASA-STD-7009B, "Standard for Models and Simulations".
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
         return scale_tabulated_artifact(
@@ -477,6 +741,7 @@ class LayeredCalibrationPlan:
 
 
 def _renamed_parameter(parameter: UncertainParameter, name: str) -> UncertainParameter:
+    """Return a copy of ``parameter`` with a new name and all other fields kept."""
     return UncertainParameter(
         name=name,
         nominal=parameter.nominal,
@@ -502,20 +767,61 @@ def build_layered_calibration_plan(
     rationale: str,
     discrepancy_correlation: CorrelationModel | None = None,
 ) -> LayeredCalibrationPlan:
-    """Compose test variability and independent epistemic transfer evidence.
+    """Compose hot-fire variability with independent epistemic transfer evidence.
 
-    Hot-fire population residuals remain aleatory. Model-form and
-    qualification-to-flight residuals remain epistemic. Qualified component
-    names allow multiple factors to multiply the same physical scale without
-    collapsing their classifications. Shared discrepancy evidence requires an
-    explicit correlation model; reuse of hot-fire evidence is rejected as
-    double counting.
+    Hot-fire population residuals remain aleatory; model-form and
+    qualification-to-flight residuals remain epistemic [1]_ [2]_ [3]_. Qualified
+    component names let several factors multiply the same physical scale
+    without collapsing their classifications.
+
+    Parameters
+    ----------
+    calibration : HotFireMultivariateCalibration
+        Paired hot-fire calibration; its population residual model is used.
+    discrepancies : tuple of ScaleDiscrepancyCalibration
+        Discrepancy calibrations for ``applicability_id`` with unique component
+        names.
+    scenario_id, applicability_id : str
+        Nonempty scenario and applicability identifiers.
+    hot_fire_evidence_id : str
+        Nonempty identifier of the hot-fire evidence; it must not be reused as
+        discrepancy evidence (double counting).
+    sample_count : int
+        Conditional sample count.
+    source, rationale : str
+        Nonempty provenance and justification.
+    discrepancy_correlation : CorrelationModel or None, optional
+        Correlation of the discrepancy factors in their order; required when
+        two discrepancies share an ``evidence_id``.
+
+    Returns
+    -------
+    LayeredCalibrationPlan
+        Deterministic scales and the residual conditional definition.
+
+    Raises
+    ------
+    DomainError
+        If identifiers are missing, applicability or evidence rules are
+        violated, component names repeat, or the correlation is missing or out
+        of order.
+
+    Notes
+    -----
+    Each deterministic scale is the hot-fire consensus scale multiplied by the
+    consensus of every discrepancy acting on it. The combined copula matrix is
+    block diagonal: the hot-fire block, the discrepancy block (identity unless
+    ``discrepancy_correlation`` is given) and zero cross-block correlation,
+    which is an explicit independence assumption.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-HDBK-7009: https://ntrs.nasa.gov/citations/20140002378
-    NASA-SP-2009-569: https://ntrs.nasa.gov/citations/20090023159
+    .. [1] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [2] NASA-HDBK-7009, "NASA Handbook for Models and Simulations".
+           https://ntrs.nasa.gov/citations/20140002378
+    .. [3] NASA/SP-2009-569, "Bayesian Inference for NASA Probabilistic Risk and
+           Reliability Analysis". https://ntrs.nasa.gov/citations/20090023159
     """
 
     if not scenario_id.strip() or not applicability_id.strip():

@@ -1,4 +1,13 @@
-"""Attached oblique-shock relations for a calorically perfect gas."""
+"""Attached oblique-shock relations for a calorically perfect gas.
+
+The wave angle follows from the theta-beta-M relation and the jump from the
+normal-shock relations applied to the normal Mach component [1]_.
+
+References
+----------
+.. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+       Compressible Flow", NACA Report 1135, 1953.
+"""
 
 from dataclasses import dataclass
 from math import asin, atan, cos, degrees, isfinite, pi, radians, sin, tan
@@ -11,7 +20,33 @@ from .normal_shock import calculate_normal_shock
 
 @dataclass(frozen=True, slots=True)
 class ObliqueShockResult:
-    """Flow state across an attached weak or strong oblique shock."""
+    """Flow state across an attached weak or strong oblique shock [1]_.
+
+    Attributes
+    ----------
+    branch : str
+        Selected attached solution, ``"weak"`` or ``"strong"``.
+    upstream_mach, downstream_mach : float
+        Mach numbers before and after the wave.
+    turning_angle_deg, wave_angle_deg : float
+        Flow-deflection angle ``theta`` and shock-wave angle ``beta`` in
+        degrees.
+    maximum_turning_angle_deg : float
+        Largest deflection for which an attached shock exists at this Mach
+        number.
+    upstream_normal_mach, downstream_normal_mach : float
+        Mach-number components normal to the wave.
+    pressure_ratio, density_ratio, temperature_ratio : float
+        Static ratios across the wave, from the normal-shock relations
+        evaluated with the upstream normal Mach number.
+    stagnation_pressure_ratio : float
+        Total-pressure recovery across the wave.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    """
 
     branch: str
     upstream_mach: float
@@ -28,7 +63,19 @@ class ObliqueShockResult:
 
 
 def _turning_angle_rad(upstream_mach: float, wave_angle_rad: float, gamma: float) -> float:
-    """Return theta from the theta-beta-M relation for a candidate beta."""
+    """Return the deflection angle for a candidate wave angle, in radians.
+
+    Notes
+    -----
+    Evaluates the theta-beta-M relation [1]_
+    ``tan(theta) = 2 cot(beta) (M1^2 sin^2(beta) - 1)
+    / (M1^2 (gamma + cos(2 beta)) + 2)``.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    """
 
     mach_normal_squared = upstream_mach**2 * sin(wave_angle_rad) ** 2
     numerator = 2.0 * (mach_normal_squared - 1.0)
@@ -39,7 +86,19 @@ def _turning_angle_rad(upstream_mach: float, wave_angle_rad: float, gamma: float
 
 
 def _maximum_turn_state(upstream_mach: float, gamma: float) -> tuple[float, float]:
-    """Return wave angle and maximum attached turning angle in radians."""
+    """Return the wave angle and maximum attached turning angle in radians.
+
+    Notes
+    -----
+    The theta-beta-M relation [1]_ is unimodal in ``beta`` between the Mach
+    angle and 90 degrees; its maximum is located by 120 ternary-search
+    iterations on that open interval.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    """
 
     lower = asin(1.0 / upstream_mach) + 1.0e-10
     upper = 0.5 * pi - 1.0e-10
@@ -65,14 +124,41 @@ def calculate_oblique_shock(
 ) -> ObliqueShockResult:
     """Solve an attached oblique shock using the theta-beta-M relation.
 
-    Args:
-        upstream_mach: Supersonic Mach number before the wave.
-        turning_angle_deg: Positive flow-deflection angle in degrees.
-        gamma: Ratio of specific heats.
-        branch: ``weak`` or ``strong`` attached solution.
+    Parameters
+    ----------
+    upstream_mach : float
+        Mach number before the wave, finite and greater than one.
+    turning_angle_deg : float
+        Flow-deflection angle in degrees, finite and positive.
+    gamma : float, default 1.4
+        Ratio of specific heats, finite and strictly greater than one.
+    branch : str, default "weak"
+        ``"weak"`` or ``"strong"`` attached solution (case-insensitive;
+        surrounding whitespace is ignored).
 
-    Raises:
-        DomainError: If no attached solution exists at the requested deflection.
+    Returns
+    -------
+    ObliqueShockResult
+        Wave angle, downstream Mach number and property ratios.
+
+    Raises
+    ------
+    DomainError
+        If an input is outside its domain, the branch name is unknown, or no
+        attached solution exists at the requested deflection (detached shock).
+
+    Notes
+    -----
+    The wave angle is found by bisection of the theta-beta-M relation [1]_ on
+    the weak branch (Mach angle to the maximum-deflection wave angle) or the
+    strong branch (maximum-deflection wave angle to 90 degrees). The normal
+    component ``M1 sin(beta)`` is passed through the normal-shock relations,
+    and ``M2 = M2n / sin(beta - theta)``.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
     """
 
     if not isfinite(upstream_mach) or upstream_mach <= 1.0:

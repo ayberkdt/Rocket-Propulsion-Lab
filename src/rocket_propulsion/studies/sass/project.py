@@ -2,8 +2,13 @@
 
 References
 ----------
-ITU-UZM508: course identity only; the scenario is not an official assignment.
-NASA-SE-APP: Trade Study Report; NASA-SE-6: interface and decision data.
+.. [1] ITU-UZM508. Istanbul Technical University, "UZM 508E - Spacecraft
+       Architecture and Subsystems Design"; course identity only; the scenario is
+       not an official assignment.
+.. [2] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Trade Study
+       Report.
+.. [3] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+       Management"; interface and decision data.
 """
 
 from __future__ import annotations
@@ -28,15 +33,45 @@ STUDY_SCHEMA = "rocket_propulsion_sass_study_v1"
 
 @dataclass(frozen=True, slots=True)
 class Candidate:
-    """Installed hardware and operations; other dry mass excludes catalogue head mass.
+    """One propulsion alternative: installed hardware and operating assumptions.
 
-    ``firing_bus_power`` is optional because manufacturer valve power is not
-    complete propulsion bus power. Missing values remain unknown in screens.
+    ``other_propulsion_dry_mass`` excludes the catalogue head mass, which is added
+    once per installed head [1]_. ``firing_bus_power`` is optional because
+    manufacturer valve power is not complete propulsion bus power; a missing value
+    remains unknown in the screens [2]_.
+
+    Attributes
+    ----------
+    identifier : str
+        Unique alternative name.
+    catalog_key : str
+        Catalogue variant identifier.
+    other_propulsion_dry_mass : CitedScalar
+        Tanks, feed, pressurant inventory, electronics and mounting, kg.
+    installed_count : int
+        Installed heads, including non-firing redundant heads.
+    firing_count : int
+        Simultaneously firing heads; 1 <= firing_count <= installed_count.
+    axial_efficiency : CitedScalar
+        Useful fraction of scalar thrust, in (0, 1].
+    duty_fraction : CitedScalar
+        On-time divided by elapsed time, in (0, 1].
+    firing_bus_power : CitedScalar or None
+        Complete bus power while firing, W.
+
+    Raises
+    ------
+    DomainError
+        If the catalogue key is unknown, counts are inconsistent or a quantity is out
+        of domain.
 
     References
     ----------
-    NASA-SOA26: component versus integrated-system boundary.
-    NASA-SE-6: sections 6.3 and 6.8, interface budgets and explicit assumptions.
+    .. [1] NASA-SOA26. NASA, "State-of-the-Art of Small Spacecraft Technology: In-Space
+           Propulsion"; component versus integrated-system boundary.
+    .. [2] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; sections 6.3 and 6.8, interface budgets and explicit
+           assumptions.
     """
 
     identifier: str
@@ -53,7 +88,8 @@ class Candidate:
 
         References
         ----------
-        NASA-SE-6: sections 6.3, 6.5 and 6.8, interfaces and configuration.
+        .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+               Management"; sections 6.3, 6.5 and 6.8, interfaces and configuration.
         """
         text(self.identifier, "candidate identifier")
         thruster(self.catalog_key)
@@ -75,11 +111,25 @@ class Candidate:
 
 @dataclass(frozen=True, slots=True)
 class CandidateStudy:
-    """Computed budgets or an explicit reason why a candidate cannot yet be sized.
+    """Computed budgets of one alternative, or the reasons it cannot yet be sized.
+
+    Attributes
+    ----------
+    candidate : Candidate
+        The evaluated alternative.
+    sizing : MissionSizing or None
+        Mission mass budget; None when no nominal operating point exists.
+    operating_point : AnalysisResult or None
+        Published nominal study point.
+    metrics : tuple of (str, CitedScalar)
+        Metrics offered to the trade study.
+    unresolved : tuple of str
+        Catalogue limitations and missing evidence.
 
     References
     ----------
-    NASA-SE-APP: Trade Study Report, retain all considered alternatives.
+    .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Trade Study
+           Report, retain all considered alternatives.
     """
 
     candidate: Candidate
@@ -91,11 +141,32 @@ class CandidateStudy:
 
 @dataclass(frozen=True, slots=True)
 class ProjectStudy:
-    """A dated, source-complete preparation artifact, not a graded course submission.
+    """A dated, source-complete preparation study; not a graded course submission.
+
+    Attributes
+    ----------
+    title : str
+        Study title.
+    budget : AnalysisResult
+        Mission delta-v allocation.
+    candidates : tuple of CandidateStudy
+        Per-alternative results in input order.
+    scores : tuple of AlternativeScore
+        Trade results in input order.
+    input_json : str
+        Canonical JSON snapshot of the request.
+
+    Notes
+    -----
+    The course reference identifies the course only [1]_; the study follows the trade
+    study report structure [2]_.
 
     References
     ----------
-    ITU-UZM508: course identity; NASA-SE-APP: Trade Study Report.
+    .. [1] ITU-UZM508. Istanbul Technical University, "UZM 508E - Spacecraft
+           Architecture and Subsystems Design"; course identity.
+    .. [2] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Trade Study
+           Report.
     """
 
     title: str
@@ -106,24 +177,40 @@ class ProjectStudy:
 
     @property
     def input_data(self) -> dict[str, object]:
-        """Return a detached input copy so a caller cannot rewrite calculation provenance.
+        """Return a detached copy of the inputs so callers cannot rewrite provenance.
+
+        Returns
+        -------
+        dict
 
         References
         ----------
-        NASA-SE-6: sections 6.5/6.6, configuration and technical data integrity.
+        .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+               Management"; sections 6.5/6.6, configuration and technical data integrity.
         """
         return json.loads(self.input_json)
 
     def to_dict(self) -> dict[str, object]:
-        """Export complete inputs, catalogue variants, sources and computed results.
+        """Export inputs, catalogue variants, sources, results and a snapshot hash.
 
-        The hash identifies this output snapshot; no verified-document reader
-        or independent qualification certificate is claimed.
+        Returns
+        -------
+        dict
+            JSON-native study document with an ``assurance`` block stating its permitted
+            use and a ``study_hash`` (canonical SHA-256 of the remaining payload).
+
+        Notes
+        -----
+        The hash identifies this output snapshot [2]_; no verified-document reader or
+        independent qualification certificate is implied. All alternatives, results and
+        data sources are retained [1]_.
 
         References
         ----------
-        NASA-SE-APP: Trade Study Report, alternatives, computational results and data sources.
-        NASA-SE-6: section 6.5, configuration identification.
+        .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Trade Study
+               Report, alternatives, computational results and data sources.
+        .. [2] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+               Management"; section 6.5, configuration identification.
         """
         candidate_rows = []
         for item in self.candidates:
@@ -167,18 +254,56 @@ def analyze_project(title: str, bus_dry_mass: CitedScalar, items: tuple[DeltaVIt
                      candidates: tuple[Candidate, ...], residual_fraction: CitedScalar,
                      fixed_reserve: CitedScalar, requirements: tuple[Requirement, ...],
                      criteria: tuple[Criterion, ...]) -> ProjectStudy:
-    """Build comparable mission budgets from actual nominal catalog pairs only.
+    """Build comparable mission budgets for each alternative and score the trade.
 
-    Every allocated budget line is executed in order at one candidate's
-    constant study point. Other propulsion dry mass includes tanks, feed,
-    pressurant inventory, electronics and mounting as an explicit allocation;
-    the catalogue thruster-head mass is added exactly once.
+    Parameters
+    ----------
+    title : str
+        Study title.
+    bus_dry_mass : CitedScalar
+        Spacecraft dry mass excluding propulsion, kg; positive.
+    items : tuple of DeltaVItem
+        Delta-v allocations, executed in order.
+    candidates : tuple of Candidate
+        Non-empty, uniquely identified alternatives.
+    residual_fraction : CitedScalar
+        Residual fraction of loaded propellant.
+    fixed_reserve : CitedScalar
+        Additional retained propellant, kg.
+    requirements : tuple of Requirement
+        Hard screens.
+    criteria : tuple of Criterion
+        Weighted trade criteria.
+
+    Returns
+    -------
+    ProjectStudy
+
+    Raises
+    ------
+    DomainError
+        If an input is invalid, a sized candidate lacks a nominal hardware mass, or a
+        mass budget does not close.
+
+    Notes
+    -----
+    Only catalogue records with a jointly labelled nominal thrust/Isp pair are sized;
+    others stay unresolved and unscored. Each allocated budget line is executed at
+    the candidate's constant study point using the rocket-equation and impulse
+    identities [1]_ [2]_. Dry mass is bus mass plus other propulsion dry mass plus
+    installed heads times the catalogue head mass, so the head mass is added exactly
+    once [3]_ [4]_.
 
     References
     ----------
-    NASA-ROCKET / NASA-ISP: mission mass and impulse identities.
-    NASA-SOA26: component versus complete system scope.
-    NASA-SE-6: sections 6.3 and 6.8, interfaces and explicit decision criteria.
+    .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation"; mission
+           mass identities.
+    .. [2] NASA-ISP. NASA Glenn Research Center, "Specific Impulse"; mission impulse
+           identities.
+    .. [3] NASA-SOA26. NASA, "State-of-the-Art of Small Spacecraft Technology: In-Space
+           Propulsion"; component versus complete system scope.
+    .. [4] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; sections 6.3 and 6.8, interfaces and explicit decision criteria.
     """
     text(title, "study title")
     bus = quantity(bus_dry_mass, "kg", strictly_positive=True)
@@ -242,7 +367,8 @@ def _object(value: object, fields: set[str], label: str,
 
     References
     ----------
-    NASA-SE-6: section 6.6, controlled and interpretable technical input data.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; section 6.6, controlled and interpretable technical input data.
     """
     if not isinstance(value, Mapping) or set(value) - fields - (optional or set()):
         raise DomainError(f"{label}: expected an object with known fields.")
@@ -252,11 +378,28 @@ def _object(value: object, fields: set[str], label: str,
 
 
 def scalar_from_dict(value: object) -> CitedScalar:
-    """Read the evidence envelope; a bare number is deliberately not accepted.
+    """Read a cited-scalar envelope; a bare number is deliberately not accepted.
+
+    Parameters
+    ----------
+    value : Mapping
+        Object with ``value``, ``unit``, ``citations``, ``status`` and ``note``, and
+        optionally ``assumption_notes``.
+
+    Returns
+    -------
+    CitedScalar
+
+    Raises
+    ------
+    DomainError
+        If fields are missing or unknown, citations are not an array, or the
+        quantity is invalid.
 
     References
     ----------
-    NASA-SE-6: section 6.6, evidence-bearing technical data.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; section 6.6, evidence-bearing technical data.
     """
     raw = _object(value, {"value", "unit", "citations", "status", "note"}, "cited scalar",
                   {"assumption_notes"})
@@ -271,11 +414,29 @@ def scalar_from_dict(value: object) -> CitedScalar:
 
 
 def project_from_dict(payload: object) -> ProjectStudy:
-    """Execute a strict, citation-bearing v1 project request; no hidden defaults.
+    """Execute a strict, citation-bearing v1 project request with no hidden defaults.
+
+    Parameters
+    ----------
+    payload : Mapping
+        Request with exactly the fields ``schema``, ``title``,
+        ``bus_dry_mass_excluding_propulsion``, ``items``, ``candidates``,
+        ``residual_fraction``, ``fixed_reserve``, ``requirements`` and ``criteria``.
+
+    Returns
+    -------
+    ProjectStudy
+
+    Raises
+    ------
+    DomainError
+        If the schema is unsupported, a field is missing, unknown or malformed, no
+        positive trade weight is given, or the analysis fails.
 
     References
     ----------
-    NASA-SE-APP: reproducible trade study inputs, selection rule and sources.
+    .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; reproducible
+           trade study inputs, selection rule and sources.
     """
     raw = _object(payload, {"schema", "title", "bus_dry_mass_excluding_propulsion", "items",
                             "candidates", "residual_fraction", "fixed_reserve", "requirements",
@@ -322,11 +483,30 @@ def project_from_dict(payload: object) -> ProjectStudy:
 
 
 def project_from_json(value: str) -> ProjectStudy:
-    """Parse a bounded JSON document through the shared strict reader.
+    """Parse a bounded JSON request with the strict reader and execute it.
+
+    Parameters
+    ----------
+    value : str
+        JSON request text.
+
+    Returns
+    -------
+    ProjectStudy
+
+    Raises
+    ------
+    InputError
+        If the text is not strict JSON (duplicate fields, non-finite constants,
+        oversize or malformed input).
+    DomainError
+        If the request content is invalid.
 
     References
     ----------
-    NASA-SE-6: section 6.6, controlled technical inputs and explicit error handling.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; section 6.6, controlled technical inputs and explicit error
+           handling.
     """
     from .strict_json import read_project_document
     return read_project_document(value, project_from_dict)

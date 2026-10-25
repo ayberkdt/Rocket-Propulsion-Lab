@@ -1,4 +1,15 @@
-"""Rao-style thrust-optimized parabolic bell nozzle construction."""
+"""Rao-style thrust-optimized parabolic bell nozzle construction.
+
+A quadratic approximation of the thrust-optimized contour [1]_, [2]_ between
+prescribed throat and exit wall angles.
+
+References
+----------
+.. [1] RAO-1958. G. V. R. Rao, "Exhaust Nozzle Contour for Optimum Thrust",
+       Jet Propulsion 28(6), 377-382, 1958. doi:10.2514/8.7324
+.. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+       Elements", 9th ed., Wiley, 2017.
+"""
 
 from __future__ import annotations
 
@@ -24,9 +35,59 @@ def generate_rao_contour(
 ) -> NozzleContour:
     """Generate a quadratic Rao/TOP approximation with explicit end angles.
 
-    The control point is the intersection of the throat and exit tangent lines.
-    This is the standard thrust-optimized-parabola construction, not a digitized
-    reproduction of a particular Rao optimization chart.
+    Parameters
+    ----------
+    throat_area_m2 : float
+        Throat area in m^2, finite and positive.
+    area_ratio : float
+        Exit-to-throat area ratio, greater than one.
+    gamma : float, default 1.22
+        Ratio of specific heats for the station solution.
+    length_fraction : float, default 0.8
+        Diverging length as a fraction of a 15 degree cone with the same area
+        ratio, in ``[0.6, 1.0]``.
+    throat_angle_deg : float, default 30.0
+        Initial wall angle ``theta_n`` at the throat, in ``[15, 40]`` degrees.
+    exit_angle_deg : float, default 8.0
+        Exit wall angle ``theta_e``, non-negative and below ``theta_n``.
+    chamber_radius_ratio : float, default 2.5
+        Chamber-to-throat radius ratio, greater than one.
+    station_count : int, default 121
+        Total number of stations, between 41 and 401.
+
+    Returns
+    -------
+    NozzleContour
+        Contour with ``contour="rao"``, sampled isentropic stations, wall area
+        and a divergence estimate.
+
+    Raises
+    ------
+    DomainError
+        If an input is outside its domain, or the throat and exit tangent lines
+        do not intersect inside the diverging length
+        (code ``invalid_rao_control_point``).
+
+    Notes
+    -----
+    The diverging wall is a quadratic Bezier curve from the throat
+    ``(0, r_t)`` to the exit ``(L_n, r_e)``. Its control point is the
+    intersection of the throat tangent (slope ``tan(theta_n)``) and the exit
+    tangent (slope ``tan(theta_e)``), so both end angles are met exactly. This
+    is the standard thrust-optimized-parabola approximation of the
+    thrust-optimized contour [1]_, [2]_, not a digitized reproduction of a
+    particular Rao optimization chart and not a method-of-characteristics
+    solution. The converging side is a cosine contraction of length
+    ``1.5 r_t``. The divergence efficiency uses ``(1 + cos(alpha))/2`` [2]_
+    with ``alpha`` the mean of the throat and exit angles, a screening value
+    only.
+
+    References
+    ----------
+    .. [1] RAO-1958. G. V. R. Rao, "Exhaust Nozzle Contour for Optimum Thrust",
+           Jet Propulsion 28(6), 377-382, 1958. doi:10.2514/8.7324
+    .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
     """
 
     values = (

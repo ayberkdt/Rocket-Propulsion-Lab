@@ -25,7 +25,7 @@ scope labels must be read within these limits. See
 | Equilibrium provider contract | TP/HP/UV element and energy residual tests | software checks cover experimental |
 | NASA CEA comparison | adapter/parser/deck tests; official example recorded | **external nine-point gate open** |
 | Off-design nozzle | analytical regime order, internal-shock mass conservation, atmosphere sweep | software checks cover perfect gas |
-| Separation | NASA SP-8041/Summerfield screen and validity warning | screening only |
+| Separation | NASA SP-8120 p.17 exit-pressure-ratio screen and validity warning | screening only |
 | Rao/MOC geometry | legacy boundary checks plus independent raw/mapped characteristic-chord diagnostic; see [geometry review](GEOMETRY_REVIEW.md) | mapped interior flow, ineffective axisymmetric toggle, maximum-count self-refinement, generic boundaries and construction claims remain open |
 | Interior MOC unit process | independent constant/radial/spherical flows, local refinement, Cartesian balances, range/coordinate-cell/hostile replay checks and controlled faults; see [unit-process review](MOC_UNIT_PROCESS_REVIEW.md) | constant-gamma interior intersection only; integration with boundary processes, sonic initialization, complete field/exit validation and physical qualification remain open; legacy mapped solver unchanged |
 | MOC axis and prescribed-wall processes | independent signed radial/spherical boundary flows, refinement, chained axis history, containment/topology and controlled faults; see [boundary review](MOC_BOUNDARY_REVIEW.md) | local constant-gamma boundary processes only; sonic initialization, full characteristic-field assembly, optimized wall and physical/hardware validation remain open |
@@ -76,8 +76,8 @@ qualification. The separate hardware evidence gates remain open.
 The evidence rows above cite their sources by name; full entries and URLs are
 in [`REFERENCES.md`](REFERENCES.md). The principal ones: NASA Glenn
 coefficients, NASA/TP-2002-211556, <https://ntrs.nasa.gov/citations/20020085330>;
-NASA RP-1311 (CEA), <https://ntrs.nasa.gov/citations/19950013764>; NASA SP-8041
-(nozzle separation), <https://ntrs.nasa.gov/citations/19710021390>; NIST/SEMATECH
+NASA RP-1311 (CEA), <https://ntrs.nasa.gov/citations/19950013764>; NASA SP-8120
+(nozzle separation, p.17), <https://ntrs.nasa.gov/citations/19770009165>; NIST/SEMATECH
 e-Handbook §7.4.4, <https://www.itl.nist.gov/div898/handbook/prc/section4/prc44.htm>. Physical constants and their defining
 sources are registered in `rocket_propulsion.core.constants` and listed under
 *Physical constants* there.

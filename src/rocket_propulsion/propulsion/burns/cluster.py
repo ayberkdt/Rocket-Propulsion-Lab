@@ -1,4 +1,20 @@
-"""Engine-cluster composition and converged transient exchange sampling."""
+"""Engine-cluster composition and convergence-qualified transient sampling.
+
+Each enabled cluster member contributes its rated thrust and stream flows
+scaled by a realized first-order throttle history.  The summed history is
+exported as a piecewise-linear exchange artifact whose time step is halved
+until its impulse, axial impulse, propellant mass and thrust centroid agree
+with the exact response integrals.  [1]_ documents component transient-model
+assembly and comparison with engine data; [2]_ gives the transient-modelling
+context.
+
+References
+----------
+.. [1] NASA TM-107318. NASA, "RL10A-3-3A Rocket Engine Modeling Project".
+       https://ntrs.nasa.gov/citations/19970010379
+.. [2] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+       Systems". https://ntrs.nasa.gov/citations/20040000363
+"""
 
 from __future__ import annotations
 
@@ -19,9 +35,31 @@ from .tabulated import TabulatedBurnArtifact, TabulatedBurnSegment
 class EngineClusterMember:
     """One independently commanded engine or resolved engine group.
 
+    Parameters
+    ----------
+    engine_id : str
+        Non-blank identifier, unique within the cluster.
+    operating_point : EngineOperatingPoint
+        Rated (full-command) operating point of the member.
+    cant_efficiency : float, default 1.0
+        Axial fraction of delivered thrust, in ``(0, 1]``.
+    enabled : bool, default True
+        Whether the member participates in the cluster.
+
+    Raises
+    ------
+    DomainError
+        If the identifier is blank or the cant efficiency is outside
+        ``(0, 1]``.
+
+    Notes
+    -----
+    Liquid-engine system design context is given in [1]_.
+
     References
     ----------
-    NASA-SP-125: https://ntrs.nasa.gov/citations/19710019929
+    .. [1] NASA SP-125. NASA, "Design of Liquid Propellant Rocket Engines".
+           https://ntrs.nasa.gov/citations/19710019929
     """
 
     engine_id: str
@@ -38,11 +76,35 @@ class EngineClusterMember:
 
 @dataclass(frozen=True, slots=True)
 class EngineTransientCommand:
-    """Command and response policy for one cluster member.
+    """Throttle schedule and first-order response policy for one member.
+
+    Parameters
+    ----------
+    engine_id : str
+        Non-blank identifier of the commanded cluster member.
+    schedule : ThrottleSchedule
+        Commanded throttle schedule.
+    response_time_constant_s : float, default 0.0
+        First-order response time constant, s.
+    ignition_delay_s : float, default 0.0
+        Delay between command and response onset, s.
+    settling_duration_s : float, default 0.0
+        Settling duration passed to the response realization, s.
+
+    Raises
+    ------
+    DomainError
+        If the identifier is blank or a duration is non-finite or negative.
+
+    Notes
+    -----
+    [1]_ documents start, steady-state and shutdown transients of a modelled
+    engine against test data.
 
     References
     ----------
-    NASA-TM-107318: https://ntrs.nasa.gov/citations/19970010379
+    .. [1] NASA TM-107318. NASA, "RL10A-3-3A Rocket Engine Modeling Project".
+           https://ntrs.nasa.gov/citations/19970010379
     """
 
     engine_id: str
@@ -65,12 +127,40 @@ class EngineTransientCommand:
 
 @dataclass(frozen=True, slots=True)
 class ClusterSamplingEvidence:
-    """Exact-response versus tabulated-interpolation convergence evidence.
+    """Convergence evidence of the tabulation against exact response integrals.
+
+    The errors document the numerical closure of the tabulation; [1]_ gives
+    the transient-modelling context.
+
+    Attributes
+    ----------
+    maximum_step_s : float
+        Sampling step of the accepted tabulation, s.
+    refinement_count : int
+        Number of step halvings performed.
+    relative_tolerance : float
+        Requested relative tolerance.
+    exact_delivered_impulse_n_s : float
+        Exact delivered impulse of the realized histories, N s.
+    exact_axial_impulse_n_s : float
+        Exact axial impulse, N s.
+    exact_propellant_mass_kg : float
+        Exact tank-propellant consumption, kg.
+    exact_thrust_centroid_time_s : float
+        Exact delivered-thrust centroid time, s.
+    impulse_error_n_s : float
+        Absolute delivered-impulse error of the tabulation, N s.
+    axial_impulse_error_n_s : float
+        Absolute axial-impulse error, N s.
+    propellant_error_kg : float
+        Absolute propellant-mass error, kg.
+    centroid_error_s : float
+        Absolute thrust-centroid error, s.
 
     References
     ----------
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
+    .. [1] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
     """
 
     maximum_step_s: float
@@ -88,11 +178,24 @@ class ClusterSamplingEvidence:
 
 @dataclass(frozen=True, slots=True)
 class EngineClusterProfile:
-    """Target-neutral transient cluster result and convergence evidence.
+    """Target-neutral transient cluster result with convergence evidence.
+
+    Engine-level transient histories are combined into one cluster history,
+    in the spirit of the component transient-model assembly of [1]_.
+
+    Attributes
+    ----------
+    artifact : TabulatedBurnArtifact
+        Piecewise-linear summed force and mass-flow history.
+    evidence : ClusterSamplingEvidence
+        Convergence evidence against the exact response integrals.
+    histories : tuple of (str, RealizedThrottleHistory)
+        Realized throttle history per engine, sorted by identifier.
 
     References
     ----------
-    NASA-TM-107318: https://ntrs.nasa.gov/citations/19970010379
+    .. [1] NASA TM-107318. NASA, "RL10A-3-3A Rocket Engine Modeling Project".
+           https://ntrs.nasa.gov/citations/19970010379
     """
 
     artifact: TabulatedBurnArtifact
@@ -103,6 +206,7 @@ class EngineClusterProfile:
 def _timeline(
     histories: dict[str, RealizedThrottleHistory], maximum_step_s: float
 ) -> tuple[float, ...]:
+    """Merge every history's sample times, the origin and the latest end time."""
     times = {0.0, max(history.duration_s for history in histories.values())}
     for history in histories.values():
         times.update(history.sample_times(maximum_step_s))
@@ -116,6 +220,19 @@ def _state(
     members: dict[str, EngineClusterMember],
     histories: dict[str, RealizedThrottleHistory],
 ) -> tuple[float, float, float, tuple[tuple[str, float], ...], tuple[str, ...]]:
+    """Sum the cluster state at one instant on the requested one-sided limit.
+
+    Each member's rated delivered thrust, axial thrust and tank-depleting
+    stream flows are multiplied by its realized throttle; members whose
+    throttle exceeds ``1e-14`` are reported active.  Thrust and mass flow scale
+    with the same factor, so each member's specific impulse is constant along
+    its response.
+
+    Returns
+    -------
+    tuple
+        ``(delivered_n, axial_n, total_flow_kg_s, tank_flows, active_ids)``.
+    """
     delivered = 0.0
     axial = 0.0
     total_flow = 0.0
@@ -144,6 +261,12 @@ def _artifact_for_step(
     maximum_step_s: float,
     source_hash: str,
 ) -> TabulatedBurnArtifact:
+    """Tabulate the summed cluster history on one sampling step.
+
+    Each segment interpolates linearly between the right-hand limit at its
+    start and the left-hand limit at its end, so throttle discontinuities at
+    sample boundaries are represented without smearing.
+    """
     times = _timeline(histories, maximum_step_s)
     segments: list[TabulatedBurnSegment] = []
     for start_time, end_time in pairwise(times):
@@ -194,13 +317,53 @@ def build_engine_cluster_profile(
     relative_tolerance: float = 1e-7,
     maximum_refinements: int = 12,
 ) -> EngineClusterProfile:
-    """Build a converged tabulation while retaining exact response integrals.
+    """Build a converged cluster tabulation while retaining exact integrals.
+
+    Parameters
+    ----------
+    members : tuple of EngineClusterMember
+        Cluster members with unique identifiers; at least one enabled.
+    commands : tuple of EngineTransientCommand
+        Exactly one command per enabled member, with unique identifiers.
+    maximum_step_s : float, default 0.25
+        Initial sampling step, s.
+    relative_tolerance : float, default 1e-7
+        Relative tolerance on impulse, axial impulse, propellant mass and
+        thrust centroid (absolute floor ``1e-11``).
+    maximum_refinements : int, default 12
+        Maximum number of step halvings.
+
+    Returns
+    -------
+    EngineClusterProfile
+        Tabulated artifact, convergence evidence and realized histories.
+
+    Raises
+    ------
+    DomainError
+        If members or commands are empty or duplicated, no member is enabled,
+        the enabled members and commands do not match one to one, a numerical
+        argument is outside its domain, or sampling does not converge within
+        ``maximum_refinements`` halvings.
+
+    Notes
+    -----
+    Each command is realized as a first-order throttle response with ignition
+    delay.  With ``E_i`` the time integral and ``M_i`` the first time moment of
+    member ``i``'s realized throttle, ``F_i`` its rated delivered thrust,
+    ``eta_i`` its cant efficiency and ``mdot_i`` its rated tank flow, the exact
+    delivered impulse is ``sum(F_i * E_i)``, the axial impulse
+    ``sum(F_i * eta_i * E_i)``, the propellant mass ``sum(mdot_i * E_i)`` and
+    the thrust centroid ``sum(F_i * M_i) / sum(F_i * E_i)``.  The sampling
+    step is halved until the tabulation reproduces all four quantities within
+    tolerance.  [1]_ and [2]_ give the engine transient-modelling context.
 
     References
     ----------
-    NASA-TM-107318: https://ntrs.nasa.gov/citations/19970010379
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
+    .. [1] NASA TM-107318. NASA, "RL10A-3-3A Rocket Engine Modeling Project".
+           https://ntrs.nasa.gov/citations/19970010379
+    .. [2] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
     """
 
     if not members or not commands:

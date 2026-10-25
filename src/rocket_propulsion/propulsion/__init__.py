@@ -1,4 +1,13 @@
-"""Rocket-system performance equations and propellant reference data."""
+"""Rocket-system performance equations, engine-cycle, staging and loss models.
+
+The package provides the ideal rocket and steady thrust equations
+(:mod:`.performance`), preliminary engine-cycle balances (:mod:`.cycles`),
+finite-grid staging optimization (:mod:`.staging`), declared performance-factor
+budgets (:mod:`.losses`), conditional two-phase exit-state ranges
+(:mod:`.two_phase`), propellant screening records (:mod:`.propellants`) and the
+finite-burn interfaces re-exported from :mod:`.burns`. Each module documents its
+model assumptions and references.
+"""
 
 from .burns import (
     BurnDefinition,

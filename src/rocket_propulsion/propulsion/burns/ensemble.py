@@ -1,16 +1,29 @@
 """Hierarchical discrete-scenario and conditional-uncertainty ensembles.
 
-The contract composes probability-labelled propulsion scenarios with sourced
-continuous uncertainty without double-counting scenario probability. Every
-retained realization remains a complete thrust/mass-flow artifact suitable for
-later Sidera propagation.
+Probability-labelled propulsion scenarios (for example nominal operation,
+engine-out or degraded modes [1]_ [2]_) are composed with sourced continuous
+uncertainty conditional on each scenario [3]_. Scenario probability is applied
+exactly once, through the joint weight of each realization. Every retained
+realization is a complete thrust and mass-flow artifact that a downstream
+trajectory propagator (for example Sidera) can consume directly.
+
+Ensemble statistics use the joint weights and report the law-of-total-variance
+split into within- and between-scenario parts [4]_. They are engineering
+uncertainty estimates, not flight certification [5]_.
 
 References
 ----------
-NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
-NASA-20050207429: https://ntrs.nasa.gov/citations/20050207429
-NASA-20160007073: https://ntrs.nasa.gov/citations/20160007073
+.. [1] NASA, "Key Reliability Drivers of Liquid Propulsion Engines and a
+       Reliability Model for Sensitivity Analysis".
+       https://ntrs.nasa.gov/citations/20050207429
+.. [2] NASA, "Common Cause Failure Modeling in Space Launch Vehicles".
+       https://ntrs.nasa.gov/citations/20160007073
+.. [3] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+       NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
+.. [4] MIT-TOTAL-VARIANCE. MIT RES.6-012, lecture 13.7, conditional and
+       between-group variance identity (law of total variance).
+.. [5] NASA-STD-7009B, "Standard for Models and Simulations".
+       https://standards.nasa.gov/standard/NASA/NASA-STD-7009
 """
 
 from __future__ import annotations
@@ -73,10 +86,21 @@ _SCALE_COMPONENT_SEPARATOR = "::"
 
 
 def _target_scale_name(parameter_name: str) -> str:
+    """Return the physical scale of a plain or qualified component name."""
     return parameter_name.split(_SCALE_COMPONENT_SEPARATOR, 1)[0]
 
 
 def _validate_scale_component_name(parameter: UncertainParameter) -> None:
+    """Check that a qualified name encodes the parameter's class and a component.
+
+    Plain names without ``"::"`` are accepted unchanged.
+
+    Raises
+    ------
+    DomainError
+        If a qualified name does not have the form
+        ``"<scale>::<class>:<component>"`` with the parameter's own class.
+    """
     if _SCALE_COMPONENT_SEPARATOR not in parameter.name:
         return
     _target, qualifier = parameter.name.split(_SCALE_COMPONENT_SEPARATOR, 1)
@@ -95,14 +119,38 @@ def _validate_scale_component_name(parameter: UncertainParameter) -> None:
 class ScenarioConditionalUncertainty:
     """Continuous uncertainty definition conditional on one scenario.
 
-    A deterministic scenario uses no parameters and ``sample_count=1``. A
-    stochastic definition needs at least four samples. Source and rationale
-    describe why the conditional distribution is applicable to this scenario.
+    The conditional distribution is sampled by Latin hypercube or Monte Carlo
+    [2]_.
+
+    Parameters
+    ----------
+    scenario_id : str
+        Nonempty scenario identifier.
+    parameters : tuple of UncertainParameter
+        Multiplicative artifact scales (``thrust_scale``,
+        ``specific_impulse_scale``, ``time_scale``, ``axial_efficiency_scale``
+        or qualified components of them) with unique names, nominal one and
+        positive lower bounds. An empty tuple defines a deterministic scenario.
+    sample_count : int
+        One for a deterministic scenario; 4 to 10000 otherwise.
+    source, rationale : str
+        Nonempty provenance and the reason the conditional distribution applies
+        to this scenario [1]_.
+    correlation : CorrelationModel or None, optional
+        Gaussian-copula model in parameter order; not allowed for a
+        deterministic scenario.
+
+    Raises
+    ------
+    DomainError
+        If any constraint above is violated.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [2] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
     """
 
     scenario_id: str
@@ -151,11 +199,35 @@ class ScenarioConditionalUncertainty:
 
 @dataclass(frozen=True, slots=True)
 class ConditionalPropulsionRealization:
-    """One joint scenario/continuous realization with explicit weights.
+    """One joint scenario and continuous realization with explicit weights.
+
+    Parameters
+    ----------
+    scenario_id : str
+        Scenario identifier.
+    scenario_probability : float
+        Scenario probability ``P_s`` in ``(0, 1]``.
+    conditional_index : int
+        Draw index within the scenario.
+    conditional_probability : float
+        Conditional weight ``1 / N_s`` in ``(0, 1]``.
+    joint_probability : float
+        ``P_s / N_s``; must equal the correctly rounded product of the two
+        probabilities [1]_.
+    inputs : tuple of (str, float)
+        Sampled scale inputs.
+    artifact : TabulatedBurnArtifact
+        Perturbed propulsion history.
+
+    Raises
+    ------
+    DomainError
+        If the artifact type, probabilities or joint product are invalid.
 
     References
     ----------
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
     """
 
     scenario_id: str
@@ -179,11 +251,30 @@ class ConditionalPropulsionRealization:
 
 @dataclass(frozen=True, slots=True)
 class HierarchicalMetricStatistics:
-    """Joint-probability statistics for one propulsion metric.
+    """Joint-probability-weighted statistics of one propulsion metric.
+
+    The statistics summarize probabilistic propagation output [2]_.
+
+    Parameters
+    ----------
+    metric : str
+        Metric name.
+    expected_value : float
+        Normalized weighted mean [1]_.
+    standard_deviation : float
+        Square root of the normalized weighted variance.
+    minimum, maximum : float
+        Smallest and largest retained values.
+    p05, p50, p95 : float
+        Weighted percentiles: the smallest value whose cumulative joint weight
+        reaches the probability.
 
     References
     ----------
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NIST-WEIGHTED-MEAN. NIST Dataplot, "Weighted Mean", equation 2-20,
+           normalized weighted mean.
+    .. [2] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
     """
 
     metric: str
@@ -201,11 +292,26 @@ class HierarchicalMetricStatistics:
 
 @dataclass(frozen=True, slots=True)
 class ScenarioMetricContribution:
-    """Conditional mean and joint expected-value contribution by scenario.
+    """Conditional mean and joint expected-value contribution of one scenario.
+
+    Parameters
+    ----------
+    scenario_id, metric : str
+        Scenario and metric.
+    scenario_probability : float
+        Scenario probability ``P_s`` [2]_.
+    conditional_expected_value : float
+        Weighted mean of the metric within the scenario, ``E[X | s]``.
+    joint_expected_value_contribution : float
+        ``P_s E[X | s]`` normalized by the total joint weight; the
+        contributions of all scenarios sum to the ensemble mean [1]_.
 
     References
     ----------
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] MIT-TOTAL-VARIANCE. MIT RES.6-012, lecture 13.7, conditional and
+           between-group variance identity (law of total variance).
+    .. [2] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
     """
 
     scenario_id: str
@@ -220,16 +326,36 @@ class ScenarioMetricContribution:
 
 @dataclass(frozen=True, slots=True)
 class HierarchicalVarianceDecomposition:
-    """Law-of-total-variance decomposition for one propulsion metric.
+    """Law-of-total-variance decomposition of one propulsion metric.
 
-    ``within_scenario_variance`` is the probability-weighted conditional
-    variance. ``between_scenario_variance`` is the variance of conditional
-    scenario means. Their sum must reproduce ``total_variance``.
+    ``Var(X) = E[Var(X | s)] + Var(E[X | s])`` [1]_. The split attributes the
+    output variance to the discrete scenarios and to the continuous
+    uncertainty within them, a sensitivity measure for the ensemble [2]_ [3]_.
+
+    Parameters
+    ----------
+    metric : str
+        Metric name.
+    total_variance : float
+        Joint-weighted variance ``Var(X)``.
+    within_scenario_variance : float
+        Probability-weighted conditional variance ``E[Var(X | s)]``.
+    between_scenario_variance : float
+        Variance of the conditional scenario means ``Var(E[X | s])``.
+    closure_error : float
+        ``|total - within - between|`` of the three exported floats; the exact
+        rational parts close identically.
+    within_fraction, between_fraction : float
+        Shares of the total variance; both zero when it is zero.
 
     References
     ----------
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [1] MIT-TOTAL-VARIANCE. MIT RES.6-012, lecture 13.7, conditional and
+           between-group variance identity (law of total variance).
+    .. [2] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
+    .. [3] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
     """
 
     metric: str
@@ -248,18 +374,47 @@ class HierarchicalVarianceDecomposition:
 class ConditionalSamplingEvidence:
     """Independent-replicate stability evidence for one conditional ensemble.
 
-    Primary and audit samples use separate deterministically derived seeds but
-    the same distributions and sample count. This is a diagnostic, not a proof
-    that tail probabilities have converged.
+    Primary and audit samples use separate, deterministically derived seeds but
+    the same distributions and sample count. The relative differences of their
+    delivered-impulse mean and standard deviation are a diagnostic of sample
+    adequacy [1]_ [2]_, not a proof that tail probabilities have converged.
 
     Persisted diagnostics are supplied records: the reader checks identities,
     seed links and flag consistency, but does not authenticate a campaign or
-    independently rerun the primary/audit physical histories.
+    rerun the primary and audit physical histories.
+
+    Parameters
+    ----------
+    scenario_id : str
+        Scenario identifier.
+    sample_count : int
+        Conditional sample count of both replicates.
+    primary_seed, audit_seed : int
+        Derived seeds of the two replicates.
+    impulse_mean_relative_difference : float
+        ``|m_p - m_a| / max(|m_p|, |m_a|)`` of delivered impulse.
+    impulse_standard_deviation_relative_difference : float
+        The same relative difference of the ``n - 1`` sample standard
+        deviations [3]_.
+    requested_tolerance : float
+        Acceptance tolerance.
+    converged : bool
+        ``True`` when both differences are within the tolerance.
+
+    Raises
+    ------
+    DomainError
+        If ``converged`` is not a boolean.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [2] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
+    .. [3] NIST TN 1297, "Guidelines for Evaluating and Expressing the Uncertainty
+           of NIST Measurement Results", 1994.
+           https://www.nist.gov/pml/nist-technical-note-1297
     """
 
     scenario_id: str
@@ -279,13 +434,54 @@ class ConditionalSamplingEvidence:
 
 @dataclass(frozen=True, slots=True)
 class HierarchicalPropulsionEnsemble:
-    """Scenario-weighted conditional propulsion ensemble for Sidera.
+    """Scenario-weighted conditional propulsion ensemble for trajectory propagation.
+
+    Produced by :func:`build_hierarchical_propulsion_ensemble` and consumed by
+    downstream propagators such as Sidera. The statistics are engineering
+    estimates, not flight certification [4]_ [5]_.
+
+    Parameters
+    ----------
+    method : str
+        Conditional sampling method [1]_.
+    base_seed : int
+        Seed from which every scenario seed is derived.
+    scenario_count, realization_count : int
+        Number of scenarios and retained realizations.
+    definitions : tuple of ScenarioConditionalUncertainty
+        One conditional definition per scenario.
+    realizations : tuple of ConditionalPropulsionRealization
+        Retained joint realizations.
+    statistics : tuple of HierarchicalMetricStatistics
+        Joint-weighted metric statistics.
+    variance_decomposition : tuple of HierarchicalVarianceDecomposition
+        Law-of-total-variance split per metric [2]_.
+    contributions : tuple of ScenarioMetricContribution
+        Per-scenario mean contributions.
+    sampling_evidence : tuple of ConditionalSamplingEvidence
+        Replicate stability per scenario.
+    zero_thrust_probability : float
+        Normalized joint weight of realizations with zero delivered impulse,
+        for example engine-out scenarios [3]_.
+    joint_probability_sum, joint_probability_closure_error : float
+        Sum of the joint weights and its exact distance from one.
+    reference_ids, warnings : tuple of str
+        Source identifiers and interpretation warnings.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
-    NASA-20050207429: https://ntrs.nasa.gov/citations/20050207429
+    .. [1] MCKAY-1979. M. D. McKay, R. J. Beckman and W. J. Conover, "A Comparison
+           of Three Methods for Selecting Values of Input Variables in the Analysis
+           of Output from a Computer Code", Technometrics 21(2), 239-245, 1979.
+    .. [2] MIT-TOTAL-VARIANCE. MIT RES.6-012, lecture 13.7, conditional and
+           between-group variance identity (law of total variance).
+    .. [3] NASA, "Key Reliability Drivers of Liquid Propulsion Engines and a
+           Reliability Model for Sensitivity Analysis".
+           https://ntrs.nasa.gov/citations/20050207429
+    .. [4] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [5] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
     """
 
     method: str
@@ -318,6 +514,11 @@ class HierarchicalPropulsionEnsemble:
 
 
 def _derived_seed(base_seed: int, scenario_id: str, channel: str) -> int:
+    """Derive a 64-bit seed from ``"<base_seed>:<scenario_id>:<channel>"``.
+
+    The first eight bytes of the SHA-256 digest, read big-endian, give a
+    reproducible seed per scenario and channel (``"primary"`` or ``"audit"``).
+    """
     digest = hashlib.sha256(f"{base_seed}:{scenario_id}:{channel}".encode()).digest()
     return int.from_bytes(digest[:8], "big", signed=False)
 
@@ -328,6 +529,7 @@ def _draws(
     seed: int,
     method: str,
 ) -> tuple[UncertaintyDraw, ...]:
+    """Sample a conditional definition; a deterministic scenario gives one empty draw."""
     if not definition.parameters:
         return (UncertaintyDraw(index=0, values=()),)
     return sample_uncertain_parameters(
@@ -340,6 +542,10 @@ def _draws(
 
 
 def _scale_ledger(draw: UncertaintyDraw):
+    """Return the exact product of all sampled factors acting on each scale.
+
+    Unsampled scales are one; qualified components multiply their target scale.
+    """
     values = {
         "thrust_scale": Fraction(1),
         "specific_impulse_scale": Fraction(1),
@@ -352,6 +558,7 @@ def _scale_ledger(draw: UncertaintyDraw):
 
 
 def _scale_values(draw: UncertaintyDraw) -> dict[str, float]:
+    """Return the scale products of ``draw`` rounded once to binary64."""
     return {name: _finite_rational(value, f"Artifact scale {name}")
             for name, value in _scale_ledger(draw).items()}
 
@@ -359,6 +566,16 @@ def _scale_values(draw: UncertaintyDraw) -> dict[str, float]:
 def _validate_axial_scale(
     artifact: TabulatedBurnArtifact, definition: ScenarioConditionalUncertainty
 ) -> None:
+    """Check that the largest axial-efficiency factor keeps axial <= delivered thrust.
+
+    The worst case multiplies the largest axial/delivered thrust ratio of the
+    artifact by the product of every axial-efficiency upper bound.
+
+    Raises
+    ------
+    DomainError
+        If that product can exceed one (beyond a ``1e-12`` tolerance).
+    """
     parameters = tuple(
         item
         for item in definition.parameters
@@ -396,6 +613,11 @@ def _perturb_artifact(
     primary_seed: int,
     method: str,
 ) -> TabulatedBurnArtifact:
+    """Scale a scenario artifact by one draw and bind the draw as provenance.
+
+    The scenario probability is not stored in the artifact; it is applied once
+    through the realization's joint weight.
+    """
     values = _scale_values(draw)
     return scale_tabulated_artifact(
         artifact,
@@ -419,12 +641,23 @@ def _perturb_artifact(
 
 
 def _weighted_percentile(values: tuple[tuple[float, float], ...], probability: float) -> float:
+    """Return the smallest value whose cumulative weight reaches ``probability``."""
     return _weight_ledger(values).quantile(probability)
 
 
 def _weighted_statistics(
     metric: str, values: tuple[tuple[float, float], ...]
 ) -> HierarchicalMetricStatistics:
+    """Return joint-weighted statistics from ``(value, weight)`` pairs.
+
+    The mean is the normalized weighted mean [1]_ and the variance the
+    normalized weighted second central moment; each export is rounded once.
+
+    References
+    ----------
+    .. [1] NIST-WEIGHTED-MEAN. NIST Dataplot, "Weighted Mean", equation 2-20,
+           normalized weighted mean.
+    """
     ledger = _weight_ledger(values)
     p05, p50, p95 = _quantiles(ledger)
     return HierarchicalMetricStatistics(
@@ -442,6 +675,18 @@ def _variance_decomposition(
     realizations: tuple[ConditionalPropulsionRealization, ...],
     getter: Callable[[TabulatedBurnArtifact], float],
 ) -> HierarchicalVarianceDecomposition:
+    """Split the joint-weighted variance of a metric by scenario.
+
+    With total weight ``W``, scenario weight ``W_s``, scenario mean ``m_s``,
+    scenario variance ``v_s`` and overall mean ``m``, the within part is
+    ``sum_s W_s v_s / W`` and the between part ``sum_s W_s (m_s - m)**2 / W``;
+    their exact sum equals the total variance [1]_.
+
+    References
+    ----------
+    .. [1] MIT-TOTAL-VARIANCE. MIT RES.6-012, lecture 13.7, conditional and
+           between-group variance identity (law of total variance).
+    """
     ledger = _weight_ledger((getter(item.artifact), item.joint_probability) for item in realizations)
     scenario_ids = tuple(dict.fromkeys(item.scenario_id for item in realizations))
     within_variance = Fraction(0)
@@ -473,16 +718,23 @@ def _variance_decomposition(
 
 
 def _mean_and_deviation(values: tuple[float, ...]) -> tuple[float, float]:
+    """Return the sample mean and ``n - 1`` sample standard deviation."""
     return _sample_moments(values)
 
 
 def _relative_difference(left: float, right: float) -> float:
+    """Return ``|left - right| / max(|left|, |right|)``, or zero if both are zero."""
     return _relative_change(left, right)
 
 
 def _impulses_for_draws(
     base_impulse_n_s: float, draws: tuple[UncertaintyDraw, ...]
 ) -> tuple[float, ...]:
+    """Return the delivered impulse of each draw without building artifacts.
+
+    Delivered impulse scales with ``thrust_scale * time_scale``; specific
+    impulse and axial efficiency do not change it.
+    """
     impulses = []
     for draw in draws:
         scales = _scale_ledger(draw)
@@ -500,18 +752,60 @@ def build_hierarchical_propulsion_ensemble(
 ) -> HierarchicalPropulsionEnsemble:
     """Compose scenario probabilities with conditional continuous uncertainty.
 
+    Parameters
+    ----------
+    scenarios : PropulsionScenarioEnsemble
+        Discrete, probability-labelled scenarios with their artifacts.
+    definitions : tuple of ScenarioConditionalUncertainty
+        Exactly one conditional definition per scenario.
+    seed : int, optional
+        Base seed; per-scenario seeds are derived from it.
+    method : {"latin-hypercube", "monte-carlo"}, optional
+        Conditional sampling method [1]_.
+    replicate_tolerance : float, optional
+        Positive tolerance of the replicate stability check.
+
+    Returns
+    -------
+    HierarchicalPropulsionEnsemble
+        Joint realizations, weighted statistics, variance decomposition,
+        scenario contributions and replicate evidence.
+
+    Raises
+    ------
+    DomainError
+        If inputs are invalid, definitions do not cover the scenarios one to
+        one, an axial-efficiency factor can exceed delivered thrust, or the
+        joint probabilities do not close to one within ``1e-12``.
+
+    Notes
+    -----
     For scenario probability ``P_s`` and ``N_s`` equally weighted conditional
-    samples, each retained realization receives joint probability
-    ``P_s / N_s``. A second independently seeded ensemble of the same size is
-    used only to audit impulse mean/standard-deviation stability; its samples
-    are not mixed into the primary distribution.
+    draws, each realization receives the joint probability ``P_s / N_s``, so the
+    scenario probability is applied exactly once [2]_. A second, independently
+    seeded ensemble of the same size is used only to check the stability of
+    the delivered-impulse mean and standard deviation; its samples are not
+    mixed into the primary distribution. Scenario sets typically represent
+    engine-out, degraded or common-cause cases [3]_ [4]_. Statistics use the
+    law of total variance [5]_. Trajectory, pointing, epoch and attitude
+    dispersion are outside this model [6]_.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
-    NASA-20050207429: https://ntrs.nasa.gov/citations/20050207429
-    NASA-20160007073: https://ntrs.nasa.gov/citations/20160007073
+    .. [1] MCKAY-1979. M. D. McKay, R. J. Beckman and W. J. Conover, "A Comparison
+           of Three Methods for Selecting Values of Input Variables in the Analysis
+           of Output from a Computer Code", Technometrics 21(2), 239-245, 1979.
+    .. [2] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
+    .. [3] NASA, "Key Reliability Drivers of Liquid Propulsion Engines and a
+           Reliability Model for Sensitivity Analysis".
+           https://ntrs.nasa.gov/citations/20050207429
+    .. [4] NASA, "Common Cause Failure Modeling in Space Launch Vehicles".
+           https://ntrs.nasa.gov/citations/20160007073
+    .. [5] MIT-TOTAL-VARIANCE. MIT RES.6-012, lecture 13.7, conditional and
+           between-group variance identity (law of total variance).
+    .. [6] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
     """
 
     if not isinstance(scenarios, PropulsionScenarioEnsemble):

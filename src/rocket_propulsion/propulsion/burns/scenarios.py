@@ -1,15 +1,24 @@
 """Discrete propulsion execution and failure scenarios for engine clusters.
 
-Scenarios are mutually exclusive, explicitly sourced, and probability weighted.
-The module never invents component failure rates or assumes independence. Each
-scenario produces a complete target-neutral thrust/mass-flow artifact for later
-trajectory propagation by Sidera.
+Scenarios are mutually exclusive, explicitly sourced and probability weighted,
+following the discrete-outcome treatment of probabilistic risk assessment
+[1]_.  The module never invents component failure rates and never assumes
+independence: engine-out, start and cutoff outcomes [2]_ and dependent
+(common-cause) failures [3]_ are declared by the analyst.  Each scenario
+produces a complete, target-neutral thrust/mass-flow artifact that a
+trajectory propagator such as Sidera consumes; trajectory consequences are
+outside this module.
 
 References
 ----------
-NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
-NASA-20050207429: https://ntrs.nasa.gov/citations/20050207429
-NASA-20160007073: https://ntrs.nasa.gov/citations/20160007073
+.. [1] NASA/SP-2011-3421. NASA, "Probabilistic Risk Assessment Procedures
+       Guide for NASA Managers and Practitioners",
+       https://ntrs.nasa.gov/citations/20120001369.
+.. [2] NASA-20050207429. NASA, "Key Reliability Drivers of Liquid
+       Propulsion Engines and a Reliability Model for Sensitivity Analysis",
+       https://ntrs.nasa.gov/citations/20050207429.
+.. [3] NASA-20160007073. NASA, "Common Cause Failure Modeling in Space
+       Launch Vehicles", https://ntrs.nasa.gov/citations/20160007073.
 """
 
 from __future__ import annotations
@@ -46,10 +55,18 @@ SCENARIO_REFERENCE_IDS = (
 class ScenarioEventType(str, Enum):
     """Supported discrete propulsion execution modifications.
 
+    Members cover engine-out, ignition delay and early cutoff outcomes, which
+    are reliability drivers of liquid engines [1]_, and multiplicative
+    thrust, specific-impulse and response-time deviations.  Several engines
+    in one event express a dependent outcome [2]_.
+
     References
     ----------
-    NASA-20050207429: https://ntrs.nasa.gov/citations/20050207429
-    NASA-20160007073: https://ntrs.nasa.gov/citations/20160007073
+    .. [1] NASA-20050207429. NASA, "Key Reliability Drivers of Liquid
+           Propulsion Engines and a Reliability Model for Sensitivity Analysis",
+           https://ntrs.nasa.gov/citations/20050207429.
+    .. [2] NASA-20160007073. NASA, "Common Cause Failure Modeling in Space
+           Launch Vehicles", https://ntrs.nasa.gov/citations/20160007073.
     """
 
     ENGINE_DISABLED = "engine-disabled"
@@ -64,14 +81,41 @@ class ScenarioEventType(str, Enum):
 class ScenarioEvent:
     """One sourced modification applied to one or more cluster engines.
 
+    Parameters
+    ----------
+    event_type : ScenarioEventType
+        Kind of modification.
+    engine_ids : tuple of str
+        Non-empty, unique engine identifiers affected by the event.
+    value : float or None
+        ``None`` for ``ENGINE_DISABLED``.  Otherwise finite: a positive factor
+        for the scale events, or a non-negative time in s for
+        ``IGNITION_DELAY`` (added delay) and ``EARLY_CUTOFF`` (cutoff time on
+        the command schedule).
+    source : str
+        Non-empty provenance of the event.
+    rationale : str
+        Non-empty engineering rationale.
+
+    Raises
+    ------
+    DomainError
+        If identifiers are blank or duplicated, provenance is missing, or the
+        value violates the rule for its event type.
+
+    Notes
+    -----
     Multiple engine identifiers in one event express an explicitly declared
-    dependent/common-cause outcome. The code does not infer that dependence
-    from identical hardware.
+    dependent (common-cause) outcome [2]_ within a discrete scenario
+    model [1]_.  Dependence is never inferred from identical hardware.
 
     References
     ----------
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
-    NASA-20160007073: https://ntrs.nasa.gov/citations/20160007073
+    .. [1] NASA/SP-2011-3421. NASA, "Probabilistic Risk Assessment Procedures
+           Guide for NASA Managers and Practitioners",
+           https://ntrs.nasa.gov/citations/20120001369.
+    .. [2] NASA-20160007073. NASA, "Common Cause Failure Modeling in Space
+           Launch Vehicles", https://ntrs.nasa.gov/citations/20160007073.
     """
 
     event_type: ScenarioEventType
@@ -110,14 +154,39 @@ class ScenarioEvent:
 class PropulsionScenario:
     """One mutually exclusive propulsion outcome with declared probability.
 
-    A nominal scenario has an empty event tuple. Probability is supplied by the
-    analyst from reliability/test evidence; it is never derived from event
-    count or an implicit independence assumption.
+    Parameters
+    ----------
+    scenario_id : str
+        Non-empty identifier, unique within its scenario set.
+    probability : float
+        Outcome probability in ``(0, 1]``.
+    events : tuple of ScenarioEvent
+        Modifications; an empty tuple is the nominal scenario.
+    source : str
+        Non-empty provenance of the probability.
+    rationale : str
+        Non-empty engineering rationale.
+
+    Raises
+    ------
+    DomainError
+        If the identifier, source or rationale is blank, or the probability is
+        outside ``(0, 1]``.
+
+    Notes
+    -----
+    The probability is supplied by the analyst from reliability or test
+    evidence [1]_, [2]_; it is never derived from the event count or from an
+    implicit independence assumption.
 
     References
     ----------
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
-    NASA-20050207429: https://ntrs.nasa.gov/citations/20050207429
+    .. [1] NASA/SP-2011-3421. NASA, "Probabilistic Risk Assessment Procedures
+           Guide for NASA Managers and Practitioners",
+           https://ntrs.nasa.gov/citations/20120001369.
+    .. [2] NASA-20050207429. NASA, "Key Reliability Drivers of Liquid
+           Propulsion Engines and a Reliability Model for Sensitivity Analysis",
+           https://ntrs.nasa.gov/citations/20050207429.
     """
 
     scenario_id: str
@@ -139,10 +208,33 @@ class PropulsionScenario:
 class PropulsionScenarioSet:
     """Exhaustive set of mutually exclusive propulsion scenarios.
 
+    Parameters
+    ----------
+    scenarios : tuple of PropulsionScenario
+        Non-empty scenarios with unique identifiers whose probabilities sum to
+        one within an absolute tolerance of ``1e-12``.
+    objective : str
+        Non-empty statement of the analysis objective.
+
+    Raises
+    ------
+    DomainError
+        If the set is empty, the objective is blank, identifiers repeat, or
+        the probabilities do not sum to one.
+
+    Notes
+    -----
+    Exhaustive, mutually exclusive outcomes form a discrete probability
+    distribution [1]_; dependent failures are represented as their own
+    outcomes rather than as products of independent probabilities [2]_.
+
     References
     ----------
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
-    NASA-20160007073: https://ntrs.nasa.gov/citations/20160007073
+    .. [1] NASA/SP-2011-3421. NASA, "Probabilistic Risk Assessment Procedures
+           Guide for NASA Managers and Practitioners",
+           https://ntrs.nasa.gov/citations/20120001369.
+    .. [2] NASA-20160007073. NASA, "Common Cause Failure Modeling in Space
+           Launch Vehicles", https://ntrs.nasa.gov/citations/20160007073.
     """
 
     scenarios: tuple[PropulsionScenario, ...]
@@ -165,9 +257,30 @@ class PropulsionScenarioSet:
 class ScenarioMetricStatistics:
     """Probability-weighted discrete statistics for one propulsion metric.
 
+    Parameters
+    ----------
+    metric : str
+        Metric name, for example ``"delivered_impulse_n_s"``.
+    expected_value : float
+        Normalized probability-weighted mean [2]_.
+    minimum, maximum : float
+        Smallest and largest metric value with positive probability.
+    p05, p50, p95 : float
+        Discrete quantiles: the smallest value whose cumulative probability
+        reaches 0.05, 0.5 and 0.95.
+
+    Notes
+    -----
+    The statistics describe the analyst-declared discrete distribution [1]_;
+    they are not calibrated probability evidence.
+
     References
     ----------
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NASA/SP-2011-3421. NASA, "Probabilistic Risk Assessment Procedures
+           Guide for NASA Managers and Practitioners",
+           https://ntrs.nasa.gov/citations/20120001369.
+    .. [2] NIST-WEIGHTED-MEAN. NIST Dataplot, "Weighted Mean", eq. 2-20,
+           https://www.itl.nist.gov/div898/software/dataplot/refman2/ch2/weigmean.pdf.
     """
 
     metric: str
@@ -181,15 +294,29 @@ class ScenarioMetricStatistics:
 
 @dataclass(frozen=True, slots=True)
 class PropulsionScenarioRealization:
-    """One probability-labelled cluster artifact and convergence evidence.
+    """One probability-labelled cluster artifact with its convergence evidence.
 
-    ``evidence`` is absent only for the exact all-engines-disabled zero-thrust
-    case, which needs no transient interpolation.
+    Parameters
+    ----------
+    scenario_id : str
+        Identifier of the realized scenario.
+    probability : float
+        Declared scenario probability.
+    artifact : TabulatedBurnArtifact
+        Cluster thrust and mass-flow history under the scenario's outcomes
+        [1]_, assembled from per-engine transient models [2]_.
+    evidence : ClusterSamplingEvidence or None
+        Sampling-convergence evidence; ``None`` only for the exact
+        all-engines-disabled zero-thrust case, which needs no transient
+        interpolation.
 
     References
     ----------
-    NASA-20050207429: https://ntrs.nasa.gov/citations/20050207429
-    NASA-TM-107318: https://ntrs.nasa.gov/citations/19970010379
+    .. [1] NASA-20050207429. NASA, "Key Reliability Drivers of Liquid
+           Propulsion Engines and a Reliability Model for Sensitivity Analysis",
+           https://ntrs.nasa.gov/citations/20050207429.
+    .. [2] NASA-TM-107318. NASA, "RL10A-3-3A Rocket Engine Modeling Project",
+           https://ntrs.nasa.gov/citations/19970010379.
     """
 
     scenario_id: str
@@ -200,13 +327,44 @@ class PropulsionScenarioRealization:
 
 @dataclass(frozen=True, slots=True)
 class PropulsionScenarioEnsemble:
-    """Discrete propulsion scenario ensemble for later Sidera propagation.
+    """Discrete propulsion scenario ensemble ready for trajectory propagation.
+
+    Parameters
+    ----------
+    objective : str
+        Analysis objective copied from the scenario set.
+    scenarios : tuple of PropulsionScenario
+        The declared scenarios.
+    realizations : tuple of PropulsionScenarioRealization
+        One artifact per scenario, in scenario order.
+    statistics : tuple of ScenarioMetricStatistics
+        Probability-weighted statistics of duration, delivered and axial
+        impulse, consumed propellant and thrust-centroid time.
+    zero_thrust_probability : float
+        Normalized probability of the scenarios with zero delivered impulse.
+    reference_ids : tuple of str
+        Registered reference identifiers of the scenario method.
+    warnings : tuple of str
+        Interpretation warnings.
+
+    Notes
+    -----
+    The ensemble holds propulsion consequences only; a trajectory propagator
+    such as Sidera evaluates the trajectory consequences of each artifact.
+    Probabilities follow the discrete-outcome treatment of [1]_, with
+    engine-out and transient outcomes [2]_ and dependent failures [3]_
+    declared by the analyst.
 
     References
     ----------
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
-    NASA-20050207429: https://ntrs.nasa.gov/citations/20050207429
-    NASA-20160007073: https://ntrs.nasa.gov/citations/20160007073
+    .. [1] NASA/SP-2011-3421. NASA, "Probabilistic Risk Assessment Procedures
+           Guide for NASA Managers and Practitioners",
+           https://ntrs.nasa.gov/citations/20120001369.
+    .. [2] NASA-20050207429. NASA, "Key Reliability Drivers of Liquid
+           Propulsion Engines and a Reliability Model for Sensitivity Analysis",
+           https://ntrs.nasa.gov/citations/20050207429.
+    .. [3] NASA-20160007073. NASA, "Common Cause Failure Modeling in Space
+           Launch Vehicles", https://ntrs.nasa.gov/citations/20160007073.
     """
 
     objective: str
@@ -221,6 +379,12 @@ class PropulsionScenarioEnsemble:
 def _schedule_after_cutoff(
     schedule: ThrottleSchedule, cutoff_time_s: float
 ) -> ThrottleSchedule | None:
+    """Return ``schedule`` with zero throttle from ``cutoff_time_s`` onward.
+
+    The interval containing the cutoff is split, with its throttle linearly
+    interpolated at the cutoff time.  ``None`` means no positive exposure
+    remains, so the engine is effectively disabled.
+    """
     segments: list[ThrottleSegment] = []
     for interval in resolved_schedule_intervals(schedule):
         if interval.start_time_s >= cutoff_time_s:
@@ -263,6 +427,7 @@ def _schedule_after_cutoff(
 def _weighted_percentile(
     values: tuple[tuple[float, float], ...], probability: float
 ) -> float:
+    """Return the smallest value whose cumulative weight reaches ``probability``."""
     from .probability_numerics import _weight_ledger
     return _weight_ledger(values).quantile(probability)
 
@@ -270,6 +435,16 @@ def _weighted_percentile(
 def _metric_statistics(
     metric: str, values: tuple[tuple[float, float], ...]
 ) -> ScenarioMetricStatistics:
+    """Return the weighted mean [1]_, extremes and discrete quantiles of ``values``.
+
+    ``values`` holds ``(metric_value, probability)`` pairs; weights are
+    normalized with exact rational arithmetic before export.
+
+    References
+    ----------
+    .. [1] NIST-WEIGHTED-MEAN. NIST Dataplot, "Weighted Mean", eq. 2-20,
+           https://www.itl.nist.gov/div898/software/dataplot/refman2/ch2/weigmean.pdf.
+    """
     from .numeric_outputs import _finite_rational
     from .probability_numerics import _quantiles, _weight_ledger
     ledger = _weight_ledger(values)
@@ -290,6 +465,10 @@ def _zero_artifact(
     commands: tuple[EngineTransientCommand, ...],
     scenario: PropulsionScenario,
 ) -> TabulatedBurnArtifact:
+    """Return one zero-thrust, zero-flow segment for an all-disabled scenario.
+
+    The source hash binds the nominal members, commands and scenario.
+    """
     source_hash = hashlib.sha256(
         canonical_json_bytes(
             {"members": members, "commands": commands, "scenario": scenario}
@@ -327,18 +506,64 @@ def build_propulsion_scenario_ensemble(
     relative_tolerance: float = 1e-7,
     maximum_refinements: int = 12,
 ) -> PropulsionScenarioEnsemble:
-    """Build exact probability-labelled cluster histories for discrete outcomes.
+    """Build probability-labelled cluster histories for discrete outcomes.
 
-    Events are applied to the same nominal cluster definition. Multiple engine
-    IDs in a single event remain one dependent outcome, allowing common-cause
-    scenarios without multiplying independent component probabilities.
+    Parameters
+    ----------
+    members : tuple of EngineClusterMember
+        Nominal cluster members with unique engine identifiers.
+    commands : tuple of EngineTransientCommand
+        Exactly one command per nominally enabled member.
+    scenario_set : PropulsionScenarioSet
+        Exhaustive, mutually exclusive scenarios.
+    maximum_step_s : float, optional
+        Maximum sampling step of each cluster profile, in s.
+    relative_tolerance : float, optional
+        Relative sampling-convergence tolerance of each cluster profile.
+    maximum_refinements : int, optional
+        Maximum number of sampling refinements per cluster profile.
+
+    Returns
+    -------
+    PropulsionScenarioEnsemble
+        One artifact per scenario plus probability-weighted metric statistics.
+
+    Raises
+    ------
+    DomainError
+        If members or commands are missing or duplicated, a command is
+        missing for an enabled engine, an event references an unknown or
+        nominally disabled engine, an event type repeats for one engine, a
+        disabled engine carries other modifications, or an early cutoff is not
+        before the end of its schedule.
+
+    Notes
+    -----
+    Every scenario modifies the same nominal cluster definition.  The thrust
+    scale multiplies delivered thrust and chamber pressure together; the
+    specific-impulse scale multiplies the system specific impulse; the
+    response scale multiplies the response time constant; an early cutoff
+    replaces the remaining schedule with zero throttle.  An engine whose
+    cutoff leaves no positive exposure is treated as disabled.  Multiple
+    engine identifiers in one event remain one dependent outcome [3]_, so
+    common-cause scenarios never multiply independent component
+    probabilities [1]_.  Engine-out and start/cutoff outcomes follow the
+    reliability drivers of [2]_; each realized cluster is assembled from
+    per-engine transient models in the manner of [4]_.  The model is not
+    validated against hardware test data.
 
     References
     ----------
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
-    NASA-20050207429: https://ntrs.nasa.gov/citations/20050207429
-    NASA-20160007073: https://ntrs.nasa.gov/citations/20160007073
-    NASA-TM-107318: https://ntrs.nasa.gov/citations/19970010379
+    .. [1] NASA/SP-2011-3421. NASA, "Probabilistic Risk Assessment Procedures
+           Guide for NASA Managers and Practitioners",
+           https://ntrs.nasa.gov/citations/20120001369.
+    .. [2] NASA-20050207429. NASA, "Key Reliability Drivers of Liquid
+           Propulsion Engines and a Reliability Model for Sensitivity Analysis",
+           https://ntrs.nasa.gov/citations/20050207429.
+    .. [3] NASA-20160007073. NASA, "Common Cause Failure Modeling in Space
+           Launch Vehicles", https://ntrs.nasa.gov/citations/20160007073.
+    .. [4] NASA-TM-107318. NASA, "RL10A-3-3A Rocket Engine Modeling Project",
+           https://ntrs.nasa.gov/citations/19970010379.
     """
 
     if not members or not commands:

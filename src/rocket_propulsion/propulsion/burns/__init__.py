@@ -1,4 +1,32 @@
-"""Standalone propulsion-burn models, accounting, and transient solvers."""
+"""Standalone propulsion-burn models, accounting, and transient solvers.
+
+The package evaluates finite burns independently of any trajectory tool and
+exposes the results through versioned, hash-bound documents.  It groups:
+
+* Burn definitions, operating points and constant or profiled integration
+  (``models``, ``operating_point``, ``integration``, ``profiles``,
+  ``profile_integration``, ``reduction``, ``burn_metrics``).
+* Transient and hardware-facing models: first-order response, pulse trains,
+  engine clusters, throttleable and tabulated engines, pressure-fed blowdown,
+  feed lines and feed systems, bipropellant mixture-ratio coupling, thrust
+  vectoring and vehicle mass properties (``response``, ``sequence``,
+  ``pulse_mode``, ``cluster``, ``throttleable``, ``tabulated``, ``blowdown``,
+  ``feed_line``, ``feed_system``, ``bipropellant``, ``vectoring``,
+  ``vehicle_geometry``).
+* Propagation interfaces: the propagator bridge, mission timelines and
+  power-limited electric propulsion (``propagator``, ``timeline``,
+  ``electric``).
+* Calibration, uncertainty, scenarios and ensembles (``calibration``,
+  ``discrepancy``, ``multivariate_calibration``, ``uncertainty``,
+  ``execution_errors``, ``scenarios``, ``ensemble``).
+* Reporting and the command-line entry point (``report``, ``cli``).
+
+Each public model documents its sources in a ``References`` section; stable
+reference identifiers are registered in
+:mod:`rocket_propulsion.propulsion.burns.references` and indexed in
+``docs/REFERENCES.md``.  Model inputs are caller-supplied, and each model
+states its own validity limits and validation status.
+"""
 
 from .bipropellant import (
     BIPROPELLANT_DYNAMIC_FEED_REFERENCE_IDS,

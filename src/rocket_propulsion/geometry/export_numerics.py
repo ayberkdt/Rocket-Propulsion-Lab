@@ -1,4 +1,20 @@
-"""Exact vertex arithmetic for text mesh exports, not geometric error bounds."""
+"""Exact vertex arithmetic for text mesh exports, not geometric error bounds.
+
+The helpers check that redundant station quantities agree within their binary64
+representation cells [1]_, [2]_ and build STL facet vertices and unit normals
+[3]_ with exact rational arithmetic on the serialized coordinates.
+
+References
+----------
+.. [1] PYTHON-3.12-FRACTION. Python, ``fractions``; float inputs retain their
+       exact binary value as a rational.
+       https://docs.python.org/3.12/library/fractions.html
+.. [2] PYTHON-3.12-NEXTAFTER. Python, ``math.nextafter``, adjacent representable
+       floating-point values.
+       https://docs.python.org/3.12/library/math.html#math.nextafter
+.. [3] LOC-STL-FAMILY. Library of Congress, STL format family: oriented
+       triangular surface and format limitations.
+"""
 from fractions import Fraction
 from math import cos, inf, isfinite, nextafter, pi, sin
 
@@ -8,7 +24,30 @@ from rocket_propulsion.propulsion.burns.probability_numerics import _sqrt_output
 
 
 def _rounding_cell(value):
-    """Positive binary64 RNE cell closure; not a measurement uncertainty interval."""
+    """Return the closed round-to-nearest-even cell of a positive binary64 value.
+
+    Parameters
+    ----------
+    value : float
+        Finite positive float.
+
+    Returns
+    -------
+    tuple of Fraction
+        ``(lower, upper)``: the midpoints to the adjacent representable values
+        [1]_, [2]_. When the upper neighbour overflows, the upper bound mirrors
+        the lower half-spacing. The cell is a representation interval, not a
+        measurement uncertainty interval.
+
+    References
+    ----------
+    .. [1] PYTHON-3.12-FRACTION. Python, ``fractions``; float inputs retain their
+           exact binary value as a rational.
+           https://docs.python.org/3.12/library/fractions.html
+    .. [2] PYTHON-3.12-NEXTAFTER. Python, ``math.nextafter``, adjacent representable
+           floating-point values.
+           https://docs.python.org/3.12/library/math.html#math.nextafter
+    """
     center = Fraction(value)
     before = Fraction(nextafter(value, -inf))
     after = nextafter(value, inf)
@@ -17,11 +56,23 @@ def _rounding_cell(value):
 
 
 def _check_geometry(stations, throat_area, exit_ratio):
-    """Necessary overlap of representation cells under the fixed binary64 pi basis.
+    """Check that station radius, area and area ratio agree within rounding cells.
+
+    For each station, ``pi r^2`` (with ``pi`` the binary64 constant) evaluated
+    over the radius cell must overlap the area cell and not fall below the
+    throat-area cell, and the area-ratio cell must overlap the implied
+    ``pi r^2 / A_t`` interval. The last station's area ratio must overlap the
+    nominal exit area ratio.
 
     This checks redundant station geometry, not flow validity or the accuracy
     of a continuous contour between stations. Cell endpoints are conservatively
     closed; no physical measurement tolerance is implied.
+
+    Raises
+    ------
+    DomainError
+        If any of the redundant quantities disagree beyond representation
+        cells.
     """
     at_lo, at_hi = _rounding_cell(throat_area)
     fixed_pi = Fraction(pi)
@@ -41,10 +92,12 @@ def _check_geometry(stations, throat_area, exit_ratio):
 
 
 def _ring(station, count):
-    """Sample a circle, preserving exact cardinal axes and checked products.
+    """Return ``count`` vertices of the station circle in the y-z plane.
 
-    Other angles use platform binary64 sine/cosine. Their geometric sampling
-    error is not bounded by this export policy.
+    Angles that are multiples of 90 degrees use exact unit cosines and sines.
+    Other angles use the platform binary64 sine and cosine; their geometric
+    sampling error is not bounded by this export policy. Each coordinate is the
+    exact product ``r cos(phi)`` or ``r sin(phi)`` rounded once to binary64.
     """
     points = []
     for index in range(count):
@@ -60,7 +113,23 @@ def _ring(station, count):
 
 
 def _unit_normal(a, b, c):
-    """RNE components from the exact cross product of the serialized vertices."""
+    """Return the unit facet normal from the exact cross product of the vertices.
+
+    The cross product ``(b - a) x (c - a)`` is formed exactly from the
+    serialized binary64 coordinates; each component of the normalized vector
+    is rounded once to nearest-even. The right-hand vertex order defines the
+    outward orientation of an STL facet [1]_.
+
+    Raises
+    ------
+    DomainError
+        If the three vertices are collinear or coincident.
+
+    References
+    ----------
+    .. [1] LOC-STL-FAMILY. Library of Congress, STL format family: oriented
+           triangular surface and format limitations.
+    """
     ab = tuple(Fraction(right) - Fraction(left) for left, right in zip(a, b))
     ac = tuple(Fraction(right) - Fraction(left) for left, right in zip(a, c))
     normal = (ab[1] * ac[2] - ab[2] * ac[1],

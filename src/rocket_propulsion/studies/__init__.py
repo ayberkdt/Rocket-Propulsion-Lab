@@ -1,4 +1,11 @@
-"""Reproducible workspaces, comparison, sampling, and report exports."""
+"""Reproducible study workspaces, case comparison, sampling studies and report exports.
+
+:mod:`.workspace` defines the versioned workspace document, :mod:`.comparison`
+compares scalar case results, :mod:`.sampling` provides parameter sweeps and
+Monte Carlo / Latin hypercube uncertainty studies, and :mod:`.report` builds
+portable JSON, CSV, SVG and HTML exports. The :mod:`.sass` subpackage holds the
+source-cited preliminary spacecraft propulsion study tools.
+"""
 
 from .comparison import CaseComparison, ResultDifference, compare_cases
 from .report import ReportBundle, build_report_bundle

@@ -1,9 +1,16 @@
 """Mandatory field-level evidence and explicit design assumptions.
 
+Every quantity used by the SASS tools carries registered citations with
+claim-specific locators; analyst assumptions are labelled as such and derived
+values carry both their method and their input sources.
+
 References
 ----------
-NASA-SE-APP: Appendix D and Trade Study Report definition.
-NASA-SE-6: sections 6.6 and 6.8; the Python representation is our implementation.
+.. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Appendix D and
+       Trade Study Report definition.
+.. [2] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+       Management"; sections 6.6 and 6.8; the Python representation is this
+       library's implementation.
 """
 
 from __future__ import annotations
@@ -19,11 +26,19 @@ from .references import reference
 
 @dataclass(frozen=True, slots=True)
 class Citation:
-    """A registered source with a claim-specific locator.
+    """A registered source together with a claim-specific locator.
+
+    Attributes
+    ----------
+    source_id : str
+        Key of an entry in :data:`REFERENCES`.
+    locator : str
+        Section, table, equation or row supporting the claim.
 
     References
     ----------
-    NASA-SE-APP: Appendix D, source and unique identification.
+    .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Appendix D,
+           source and unique identification.
     """
 
     source_id: str
@@ -34,7 +49,8 @@ class Citation:
 
         References
         ----------
-        NASA-SE-APP: Appendix D, definitive source requirement.
+        .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Appendix D,
+               definitive source requirement.
         """
         reference(self.source_id)
         text(self.locator, "citation locator")
@@ -42,15 +58,37 @@ class Citation:
 
 @dataclass(frozen=True, slots=True)
 class CitedScalar:
-    """An SI quantity with evidence or an explicitly labelled analyst assumption.
+    """An SI quantity with published evidence, a derivation or a labelled assumption.
 
-    ``assumption`` requires a rationale; its citation documents the method for
-    recording assumptions, not independent evidence for the chosen number.
-    There is deliberately no extrapolated-data status.
+    An ``'assumption'`` requires a rationale in ``note``; its citation documents the
+    method of recording assumptions [1]_, not independent evidence for the chosen
+    number. There is deliberately no extrapolated-data status.
+
+    Attributes
+    ----------
+    value : float
+        Finite value in ``unit``.
+    unit : str
+        Unit symbol.
+    citations : tuple of Citation
+        At least one source; published data must cite more than bookkeeping methods.
+    status : {'published', 'assumption', 'derived'}, default 'published'
+        Evidence kind.
+    note : str
+        Rationale (required for assumptions) or remark.
+    assumption_notes : tuple of str
+        Assumption lineage propagated from inputs.
+
+    Raises
+    ------
+    DomainError
+        If the value is not finite, a field is malformed, the status is unknown, or
+        published data carries assumptions or only bookkeeping citations.
 
     References
     ----------
-    NASA-SE-6: section 6.8, preserve assumptions and decision-analysis inputs.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; section 6.8, preserve assumptions and decision-analysis inputs.
     """
 
     value: float
@@ -65,7 +103,8 @@ class CitedScalar:
 
         References
         ----------
-        NASA-SE-6: sections 6.6 and 6.8, technical data and decision assumptions.
+        .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+               Management"; sections 6.6 and 6.8, technical data and decision assumptions.
         """
         object.__setattr__(self, "value", real(self.value, "cited value"))
         text(self.unit, "quantity unit")
@@ -92,9 +131,29 @@ class CitedScalar:
 def assumption(value: float, unit: str, rationale: str) -> CitedScalar:
     """Label an analyst input without presenting it as a published measurement.
 
+    Parameters
+    ----------
+    value : float
+        Assumed value.
+    unit : str
+        Unit symbol.
+    rationale : str
+        Non-empty justification.
+
+    Returns
+    -------
+    CitedScalar
+        Quantity with status ``'assumption'``.
+
+    Raises
+    ------
+    DomainError
+        If the value or rationale is invalid.
+
     References
     ----------
-    NASA-SE-6: section 6.8, document assumptions in decision analysis.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; section 6.8, document assumptions in decision analysis.
     """
     return CitedScalar(value, unit, (Citation("NASA-SE-6", "6.8: analyst assumption"),),
                        "assumption", rationale)
@@ -102,11 +161,33 @@ def assumption(value: float, unit: str, rationale: str) -> CitedScalar:
 
 def quantity(value: CitedScalar, unit: str, *, minimum: float | None = None,
              strictly_positive: bool = False) -> float:
-    """Check quantity units and the domain without stripping evidence silently.
+    """Return the value of an evidence-bearing quantity after unit and domain checks.
+
+    Parameters
+    ----------
+    value : CitedScalar
+        Quantity to check.
+    unit : str
+        Required unit symbol.
+    minimum : float, optional
+        Inclusive lower limit.
+    strictly_positive : bool, default False
+        Require a value greater than zero.
+
+    Returns
+    -------
+    float
+
+    Raises
+    ------
+    DomainError
+        If the value is not a ``CitedScalar`` in ``unit`` or violates the domain.
 
     References
     ----------
-    BIPM-SI: dimensional units; NASA-SE-6: section 6.6, controlled technical data.
+    .. [1] BIPM-SI. BIPM, "SI Brochure, 9th edition"; dimensional units.
+    .. [2] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; section 6.6, controlled technical data.
     """
     if not isinstance(value, CitedScalar) or value.unit != unit:
         raise DomainError(f"Expected an evidence-bearing quantity in {unit}.")
@@ -119,11 +200,35 @@ def quantity(value: CitedScalar, unit: str, *, minimum: float | None = None,
 
 def derived(value: float, unit: str, inputs: tuple[CitedScalar, ...],
             methods: tuple[Citation, ...], note: str = "") -> CitedScalar:
-    """Carry both method and original input sources into a computed quantity.
+    """Create a computed quantity carrying its method and all original input sources.
+
+    Parameters
+    ----------
+    value : float
+        Computed value.
+    unit : str
+        Unit symbol.
+    inputs : tuple of CitedScalar
+        Quantities the value was computed from.
+    methods : tuple of Citation
+        At least one citation of the calculation method.
+    note : str, default ''
+        Remark.
+
+    Returns
+    -------
+    CitedScalar
+        Quantity with status ``'derived'`` and merged citations and assumption lineage.
+
+    Raises
+    ------
+    DomainError
+        If no method citation is given or an input is malformed.
 
     References
     ----------
-    NASA-SE-APP: Trade Study Report, models and all data sources.
+    .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Trade Study
+           Report, models and all data sources.
     """
     input_records = records(inputs, CitedScalar, "derived inputs")
     citations = tuple(dict.fromkeys(
@@ -138,11 +243,27 @@ def derived(value: float, unit: str, inputs: tuple[CitedScalar, ...],
 
 @dataclass(frozen=True, slots=True)
 class AnalysisResult:
-    """Named outputs plus the declared model boundary and propagated evidence.
+    """Named outputs with the declared model boundary and propagated evidence.
+
+    Attributes
+    ----------
+    model : str
+        Model identifier.
+    values : tuple of (str, CitedScalar)
+        Uniquely named outputs.
+    limitations : tuple of str
+        Non-empty statement of the model boundary.
+
+    Raises
+    ------
+    DomainError
+        If outputs are empty, duplicated or lack citations, or limitations are
+        missing.
 
     References
     ----------
-    NASA-SE-APP: Trade Study Report, model, results, uncertainty and sources.
+    .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Trade Study
+           Report, model, results, uncertainty and sources.
     """
 
     model: str
@@ -154,7 +275,8 @@ class AnalysisResult:
 
         References
         ----------
-        NASA-SE-6: section 6.6, coherent technical data.
+        .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+               Management"; section 6.6, coherent technical data.
         """
         text(self.model, "analysis model")
         if not isinstance(self.values, (tuple, list)) or not self.values:
@@ -179,9 +301,24 @@ class AnalysisResult:
     def get(self, name: str) -> CitedScalar:
         """Return a named output together with its evidence.
 
+        Parameters
+        ----------
+        name : str
+            Output name.
+
+        Returns
+        -------
+        CitedScalar
+
+        Raises
+        ------
+        DomainError
+            If no output has that name.
+
         References
         ----------
-        NASA-SE-6: section 6.6, retrievable technical data.
+        .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+               Management"; section 6.6, retrievable technical data.
         """
         for key, value in self.values:
             if key == name:
@@ -189,11 +326,18 @@ class AnalysisResult:
         raise DomainError(f"Unknown analysis output: {name!r}.")
 
     def to_dict(self) -> dict[str, object]:
-        """Serialize values and complete source details for independent review.
+        """Serialize values, limitations and full source records for independent review.
+
+        Returns
+        -------
+        dict
+            ``model``, ``values``, ``limitations`` and ``references`` (registry entries
+            of every cited source, sorted by key).
 
         References
         ----------
-        NASA-SE-APP: Trade Study Report, preserve computational results and sources.
+        .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Trade Study
+               Report, preserve computational results and sources.
         """
         source_ids = sorted({c.source_id for _, v in self.values for c in v.citations})
         return {

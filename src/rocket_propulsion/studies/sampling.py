@@ -1,9 +1,27 @@
-"""Reproducible bounded studies with checked empirical arithmetic.
+"""Reproducible bounded parameter studies with checked empirical summaries.
 
-Uniform draws are exact affine transforms of the binary RNG fraction, rounded
-once to binary64. LHS stratification belongs to latent draws; finite grids may
-collapse distinct draws. Summary exactness is relative to retained binary data,
-not measured physics, confidence coverage or a global sensitivity analysis.
+Uniform draws are exact affine maps of the binary random fraction onto the declared
+bounds, rounded once to binary64. Latin hypercube stratification [1]_ applies to
+the latent draws; a finite binary64 grid may map distinct draws to the same value.
+Summary exactness is relative to the retained binary samples. The summaries are
+empirical screening statistics [2]_ [3]_ [4]_; they do not establish measured
+physics, confidence coverage or a global sensitivity analysis.
+
+References
+----------
+.. [1] MCKAY-1979. M. D. McKay, R. J. Beckman and W. J. Conover, "A Comparison of
+       Three Methods for Selecting Values of Input Variables in the Analysis of
+       Output from a Computer Code", Technometrics 21(2), 239-245, 1979.
+.. [2] NIST TN 1297, "Guidelines for Evaluating and Expressing the Uncertainty of
+       NIST Measurement Results", 1994 (Type A evaluation: sample mean and standard
+       deviation).
+.. [3] NUMPY-2.2-LINEAR-QUANTILE. NumPy 2.2, numpy.quantile: linear (Hyndman-Fan
+       type 7) sample quantile definition.
+.. [4] NIST-PEARSON. NIST Dataplot reference manual, "Correlation": centered-product
+       (Pearson) correlation definition.
+.. [5] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for NASA
+       Managers and Practitioners", NASA, 2011 (Monte Carlo and LHS uncertainty
+       propagation).
 """
 
 from __future__ import annotations
@@ -28,10 +46,11 @@ _SAMPLING_POLICY = 'exact_binary_affine_uniform_latent_strata_v1'
 
 
 class _FrozenValues(dict):
-    """Owned scalar mapping compatible with dataclasses.asdict and JSON.
+    """Owned scalar mapping compatible with ``dataclasses.asdict`` and JSON.
 
-    Normal mapping mutations are disabled, including reinitialization. Like a
-    frozen dataclass, this is an ownership contract, not a hostile-code sandbox.
+    Mutating mapping methods raise ``TypeError`` and reinitialization through
+    ``__init__`` leaves the contents unchanged. Like a frozen dataclass, this is an
+    ownership contract, not a sandbox against deliberately hostile code.
     """
     __slots__ = ()
 
@@ -49,6 +68,7 @@ class _FrozenValues(dict):
     __setitem__ = __delitem__ = clear = pop = popitem = setdefault = update = __ior__ = _immutable
 
     def copy(self):
+        """Return this mapping itself; it is immutable, so no copy is needed."""
         return self
 
     def __deepcopy__(self, memo):
@@ -59,6 +79,24 @@ class _FrozenValues(dict):
 
 
 def _owned_values(value, label):
+    """Return an immutable copy of a mapping of names to finite reals.
+
+    Parameters
+    ----------
+    value : Mapping
+        Candidate name-to-value mapping.
+    label : str
+        Label used in errors.
+
+    Returns
+    -------
+    _FrozenValues
+
+    Raises
+    ------
+    DomainError
+        If ``value`` is not a mapping or a value is not a finite real.
+    """
     if not isinstance(value, Mapping):
         raise DomainError(f'{label} must be a mapping.', field=label)
     return _FrozenValues(real_mapping(value, label))
@@ -66,6 +104,26 @@ def _owned_values(value, label):
 
 @dataclass(frozen=True, slots=True)
 class ParameterRange:
+    """Closed bounds of one uniformly sampled study parameter.
+
+    Attributes
+    ----------
+    name : str
+        Parameter name, used as the sample mapping key.
+    minimum, maximum : float
+        Finite bounds with ``minimum < maximum``.
+
+    Raises
+    ------
+    DomainError
+        If the name is empty or the bounds are not finite and ordered.
+
+    References
+    ----------
+    .. [1] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for NASA
+           Managers and Practitioners", NASA, 2011 (Monte Carlo and LHS uncertainty
+           propagation).
+    """
     name: str
     minimum: float
     maximum: float
@@ -80,6 +138,20 @@ class ParameterRange:
 
 @dataclass(frozen=True, slots=True)
 class SweepPoint:
+    """One evaluated study point.
+
+    Attributes
+    ----------
+    inputs : Mapping of str to float
+        Immutable input values passed to the evaluator.
+    output : float
+        Finite evaluator output.
+
+    Raises
+    ------
+    DomainError
+        If an input or the output is not a finite real.
+    """
     inputs: Mapping[str, float]
     output: float
 
@@ -90,6 +162,38 @@ class SweepPoint:
 
 @dataclass(frozen=True, slots=True)
 class SensitivityRecord:
+    """Pearson correlation of one parameter with the study output and its rank.
+
+    Attributes
+    ----------
+    parameter : str
+        Parameter name.
+    correlation : float or None
+        Pearson coefficient in [-1, 1] [1]_; None when undefined because the input
+        or the output is constant [2]_.
+    absolute_correlation : float or None
+        abs(correlation), or None when undefined.
+    rank : int or None
+        1 for the largest magnitude; None when undefined.
+    undefined_reason : str or None
+        ``'constant_input_or_output'`` exactly when the coefficient is undefined.
+
+    Raises
+    ------
+    DomainError
+        If the fields are inconsistent.
+
+    Notes
+    -----
+    Pearson is a linear screening coefficient, not a global sensitivity measure.
+
+    References
+    ----------
+    .. [1] NIST-PEARSON. NIST Dataplot reference manual, "Correlation": centered-product
+           (Pearson) correlation definition.
+    .. [2] SCIPY-1.14.1-PEARSON. SciPy 1.14.1, scipy.stats.pearsonr: Pearson coefficient
+           and its undefined value for constant input.
+    """
     parameter: str
     correlation: float | None
     absolute_correlation: float | None
@@ -116,6 +220,59 @@ class SensitivityRecord:
 
 @dataclass(frozen=True, slots=True)
 class UncertaintyResult:
+    """Sampled uncertainty study, replayable from its retained samples.
+
+    On construction the record validates the method, controls and parameter ranges,
+    checks that every sample lies inside the ranges, recomputes the summaries and
+    sensitivities from the samples and refuses any value they do not reproduce.
+
+    Attributes
+    ----------
+    method : {'latin-hypercube', 'monte-carlo'}
+        Sampling design [1]_ [2]_.
+    seed : int
+        Seed of the pseudo-random generator.
+    sample_count : int
+        Number of samples, in [2, 100000].
+    samples : tuple of SweepPoint
+        Evaluated samples.
+    output_mean : float
+        Sample mean of the outputs [3]_.
+    output_standard_deviation : float
+        Sample standard deviation with the n - 1 divisor [3]_.
+    output_percentiles : Mapping of str to float
+        ``'p05'``, ``'p50'`` and ``'p95'`` linear sample quantiles [4]_.
+    sensitivity : tuple of SensitivityRecord
+        Pearson records ranked by magnitude; undefined records last [5]_.
+    parameters : tuple of ParameterRange
+        Sampled parameter ranges.
+    sampling_numerics, summary_numerics : str
+        Identifiers of the sampling and summary arithmetic policies.
+    warnings : tuple of str
+        Method-scope warnings; derived from ``method`` when empty.
+
+    Raises
+    ------
+    DomainError
+        If a control or range is invalid, a sample lies outside its range, or a
+        summary, sensitivity or warning does not reproduce.
+
+    References
+    ----------
+    .. [1] MCKAY-1979. M. D. McKay, R. J. Beckman and W. J. Conover, "A Comparison of
+           Three Methods for Selecting Values of Input Variables in the Analysis of
+           Output from a Computer Code", Technometrics 21(2), 239-245, 1979.
+    .. [2] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for NASA
+           Managers and Practitioners", NASA, 2011 (Monte Carlo and LHS uncertainty
+           propagation).
+    .. [3] NIST TN 1297, "Guidelines for Evaluating and Expressing the Uncertainty of
+           NIST Measurement Results", 1994 (Type A evaluation: sample mean and standard
+           deviation).
+    .. [4] NUMPY-2.2-LINEAR-QUANTILE. NumPy 2.2, numpy.quantile: linear (Hyndman-Fan
+           type 7) sample quantile definition.
+    .. [5] NIST-PEARSON. NIST Dataplot reference manual, "Correlation": centered-product
+           (Pearson) correlation definition.
+    """
     method: str
     seed: int
     sample_count: int
@@ -165,6 +322,21 @@ class UncertaintyResult:
 
 
 def _validate_ranges(parameters):
+    """Return parameter ranges as a non-empty tuple with unique names.
+
+    Parameters
+    ----------
+    parameters : iterable of ParameterRange
+
+    Returns
+    -------
+    tuple of ParameterRange
+
+    Raises
+    ------
+    DomainError
+        If the collection is empty, has a wrong type or duplicate names.
+    """
     parameters = records(parameters, ParameterRange, 'Parameter ranges')
     if not parameters or len({p.name for p in parameters}) != len(parameters):
         raise DomainError('Parameter ranges must be nonempty with unique names.', field='Parameter ranges')
@@ -172,6 +344,26 @@ def _validate_ranges(parameters):
 
 
 def _count(value, maximum, label):
+    """Return an integer count in ``[2, maximum]``.
+
+    Parameters
+    ----------
+    value : int
+        Candidate count.
+    maximum : int
+        Upper limit.
+    label : str
+        Label used in errors.
+
+    Returns
+    -------
+    int
+
+    Raises
+    ------
+    DomainError
+        If ``value`` is not an integer in range.
+    """
     value = integer(value, label)
     if not 2 <= value <= maximum:
         raise DomainError(f'{label} must be between 2 and {maximum}.', field=label)
@@ -179,10 +371,45 @@ def _count(value, maximum, label):
 
 
 def _controls(sample_count, seed):
+    """Return the validated ``(sample_count, seed)`` pair.
+
+    Parameters
+    ----------
+    sample_count : int
+        Number of samples, in [2, 100000].
+    seed : int
+        Integer seed.
+
+    Returns
+    -------
+    tuple of int
+
+    Raises
+    ------
+    DomainError
+        If either value is invalid.
+    """
     return _count(sample_count, 100000, 'Sample count'), integer(seed, 'Seed')
 
 
 def _method(value):
+    """Return the normalized sampling method name.
+
+    Parameters
+    ----------
+    value : str
+        ``'latin-hypercube'`` or ``'monte-carlo'``; case and surrounding whitespace
+        are ignored.
+
+    Returns
+    -------
+    str
+
+    Raises
+    ------
+    DomainError
+        If the method is unknown.
+    """
     value = text(value, 'Uncertainty method').strip().lower()
     if value not in ('latin-hypercube', 'monte-carlo'):
         raise DomainError('Uncertainty method must be latin-hypercube or monte-carlo.', field='Uncertainty method')
@@ -192,13 +419,63 @@ def _method(value):
 def _affine(parameter, probability):
     # A convex combination cannot overflow its finite bounds. Round once; an
     # adjacent-to-zero grid cell may legitimately round a nonzero draw to zero.
+    """Map a probability in [0, 1] onto the parameter bounds, rounding once.
+
+    The convex combination (1 - p) * minimum + p * maximum is evaluated exactly and
+    cannot overflow its finite bounds. Near zero, a nonzero draw may legitimately
+    round to zero.
+
+    Parameters
+    ----------
+    parameter : ParameterRange
+    probability : Fraction
+
+    Returns
+    -------
+    float
+    """
     return float((1-probability)*Fraction(parameter.minimum)+probability*Fraction(parameter.maximum))
 
 
 def latin_hypercube_samples(
     parameters: tuple[ParameterRange, ...], *, sample_count: int, seed: int
 ) -> tuple[Mapping[str, float], ...]:
-    """Generate one random-jitter LHS, with exact latent half-open strata."""
+    """Generate one Latin hypercube design with random jitter inside each stratum.
+
+    Each parameter's range is divided into ``sample_count`` equal-probability
+    half-open latent strata; one uniform point is drawn in every stratum and the
+    column is randomly permuted [1]_.
+
+    Parameters
+    ----------
+    parameters : tuple of ParameterRange
+        Non-empty ranges with unique names.
+    sample_count : int
+        Number of samples, in [2, 100000].
+    seed : int
+        Seed of the pseudo-random generator.
+
+    Returns
+    -------
+    tuple of Mapping
+        One immutable name-to-value mapping per sample.
+
+    Raises
+    ------
+    DomainError
+        If a range, the count or the seed is invalid.
+
+    Notes
+    -----
+    LHS rows are dependent, so independent-sample standard-error formulas are not
+    qualified for this design.
+
+    References
+    ----------
+    .. [1] MCKAY-1979. M. D. McKay, R. J. Beckman and W. J. Conover, "A Comparison of
+           Three Methods for Selecting Values of Input Variables in the Analysis of
+           Output from a Computer Code", Technometrics 21(2), 239-245, 1979.
+    """
     parameters = _validate_ranges(parameters)
     sample_count, seed = _controls(sample_count, seed)
     random = Random(seed)
@@ -215,7 +492,37 @@ def latin_hypercube_samples(
 def monte_carlo_samples(
     parameters: tuple[ParameterRange, ...], *, sample_count: int, seed: int
 ) -> tuple[Mapping[str, float], ...]:
-    """Generate seeded uniform draws over the declared finite bounds."""
+    """Generate seeded independent uniform draws over the declared bounds.
+
+    Parameters
+    ----------
+    parameters : tuple of ParameterRange
+        Non-empty ranges with unique names.
+    sample_count : int
+        Number of samples, in [2, 100000].
+    seed : int
+        Seed of the pseudo-random generator.
+
+    Returns
+    -------
+    tuple of Mapping
+        One immutable name-to-value mapping per sample.
+
+    Raises
+    ------
+    DomainError
+        If a range, the count or the seed is invalid.
+
+    Notes
+    -----
+    Simple random (Monte Carlo) sampling of the input ranges [1]_.
+
+    References
+    ----------
+    .. [1] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for NASA
+           Managers and Practitioners", NASA, 2011 (Monte Carlo and LHS uncertainty
+           propagation).
+    """
     parameters = _validate_ranges(parameters)
     sample_count, seed = _controls(sample_count, seed)
     random = Random(seed)
@@ -224,6 +531,13 @@ def monte_carlo_samples(
 
 
 def _evaluator(value):
+    """Return ``value`` if it is callable.
+
+    Raises
+    ------
+    DomainError
+        If ``value`` is not callable.
+    """
     if not callable(value):
         raise DomainError('Evaluator must be callable.', field='Evaluator')
     return value
@@ -234,7 +548,29 @@ def parameter_sweep(
     evaluator: Callable[[Mapping[str, float]], float],
     fixed_inputs: Mapping[str, float] | None = None,
 ) -> tuple[SweepPoint, ...]:
-    """Evaluate an inclusive sweep; the swept parameter overrides its fixed value."""
+    """Evaluate a model at evenly spaced points of one parameter, endpoints included.
+
+    Parameters
+    ----------
+    parameter : ParameterRange
+        Swept parameter.
+    point_count : int
+        Number of points, in [2, 10000].
+    evaluator : callable
+        ``evaluator(inputs) -> float`` called with an immutable input mapping.
+    fixed_inputs : Mapping of str to float, optional
+        Other inputs held constant; the swept parameter overrides a fixed value of
+        the same name.
+
+    Returns
+    -------
+    tuple of SweepPoint
+
+    Raises
+    ------
+    DomainError
+        If an argument is invalid or the evaluator returns a non-finite value.
+    """
     parameter, = _validate_ranges((parameter,))
     point_count = _count(point_count, 10000, 'Point count')
     evaluator = _evaluator(evaluator)
@@ -247,14 +583,50 @@ def parameter_sweep(
 
 
 def _percentile(sorted_values, probability):
+    """Return the linear sample quantile of ``sorted_values`` at ``probability``.
+
+    References
+    ----------
+    .. [1] NUMPY-2.2-LINEAR-QUANTILE. NumPy 2.2, numpy.quantile: linear (Hyndman-Fan
+           type 7) sample quantile definition.
+    """
     return _linear_quantile(sorted_values, probability)
 
 
 def _correlation(left, right):
+    """Return the Pearson correlation of two samples, or None when undefined.
+
+    References
+    ----------
+    .. [1] NIST-PEARSON. NIST Dataplot reference manual, "Correlation": centered-product
+           (Pearson) correlation definition.
+    .. [2] SCIPY-1.14.1-PEARSON. SciPy 1.14.1, scipy.stats.pearsonr: Pearson coefficient
+           and its undefined value for constant input.
+    """
     return _pearson(left, right)
 
 
 def _summaries(samples):
+    """Return the output mean, sample standard deviation and 5/50/95 % quantiles.
+
+    Parameters
+    ----------
+    samples : tuple of SweepPoint
+
+    Returns
+    -------
+    tuple
+        ``(mean, standard_deviation, percentiles)``; the deviation uses the n - 1
+        divisor [1]_ and the quantiles the linear definition [2]_.
+
+    References
+    ----------
+    .. [1] NIST TN 1297, "Guidelines for Evaluating and Expressing the Uncertainty of
+           NIST Measurement Results", 1994 (Type A evaluation: sample mean and standard
+           deviation).
+    .. [2] NUMPY-2.2-LINEAR-QUANTILE. NumPy 2.2, numpy.quantile: linear (Hyndman-Fan
+           type 7) sample quantile definition.
+    """
     outputs = tuple(sample.output for sample in samples)
     ledger = _sample_ledger(outputs)
     return (_finite_rational(ledger.mean, 'Output mean'),
@@ -264,6 +636,27 @@ def _summaries(samples):
 
 
 def _sensitivities(parameters, samples):
+    """Return Pearson sensitivity records ranked by decreasing magnitude.
+
+    Ties keep the declared parameter order. Undefined coefficients follow all defined
+    ones, including a defined zero, and carry no rank.
+
+    Parameters
+    ----------
+    parameters : tuple of ParameterRange
+    samples : tuple of SweepPoint
+
+    Returns
+    -------
+    tuple of SensitivityRecord
+
+    References
+    ----------
+    .. [1] NIST-PEARSON. NIST Dataplot reference manual, "Correlation": centered-product
+           (Pearson) correlation definition.
+    .. [2] SCIPY-1.14.1-PEARSON. SciPy 1.14.1, scipy.stats.pearsonr: Pearson coefficient
+           and its undefined value for constant input.
+    """
     outputs = tuple(sample.output for sample in samples)
     correlations = [(parameter.name, _correlation(tuple(point.inputs[parameter.name] for point in samples), outputs))
                     for parameter in parameters]
@@ -277,6 +670,17 @@ def _sensitivities(parameters, samples):
 
 
 def _warnings(method):
+    """Return the scope warnings for the given sampling method.
+
+    Parameters
+    ----------
+    method : str
+        Normalized method name.
+
+    Returns
+    -------
+    tuple of str
+    """
     common = ('Empirical sample moments and percentiles do not establish confidence coverage or physical validation.',
               'Pearson is a linear screening coefficient, not a global sensitivity measure; constant vectors are undefined.')
     return common + (('LHS rows are dependent; IID standard-error formulas are not qualified for this design.',)
@@ -287,7 +691,54 @@ def propagate_uncertainty(
     parameters: tuple[ParameterRange, ...], *, evaluator: Callable[[Mapping[str, float]], float],
     sample_count: int = 200, seed: int = 42, method: str = 'latin-hypercube',
 ) -> UncertaintyResult:
-    """Evaluate owned samples and rank defined linear Pearson sensitivities."""
+    """Propagate uniform input ranges through a model by sampling.
+
+    Parameters
+    ----------
+    parameters : tuple of ParameterRange
+        Non-empty ranges with unique names.
+    evaluator : callable
+        ``evaluator(inputs) -> float`` called with an immutable input mapping.
+    sample_count : int, default 200
+        Number of samples, in [2, 100000].
+    seed : int, default 42
+        Seed of the pseudo-random generator.
+    method : {'latin-hypercube', 'monte-carlo'}, default 'latin-hypercube'
+        Sampling design [1]_ [2]_.
+
+    Returns
+    -------
+    UncertaintyResult
+        Samples, empirical mean, standard deviation and percentiles [3]_ [4]_, and
+        ranked Pearson sensitivities [5]_.
+
+    Raises
+    ------
+    DomainError
+        If an argument is invalid or the evaluator returns a non-finite value.
+
+    Notes
+    -----
+    Empirical moments and percentiles do not establish confidence coverage or
+    physical validation. Pearson is a linear screening coefficient, not a global
+    sensitivity measure, and is undefined for constant vectors.
+
+    References
+    ----------
+    .. [1] MCKAY-1979. M. D. McKay, R. J. Beckman and W. J. Conover, "A Comparison of
+           Three Methods for Selecting Values of Input Variables in the Analysis of
+           Output from a Computer Code", Technometrics 21(2), 239-245, 1979.
+    .. [2] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for NASA
+           Managers and Practitioners", NASA, 2011 (Monte Carlo and LHS uncertainty
+           propagation).
+    .. [3] NIST TN 1297, "Guidelines for Evaluating and Expressing the Uncertainty of
+           NIST Measurement Results", 1994 (Type A evaluation: sample mean and standard
+           deviation).
+    .. [4] NUMPY-2.2-LINEAR-QUANTILE. NumPy 2.2, numpy.quantile: linear (Hyndman-Fan
+           type 7) sample quantile definition.
+    .. [5] NIST-PEARSON. NIST Dataplot reference manual, "Correlation": centered-product
+           (Pearson) correlation definition.
+    """
     parameters = _validate_ranges(parameters)
     sample_count, seed = _controls(sample_count, seed)
     method = _method(method)

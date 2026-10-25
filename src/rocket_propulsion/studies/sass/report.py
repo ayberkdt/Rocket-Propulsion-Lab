@@ -2,7 +2,8 @@
 
 References
 ----------
-NASA-SE-APP: Trade Study Report, computational results, selection rule and data sources.
+.. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Trade Study
+       Report, computational results, selection rule and data sources.
 """
 
 from __future__ import annotations
@@ -20,7 +21,8 @@ def _citations(value: CitedScalar) -> str:
 
     References
     ----------
-    NASA-SE-APP: definitive evidence sources in a technical study.
+    .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; definitive
+           evidence sources in a technical study.
     """
     return "; ".join(
         f'<a href="#ref-{escape(c.source_id)}" title="{escape(c.locator, quote=True)}">'
@@ -33,7 +35,8 @@ def _analysis_table(result: AnalysisResult) -> str:
 
     References
     ----------
-    NASA-SE-APP: Trade Study Report, models, assumptions and computational results.
+    .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Trade Study
+           Report, models, assumptions and computational results.
     """
     rows = []
     for name, q in result.values:
@@ -47,15 +50,32 @@ def _analysis_table(result: AnalysisResult) -> str:
 
 
 def build_project_html(study: ProjectStudy) -> str:
-    """Produce an offline report including inputs, incomplete candidates and bibliography.
+    """Produce a self-contained offline HTML report of a project study.
 
-    All scientific values come from stored result objects. The embedded JSON
-    snapshot escapes HTML delimiters so hostile input cannot terminate it.
+    Parameters
+    ----------
+    study : ProjectStudy
+        Completed study.
+
+    Returns
+    -------
+    str
+        HTML document with the delta-v allocation, trade matrix, per-candidate
+        budgets and screens, bibliography, inputs and an embedded JSON snapshot.
+
+    Notes
+    -----
+    All values come from stored result objects; nothing is recalculated. The embedded
+    JSON escapes ``<`` so input text cannot terminate the script element. The report
+    keeps all alternatives, sources and the selection rule [1]_ and the decision
+    rationale and uncertainties [2]_.
 
     References
     ----------
-    NASA-SE-APP: Trade Study Report, all alternatives, sources and selection rule.
-    NASA-SE-6: 6.8.1.2.6, retain decision rationale and uncertainties.
+    .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Trade Study
+           Report, all alternatives, sources and selection rule.
+    .. [2] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; 6.8.1.2.6, retain decision rationale and uncertainties.
     """
     document = study.to_dict()
     sections = ["<h2>Mission delta-v allocation</h2>", _analysis_table(study.budget)]

@@ -2,9 +2,12 @@
 
 References
 ----------
-NASA-ROCKET: inverse ideal rocket equation.
-NASA-ISP: thrust/flow/impulse identities.
-NASA-SE-6: analyst-defined margins, constraints and subsystem interfaces.
+.. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation"; inverse
+       ideal rocket equation.
+.. [2] NASA-ISP. NASA Glenn Research Center, "Specific Impulse"; thrust/flow/impulse
+       identities.
+.. [3] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+       Management"; analyst-defined margins, constraints and subsystem interfaces.
 """
 
 from __future__ import annotations
@@ -23,11 +26,33 @@ from .power_numerics import solve_power_budget
 
 @dataclass(frozen=True, slots=True)
 class DeltaVItem:
-    """A maneuver allocation, explicit margin and occurrence count.
+    """One maneuver allocation with an explicit margin and occurrence count.
+
+    Attributes
+    ----------
+    name : str
+        Unique allocation name.
+    nominal_delta_v : CitedScalar
+        Nominal delta-v per occurrence, m/s; non-negative.
+    margin_fraction : CitedScalar
+        Analyst-chosen margin as a fraction of the nominal value; non-negative.
+    count : int, default 1
+        Number of occurrences; positive.
+
+    Raises
+    ------
+    DomainError
+        If a field is missing, has the wrong unit, or is out of domain.
+
+    Notes
+    -----
+    Allocations and margins are explicit project inputs [1]_; no default margin is
+    supplied.
 
     References
     ----------
-    NASA-SE-6: sections 6.2 and 6.8, allocated requirements and assumptions.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; sections 6.2 and 6.8, allocated requirements and assumptions.
     """
 
     name: str
@@ -40,7 +65,8 @@ class DeltaVItem:
 
         References
         ----------
-        NASA-SE-6: sections 6.2 and 6.8, controlled requirements and margins.
+        .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+               Management"; sections 6.2 and 6.8, controlled requirements and margins.
         """
         text(self.name, "maneuver name")
         quantity(self.nominal_delta_v, "m/s", minimum=0)
@@ -53,13 +79,35 @@ class DeltaVItem:
 
 
 def delta_v_budget(items: tuple[DeltaVItem, ...]) -> AnalysisResult:
-    """Sum count*nominal and count*nominal*(1+margin); do not add margin twice.
+    """Sum a delta-v allocation without applying any margin twice.
 
-    Margin is a project choice, not a fixed percentage prescribed by NASA.
+    Parameters
+    ----------
+    items : tuple of DeltaVItem
+        Non-empty, uniquely named allocations.
+
+    Returns
+    -------
+    AnalysisResult
+        ``nominal_delta_v`` = sum(count * nominal), ``allocated_delta_v`` =
+        sum(count * nominal * (1 + margin)) and one margined entry per item, m/s.
+
+    Raises
+    ------
+    DomainError
+        If the collection is empty, of the wrong type, or has duplicate names.
+
+    Notes
+    -----
+    The margin is a project choice [1]_, not a fixed percentage prescribed by NASA.
+    Allocations are inputs, not a computed station-keeping or collision-avoidance
+    history.
 
     References
     ----------
-    NASA-SE-6: sections 6.2 and 6.8, allocated budgets and explicit assumptions.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; sections 6.2 and 6.8, allocated budgets and explicit
+           assumptions.
     """
     entries = records(items, DeltaVItem, "delta-v items")
     if not entries or len({x.name for x in entries}) != len(entries):
@@ -79,15 +127,41 @@ def delta_v_budget(items: tuple[DeltaVItem, ...]) -> AnalysisResult:
 
 @dataclass(frozen=True, slots=True)
 class Maneuver:
-    """One executed ideal burn with explicit system performance and duty fraction.
+    """One executed ideal burn at a constant system operating point.
 
-    ``scalar_thrust`` and ``system_isp`` refer to the same operating point.
-    ``axial_efficiency`` reduces useful force only; tank flow remains unchanged.
+    Attributes
+    ----------
+    name : str
+        Unique maneuver name.
+    delta_v : CitedScalar
+        Useful (axial) delta-v of the burn, m/s; non-negative.
+    scalar_thrust : CitedScalar
+        Total scalar thrust of the simultaneously firing thrusters, N; positive.
+    system_isp : CitedScalar
+        Total-system specific impulse at the same operating point, s; positive.
+    axial_efficiency : CitedScalar
+        Fraction of scalar thrust acting along the velocity change, in (0, 1].
+        It reduces useful force only; tank mass flow is unchanged.
+    duty_fraction : CitedScalar
+        On-time divided by elapsed time, in (0, 1].
+
+    Raises
+    ------
+    DomainError
+        If a field is out of domain or the derived exhaust velocity or mass flow is
+        not a positive finite number.
+
+    Notes
+    -----
+    Mass flow mdot = F / (g0 * Isp) [1]_; the useful acceleration is
+    eta_axial * F / m [2]_.
 
     References
     ----------
-    NASA-ISP: system Isp from total exhaust flow.
-    MIT-522-L5: equation (19), useful force/vehicle mass.
+    .. [1] NASA-ISP. NASA Glenn Research Center, "Specific Impulse"; system Isp from
+           total exhaust flow.
+    .. [2] MIT-522-L5. MIT OCW, "16.522 Session 5: Review of Classical Astrodynamics";
+           equation (19), useful force/vehicle mass.
     """
 
     name: str
@@ -102,7 +176,10 @@ class Maneuver:
 
         References
         ----------
-        NASA-ISP: positive thrust and Isp; NASA-SE-6: explicit operational inputs.
+        .. [1] NASA-ISP. NASA Glenn Research Center, "Specific Impulse"; positive thrust and
+               Isp.
+        .. [2] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+               Management"; explicit operational inputs.
         """
         text(self.name, "maneuver name")
         quantity(self.delta_v, "m/s", minimum=0)
@@ -122,12 +199,30 @@ class Maneuver:
 
 @dataclass(frozen=True, slots=True)
 class MissionSizing:
-    """Summary and ordered mass history; dry mass includes all dry hardware.
+    """Mission mass summary and the ordered per-burn mass history.
+
+    Attributes
+    ----------
+    summary : AnalysisResult
+        Dry, wet, loaded, consumed, retained and final mass, total delta-v,
+        impulse, on-time, elapsed time and closure residuals.
+    burns : tuple of (str, AnalysisResult)
+        Per-burn ledgers in execution order.
+    numerical_evidence : tuple of (str, str)
+        Decimal working-precision diagnostics of the mass closure.
+
+    Notes
+    -----
+    Dry mass includes all dry hardware; burns follow the sequential rocket-equation
+    mass ratios [1]_. Results and limitations are preserved for the trade report
+    [2]_.
 
     References
     ----------
-    NASA-ROCKET: sequential rocket-equation mass ratios.
-    NASA-SE-APP: preserve computational results and limitations in trade reports.
+    .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation"; sequential
+           rocket-equation mass ratios.
+    .. [2] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; preserve
+           computational results and limitations in trade reports.
     """
 
     summary: AnalysisResult
@@ -139,7 +234,8 @@ class MissionSizing:
 
         References
         ----------
-        NASA-SE-APP: Trade Study Report, results and all data sources.
+        .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Trade Study
+               Report, results and all data sources.
         """
         return {"summary": self.summary.to_dict(), "numerics": dict(self.numerical_evidence),
                 "burns": [{"name": name, **value.to_dict()} for name, value in self.burns]}
@@ -147,22 +243,55 @@ class MissionSizing:
 
 def size_mission(dry_mass: CitedScalar, maneuvers: tuple[Maneuver, ...], *,
                  residual_fraction: CitedScalar, fixed_reserve: CitedScalar) -> MissionSizing:
-    """Close wet mass when residual is a fraction of LOADED propellant.
+    """Close the wet mass when the residual is a fraction of LOADED propellant.
 
-    For S=sum(dv/(g0 Isp axial_efficiency)), A=exp(S), loaded propellant is
-    [dry*(A-1) + A*fixed_reserve] / (1-A*residual_fraction). Final retained
-    propellant is residual_fraction*loaded + fixed_reserve. This algebraic
-    rearrangement is derived here from the cited rocket equation; neither the
-    residual fraction nor the fixed reserve is prescribed by the source.
-    Evaluation uses the equivalent inverse-ratio form with isolated Decimal
-    precision, separate total/propellant closure and two-precision agreement.
+    Parameters
+    ----------
+    dry_mass : CitedScalar
+        Spacecraft dry mass including thrusters, tanks, pressurant hardware and all
+        other dry hardware, kg; positive.
+    maneuvers : tuple of Maneuver
+        Non-empty, uniquely named burns in execution order.
+    residual_fraction : CitedScalar
+        Unusable residual as a fraction of loaded propellant, in [0, 1).
+    fixed_reserve : CitedScalar
+        Additional retained propellant reserve, kg; non-negative.
+
+    Returns
+    -------
+    MissionSizing
+        Mission summary, per-burn ledgers and numerical closure evidence.
+
+    Raises
+    ------
+    DomainError
+        If an input is out of domain, no finite wet mass closes the residual and
+        delta-v, an output is not representable, or the closure does not resolve
+        within the decimal precision budget.
+
+    Notes
+    -----
+    For S = sum(dv / (g0 * Isp * eta_axial)) and A = exp(S), the loaded propellant is
+    [dry * (A - 1) + A * fixed_reserve] / (1 - A * residual_fraction) and the final
+    retained propellant is residual_fraction * loaded + fixed_reserve. This algebraic
+    rearrangement of the rocket equation [1]_ is derived in this module; neither the
+    residual fraction nor the fixed reserve is prescribed by the source. Flow and
+    on-time follow mdot = F / (g0 * Isp) and t_on = m_consumed / mdot [2]_. Evaluation
+    uses the equivalent inverse-ratio form with isolated Decimal precision, separate
+    total and propellant closure and agreement at two precisions; g0 is the
+    registered conventional standard gravity [3]_. Margins and allocations are
+    project assumptions [4]_.
 
     References
     ----------
-    NASA-ROCKET: inverse mass ratio, applied to each ordered burn.
-    NASA-ISP: mdot=F/(g0 Isp), on-time=consumed/mdot.
-    NASA-SE-6: section 6.8, project assumptions and resource allocations.
-    BIPM-SI: conventional standard gravity from core.constants.
+    .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation"; inverse
+           mass ratio, applied to each ordered burn.
+    .. [2] NASA-ISP. NASA Glenn Research Center, "Specific Impulse"; mdot=F/(g0 Isp),
+           on-time=consumed/mdot.
+    .. [3] BIPM-SI. BIPM, "SI Brochure, 9th edition"; conventional standard gravity from
+           core.constants.
+    .. [4] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; section 6.8, project assumptions and resource allocations.
     """
     dry = quantity(dry_mass, "kg", strictly_positive=True)
     residual = quantity(residual_fraction, "1", minimum=0)
@@ -197,11 +326,37 @@ def size_mission(dry_mass: CitedScalar, maneuvers: tuple[Maneuver, ...], *,
 
 def bipropellant_split(total_propellant: CitedScalar, oxidizer_fuel_ratio: CitedScalar
                        ) -> AnalysisResult:
-    """Split total mass using m_ox/m_fuel=O/F and exact component mass closure.
+    """Split a total propellant mass into oxidizer and fuel at a constant mixture ratio.
+
+    Parameters
+    ----------
+    total_propellant : CitedScalar
+        Total propellant mass, kg; non-negative.
+    oxidizer_fuel_ratio : CitedScalar
+        Mixture ratio O/F = m_ox / m_fuel; positive.
+
+    Returns
+    -------
+    AnalysisResult
+        ``fuel_mass`` = m / (1 + O/F) and ``oxidizer_mass`` = m * O/F / (1 + O/F), kg.
+
+    Raises
+    ------
+    DomainError
+        If a quantity has the wrong unit or is out of domain.
+
+    Notes
+    -----
+    The mixture ratio is oxidizer over fuel [1]_ and the total propellant mass is the
+    sum of both components [2]_. A constant total-drain mixture ratio is assumed;
+    component residuals require separate allocations.
 
     References
     ----------
-    ARIANE-10N: mixture ratio is oxidizer/fuel; NASA-ISP: total propellant mass.
+    .. [1] ARIANE-10N. ArianeGroup, "10 N Bipropellant Thruster"; mixture ratio is
+           oxidizer/fuel.
+    .. [2] NASA-ISP. NASA Glenn Research Center, "Specific Impulse"; total propellant
+           mass.
     """
     total = quantity(total_propellant, "kg", minimum=0)
     ratio = quantity(oxidizer_fuel_ratio, "1", strictly_positive=True)
@@ -217,15 +372,48 @@ def bipropellant_split(total_propellant: CitedScalar, oxidizer_fuel_ratio: Cited
 def power_resources(firing_power: CitedScalar, on_time: CitedScalar, duty_fraction: CitedScalar,
                     standby_power: CitedScalar, warmup_power: CitedScalar,
                     warmup_time: CitedScalar) -> AnalysisResult:
-    """Compute E=P_fire*t_on+P_idle*(t_on/duty-t_on)+P_warm*t_warm.
+    """Compute propulsion bus energy over disjoint warm-up, firing and standby phases.
 
-    Warmup precedes firing. Input powers are complete bus loads in their own
-    phases: they must not already include another supplied phase's power.
+    Parameters
+    ----------
+    firing_power : CitedScalar
+        Complete bus load while firing, W; non-negative.
+    on_time : CitedScalar
+        Total on-time, s; non-negative.
+    duty_fraction : CitedScalar
+        On-time divided by firing-period elapsed time, in (0, 1].
+    standby_power : CitedScalar
+        Bus load during the off part of the duty cycle, W; non-negative.
+    warmup_power : CitedScalar
+        Bus load during warm-up, W; non-negative.
+    warmup_time : CitedScalar
+        Warm-up duration preceding firing, s; non-negative.
+
+    Returns
+    -------
+    AnalysisResult
+        ``energy`` (J), ``elapsed_time`` (s), ``peak_bus_power`` (W) and
+        ``average_bus_power`` (W).
+
+    Raises
+    ------
+    DomainError
+        If a quantity is out of domain or an output is not representable.
+
+    Notes
+    -----
+    E = P_fire * t_on + P_idle * (t_on / duty - t_on) + P_warm * t_warm, summing
+    energy over disjoint intervals with W = J/s [1]_. Each input power is the complete
+    bus load of its own phase and must not already include another phase. Solar
+    array, battery, PPU efficiency and thermal effects are outside this propulsion/EPS
+    interface budget [2]_.
 
     References
     ----------
-    BIPM-SI: watt=joule/second, energy integrated over disjoint intervals.
-    NASA-SE-6: section 6.3, propulsion/EPS resource interfaces.
+    .. [1] BIPM-SI. BIPM, "SI Brochure, 9th edition"; watt=joule/second, energy
+           integrated over disjoint intervals.
+    .. [2] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; section 6.3, propulsion/EPS resource interfaces.
     """
     p = quantity(firing_power, "W", minimum=0)
     t = quantity(on_time, "s", minimum=0)

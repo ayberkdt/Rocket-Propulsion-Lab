@@ -1,4 +1,4 @@
-"""Small numerical methods with explicit convergence evidence."""
+"""Small numerical methods that report explicit convergence evidence."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -8,7 +8,23 @@ from .errors import ConvergenceError, DomainError, InputError
 
 @dataclass(frozen=True, slots=True)
 class RootResult:
-    """Converged scalar root and the evidence used to accept it."""
+    """Accepted scalar root together with the evidence used to accept it.
+
+    Attributes
+    ----------
+    value : float
+        Accepted abscissa (the last bisection midpoint).
+    iterations : int
+        Number of function evaluations at midpoints.
+    residual : float
+        ``abs(function(value) - target)`` at the accepted point.
+    lower_bound, upper_bound : float
+        Bracket that contained ``value`` when it was accepted.
+    tolerance : float
+        Tolerance used in the acceptance test.
+    method : str
+        Name of the root-finding method.
+    """
 
     value: float
     iterations: int
@@ -28,7 +44,50 @@ def solve_bisect_monotonic(
     tolerance: float = 1.0e-12,
     max_iterations: int = 200,
 ) -> RootResult:
-    """Solve a bracketed monotonic scalar relation and report convergence."""
+    """Solve a bracketed monotonic scalar equation by bisection.
+
+    Parameters
+    ----------
+    function : callable
+        Continuous, monotonic (increasing or decreasing) function of one float.
+    target : float
+        Function value to reach.
+    lower, upper : float
+        Initial bracket; ``lower`` must be strictly smaller than ``upper``.
+    tolerance : float, optional
+        Acceptance tolerance, applied to the function residual and scaled by
+        ``max(1, abs(target))``.
+    max_iterations : int, optional
+        Maximum number of midpoint evaluations.
+
+    Returns
+    -------
+    RootResult
+        Accepted root, residual, final bracket and iteration count.
+
+    Raises
+    ------
+    InputError
+        If ``tolerance`` is not positive, ``max_iterations`` is below one or
+        the bracket is empty or reversed.
+    DomainError
+        If ``target`` lies outside the function values at the bracket ends,
+        widened by ``tolerance``.
+    ConvergenceError
+        If no midpoint satisfies the acceptance test within
+        ``max_iterations`` evaluations.
+
+    Notes
+    -----
+    At each step the bracket is halved and the half that still contains the
+    target is kept, using the sign of ``function(midpoint) - target`` and the
+    monotonic direction inferred from the end values. A midpoint is accepted
+    when ``abs(function(midpoint) - target) <= tolerance * max(1, abs(target))``.
+    The test is on the residual, not on the bracket width, so a flat function
+    can be accepted over a wide bracket. The method needs no derivatives and
+    stays predictable near sonic singularities, at the cost of linear
+    convergence.
+    """
 
     if tolerance <= 0.0:
         raise InputError("Tolerance must be greater than zero.", field="tolerance")
@@ -105,20 +164,37 @@ def bisect_monotonic(
 ) -> float:
     """Return ``x`` such that a monotonic ``function(x)`` equals ``target``.
 
-    The function may increase or decrease. The initial bounds must bracket the
-    target. Bisection is slower than Newton iteration but predictable near sonic
-    singularities and does not require analytical derivatives.
+    Convenience wrapper around :func:`solve_bisect_monotonic` that returns
+    only the accepted abscissa.
 
-    Args:
-        function: Continuous monotonic scalar function.
-        target: Desired function value.
-        lower: Lower search bound.
-        upper: Upper search bound.
-        tolerance: Relative/absolute convergence tolerance.
-        max_iterations: Hard iteration limit.
+    Parameters
+    ----------
+    function : callable
+        Continuous, monotonic (increasing or decreasing) scalar function.
+    target : float
+        Desired function value.
+    lower, upper : float
+        Initial bracket; it must contain the target.
+    tolerance : float, optional
+        Residual tolerance, scaled by ``max(1, abs(target))``.
+    max_iterations : int, optional
+        Maximum number of midpoint evaluations.
 
-    Raises:
-        DomainError: If the target is not bracketed or convergence fails.
+    Returns
+    -------
+    float
+        The accepted root.
+
+    Raises
+    ------
+    DomainError
+        If the arguments are invalid (:class:`InputError`), the target is not
+        bracketed, or bisection does not converge (:class:`ConvergenceError`);
+        all of these derive from :class:`DomainError`.
+
+    See Also
+    --------
+    solve_bisect_monotonic : Same solve, with convergence evidence.
     """
 
     return solve_bisect_monotonic(
@@ -129,4 +205,3 @@ def bisect_monotonic(
         tolerance=tolerance,
         max_iterations=max_iterations,
     ).value
-

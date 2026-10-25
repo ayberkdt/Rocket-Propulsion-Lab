@@ -1,8 +1,13 @@
-"""Small explicit SI conversion registry used at application boundaries.
+"""Explicit SI conversion registry used at application boundaries.
 
-The domain layer remains SI-only. These helpers are intended for request,
-display, import, and export adapters so unit conversion cannot leak into the
-physics equations.
+The domain layer is SI-only. These helpers serve request, display, import
+and export adapters, so that unit conversion never enters the physics
+equations.
+
+References
+----------
+.. [1] BIPM, "The International System of Units (SI Brochure)", 9th ed., 2019,
+       https://www.bipm.org/en/publications/si-brochure
 """
 
 from __future__ import annotations
@@ -16,7 +21,34 @@ from .errors import InputError
 
 @dataclass(frozen=True, slots=True)
 class UnitDefinition:
-    """Describe an affine conversion between a display unit and SI."""
+    """Affine conversion between one display unit and its SI unit.
+
+    Attributes
+    ----------
+    symbol : str
+        Display symbol, e.g. ``"kPa"`` or ``"degC"``.
+    quantity : str
+        Physical quantity, e.g. ``"pressure"``; conversions are only valid
+        between units of the same quantity.
+    scale_to_si : float
+        Multiplicative factor from the display unit to SI.
+    offset_to_si : float
+        Additive offset applied after scaling (non-zero only for
+        temperature scales with a shifted zero).
+    display_precision : int
+        Suggested number of significant digits for display.
+
+    Notes
+    -----
+    ``value_si = value * scale_to_si + offset_to_si``. The Celsius offset is
+    the registered constant ``CELSIUS_OFFSET_K`` defined by the SI
+    Brochure [1]_.
+
+    References
+    ----------
+    .. [1] BIPM, "The International System of Units (SI Brochure)", 9th ed.,
+           2019, https://www.bipm.org/en/publications/si-brochure
+    """
 
     symbol: str
     quantity: str
@@ -25,19 +57,52 @@ class UnitDefinition:
     display_precision: int = 6
 
     def to_si(self, value: float) -> float:
-        """Convert a finite value in this unit to the quantity's SI unit."""
+        """Convert a finite value in this unit to the quantity's SI unit.
+
+        Parameters
+        ----------
+        value : float
+            Finite value expressed in this unit.
+
+        Returns
+        -------
+        float
+            ``value * scale_to_si + offset_to_si``.
+
+        Raises
+        ------
+        InputError
+            If ``value`` is not finite.
+        """
 
         _finite(value)
         return value * self.scale_to_si + self.offset_to_si
 
     def from_si(self, value: float) -> float:
-        """Convert a finite SI value to this display unit."""
+        """Convert a finite SI value to this display unit.
+
+        Parameters
+        ----------
+        value : float
+            Finite value expressed in the SI unit of the quantity.
+
+        Returns
+        -------
+        float
+            ``(value - offset_to_si) / scale_to_si``.
+
+        Raises
+        ------
+        InputError
+            If ``value`` is not finite.
+        """
 
         _finite(value)
         return (value - self.offset_to_si) / self.scale_to_si
 
 
 def _finite(value: float) -> None:
+    """Raise :class:`InputError` unless ``value`` is a finite number."""
     if not isfinite(value):
         raise InputError("Unit conversion value must be finite.", field="value")
 
@@ -77,7 +142,27 @@ UNIT_REGISTRY = {definition.symbol: definition for definition in _UNITS}
 
 
 def get_unit(symbol: str, *, quantity: str | None = None) -> UnitDefinition:
-    """Return a unit definition, optionally verifying its physical quantity."""
+    """Return a registered unit, optionally checking its physical quantity.
+
+    Parameters
+    ----------
+    symbol : str
+        Registered unit symbol (a key of ``UNIT_REGISTRY``).
+    quantity : str, optional
+        Expected physical quantity; when given, a unit of another quantity
+        is refused.
+
+    Returns
+    -------
+    UnitDefinition
+        The registered definition.
+
+    Raises
+    ------
+    InputError
+        With code ``"unsupported_unit"`` if the symbol is not registered, or
+        ``"unit_quantity_mismatch"`` if it belongs to another quantity.
+    """
 
     try:
         definition = UNIT_REGISTRY[symbol]
@@ -99,12 +184,54 @@ def get_unit(symbol: str, *, quantity: str | None = None) -> UnitDefinition:
 
 
 def to_si(value: float, symbol: str, *, quantity: str | None = None) -> float:
-    """Convert a value from ``symbol`` to the registry's SI base unit."""
+    """Convert a value from the unit ``symbol`` to the registry's SI unit.
+
+    Parameters
+    ----------
+    value : float
+        Finite value expressed in ``symbol``.
+    symbol : str
+        Registered unit symbol.
+    quantity : str, optional
+        Expected physical quantity of ``symbol``.
+
+    Returns
+    -------
+    float
+        The value in SI units.
+
+    Raises
+    ------
+    InputError
+        If the unit is unknown, belongs to another quantity, or ``value`` is
+        not finite.
+    """
 
     return get_unit(symbol, quantity=quantity).to_si(value)
 
 
 def from_si(value: float, symbol: str, *, quantity: str | None = None) -> float:
-    """Convert a value from the registry's SI base unit to ``symbol``."""
+    """Convert a value from the registry's SI unit to the unit ``symbol``.
+
+    Parameters
+    ----------
+    value : float
+        Finite value in SI units.
+    symbol : str
+        Registered target unit symbol.
+    quantity : str, optional
+        Expected physical quantity of ``symbol``.
+
+    Returns
+    -------
+    float
+        The value expressed in ``symbol``.
+
+    Raises
+    ------
+    InputError
+        If the unit is unknown, belongs to another quantity, or ``value`` is
+        not finite.
+    """
 
     return get_unit(symbol, quantity=quantity).from_si(value)

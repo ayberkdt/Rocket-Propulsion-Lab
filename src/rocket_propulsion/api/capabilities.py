@@ -1,7 +1,14 @@
-"""A nonblocking, process-local snapshot of optional Sidera inspection.
+"""Nonblocking, process-local snapshot of the optional Sidera inspection.
 
-The synchronous integration inspector remains available to Python callers.
-HTTP clients see an explicit unknown state while the optional modules load.
+Python callers can call the synchronous inspector
+:func:`~rocket_propulsion.integrations.sidera.inspect_sidera_capabilities`
+directly. HTTP clients instead receive an explicit unknown state while the
+optional modules load in a background thread [1]_.
+
+References
+----------
+.. [1] Python 3.12, "threading - Thread-based parallelism" (Thread, Lock and
+       daemon semantics), https://docs.python.org/3.12/library/threading.html
 """
 
 from collections.abc import Callable
@@ -13,7 +20,11 @@ from rocket_propulsion.integrations.contracts import SideraCapabilities
 
 
 def _failed_probe(error: BaseException) -> SideraCapabilities:
-    """Represent an inspection failure without claiming any observed support."""
+    """Return an ``"incompatible"`` record with every capability flag false.
+
+    The reason names the exception type and message, so a failed inspection
+    never claims observed support.
+    """
     return SideraCapabilities(
         status="incompatible", version=None, finite_burn_available=False,
         maneuver_plan_available=False, constructor_compatible=False, supported_frames=(),
@@ -24,22 +35,43 @@ def _failed_probe(error: BaseException) -> SideraCapabilities:
 
 
 class SideraCapabilityProbe:
-    """Inspect once per process; pending flags remain unknown until completion.
+    """Run an inspector once per process and serve its result without blocking.
 
-    Installation/configuration changes require restarting the server. A hung
-    external import remains checking; requests never wait for its completion
-    or start replacement workers. The worker is daemonized for server shutdown.
+    Parameters
+    ----------
+    inspector : callable
+        Zero-argument function returning a :class:`SideraCapabilities`
+        record; it is called at most once, in a daemon worker thread.
+
+    Notes
+    -----
+    Until the worker finishes, capability flags are reported as unknown,
+    never as false. Installation or configuration changes take effect only
+    after a server restart. A hung external import stays in the checking
+    state: requests never wait for it and never start replacement workers.
+    The worker is a daemon thread so that it cannot block interpreter
+    shutdown [1]_.
+
+    References
+    ----------
+    .. [1] Python 3.12, "threading - Thread-based parallelism" (Thread, Lock and
+           daemon semantics), https://docs.python.org/3.12/library/threading.html
     """
 
     def __init__(self, inspector: Callable[[], SideraCapabilities]) -> None:
-        """Retain the inspector without importing optional native packages."""
+        """Store the inspector; no optional package is imported here."""
         self._inspector = inspector
         self._lock = Lock()
         self._started = False
         self._result: SideraCapabilities | None = None
 
     def _run(self) -> None:
-        """Publish one immutable result, failing closed on optional-package errors."""
+        """Run the inspector once and publish its result under the lock.
+
+        Any exception, including ``SystemExit`` raised in the worker, is
+        converted into a failed-inspection record, so a terminal result is
+        always published.
+        """
         try:
             result = self._inspector()
             if not isinstance(result, SideraCapabilities):
@@ -50,7 +82,24 @@ class SideraCapabilityProbe:
             self._result = result
 
     def snapshot(self) -> dict[str, Any]:
-        """Return immediately, without substituting false flags for pending evidence."""
+        """Return the current inspection state immediately.
+
+        The first call starts the worker thread. If the thread cannot be
+        started, the failure itself becomes the result.
+
+        Returns
+        -------
+        dict
+            The capability record plus ``probe_complete=True`` once the
+            inspection has finished; otherwise
+            ``{"status": "checking", "probe_complete": False, "reason": ...}``
+            with no capability flags.
+
+        References
+        ----------
+        .. [1] Python 3.12, "threading - Thread-based parallelism" (Thread, Lock and
+               daemon semantics), https://docs.python.org/3.12/library/threading.html
+        """
         with self._lock:
             if self._result is None and not self._started:
                 self._started = True

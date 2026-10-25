@@ -1,8 +1,26 @@
-"""Directed bounds for prescribed signed Bartz profiles and linear reconstruction.
+"""Directed numerical enclosures for prescribed signed Bartz profiles.
 
-Constants/exponents in the correlation are decimal rationals; geometry uses the
-declared fixed binary64 math.pi. Bounds concern this numerical model, not its
-physical error or the unsampled wall profile.
+The correlation coefficient and exponents of the Bartz relation [1]_ and the
+recovery convention [2]_ are evaluated as exact decimal rationals over exact
+binary64 inputs. Fractional powers use exact rational roots where they exist
+and otherwise directed logarithm/exponential bounds in decimal arithmetic
+[3]_, [4]_. Geometry uses the fixed binary64 value of ``math.pi``. Each
+exported float is accepted only when the lower and upper bounds round to the
+same value. The bounds concern this numerical model only, not its physical
+error or the unsampled wall profile.
+
+References
+----------
+.. [1] NASA-SP125-BARTZ-PAGES. NASA SP-125, "Design of Liquid Propellant Rocket
+       Engines", printed pp. 100-101, equations 4-10, 4-13 and 4-14,
+       https://ntrs.nasa.gov/api/citations/19710019929/downloads/19710019929.pdf
+.. [2] NASA-HOPPER-2012-THERMAL. Linne et al., AIAA 2012-0806, printed p. 8,
+       equations 1, 2 and 4,
+       https://ntrs.nasa.gov/api/citations/20120004103/downloads/20120004103.pdf
+.. [3] PYTHON-3.12-DECIMAL. Python 3.12, "decimal - Decimal fixed-point and
+       floating-point arithmetic", https://docs.python.org/3.12/library/decimal.html
+.. [4] PYTHON-3.12-FRACTION. Python 3.12, "fractions - Rational numbers",
+       https://docs.python.org/3.12/library/fractions.html
 """
 from decimal import Decimal
 from fractions import Fraction
@@ -26,6 +44,22 @@ _BARTZ_POLICY='rational_bartz_powers_directed_signed_profiles_linear_radius_flux
 
 @lru_cache(maxsize=4096)
 def _power(value, exponent, precision):
+    """Return a Decimal enclosure ``(lower, upper)`` of ``value ** exponent``.
+
+    ``value`` is a positive :class:`Fraction` and ``exponent`` a rational
+    :class:`Fraction` of either sign. When the integer roots of the
+    numerator and denominator required by the exponent's denominator are
+    exact, the power is evaluated exactly; otherwise
+    ``exp(exponent * ln(value))`` is bounded outward at ``precision`` digits
+    and the lower bound is clipped at zero.
+
+    References
+    ----------
+    .. [1] PYTHON-3.12-DECIMAL. Python 3.12, "decimal - Decimal fixed-point and
+           floating-point arithmetic", https://docs.python.org/3.12/library/decimal.html
+    .. [2] PYTHON-3.12-FRACTION. Python 3.12, "fractions - Rational numbers",
+           https://docs.python.org/3.12/library/fractions.html
+    """
     if value == 1 or exponent == 0:return Decimal(1),Decimal(1)
     math=_Intervals(precision)
     n,d=_integer_root(value.numerator,exponent.denominator),_integer_root(value.denominator,exponent.denominator)
@@ -37,6 +71,14 @@ def _power(value, exponent, precision):
 
 
 def _signed_output(evaluate,label):
+    """Return the unique binary64 value of a signed quantity from its enclosures.
+
+    ``evaluate(precision)`` returns Decimal bounds. Precision increases until
+    both bounds round to the same nonzero finite float, or both are exactly
+    zero. Results that are certainly outside the nonzero finite binary64
+    range raise :class:`DomainError`; an invalid enclosure or a value still
+    unresolved at the largest precision raises :class:`ConvergenceError`.
+    """
     for precision in _PRECISIONS:
         lower,upper=evaluate(precision)
         if not lower.is_finite() or not upper.is_finite() or lower>upper:
@@ -53,6 +95,27 @@ def _signed_output(evaluate,label):
 
 @lru_cache(maxsize=128)
 def _profile(inputs,precision):
+    """Return Decimal enclosures of every station quantity at one precision.
+
+    For each station the enclosures cover the adiabatic wall temperature,
+    the gas-side coefficient, the signed heat flux and the cumulative signed
+    heat. With ``C = 1 + (gamma - 1) M^2 / 2`` and
+    ``B = (Tw/Tc C + 1) / 2`` the coefficient is [1]_
+    ``h = 0.026 cp mu^(1/5) Pr^(-3/5) D^(-1/5) (Pc/c*)^(4/5) (D/Rc)^(1/10)``
+    ``Ar^(-9/10) B^(-17/25) C^(-3/25)``; the recovery temperature is
+    ``Taw = Tc (1 + Pr^(1/3) (C - 1)) / C`` and the flux ``q = h (Taw - Tw)``
+    [2]_. The segment heat is the exact integral of linearly reconstructed
+    flux and radius, ``pi L / 3 [(2 r0 + r1) q0 + (r0 + 2 r1) q1]``.
+
+    References
+    ----------
+    .. [1] NASA-SP125-BARTZ-PAGES. NASA SP-125, "Design of Liquid Propellant Rocket
+           Engines", printed pp. 100-101, equations 4-10, 4-13 and 4-14,
+           https://ntrs.nasa.gov/api/citations/19710019929/downloads/19710019929.pdf
+    .. [2] NASA-HOPPER-2012-THERMAL. Linne et al., AIAA 2012-0806, printed p. 8,
+           equations 1, 2 and 4,
+           https://ntrs.nasa.gov/api/citations/20120004103/downloads/20120004103.pdf
+    """
     math=_Intervals(precision);f=Fraction
     tc,tw=f(inputs.chamber_temperature_k),f(inputs.wall_temperature_k)
     pr=f(inputs.prandtl_number);diameter=2*f(inputs.contour.throat_radius_m)
@@ -95,6 +158,15 @@ def _profile(inputs,precision):
 
 
 def _peak_index(inputs):
+    """Return the index of the first station with the largest signed heat flux.
+
+    Comparisons use the unrounded enclosures, so ties in displayed values do
+    not decide the location. A station whose prescribed Mach number and area
+    ratio equal those of the current peak has the same flux and does not
+    replace it. An ordering
+    that stays unresolved at every precision raises
+    :class:`ConvergenceError`.
+    """
     peak=0
     for index in range(1,len(inputs.contour.stations)):
         a,b=inputs.contour.stations[index],inputs.contour.stations[peak]
@@ -111,6 +183,11 @@ def _peak_index(inputs):
 
 
 def _profile_exports(inputs):
+    """Return the exported station records, peak, total heat load and sign flag.
+
+    Every exported float is rounded independently from its own enclosure;
+    rounded values are never reused in dependent calculations.
+    """
     stations=[]
     for index,station in enumerate(inputs.contour.stations):
         record={'x_m': station.x_m,'radius_m': station.radius_m,'mach': station.mach}

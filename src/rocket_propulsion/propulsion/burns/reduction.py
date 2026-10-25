@@ -1,10 +1,17 @@
-"""Auditable equivalent-constant reductions for propulsion burn artifacts.
+"""Auditable equivalent-constant reductions of propulsion burn results.
+
+A variable-thrust burn is replaced by a constant burn with the same duration,
+total impulse and consumed propellant. Equivalent thrust is impulse divided by
+duration [1]_, and equivalent specific impulse is impulse divided by ``g0``
+times the consumed propellant mass [2]_. Residuals of the reconstruction and
+measures of profile nonuniformity are reported with the result.
 
 References
 ----------
-NASA-SP-125: https://ntrs.nasa.gov/citations/19710019929
-NASA rocket thrust equation:
-https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
+.. [1] NASA Glenn, "Rocket Thrust Equation".
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
+.. [2] NASA Glenn, "Specific Impulse".
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
 """
 
 from __future__ import annotations
@@ -20,18 +27,53 @@ from .models import BurnResult, ProfiledBurnResult
 
 @dataclass(frozen=True, slots=True)
 class ConstantBurnReduction:
-    """Delivered/axial impulse and propellant preserving constant reduction.
+    """Constant burn preserving duration, delivered/axial impulse and propellant.
 
-    ``equivalent_thrust_n`` retains the historical delivered-thrust meaning.
-    Dynamics consumers must use ``equivalent_axial_thrust_n`` together with
-    ``equivalent_rocket_specific_impulse_s`` so hardware cant reduces force
-    without incorrectly reducing total tank drain.
+    ``equivalent_thrust_n`` is the delivered (uncanted) thrust. Dynamics
+    consumers must use ``equivalent_axial_thrust_n`` together with
+    ``equivalent_rocket_specific_impulse_s``, so that hardware cant reduces the
+    axial force without reducing the total tank drain.
+
+    Parameters
+    ----------
+    source_schema, source_result_hash : str
+        Schema and hash of the reduced result.
+    duration_s : float
+        Burn duration ``t_b`` [s].
+    equivalent_thrust_n : float
+        ``I / t_b`` with delivered total impulse ``I`` [N] [1]_.
+    equivalent_system_specific_impulse_s : float
+        ``I / (g0 m_p)`` with consumed propellant ``m_p`` [s] [2]_.
+    equivalent_axial_thrust_n : float
+        ``I_ax / t_b`` with axial total impulse ``I_ax`` [N].
+    equivalent_rocket_specific_impulse_s : float
+        ``I_ax / (g0 m_p)`` [s].
+    source_total_impulse_n_s, source_axial_total_impulse_n_s : float
+        ``I`` and ``I_ax`` of the source [N s].
+    source_consumed_propellant_kg : float
+        ``m_p`` [kg].
+    thrust_relative_range, mass_flow_relative_range : float
+        ``(max - min) / max`` over the profile samples; zero when the maximum
+        is not positive.
+    thrust_centroid_offset_s : float
+        Thrust centroid time minus ``t_b / 2`` [s]; the constant burn has its
+        centroid at mid-burn.
+    impulse_residual_n_s, axial_impulse_residual_n_s : float
+        Floating-point reconstruction residuals of the impulses [N s].
+    propellant_residual_kg : float
+        Reconstruction residual of the propellant mass [kg].
+    exact : bool
+        ``True`` when thrust and total mass flow are constant within the
+        reduction tolerance.
+    warnings : tuple of str
+        Limits of the reduction when it is not exact.
 
     References
     ----------
-    NASA-SP-125: https://ntrs.nasa.gov/citations/19710019929
-    NASA rocket thrust equation:
-    https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
+    .. [1] NASA Glenn, "Rocket Thrust Equation".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
+    .. [2] NASA Glenn, "Specific Impulse".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
     """
 
     source_schema: str
@@ -55,6 +97,7 @@ class ConstantBurnReduction:
 
 
 def _relative_range(values: tuple[float, ...]) -> float:
+    """Return ``(max - min) / max``, or zero when the maximum is not positive."""
     maximum = max(values, default=0.0)
     minimum = min(values, default=0.0)
     return 0.0 if maximum <= 0.0 else (maximum - minimum) / maximum
@@ -65,18 +108,44 @@ def reduce_to_constant(
     *,
     exact_tolerance: float = 1e-12,
 ) -> ConstantBurnReduction:
-    """Preserve duration, delivered/axial impulse, and propellant.
+    """Reduce a burn result to a constant burn with the same impulse and propellant.
 
-    The reduction does not claim to preserve the force-time centroid, orbital
-    trajectory, gravity loss, steering response, or tank-by-tank transient.
-    ``exact`` is true only when both thrust and total mass flow are already
-    constant within ``exact_tolerance``.
+    Parameters
+    ----------
+    result : BurnResult or ProfiledBurnResult
+        Burn with positive duration and positive consumed propellant.
+    exact_tolerance : float, optional
+        Finite, nonnegative tolerance on the relative thrust and mass-flow
+        ranges for declaring the reduction exact.
+
+    Returns
+    -------
+    ConstantBurnReduction
+        Equivalent thrusts and specific impulses [1]_ [2]_, residuals,
+        nonuniformity measures and warnings.
+
+    Raises
+    ------
+    DomainError
+        If the tolerance is invalid or the burn has no positive duration or
+        propellant consumption.
+
+    Notes
+    -----
+    The reduction preserves duration, delivered and axial impulse and consumed
+    propellant only. It does not preserve the force-time centroid, orbital
+    trajectory, gravity loss, steering response or tank-by-tank transient;
+    a non-exact reduction should be checked against the native profile in a
+    transient-capable dynamics tool. ``exact`` is ``True`` only when both
+    thrust and total mass flow are already constant within
+    ``exact_tolerance``.
 
     References
     ----------
-    NASA-SP-125: https://ntrs.nasa.gov/citations/19710019929
-    NASA rocket thrust equation:
-    https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
+    .. [1] NASA Glenn, "Rocket Thrust Equation".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
+    .. [2] NASA Glenn, "Specific Impulse".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
     """
 
     if not isfinite(exact_tolerance) or exact_tolerance < 0.0:

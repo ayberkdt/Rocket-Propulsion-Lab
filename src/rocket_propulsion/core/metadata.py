@@ -1,4 +1,4 @@
-"""Shared model provenance, validity, and warning value objects."""
+"""Shared model provenance, validity and warning value objects."""
 
 from __future__ import annotations
 
@@ -8,7 +8,24 @@ from typing import Literal
 
 @dataclass(frozen=True, slots=True)
 class ValidityRange:
-    """Document a model's supported interval for one input quantity."""
+    """Supported interval of one input quantity of a model.
+
+    Attributes
+    ----------
+    quantity : str
+        Name of the bounded input quantity.
+    minimum, maximum : float or None
+        Interval endpoints; ``None`` means unbounded on that side.
+    unit : str
+        Unit of the endpoints (``"1"`` for dimensionless quantities).
+    inclusive_minimum, inclusive_maximum : bool
+        Whether each finite endpoint belongs to the supported interval.
+
+    Notes
+    -----
+    A validity range documents the declared model domain. It is not, by
+    itself, evidence of experimental validation inside that domain.
+    """
 
     quantity: str
     minimum: float | None = None
@@ -20,7 +37,19 @@ class ValidityRange:
 
 @dataclass(frozen=True, slots=True)
 class WarningMessage:
-    """A stable warning suitable for Python, JSON, and user interfaces."""
+    """Stable warning record shared by the Python, JSON and UI layers.
+
+    Attributes
+    ----------
+    code : str
+        Stable machine-readable identifier.
+    message : str
+        Human-readable explanation.
+    severity : {"info", "warning", "critical"}
+        Importance of the warning.
+    field : str or None
+        Input field the warning refers to, if any.
+    """
 
     code: str
     message: str
@@ -30,7 +59,24 @@ class WarningMessage:
 
 @dataclass(frozen=True, slots=True)
 class ModelMetadata:
-    """Identify the equation model, assumptions, units, and fidelity limits."""
+    """Identify an equation model, its assumptions, units and fidelity limits.
+
+    Attributes
+    ----------
+    model : str
+        Short model name.
+    version : str
+        Model version string.
+    assumptions : tuple of str
+        Modelling assumptions and declared limitations.
+    units : dict of str to str
+        Output-field name patterns mapped to their units.
+    validity : tuple of ValidityRange
+        Declared input domains, if any.
+    references : tuple of str
+        Short source labels; the full records are indexed in
+        ``docs/REFERENCES.md``.
+    """
 
     model: str
     version: str
@@ -38,4 +84,3 @@ class ModelMetadata:
     units: dict[str, str]
     validity: tuple[ValidityRange, ...] = ()
     references: tuple[str, ...] = ()
-

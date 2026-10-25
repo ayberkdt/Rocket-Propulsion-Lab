@@ -1,4 +1,28 @@
-"""Owned prescribed-state Bartz profiles; no coupled wall or hardware validation."""
+"""Prescribed-state Bartz gas-side heat-transfer profiles.
+
+The gas-side coefficient is the Bartz correlation as printed in NASA
+SP-125 [1]_, evaluated with user-supplied constant stagnation properties,
+prescribed station Mach numbers and area ratios, and a uniform prescribed
+wall temperature. The recovery-temperature convention and the signed heat
+flux follow Linne et al. [2]_. There is no coupled wall-conduction or coolant
+solve, no radiation, reacting boundary-layer, film-cooling or deposition
+model, and no hardware validation; results carry
+``physical_model_qualified=False``.
+
+Inputs and results are owned, immutable snapshots: every result replays its
+station values, integrals, peak, warnings and policy fields from its own
+inputs on construction. Replay is an internal-consistency check, not
+authentication of measurements or hardware.
+
+References
+----------
+.. [1] NASA-SP125-BARTZ-PAGES. NASA SP-125, "Design of Liquid Propellant Rocket
+       Engines", printed pp. 100-101, equations 4-10, 4-13 and 4-14,
+       https://ntrs.nasa.gov/api/citations/19710019929/downloads/19710019929.pdf
+.. [2] NASA-HOPPER-2012-THERMAL. Linne et al., AIAA 2012-0806, printed p. 8,
+       equations 1, 2 and 4,
+       https://ntrs.nasa.gov/api/citations/20120004103/downloads/20120004103.pdf
+"""
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -27,6 +51,12 @@ _VALIDITY=('prescribed gas state and uniform wall temperature; no conjugate wall
 
 
 def _owned(value,kind,label):
+    """Return a fresh ``kind`` instance copied from a mapping or a ``kind`` record.
+
+    Copying through the constructor re-runs its validation, so callers own
+    an independent, checked snapshot. Malformed mappings raise
+    :class:`DomainError` naming ``label``.
+    """
     if isinstance(value,Mapping):
         try:return kind(**dict(value))
         except (TypeError,ValueError,KeyError,IndexError,OverflowError) as error:
@@ -38,6 +68,35 @@ def _owned(value,kind,label):
 
 @dataclass(frozen=True,slots=True)
 class BartzContourStation:
+    """One prescribed station of the thermal contour.
+
+    Attributes
+    ----------
+    x_m : float
+        Axial position, m.
+    radius_m : float
+        Local wall radius, m; must be positive.
+    area_ratio : float
+        Local area ratio ``A/At``; must be positive.
+    mach : float
+        Prescribed local Mach number; must be nonnegative.
+
+    Raises
+    ------
+    DomainError
+        If a value is not a finite real or violates the sign conditions.
+
+    Notes
+    -----
+    Mach number and area ratio are prescribed by the caller; this record
+    does not check isentropic consistency between them.
+
+    References
+    ----------
+    .. [1] NASA-SP125-BARTZ-PAGES. NASA SP-125, "Design of Liquid Propellant Rocket
+           Engines", printed pp. 100-101, equations 4-10, 4-13 and 4-14,
+           https://ntrs.nasa.gov/api/citations/19710019929/downloads/19710019929.pdf
+    """
     x_m:float
     radius_m:float
     area_ratio:float
@@ -50,13 +109,46 @@ class BartzContourStation:
 
 
 def _rounding_cell(value):
-    """Exact binary64 rounding-cell endpoints; these are not measurement errors."""
+    """Return the exact endpoints of the binary64 rounding cell around ``value``.
+
+    The cell is the set of real numbers that round to ``value`` under
+    round-to-nearest. It describes floating-point representation only, not
+    measurement uncertainty.
+    """
     center=Fraction(value);before=Fraction(nextafter(value,-inf));after=nextafter(value,inf)
     return (center+before)/2, (center+Fraction(after))/2 if isfinite(after) else center+(center-before)/2
 
 
 @dataclass(frozen=True,slots=True)
 class BartzContour:
+    """Axially ordered stations sampled on a nozzle wall, with the throat radius.
+
+    Attributes
+    ----------
+    throat_radius_m : float
+        Throat radius, m; the Bartz diameter is twice this value.
+    stations : tuple of BartzContourStation
+        At least two stations with strictly increasing ``x_m``.
+
+    Raises
+    ------
+    DomainError
+        If the throat radius is not positive, fewer than two stations are
+        given, ``x_m`` is not strictly increasing, or a station's area ratio
+        disagrees with ``(radius / throat_radius)^2`` beyond the binary64
+        rounding cells of the three values.
+
+    Notes
+    -----
+    The area-ratio check is a representation-coherence guard, not a
+    geometry calibration; values are never clamped.
+
+    References
+    ----------
+    .. [1] NASA-SP125-BARTZ-PAGES. NASA SP-125, "Design of Liquid Propellant Rocket
+           Engines", printed pp. 100-101, equations 4-10, 4-13 and 4-14,
+           https://ntrs.nasa.gov/api/citations/19710019929/downloads/19710019929.pdf
+    """
     throat_radius_m:float
     stations:tuple[BartzContourStation,...]
 
@@ -77,6 +169,12 @@ class BartzContour:
 
 
 def _contour(value):
+    """Convert a :class:`NozzleContour`, mapping or record into a :class:`BartzContour`.
+
+    Only the throat radius and each station's ``x_m``, ``radius_m``,
+    ``area_ratio`` and ``mach`` are retained; other contour metadata is not
+    used.
+    """
     if isinstance(value,NozzleContour):
         points=[]
         for s in _ordered_items(value.stations,'Contour stations'):
@@ -88,6 +186,50 @@ def _contour(value):
 
 @dataclass(frozen=True,slots=True)
 class BartzInputs:
+    """Owned, validated inputs of a prescribed Bartz profile.
+
+    Attributes
+    ----------
+    contour : BartzContour
+        Thermal contour; a :class:`~rocket_propulsion.geometry.NozzleContour`
+        or mapping is converted on construction.
+    chamber_pressure_pa : float
+        Chamber stagnation pressure ``Pc``, Pa.
+    chamber_temperature_k : float
+        Chamber stagnation temperature ``Tc``, K.
+    wall_temperature_k : float
+        Uniform prescribed gas-side wall temperature ``Tw``, K.
+    characteristic_velocity_m_s : float
+        Characteristic velocity ``c*``, m/s.
+    dynamic_viscosity_pa_s : float
+        Constant gas dynamic viscosity ``mu``, Pa s.
+    specific_heat_j_kg_k : float
+        Constant gas specific heat ``cp``, J/(kg K).
+    prandtl_number : float
+        Constant Prandtl number ``Pr``.
+    gamma : float
+        Ratio of specific heats; must exceed one.
+    throat_radius_of_curvature_m : float
+        Throat wall radius of curvature ``Rc``, m.
+
+    Raises
+    ------
+    DomainError
+        If a scalar is not a finite positive real, ``gamma <= 1``, or
+        ``Tw >= Tc``.
+
+    Notes
+    -----
+    ``Tw < Tc`` is a restriction of this prescribed model, not a physical
+    law; it does not imply ``Tw`` below the local adiabatic wall
+    temperature, so negative local heat flux remains possible.
+
+    References
+    ----------
+    .. [1] NASA-SP125-BARTZ-PAGES. NASA SP-125, "Design of Liquid Propellant Rocket
+           Engines", printed pp. 100-101, equations 4-10, 4-13 and 4-14,
+           https://ntrs.nasa.gov/api/citations/19710019929/downloads/19710019929.pdf
+    """
     contour:BartzContour
     chamber_pressure_pa:float
     chamber_temperature_k:float
@@ -113,7 +255,42 @@ class BartzInputs:
 
 @dataclass(frozen=True,slots=True)
 class HeatFluxStation:
-    """Finite station data; equation replay belongs to the enclosing profile."""
+    """Finite thermal results at one contour station.
+
+    Attributes
+    ----------
+    x_m, radius_m, mach : float
+        Station position, radius and prescribed Mach number.
+    adiabatic_wall_temperature_k : float
+        Recovery (adiabatic wall) temperature ``Taw``, K.
+    gas_side_coefficient_w_m2_k : float
+        Bartz gas-side heat-transfer coefficient ``h``, W/(m^2 K).
+    heat_flux_w_m2 : float
+        Signed heat flux ``h (Taw - Tw)``, positive into the wall, W/m^2.
+    cumulative_heat_w : float
+        Signed heat integrated over the wall from the first station, W.
+
+    Raises
+    ------
+    DomainError
+        If a value is not a finite real, the radius, ``Taw`` or ``h`` is not
+        positive, or the Mach number is negative.
+
+    Notes
+    -----
+    This record checks finiteness and signs only. Replay of the equations
+    and of the cumulative integral belongs to the enclosing
+    :class:`BartzHeatTransferResult`.
+
+    References
+    ----------
+    .. [1] NASA-SP125-BARTZ-PAGES. NASA SP-125, "Design of Liquid Propellant Rocket
+           Engines", printed pp. 100-101, equations 4-10, 4-13 and 4-14,
+           https://ntrs.nasa.gov/api/citations/19710019929/downloads/19710019929.pdf
+    .. [2] NASA-HOPPER-2012-THERMAL. Linne et al., AIAA 2012-0806, printed p. 8,
+           equations 1, 2 and 4,
+           https://ntrs.nasa.gov/api/citations/20120004103/downloads/20120004103.pdf
+    """
     x_m:float
     radius_m:float
     mach:float
@@ -129,7 +306,11 @@ class HeatFluxStation:
 
 
 def _warnings(value):
-    # At most two base, two legacy-screening and one signed-flux warning.
+    """Normalize warning records; at most five are accepted.
+
+    The bound covers two base warnings, two screening-threshold warnings and
+    one signed-flux warning.
+    """
     from collections.abc import Set as AbstractSet
     from itertools import islice
     if isinstance(value,(str,bytes,bytearray,memoryview,Mapping,AbstractSet)):
@@ -150,6 +331,73 @@ def _warnings(value):
 
 @dataclass(frozen=True,slots=True)
 class BartzHeatTransferResult:
+    """Replayed prescribed Bartz profile with integrals, peak and qualification flags.
+
+    Attributes
+    ----------
+    stations : tuple of HeatFluxStation
+        One record per contour station.
+    peak_heat_flux_w_m2 : float
+        Largest signed station heat flux, W/m^2.
+    peak_location_m : float
+        Axial position of the first station that attains the peak, m.
+    total_heat_load_w : float
+        Signed heat integrated over the sampled wall, W.
+    energy_balance_residual_w : float
+        Always zero; labelled by ``residual_kind`` as an integral ledger
+        identity, not a measured energy closure.
+    correlation, property_model, source, source_url : str
+        Model and source labels.
+    validity : tuple of str
+        Declared scope limits of the prescribed model.
+    warnings : tuple of WarningMessage
+        Model, ledger and screening-threshold warnings.
+    inputs : BartzInputs
+        Owned inputs from which the result is replayed.
+    contains_negative_heat_flux : bool
+        True when some station transfers heat toward the gas.
+    physical_model_qualified : bool
+        Always False for this model.
+    quadrature_error_bound_w : float or None
+        ``None``: no error bound against the unsampled continuous profile is
+        claimed.
+    integration_model, residual_kind, numerical_policy, pi_basis : str
+        Identifiers of the integration rule, residual meaning, numerical
+        evaluation policy and the binary64 value of pi used for geometry.
+
+    Raises
+    ------
+    DomainError
+        If a field is malformed, a flag is not an actual ``bool``, or any
+        value differs from the replay of ``inputs``.
+
+    Notes
+    -----
+    With ``D = 2 throat_radius``, ``Ar = A/At``, ``C = 1 + (gamma - 1) M^2 / 2``
+    and ``B = (Tw/Tc C + 1)/2``, the coefficient is [1]_
+
+        h = 0.026 mu^(1/5) cp Pr^(-3/5) D^(-1/5) (Pc/c*)^(4/5) (D/Rc)^(1/10)
+            Ar^(-9/10) B^(-17/25) C^(-3/25)
+
+    The turbulent recovery convention [2]_ uses ``r = Pr^(1/3)`` and
+    ``Taw = Tc (1 + r (C - 1)) / C``; the signed flux is
+    ``q = h (Taw - Tw)``. On each straight meridional segment of length
+    ``L`` both ``q`` and the radius are reconstructed linearly, and the exact
+    integral of that reconstruction is
+    ``pi L / 3 [(2 r0 + r1) q0 + (r0 + 2 r1) q1]``. This bounds nothing about
+    the unsampled true profile. The printed decimal coefficient and exponents
+    are evaluated as exact rationals; that is a numerical convention, not a
+    claim that they are exact physical constants.
+
+    References
+    ----------
+    .. [1] NASA-SP125-BARTZ-PAGES. NASA SP-125, "Design of Liquid Propellant Rocket
+           Engines", printed pp. 100-101, equations 4-10, 4-13 and 4-14,
+           https://ntrs.nasa.gov/api/citations/19710019929/downloads/19710019929.pdf
+    .. [2] NASA-HOPPER-2012-THERMAL. Linne et al., AIAA 2012-0806, printed p. 8,
+           equations 1, 2 and 4,
+           https://ntrs.nasa.gov/api/citations/20120004103/downloads/20120004103.pdf
+    """
     stations:tuple[HeatFluxStation,...]
     peak_heat_flux_w_m2:float
     peak_location_m:float
@@ -192,6 +440,21 @@ class BartzHeatTransferResult:
 
 @lru_cache(maxsize=64)
 def _solve(inputs):
+    """Return every result field of the prescribed profile for ``inputs``.
+
+    The diameter and pressure screening thresholds raise warnings only; they
+    are not an experimentally established validity domain of the
+    correlation.
+
+    References
+    ----------
+    .. [1] NASA-SP125-BARTZ-PAGES. NASA SP-125, "Design of Liquid Propellant Rocket
+           Engines", printed pp. 100-101, equations 4-10, 4-13 and 4-14,
+           https://ntrs.nasa.gov/api/citations/19710019929/downloads/19710019929.pdf
+    .. [2] NASA-HOPPER-2012-THERMAL. Linne et al., AIAA 2012-0806, printed p. 8,
+           equations 1, 2 and 4,
+           https://ntrs.nasa.gov/api/citations/20120004103/downloads/20120004103.pdf
+    """
     values=_profile_exports(inputs)
     warnings=[WarningMessage('bartz_prescribed_model_unqualified',
         'Prescribed constant gas properties and wall temperature; physical applicability, wall/coolant closure and hardware are unqualified.'),
@@ -212,7 +475,65 @@ def _solve(inputs):
 
 def calculate_bartz_heat_transfer(*,contour,chamber_pressure_pa,chamber_temperature_k,wall_temperature_k,
         characteristic_velocity_m_s,dynamic_viscosity_pa_s,specific_heat_j_kg_k,prandtl_number,gamma,throat_radius_of_curvature_m):
-    """Evaluate a replayed prescribed profile; signed heat is positive into the wall."""
+    """Evaluate a prescribed Bartz gas-side heat-flux profile along a nozzle contour.
+
+    Parameters
+    ----------
+    contour : BartzContour, NozzleContour or mapping
+        Wall stations with prescribed Mach number and area ratio.
+    chamber_pressure_pa : float
+        Chamber stagnation pressure, Pa.
+    chamber_temperature_k : float
+        Chamber stagnation temperature, K.
+    wall_temperature_k : float
+        Uniform prescribed gas-side wall temperature, K; must be below the
+        chamber temperature.
+    characteristic_velocity_m_s : float
+        Characteristic velocity, m/s.
+    dynamic_viscosity_pa_s : float
+        Constant gas dynamic viscosity, Pa s.
+    specific_heat_j_kg_k : float
+        Constant gas specific heat, J/(kg K).
+    prandtl_number : float
+        Constant Prandtl number.
+    gamma : float
+        Ratio of specific heats; must exceed one.
+    throat_radius_of_curvature_m : float
+        Throat wall radius of curvature, m.
+
+    Returns
+    -------
+    BartzHeatTransferResult
+        Station values, peak, signed total heat load, warnings and
+        qualification flags. Heat flux is positive into the wall.
+
+    Raises
+    ------
+    DomainError
+        If an input violates the domain checks of :class:`BartzInputs` or
+        :class:`BartzContour`, or an exported value is outside the nonzero
+        finite binary64 range.
+    ConvergenceError
+        If a rounding, sign or peak-ordering decision cannot be resolved
+        within the numerical precision budget.
+
+    Notes
+    -----
+    See :class:`BartzHeatTransferResult` for the governing relations. Gas
+    properties are user-supplied constants rather than an equilibrium
+    calculation, and wall temperature is prescribed rather than solved.
+    Negative local flux is retained, not clipped to zero. Diameters outside
+    0.01-1 m and chamber pressures above 30 MPa add screening warnings.
+
+    References
+    ----------
+    .. [1] NASA-SP125-BARTZ-PAGES. NASA SP-125, "Design of Liquid Propellant Rocket
+           Engines", printed pp. 100-101, equations 4-10, 4-13 and 4-14,
+           https://ntrs.nasa.gov/api/citations/19710019929/downloads/19710019929.pdf
+    .. [2] NASA-HOPPER-2012-THERMAL. Linne et al., AIAA 2012-0806, printed p. 8,
+           equations 1, 2 and 4,
+           https://ntrs.nasa.gov/api/citations/20120004103/downloads/20120004103.pdf
+    """
     inputs=BartzInputs(contour,chamber_pressure_pa,chamber_temperature_k,wall_temperature_k,
         characteristic_velocity_m_s,dynamic_viscosity_pa_s,specific_heat_j_kg_k,prandtl_number,gamma,throat_radius_of_curvature_m)
     values=dict(_solve(inputs));stations=tuple(HeatFluxStation(**s) for s in values.pop('station_values'))

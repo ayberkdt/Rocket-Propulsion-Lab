@@ -1,20 +1,23 @@
 """Physical constants, each with the primary source that defines its value.
 
-Every physical constant used by the library lives here, so a value can be
-traced to one source.  ``tests/test_constants_and_references.py`` fails if a
-registered value is written as a bare literal anywhere else in the package.
+Every physical constant used by the library lives here, so each value can be
+traced to one source. ``tests/test_constants_and_references.py`` fails if a
+registered value is written as a bare literal anywhere else in the package;
+other modules import the module-level names (``STANDARD_GRAVITY_M_S2`` and
+the like) instead.
 
 Where a model is *defined* with a particular constant, the model's own value
-is used even if a newer measurement exists.  The U.S. Standard Atmosphere
-1976 is defined with ``R* = 8.31432 J/(mol K)``, not the 2019 SI value, and
-its tabulated layer pressures are only reproduced with that value.
+is used even if a newer value exists. The U.S. Standard Atmosphere 1976 [2]_
+is defined with its own gas constant, ``USSA1976_GAS_CONSTANT``, rather than
+the 2019 SI value ``MOLAR_GAS_CONSTANT_SI_2019`` [1]_, and its tabulated layer
+pressures are reproduced only with the former.
 
 References
 ----------
-BIPM, The International System of Units (SI Brochure), 9th ed., 2019:
-https://www.bipm.org/en/publications/si-brochure
-U.S. Standard Atmosphere, 1976, NOAA-S/T 76-1562 / NASA-TM-X-74335:
-https://ntrs.nasa.gov/citations/19770009539
+.. [1] BIPM, "The International System of Units (SI Brochure)", 9th ed., 2019,
+       https://www.bipm.org/en/publications/si-brochure
+.. [2] NOAA/NASA/USAF, "U.S. Standard Atmosphere, 1976", NOAA-S/T 76-1562 /
+       NASA-TM-X-74335, https://ntrs.nasa.gov/citations/19770009539
 """
 
 from __future__ import annotations
@@ -24,11 +27,33 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class PhysicalConstant:
-    """One registered constant: value, unit, defining source and status.
+    """One registered physical constant with its unit and defining source.
+
+    Attributes
+    ----------
+    name : str
+        Descriptive name, unique within ``REGISTERED_CONSTANTS``.
+    value : float
+        Numerical value in ``unit``.
+    unit : str
+        SI unit of ``value``.
+    source : str
+        Document that defines the value.
+    url : str
+        HTTPS location of ``source``; it is also listed in
+        ``docs/REFERENCES.md``.
+    exact : bool
+        True when the value is exact by definition in its source, False when
+        it is a rounded derived value.
+    note : str
+        Optional usage note.
 
     References
     ----------
-    BIPM SI Brochure, 9th ed., 2019: https://www.bipm.org/en/publications/si-brochure
+    .. [1] BIPM, "The International System of Units (SI Brochure)", 9th ed.,
+           2019, https://www.bipm.org/en/publications/si-brochure
+    .. [2] NOAA/NASA/USAF, "U.S. Standard Atmosphere, 1976", NOAA-S/T 76-1562 /
+           NASA-TM-X-74335, https://ntrs.nasa.gov/citations/19770009539
     """
 
     name: str

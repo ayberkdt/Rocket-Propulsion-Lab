@@ -1,12 +1,30 @@
 """First/second-order Hall throat field and its bracketed sonic curve.
 
-Constant-gamma potential-flow expansion, not a transonic CFD solution or a
-complete sonic-to-MOC initializer. The reference wall is a hyperbola with
-the requested throat radius and curvature. Nonlinear PDE/slip defects remain
-visible. No Mach offset is introduced at the sonic curve.
+Hall's method expands the steady, irrotational, constant-gamma transonic
+throat flow in powers of ``eps = r_t / R_c``, the ratio of throat radius to
+wall radius of curvature at the throat. It is a potential-flow expansion, not
+a transonic CFD solution or a complete sonic-to-MOC initializer. The
+reference wall is the hyperbola ``r_w^2 = r_t^2 + (r_t / R_c) x^2`` with the
+requested throat radius and curvature. Residuals of the full nonlinear
+potential equation and of wall slip are reported rather than suppressed. No
+Mach offset is introduced at the sonic curve.
 
-Planar coefficients: McCabe, ARC R&M 3440, Appendix A.
-Axisymmetric Cartesian coefficients: Kliegel/Quan, 02874-6002-R000, eqs 4-1..4-4.
+Planar coefficients follow McCabe, ARC R&M 3440, Appendix A [1]_.
+Axisymmetric Cartesian coefficients follow 02874-6002-R000, equations 4-1 to
+4-4 [2]_. Sauer's near-critical-flow theory [3]_ is cited as historical
+context.
+
+References
+----------
+.. [1] HALL-MCCABE-RM3440. McCabe, planar Hall coefficients and nozzle-design
+       context, ARC R&M 3440 (report 1964, issued 1967).
+       https://reports.aerade.cranfield.ac.uk/handle/1826.2/4023
+.. [2] KLIEGEL-QUAN-1966. Full potential equations, Cartesian Hall coefficients
+       and comparison of transonic approximations, 02874-6002-R000.
+       https://ntrs.nasa.gov/citations/19670009614
+.. [3] SAUER-NACA-TM1147. Near-critical-flow and curved-sonic-line theory,
+       NACA TM 1147, 1947.
+       https://ntrs.nasa.gov/citations/20050019415
 """
 from dataclasses import dataclass
 from fractions import Fraction as F
@@ -26,6 +44,37 @@ _ROOT_POLICY = 'hall_hyperbolic_wall_fraction_sonic_polynomial_bernstein_monoton
 
 @dataclass(frozen=True, slots=True)
 class HallThroatModel:
+    """Throat geometry and gas for Hall's transonic expansion [1]_, [2]_.
+
+    Attributes
+    ----------
+    throat_radius_m : float
+        Throat radius (axisymmetric) or half-height (planar) ``r_t`` in m,
+        positive.
+    throat_curvature_radius_m : float
+        Wall radius of curvature ``R_c`` at the throat in m, positive.
+    gamma : float, default 1.4
+        Ratio of specific heats, greater than one.
+    axisymmetric : bool, default True
+        ``True`` for axisymmetric flow (``sigma = 1``), ``False`` for planar
+        flow (``sigma = 0``).
+
+    Raises
+    ------
+    DomainError
+        If a radius is not positive, ``gamma <= 1`` or ``axisymmetric`` is not
+        a ``bool``.
+
+    References
+    ----------
+    .. [1] HALL-MCCABE-RM3440. McCabe, planar Hall coefficients and nozzle-design
+           context, ARC R&M 3440 (report 1964, issued 1967).
+           https://reports.aerade.cranfield.ac.uk/handle/1826.2/4023
+    .. [2] KLIEGEL-QUAN-1966. Full potential equations, Cartesian Hall coefficients
+           and comparison of transonic approximations, 02874-6002-R000.
+           https://ntrs.nasa.gov/citations/19670009614
+    """
+
     throat_radius_m: float
     throat_curvature_radius_m: float
     gamma: float = 1.4
@@ -43,7 +92,30 @@ class HallThroatModel:
 
 @lru_cache(maxsize=32)
 def _coefficients(model):
-    """Hall polynomials in w=A*sqrt(R)*x/rt, with A**2=(sigma+1)/(gamma+1)."""
+    """Return the exact rational Hall coefficients for ``model``.
+
+    The expansion uses the stretched axial coordinate
+    ``w = A sqrt(R) x / r_t`` with ``A^2 = (sigma + 1)/(gamma + 1)`` and
+    ``R = R_c / r_t``.
+
+    Returns
+    -------
+    tuple of Fraction
+        ``(eps, k, c0, a, c, d, e, f, p, q, t)`` with ``eps = r_t / R_c`` and
+        ``k = A^2 R``, so that ``x = r_t w / sqrt(k)``; the remaining entries
+        are the first- and second-order polynomial coefficients of the axial
+        velocity ``u`` and of the radial-velocity factor ``h`` (``v`` is
+        proportional to ``r h``) [1]_, [2]_.
+
+    References
+    ----------
+    .. [1] HALL-MCCABE-RM3440. McCabe, planar Hall coefficients and nozzle-design
+           context, ARC R&M 3440 (report 1964, issued 1967).
+           https://reports.aerade.cranfield.ac.uk/handle/1826.2/4023
+    .. [2] KLIEGEL-QUAN-1966. Full potential equations, Cartesian Hall coefficients
+           and comparison of transonic approximations, 02874-6002-R000.
+           https://ntrs.nasa.gov/citations/19670009614
+    """
     g = F(model.gamma)
     sigma = int(model.axisymmetric)
     eps = F(model.throat_radius_m) / F(model.throat_curvature_radius_m)
@@ -62,6 +134,29 @@ def _coefficients(model):
 
 @dataclass(frozen=True, slots=True)
 class HallThroatInputs:
+    """Validated evaluation point for :func:`evaluate_hall_throat`.
+
+    Attributes
+    ----------
+    model : HallThroatModel
+        Owned copy of the throat model.
+    axial_parameter : float
+        Stretched axial coordinate ``w``; ``x = r_t w / sqrt(k)``.
+    radius_fraction : float
+        Non-negative radial coordinate as a fraction of ``r_t``
+        (``radial_basis="throat"``) or of the local wall radius
+        (``radial_basis="wall"``).
+    radial_basis : str, default "throat"
+        ``"throat"`` or ``"wall"``.
+    order : int, default 2
+        Expansion order, 1 or 2.
+
+    Raises
+    ------
+    DomainError
+        If a field is malformed or the point lies outside the hyperbolic wall.
+    """
+
     model: HallThroatModel
     axial_parameter: float
     radius_fraction: float
@@ -89,6 +184,13 @@ class HallThroatInputs:
 
 
 def _upper(value):
+    """Return the smallest binary64 value not below the exact rational ``value``.
+
+    Raises
+    ------
+    DomainError
+        If ``value`` overflows binary64.
+    """
     try:
         number = float(value)
     except OverflowError as error:
@@ -99,6 +201,7 @@ def _upper(value):
 
 
 def _signed_root(square, sign, label):
+    """Return ``sqrt(square)`` rounded to nearest-even, with the sign of ``sign``."""
     if square == 0:
         return 0.
     value = _sqrt_output(square, label)
@@ -106,6 +209,10 @@ def _signed_root(square, sign, label):
 
 
 def _optional(value, label, *, squared=False, sign=1):
+    """Return ``(float, "finite")`` or ``(None, "unrepresentable")`` for an exact value.
+
+    With ``squared=True`` the signed square root of ``value`` is exported.
+    """
     try:
         return (_signed_root(value, sign, label) if squared else _finite_rational(value, label)), 'finite'
     except DomainError:
@@ -113,7 +220,43 @@ def _optional(value, label, *, squared=False, sign=1):
 
 
 def _ledgers(model, w, r2, order):
-    """Retain velocities squared and the common radical factor symbolically."""
+    """Evaluate the Hall field exactly at ``(w, r^2)``.
+
+    Velocities squared and the common radical factor are retained
+    symbolically so all quantities stay rational.
+
+    Returns
+    -------
+    tuple
+        ``(u, v2, speed2, sound2, h, terms, irrotational)``: axial velocity
+        ``u/a*``, ``(v/a*)^2``, ``(|V|/a*)^2``, ``(a/a*)^2``, the radial
+        factor ``h``, the four terms of the full potential equation and the
+        irrotationality defect.
+
+    Raises
+    ------
+    DomainError
+        If the expansion leaves the forward, positive-energy branch
+        (``u <= 0`` or ``a^2 <= 0``).
+
+    Notes
+    -----
+    The local speed of sound follows from the energy equation,
+    ``(a/a*)^2 = ((gamma + 1) - (gamma - 1)(|V|/a*)^2)/2``. The four terms are
+    those of the steady full potential equation
+    ``(a^2 - u^2) u_x - 2 u v u_r + (a^2 - v^2) v_r + sigma a^2 v / r = 0``
+    (using ``u_r = v_x``), each divided by a common positive factor [2]_. The
+    expansion itself follows [1]_ (planar) and [2]_ (axisymmetric).
+
+    References
+    ----------
+    .. [1] HALL-MCCABE-RM3440. McCabe, planar Hall coefficients and nozzle-design
+           context, ARC R&M 3440 (report 1964, issued 1967).
+           https://reports.aerade.cranfield.ac.uk/handle/1826.2/4023
+    .. [2] KLIEGEL-QUAN-1966. Full potential equations, Cartesian Hall coefficients
+           and comparison of transonic approximations, 02874-6002-R000.
+           https://ntrs.nasa.gov/citations/19670009614
+    """
     eps, k, c0, a, c, d, e, f, p, q, t = _coefficients(model)
     u = 1 + eps * (w + r2 / 2 + c0)
     h = w - c0 * (r2 - 1)
@@ -144,6 +287,11 @@ def _ledgers(model, w, r2, order):
 
 @lru_cache(maxsize=64)
 def _evaluate(inputs):
+    """Return the field values of :class:`HallThroatResult` for ``inputs``.
+
+    All quantities are evaluated exactly and rounded once on export;
+    residuals are rounded upward.
+    """
     model = inputs.model
     eps, k, *_ = _coefficients(model)
     rt = F(model.throat_radius_m)
@@ -181,6 +329,81 @@ def _evaluate(inputs):
 
 @dataclass(frozen=True, slots=True)
 class HallThroatResult:
+    """Hall expansion state at one point, with its equation and wall defects.
+
+    The expansion is that of [1]_ (planar) and [2]_ (axisymmetric).
+
+    Construction re-evaluates the expansion from ``inputs`` and rejects any
+    field that does not match.
+
+    Attributes
+    ----------
+    inputs : HallThroatInputs
+        Owned evaluation inputs.
+    x_m, radius_m, wall_radius_m : float
+        Axial position (throat at 0), radius and local hyperbolic-wall radius
+        in m.
+    axial_velocity_over_sonic : float
+        ``u/a*``.
+    radial_velocity_over_sonic : float or None
+        ``v/a*``; ``None`` when it is not representable as a finite binary64
+        value (see ``radial_velocity_status``).
+    radial_velocity_status : str
+        ``"finite"`` or ``"unrepresentable"``.
+    axial_perturbation_over_sonic : float or None
+        ``u/a* - 1``; ``None`` when unrepresentable.
+    axial_perturbation_status : str
+        ``"finite"`` or ``"unrepresentable"``.
+    mach : float
+        Local Mach number ``|V|/a``.
+    flow_angle_deg : float or None
+        ``atan2(v, u)`` in degrees; ``None`` when ``v`` is unrepresentable or
+        when the rounded angle is zero although the exact radial velocity is
+        not.
+    flow_regime : str
+        ``"sonic"``, ``"supersonic"`` or ``"subsonic"`` from the exact
+        ``|V|/a*``.
+    representation_limited : bool
+        ``True`` when binary64 export hides an exact distinction (for example
+        a rounded unit velocity or Mach number) or a quantity is
+        unrepresentable.
+    potential_residual : float
+        Upper bound of the full potential equation sum divided by ``eps``; it
+        measures the truncation defect of the expansion at this point.
+    relative_term_balance : float
+        ``|sum of terms| / sum of |terms|`` (zero when all terms vanish).
+    irrotational_residual : float
+        Upper bound of the irrotationality defect ``u_r - v_x`` in expansion
+        units.
+    wall_slip_velocity_over_sonic : float or None
+        Velocity component normal to the wall at wall points; ``None``
+        elsewhere or when unrepresentable.
+    wall_slip_status : str
+        ``"not_wall"``, ``"finite"`` or ``"unrepresentable"``.
+    numerical_policy : str
+        Identifier of the numerical policy.
+    physical_model_qualified, sonic_initialization_complete : bool
+        Always ``False``: the expansion is neither validated against hardware
+        nor a complete sonic-line initializer.
+    approximation_error_bound : None
+        Always ``None``; no bound on Hall's approximation error is available.
+
+    Raises
+    ------
+    DomainError
+        If a field is malformed, a qualification claim is made, or the record
+        does not reproduce from ``inputs``.
+
+    References
+    ----------
+    .. [1] HALL-MCCABE-RM3440. McCabe, planar Hall coefficients and nozzle-design
+           context, ARC R&M 3440 (report 1964, issued 1967).
+           https://reports.aerade.cranfield.ac.uk/handle/1826.2/4023
+    .. [2] KLIEGEL-QUAN-1966. Full potential equations, Cartesian Hall coefficients
+           and comparison of transonic approximations, 02874-6002-R000.
+           https://ntrs.nasa.gov/citations/19670009614
+    """
+
     inputs: HallThroatInputs
     x_m: float
     radius_m: float
@@ -225,12 +448,56 @@ class HallThroatResult:
 
 
 def evaluate_hall_throat(*, model, axial_parameter, radius_fraction, radial_basis='throat', order=2):
-    """Evaluate the retained Hall polynomial, exposing full-PDE and wall defects."""
+    """Evaluate the Hall throat expansion at one point.
+
+    Parameters
+    ----------
+    model : HallThroatModel or mapping
+        Throat geometry and gas.
+    axial_parameter : float
+        Stretched axial coordinate ``w``.
+    radius_fraction : float
+        Radial coordinate as a fraction of ``r_t`` or of the local wall
+        radius.
+    radial_basis : str, default "throat"
+        ``"throat"`` or ``"wall"``.
+    order : int, default 2
+        Expansion order, 1 or 2.
+
+    Returns
+    -------
+    HallThroatResult
+        Velocities, Mach number, flow angle and the residuals of the full
+        potential equation, irrotationality and wall slip.
+
+    Raises
+    ------
+    DomainError
+        If the inputs are invalid, the point lies outside the wall, or the
+        expansion leaves the positive-energy branch.
+
+    Notes
+    -----
+    The first- and second-order coefficients are those of Hall's expansion
+    in planar [1]_ and axisymmetric [2]_ form. The residuals are reported, not
+    enforced; they indicate where the truncated expansion departs from the
+    full nonlinear potential equation and the wall-tangency condition.
+
+    References
+    ----------
+    .. [1] HALL-MCCABE-RM3440. McCabe, planar Hall coefficients and nozzle-design
+           context, ARC R&M 3440 (report 1964, issued 1967).
+           https://reports.aerade.cranfield.ac.uk/handle/1826.2/4023
+    .. [2] KLIEGEL-QUAN-1966. Full potential equations, Cartesian Hall coefficients
+           and comparison of transonic approximations, 02874-6002-R000.
+           https://ntrs.nasa.gov/citations/19670009614
+    """
     inputs = HallThroatInputs(model, axial_parameter, radius_fraction, radial_basis, order)
     return HallThroatResult(inputs=inputs, **_evaluate(inputs))
 
 
 def _add(*polynomials):
+    """Return the sum of coefficient tuples (ascending powers), trailing zeros removed."""
     result = [F(0)] * max(map(len, polynomials))
     for poly in polynomials:
         for j, value in enumerate(poly):
@@ -241,10 +508,12 @@ def _add(*polynomials):
 
 
 def _scale(poly, value):
+    """Return ``poly`` with every coefficient multiplied by ``value``."""
     return tuple(value * x for x in poly)
 
 
 def _multiply(a, b):
+    """Return the exact product of two coefficient tuples (ascending powers)."""
     result = [F(0)] * (len(a) + len(b) - 1)
     for j, av in enumerate(a):
         for k, bv in enumerate(b):
@@ -253,6 +522,7 @@ def _multiply(a, b):
 
 
 def _at(poly, value):
+    """Evaluate a coefficient tuple (ascending powers) at ``value`` by Horner's rule."""
     answer = F(0)
     for coefficient in reversed(poly):
         answer = answer * value + coefficient
@@ -260,6 +530,21 @@ def _at(poly, value):
 
 
 def _sonic_polynomial(model, eta, order):
+    """Return ``(|V|/a*)^2 - 1`` as an exact polynomial in ``w`` along a wall ray.
+
+    The ray is ``r = eta r_w(x)``, so ``(r/r_t)^2 = eta^2 (1 + eps w^2 / k)``;
+    the velocity components are those of the Hall expansion [1]_, [2]_ of the
+    requested order. A zero of the polynomial is a sonic point (``|V| = a*``).
+
+    References
+    ----------
+    .. [1] HALL-MCCABE-RM3440. McCabe, planar Hall coefficients and nozzle-design
+           context, ARC R&M 3440 (report 1964, issued 1967).
+           https://reports.aerade.cranfield.ac.uk/handle/1826.2/4023
+    .. [2] KLIEGEL-QUAN-1966. Full potential equations, Cartesian Hall coefficients
+           and comparison of transonic approximations, 02874-6002-R000.
+           https://ntrs.nasa.gov/citations/19670009614
+    """
     eps, k, c0, a, c, d, e, f, p, q, t = _coefficients(model)
     w, one = (F(0), F(1)), (F(1),)
     r2 = (eta * eta, F(0), eta * eta * eps / k)
@@ -277,7 +562,14 @@ def _sonic_polynomial(model, eta, order):
 
 
 def _positive_on_interval(poly, lo, hi, depth=8):
-    """Exact sufficient positivity certificate, never a sampled sign guess."""
+    """Return whether ``poly`` is certified strictly positive on ``[lo, hi]``.
+
+    The polynomial is converted exactly to the Bernstein basis on the
+    interval; if every Bernstein coefficient is positive the polynomial is
+    positive there. Otherwise the interval is bisected, up to ``depth``
+    levels. ``True`` is a proof of positivity; ``False`` means only that no
+    certificate was found, never a sampled sign guess.
+    """
     if not poly:
         return False
     n = len(poly) - 1
@@ -295,6 +587,26 @@ def _positive_on_interval(poly, lo, hi, depth=8):
 
 @dataclass(frozen=True, slots=True)
 class HallSonicInputs:
+    """Validated inputs for :func:`locate_hall_sonic_point`.
+
+    Attributes
+    ----------
+    model : HallThroatModel
+        Owned copy of the throat model.
+    wall_fraction : float
+        Ray position ``eta`` in ``[0, 1]``: 0 is the axis and 1 the hyperbolic
+        wall.
+    order : int, default 2
+        Expansion order, 1 or 2.
+    max_iterations : int, default 128
+        Bisection budget, between 1 and 256.
+
+    Raises
+    ------
+    DomainError
+        If a field is malformed or outside its range.
+    """
+
     model: HallThroatModel
     wall_fraction: float
     order: int = 2
@@ -315,12 +627,14 @@ class HallSonicInputs:
 
 
 def _float_bounds(value):
+    """Return binary64 values ``(lower, upper)`` with ``lower <= value <= upper``."""
     number = _finite_rational(value, 'Hall root parameter')
     return (nextafter(number, -inf) if F(number) > value else number,
             nextafter(number, inf) if F(number) < value else number)
 
 
 def _root_bounds(square, sign):
+    """Return binary64 bounds on ``sqrt(square)``, negated and swapped when ``sign < 0``."""
     number = _sqrt_output(square, 'Hall root coordinate') if square else 0.
     low = nextafter(number, -inf) if F(number) ** 2 > square else number
     high = nextafter(number, inf) if F(number) ** 2 < square else number
@@ -328,6 +642,7 @@ def _root_bounds(square, sign):
 
 
 def _radial_bounds(model, eta, lo, hi):
+    """Return binary64 bounds on the ray radius ``eta r_w(x)`` for ``w`` in ``[lo, hi]``."""
     eps, k, *_ = _coefficients(model)
     rt2 = F(model.throat_radius_m) ** 2
     smallest = F(0) if lo <= 0 <= hi else min(lo * lo, hi * hi)
@@ -339,6 +654,30 @@ def _radial_bounds(model, eta, lo, hi):
 
 @lru_cache(maxsize=32)
 def _locate(inputs):
+    """Bracket the sonic root of the Hall expansion on a wall ray.
+
+    The sonic polynomial [1]_, [2]_ must change sign from non-positive at
+    ``w = -1`` to non-negative at ``w = 1`` and its derivative must carry a
+    positivity certificate there, so the root is unique in the interval. Exact
+    rational bisection proceeds until both ends round to the same binary64
+    value; the exported endpoints are rounded outward and rechecked.
+
+    Raises
+    ------
+    ConvergenceError
+        With code ``hall_sonic_not_bracketed``,
+        ``hall_sonic_branch_unresolved``, ``hall_sonic_not_converged`` or
+        ``hall_sonic_output_bracket``.
+
+    References
+    ----------
+    .. [1] HALL-MCCABE-RM3440. McCabe, planar Hall coefficients and nozzle-design
+           context, ARC R&M 3440 (report 1964, issued 1967).
+           https://reports.aerade.cranfield.ac.uk/handle/1826.2/4023
+    .. [2] KLIEGEL-QUAN-1966. Full potential equations, Cartesian Hall coefficients
+           and comparison of transonic approximations, 02874-6002-R000.
+           https://ntrs.nasa.gov/citations/19670009614
+    """
     model = inputs.model
     poly = _sonic_polynomial(model, F(inputs.wall_fraction), inputs.order)
     derivative = tuple(i * poly[i] for i in range(1, len(poly)))
@@ -381,6 +720,53 @@ def _locate(inputs):
 
 @dataclass(frozen=True, slots=True)
 class HallSonicResult:
+    """Bracketed sonic point of the Hall expansion on one wall ray.
+
+    The sonic function is evaluated with the expansion of [1]_ and [2]_.
+
+    Construction re-solves the bracket from ``inputs`` and rejects any field
+    that does not match.
+
+    Attributes
+    ----------
+    inputs : HallSonicInputs
+        Owned solver inputs.
+    point : HallThroatResult
+        Expansion state at the binary64 midpoint of the final bracket.
+    iterations : int
+        Bisection iterations used.
+    parameter_lower, parameter_upper : float
+        Outward-rounded bounds on the stretched coordinate ``w`` of the root.
+    x_lower_m, x_upper_m : float
+        Corresponding bounds on the axial position in m.
+    radius_lower_m, radius_upper_m : float
+        Bounds on the ray radius over the bracket in m.
+    sonic_function_lower, sonic_function_upper : float
+        Outward-rounded values of ``(|V|/a*)^2 - 1`` at the bracket ends
+        (non-positive and non-negative respectively).
+    numerical_policy : str
+        Identifier of the root-bracketing policy.
+    physical_model_qualified, sonic_initialization_complete : bool
+        Always ``False``.
+    approximation_error_bound : None
+        Always ``None``.
+
+    Raises
+    ------
+    DomainError
+        If a field is malformed, a qualification claim is made, or the record
+        does not reproduce from ``inputs``.
+
+    References
+    ----------
+    .. [1] HALL-MCCABE-RM3440. McCabe, planar Hall coefficients and nozzle-design
+           context, ARC R&M 3440 (report 1964, issued 1967).
+           https://reports.aerade.cranfield.ac.uk/handle/1826.2/4023
+    .. [2] KLIEGEL-QUAN-1966. Full potential equations, Cartesian Hall coefficients
+           and comparison of transonic approximations, 02874-6002-R000.
+           https://ntrs.nasa.gov/citations/19670009614
+    """
+
     inputs: HallSonicInputs
     point: HallThroatResult
     iterations: int
@@ -415,12 +801,49 @@ class HallSonicResult:
 
 
 def locate_hall_sonic_point(*, model, wall_fraction, order=2, max_iterations=128):
-    """Bracket |V|/a*=1 inside the retained Hall model and hyperbolic wall.
+    """Bracket the sonic point ``|V|/a* = 1`` of the Hall expansion on a wall ray.
 
-    wall_fraction=0 is the axis and 1 is the actual hyperbolic wall. The
-    polynomial root certificate bounds numerical root error, not Hall's
-    approximation error or the true transonic flow. No supersonic offset or
-    downstream axis-history initialization is supplied.
+    Parameters
+    ----------
+    model : HallThroatModel or mapping
+        Throat geometry and gas.
+    wall_fraction : float
+        Ray position in ``[0, 1]``; 0 is the axis and 1 the hyperbolic wall.
+    order : int, default 2
+        Expansion order, 1 or 2.
+    max_iterations : int, default 128
+        Bisection budget, between 1 and 256.
+
+    Returns
+    -------
+    HallSonicResult
+        Outward-rounded bracket of the sonic point and the expansion state at
+        its midpoint.
+
+    Raises
+    ------
+    DomainError
+        If the inputs are invalid.
+    ConvergenceError
+        If the root is not bracketed in ``-1 <= w <= 1``, monotonicity cannot
+        be certified, the budget is exhausted, or the exported endpoints fail
+        to bracket the root.
+
+    Notes
+    -----
+    The polynomial root certificate bounds the numerical root error only, not
+    the approximation error of Hall's expansion [1]_, [2]_ or the true
+    transonic flow. No supersonic offset or downstream axis-history
+    initialization is supplied.
+
+    References
+    ----------
+    .. [1] HALL-MCCABE-RM3440. McCabe, planar Hall coefficients and nozzle-design
+           context, ARC R&M 3440 (report 1964, issued 1967).
+           https://reports.aerade.cranfield.ac.uk/handle/1826.2/4023
+    .. [2] KLIEGEL-QUAN-1966. Full potential equations, Cartesian Hall coefficients
+           and comparison of transonic approximations, 02874-6002-R000.
+           https://ntrs.nasa.gov/citations/19670009614
     """
     inputs = HallSonicInputs(model, wall_fraction, order, max_iterations)
     return HallSonicResult(inputs=inputs, **_locate(inputs))

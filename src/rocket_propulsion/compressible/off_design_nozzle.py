@@ -1,4 +1,25 @@
-"""Back-pressure-driven converging-diverging nozzle operating regimes."""
+"""Back-pressure-driven converging-diverging nozzle operating regimes.
+
+A fixed converging-diverging nozzle with perfect-gas, quasi-one-dimensional,
+adiabatic and inviscid flow is solved at an imposed back pressure. The regime
+follows from comparing the back pressure with three analytical thresholds:
+the just-choked subsonic exit pressure, the pressure behind a normal shock
+standing at the exit plane, and the design exit pressure [1]_, [2]_. Flow
+separation is screened with an empirical exit-to-ambient pressure criterion
+[3]_; it is not solved. Altitude sweeps use the U.S. Standard Atmosphere 1976
+[4]_.
+
+References
+----------
+.. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+       Elements", 9th ed., Wiley, 2017.
+.. [2] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+       Compressible Flow", NACA Report 1135, 1953.
+.. [3] NASA-SP8120-SEPARATION. NASA SP-8120, "Liquid Rocket Engine Nozzles", 1976, p. 17.
+       https://ntrs.nasa.gov/citations/19710021390
+.. [4] NOAA/NASA/USAF, "U.S. Standard Atmosphere, 1976", NOAA-S/T 76-1562 /
+       NASA-TM-X-74335. https://ntrs.nasa.gov/citations/19770009539
+"""
 
 from __future__ import annotations
 
@@ -23,7 +44,28 @@ from .nozzle import calculate_ideal_nozzle
 
 @dataclass(frozen=True, slots=True)
 class NozzleRegimeThresholds:
-    """Back-pressure boundaries for a fixed perfect-gas nozzle."""
+    """Back-pressure boundaries for a fixed perfect-gas nozzle [1]_, [2]_.
+
+    Attributes
+    ----------
+    chamber_pressure_pa : float
+        Chamber stagnation pressure in Pa.
+    just_choked_back_pressure_pa : float
+        Back pressure at which the throat first chokes with a fully subsonic
+        diverging section (subsonic isentropic branch at the exit).
+    shock_at_exit_back_pressure_pa : float
+        Back pressure that places a normal shock exactly at the exit plane.
+    design_exit_pressure_pa : float
+        Exit pressure on the supersonic isentropic branch (shock-free design
+        condition).
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [2] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    """
 
     chamber_pressure_pa: float
     just_choked_back_pressure_pa: float
@@ -33,7 +75,27 @@ class NozzleRegimeThresholds:
 
 @dataclass(frozen=True, slots=True)
 class NozzleFlowStation:
-    """One normalized station used by the off-design contour plot."""
+    """One normalized station used by the off-design contour plot.
+
+    Station Mach numbers follow the isentropic area relation [1]_.
+
+    Attributes
+    ----------
+    x_fraction : float
+        Normalized position from throat (0) to exit (1).
+    area_ratio : float
+        Local area ratio ``A/A_t``, linear in ``x_fraction``.
+    mach, pressure_pa, total_pressure_pa : float
+        Local Mach number, static pressure and stagnation pressure.
+    region : str
+        ``"subsonic"``, ``"supersonic"``, ``"pre-shock supersonic"`` or
+        ``"post-shock subsonic"``.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    """
 
     x_fraction: float
     area_ratio: float
@@ -45,7 +107,26 @@ class NozzleFlowStation:
 
 @dataclass(frozen=True, slots=True)
 class ShockLocation:
-    """Solved normal-shock state within the divergent section."""
+    """Solved normal-shock state within the divergent section [1]_.
+
+    Attributes
+    ----------
+    area_ratio : float
+        Area ratio ``A_s/A_t`` at the shock.
+    x_fraction : float
+        Normalized shock position from throat (0) to exit (1).
+    upstream_mach, downstream_mach : float
+        Mach numbers immediately before and after the shock.
+    stagnation_pressure_ratio : float
+        Total-pressure recovery across the shock.
+    downstream_exit_mach : float
+        Subsonic exit Mach number behind the shock.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    """
 
     area_ratio: float
     x_fraction: float
@@ -57,7 +138,26 @@ class ShockLocation:
 
 @dataclass(frozen=True, slots=True)
 class SeparationAssessment:
-    """Empirical separation screening with an explicit validity statement."""
+    """Empirical separation screening with an explicit validity statement [1]_.
+
+    Attributes
+    ----------
+    predicted : bool
+        Whether the screening criterion indicates possible separation.
+    correlation, criterion : str
+        Name and inequality of the screening correlation.
+    exit_to_ambient_pressure_ratio : float or None
+        ``p_exit/p_ambient``; ``None`` for vacuum back pressure.
+    valid_for : str
+        Stated validity envelope of the correlation.
+    source, source_url : str
+        Source document of the correlation.
+
+    References
+    ----------
+    .. [1] NASA-SP8120-SEPARATION. NASA SP-8120, "Liquid Rocket Engine Nozzles", 1976, p. 17.
+           https://ntrs.nasa.gov/citations/19710021390
+    """
 
     predicted: bool
     correlation: str
@@ -70,7 +170,53 @@ class SeparationAssessment:
 
 @dataclass(frozen=True, slots=True)
 class OffDesignNozzleResult:
-    """Complete one-dimensional nozzle state at one ambient pressure."""
+    """Complete one-dimensional nozzle state at one ambient pressure [1]_, [2]_.
+
+    Attributes
+    ----------
+    regime : str
+        One of ``"no-flow"``, ``"unchoked"``, ``"just-choked"``,
+        ``"internal-normal-shock"``, ``"shock-at-exit"``, ``"overexpanded"``,
+        ``"design"`` or ``"underexpanded"``.
+    chamber_pressure_pa, ambient_pressure_pa : float
+        Imposed chamber stagnation and ambient pressures in Pa.
+    area_ratio, throat_area_m2, exit_area_m2 : float
+        Nozzle geometry.
+    throat_mach, exit_mach : float
+        Mach numbers at throat and exit.
+    exit_pressure_pa, exit_temperature_k, exit_velocity_m_s : float
+        Exit-plane static state.
+    exit_total_pressure_pa : float
+        Exit stagnation pressure, reduced by any normal shock.
+    mass_flow_kg_s : float
+        Mass flow set at the throat (or at the exit when unchoked).
+    exit_mass_flow_kg_s : float
+        Mass flow recomputed at the exit plane.
+    mass_flow_relative_residual : float
+        ``|mdot_exit - mdot| / mdot`` as a continuity check; zero for no flow.
+    momentum_thrust_n, pressure_thrust_n, thrust_n : float
+        ``mdot V_e``, ``(p_e - p_a) A_e`` and their sum, in N.
+    specific_impulse_s : float or None
+        ``F / (mdot g0)``; ``None`` when there is no flow.
+    thresholds : NozzleRegimeThresholds
+        Back-pressure boundaries used for the classification.
+    shock : ShockLocation or None
+        Normal-shock state when a shock stands in or at the exit of the
+        divergent section.
+    separation : SeparationAssessment
+        Empirical separation screening.
+    warnings : tuple of WarningMessage
+        Model-limit warnings for this state.
+    profile : tuple of NozzleFlowStation
+        Station profile from throat to exit; empty for no flow.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [2] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    """
 
     regime: str
     chamber_pressure_pa: float
@@ -100,7 +246,32 @@ class OffDesignNozzleResult:
 
 @dataclass(frozen=True, slots=True)
 class NozzleAltitudePoint:
-    """One atmosphere/nozzle result in an altitude sweep."""
+    """One atmosphere/nozzle result in an altitude sweep.
+
+    Ambient pressure is the U.S. Standard Atmosphere 1976 value [1]_.
+
+    Attributes
+    ----------
+    altitude_m, ambient_pressure_pa : float
+        Geopotential altitude and standard-atmosphere pressure.
+    regime : str
+        Operating regime from :func:`calculate_off_design_nozzle`.
+    thrust_n : float
+        Thrust in N.
+    specific_impulse_s : float or None
+        Specific impulse; ``None`` when there is no flow.
+    chamber_to_ambient_pressure_ratio : float or None
+        ``p_c/p_a``; ``None`` for zero ambient pressure.
+    separation_predicted : bool
+        Separation screening flag.
+    shock_x_fraction : float or None
+        Normalized shock position, if a shock is present.
+
+    References
+    ----------
+    .. [1] NOAA/NASA/USAF, "U.S. Standard Atmosphere, 1976", NOAA-S/T 76-1562 /
+           NASA-TM-X-74335. https://ntrs.nasa.gov/citations/19770009539
+    """
 
     altitude_m: float
     ambient_pressure_pa: float
@@ -114,7 +285,22 @@ class NozzleAltitudePoint:
 
 @dataclass(frozen=True, slots=True)
 class NozzleAltitudeSweep:
-    """Off-design performance across the 1976 standard atmosphere."""
+    """Off-design performance across the 1976 standard atmosphere [1]_.
+
+    Attributes
+    ----------
+    points : tuple of NozzleAltitudePoint
+        Samples in increasing altitude.
+    atmosphere_model : str
+        Name of the atmosphere model used.
+    warning : str
+        Statement of the separation-screening limitation.
+
+    References
+    ----------
+    .. [1] NOAA/NASA/USAF, "U.S. Standard Atmosphere, 1976", NOAA-S/T 76-1562 /
+           NASA-TM-X-74335. https://ntrs.nasa.gov/citations/19770009539
+    """
 
     points: tuple[NozzleAltitudePoint, ...]
     atmosphere_model: str
@@ -130,6 +316,8 @@ def _validate_inputs(
     gamma: float,
     gas_constant_j_kg_k: float,
 ) -> None:
+    """Raise :class:`DomainError` with the offending field for invalid nozzle inputs."""
+
     positive = (
         (chamber_pressure_pa, "chamber_pressure_pa"),
         (chamber_temperature_k, "chamber_temperature_k"),
@@ -155,7 +343,43 @@ def _validate_inputs(
 def nozzle_regime_thresholds(
     *, chamber_pressure_pa: float, area_ratio: float, gamma: float
 ) -> NozzleRegimeThresholds:
-    """Return analytical back-pressure boundaries for a fixed nozzle."""
+    """Return analytical back-pressure boundaries for a fixed nozzle.
+
+    Parameters
+    ----------
+    chamber_pressure_pa : float
+        Chamber stagnation pressure in Pa.
+    area_ratio : float
+        Exit-to-throat area ratio, at least one.
+    gamma : float
+        Ratio of specific heats, greater than one.
+
+    Returns
+    -------
+    NozzleRegimeThresholds
+        Just-choked, shock-at-exit and design exit pressures.
+
+    Raises
+    ------
+    DomainError
+        If ``area_ratio`` or ``gamma`` is outside the isentropic domain.
+
+    Notes
+    -----
+    The just-choked pressure is ``p_c (p/p0)`` at the subsonic solution of
+    ``A/A* = area_ratio``; the design pressure is ``p_c (p/p0)`` at the
+    supersonic solution; the shock-at-exit pressure multiplies the design
+    pressure by the normal-shock static-pressure ratio at the supersonic exit
+    Mach number [1]_, [2]_. Inputs are not validated here beyond the checks of
+    the isentropic inversion.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [2] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    """
 
     exit_subsonic_mach = mach_from_isentropic("area_ratio_subsonic", area_ratio, gamma)
     exit_supersonic_mach = mach_from_isentropic("area_ratio_supersonic", area_ratio, gamma)
@@ -180,6 +404,22 @@ def _choked_mass_flow(
     gamma: float,
     gas_constant: float,
 ) -> float:
+    """Return the choked mass flow through ``area_m2`` from stagnation conditions.
+
+    Notes
+    -----
+    ``mdot = p0 A / sqrt(T0) sqrt(gamma/R) (2/(gamma+1))^((gamma+1)/(2(gamma-1)))``
+    for a perfect gas with a sonic section of area ``A`` [1]_, [2]_.
+
+    References
+    ----------
+    .. [1] NASA-GLENN-MASS-FLOW. NASA Glenn Research Center, isentropic mass-flow
+           conservation and density/velocity context.
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/mass-flow-rate-equations/
+    .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
+
     return (
         pressure_pa
         * area_m2
@@ -199,6 +439,23 @@ def _mass_flow_at_station(
     gamma: float,
     gas_constant: float,
 ) -> float:
+    """Return ``rho V A`` at a station of known Mach number and stagnation state.
+
+    Notes
+    -----
+    Static pressure and temperature follow from the isentropic ratios [1]_;
+    density from the perfect-gas law and velocity from
+    ``V = M sqrt(gamma R T)`` [2]_.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    .. [2] NASA-GLENN-MASS-FLOW. NASA Glenn Research Center, isentropic mass-flow
+           conservation and density/velocity context.
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/mass-flow-rate-equations/
+    """
+
     ratios = calculate_isentropic(mach, gamma)
     pressure = total_pressure_pa * ratios.pressure_total_ratio
     temperature = total_temperature_k * ratios.temperature_total_ratio
@@ -214,6 +471,27 @@ def _shock_exit_state(
     chamber_pressure_pa: float,
     gamma: float,
 ) -> tuple[float, float, float, float, float]:
+    """Return the exit state for a normal shock at area ratio ``shock_area_ratio``.
+
+    Returns
+    -------
+    tuple of float
+        ``(exit_pressure_pa, upstream_mach, downstream_mach,
+        stagnation_pressure_ratio, exit_mach)``.
+
+    Notes
+    -----
+    Upstream of the shock the flow is on the supersonic isentropic branch.
+    Behind it the sonic reference area grows by ``1/(p02/p01)``, so the exit
+    sees ``A_e/A2* = (A_e/A_s) (A_s/A2*)`` and is solved on the subsonic
+    branch with the reduced stagnation pressure [1]_.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    """
+
     upstream_mach = mach_from_isentropic(
         "area_ratio_supersonic", shock_area_ratio, gamma
     )
@@ -248,6 +526,23 @@ def _solve_internal_shock(
     area_ratio: float,
     gamma: float,
 ) -> ShockLocation:
+    """Locate the normal shock whose subsonic exit pressure equals the back pressure.
+
+    Notes
+    -----
+    The exit pressure of :func:`_shock_exit_state` decreases monotonically as
+    the shock moves downstream, so the shock area ratio is found by bracketed
+    bisection between just downstream of the throat and the exit plane
+    (tolerance 1e-10, at most 200 iterations) [1]_, [2]_.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
+
     epsilon = max(1.0e-9, (area_ratio - 1.0) * 1.0e-9)
     result = solve_bisect_monotonic(
         lambda shock_area: _shock_exit_state(
@@ -281,6 +576,22 @@ def _solve_internal_shock(
 def _separation_assessment(
     *, exit_pressure_pa: float, ambient_pressure_pa: float
 ) -> SeparationAssessment:
+    """Screen for flow separation with the Summerfield exit-pressure criterion.
+
+    Notes
+    -----
+    Separation is flagged when ``p_exit/p_ambient <= 0.4`` [1]_. The
+    correlation is an onset screen for roughly 15 degree conical divergent
+    sections at chamber-to-ambient pressure ratios above 16; it is not a
+    viscous solution, does not locate the separation point and gives no
+    side-load estimate. Vacuum back pressure yields no ratio and no flag.
+
+    References
+    ----------
+    .. [1] NASA-SP8120-SEPARATION. NASA SP-8120, "Liquid Rocket Engine Nozzles", 1976, p. 17.
+           https://ntrs.nasa.gov/citations/19710021390
+    """
+
     ratio = (
         exit_pressure_pa / ambient_pressure_pa if ambient_pressure_pa > 0.0 else None
     )
@@ -294,8 +605,8 @@ def _separation_assessment(
             "approximately 15 degree conical divergent nozzles and "
             "chamber-to-ambient pressure ratio above 16"
         ),
-        source="NASA SP-8041, Solid Rocket Motor Nozzles",
-        source_url="https://ntrs.nasa.gov/citations/19710021390",
+        source="NASA SP-8120, Liquid Rocket Engine Nozzles (1976), p. 17",
+        source_url="https://ntrs.nasa.gov/citations/19770009165",
     )
 
 
@@ -309,6 +620,23 @@ def _profile(
     shock: ShockLocation | None,
     station_count: int,
 ) -> tuple[NozzleFlowStation, ...]:
+    """Return evenly spaced quasi-one-dimensional stations from throat to exit.
+
+    Notes
+    -----
+    The local area ratio is linear in the normalized axial coordinate. Mach
+    number at each station follows from the isentropic area relation [1]_ on
+    the branch implied by the regime: subsonic for unchoked and just-choked
+    flow (referenced to the effective sonic area), supersonic for shock-free
+    choked flow, and supersonic/subsonic on either side of a normal shock with
+    the post-shock stagnation pressure behind it.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    """
+
     stations: list[NozzleFlowStation] = []
     if regime == "unchoked":
         throat_area_critical = calculate_isentropic(
@@ -379,7 +707,70 @@ def calculate_off_design_nozzle(
     gas_constant_j_kg_k: float = 355.0,
     station_count: int = 81,
 ) -> OffDesignNozzleResult:
-    """Classify and solve a perfect-gas C-D nozzle at imposed back pressure."""
+    """Classify and solve a perfect-gas C-D nozzle at imposed back pressure.
+
+    Parameters
+    ----------
+    chamber_pressure_pa : float
+        Chamber stagnation pressure ``p_c`` in Pa, finite and positive.
+    chamber_temperature_k : float
+        Chamber stagnation temperature in K, finite and positive.
+    throat_area_m2 : float
+        Throat area in m^2, finite and positive.
+    area_ratio : float
+        Exit-to-throat area ratio, at least one.
+    ambient_pressure_pa : float
+        Imposed back pressure ``p_a`` in Pa, finite and non-negative.
+    gamma : float, default 1.22
+        Frozen ratio of specific heats, greater than one.
+    gas_constant_j_kg_k : float, default 355.0
+        Specific gas constant in J/(kg K), finite and positive.
+    station_count : int, default 81
+        Number of profile stations, between 21 and 401.
+
+    Returns
+    -------
+    OffDesignNozzleResult
+        Regime, exit state, thrust, separation screening, warnings and the
+        station profile.
+
+    Raises
+    ------
+    DomainError
+        If an input is outside its domain.
+
+    Notes
+    -----
+    With thresholds from :func:`nozzle_regime_thresholds` and a pressure
+    tolerance of ``1e-7 p_c``, the regimes are, in order of decreasing back
+    pressure [1]_, [2]_:
+
+    * ``no-flow`` for ``p_a >= p_c``;
+    * ``unchoked``: subsonic isentropic flow with ``p_exit = p_a``, mass flow
+      evaluated at the exit;
+    * ``just-choked``: sonic throat, subsonic diverging section;
+    * ``internal-normal-shock``: a normal shock located by bisection so that
+      the subsonic exit pressure equals ``p_a``;
+    * ``shock-at-exit``: a normal shock standing at the exit plane;
+    * ``overexpanded``, ``design`` and ``underexpanded``: shock-free
+      supersonic exit flow from
+      :func:`~rocket_propulsion.compressible.nozzle.calculate_ideal_nozzle`,
+      with external waves not resolved.
+
+    Thrust is ``F = mdot V_e + (p_e - p_a) A_e``. The exit mass flow is
+    recomputed independently and reported as a relative continuity residual.
+    Separation is screened, not solved [3]_. Viscous, divergence, chemistry
+    and discharge losses are not included.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [2] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    .. [3] NASA-SP8120-SEPARATION. NASA SP-8120, "Liquid Rocket Engine Nozzles", 1976, p. 17.
+           https://ntrs.nasa.gov/citations/19710021390
+    """
 
     _validate_inputs(
         chamber_pressure_pa,
@@ -641,9 +1032,9 @@ def calculate_off_design_nozzle(
 # (base geopotential altitude H_b [m'], base temperature T_b [K], base
 # pressure P_b [Pa], molecular-scale temperature gradient L_b [K/m']).  H_b,
 # T_b and L_b are the defining values of the 1976 model; P_b are the base
-# pressures that its hydrostatic equations give from 101325 Pa with R* and
-# M0, as tabulated in the 1976 report.  Source:
-# https://ntrs.nasa.gov/citations/19770009539
+# pressures that its hydrostatic equations give from the sea-level pressure
+# USSA1976_SEA_LEVEL_PRESSURE_PA with R* and M0, as tabulated in the 1976
+# report.  Source: https://ntrs.nasa.gov/citations/19770009539
 _ATMOSPHERE_LAYERS = (
     (0.0, USSA1976_SEA_LEVEL_TEMPERATURE_K, USSA1976_SEA_LEVEL_PRESSURE_PA, -0.0065),
     (11_000.0, 216.65, 22_632.06, 0.0),
@@ -658,20 +1049,41 @@ _ATMOSPHERE_LAYERS = (
 def standard_atmosphere_pressure_pa(altitude_m: float) -> float:
     """Return U.S. Standard Atmosphere 1976 pressure at a geopotential altitude.
 
-    ``altitude_m`` is the *geopotential* altitude H (m'), 0 to 84 852 m', the
-    range of the 1976 model's seven linear temperature layers.  Within a layer
+    Parameters
+    ----------
+    altitude_m : float
+        Geopotential altitude ``H`` in m', from 0 to 84 852 m' inclusive, the
+        range of the model's seven linear temperature layers.
+
+    Returns
+    -------
+    float
+        Static pressure in Pa.
+
+    Raises
+    ------
+    DomainError
+        If ``altitude_m`` is not finite or lies outside the model range.
+
+    Notes
+    -----
+    Within a layer with base ``H_b``, ``T_b``, ``P_b`` and gradient ``L_b``
+    [1]_::
 
         P = P_b (T_b / (T_b + L_b (H - H_b)))^(g0 M0 / (R* L_b))   (L_b != 0)
         P = P_b exp(-g0 M0 (H - H_b) / (R* T_b))                  (L_b == 0)
 
-    with the model's own defining constants g0, M0 and R* = 8.31432 J/(mol K).
-    Using a different R* (for example the 2019 SI value) makes the pressure
-    jump by ~3e-5 at every layer base.
+    with the model's own defining constants: ``g0`` is
+    ``STANDARD_GRAVITY_M_S2``, ``M0`` is ``USSA1976_MOLAR_MASS_KG_MOL`` and
+    ``R*`` is ``USSA1976_GAS_CONSTANT_J_MOL_K`` from
+    :mod:`rocket_propulsion.core.constants`. Using a different ``R*`` (for
+    example the 2019 SI value) makes the pressure jump by about 3e-5 at every
+    layer base.
 
     References
     ----------
-    U.S. Standard Atmosphere, 1976, NOAA-S/T 76-1562 / NASA-TM-X-74335:
-    https://ntrs.nasa.gov/citations/19770009539
+    .. [1] NOAA/NASA/USAF, "U.S. Standard Atmosphere, 1976", NOAA-S/T 76-1562 /
+           NASA-TM-X-74335. https://ntrs.nasa.gov/citations/19770009539
     """
 
     if not isfinite(altitude_m) or not 0.0 <= altitude_m <= 84_852.0:
@@ -709,7 +1121,45 @@ def generate_nozzle_altitude_sweep(
     maximum_altitude_m: float = 50_000.0,
     point_count: int = 51,
 ) -> NozzleAltitudeSweep:
-    """Evaluate regime, thrust, and Isp along a standard-atmosphere climb."""
+    """Evaluate regime, thrust, and Isp along a standard-atmosphere climb.
+
+    Parameters
+    ----------
+    chamber_pressure_pa, chamber_temperature_k, throat_area_m2, area_ratio : float
+        Nozzle and chamber definition, as in
+        :func:`calculate_off_design_nozzle`.
+    gamma : float, default 1.22
+        Frozen ratio of specific heats.
+    gas_constant_j_kg_k : float, default 355.0
+        Specific gas constant in J/(kg K).
+    maximum_altitude_m : float, default 50000.0
+        Top of the sweep in geopotential metres, in ``(0, 84852]``.
+    point_count : int, default 51
+        Number of evenly spaced altitudes from sea level, between 2 and 201.
+
+    Returns
+    -------
+    NozzleAltitudeSweep
+        Per-altitude regime, thrust, Isp and separation flags.
+
+    Raises
+    ------
+    DomainError
+        If the sweep bounds or nozzle inputs are outside their domains.
+
+    Notes
+    -----
+    Ambient pressure comes from :func:`standard_atmosphere_pressure_pa` [1]_;
+    each point is solved with :func:`calculate_off_design_nozzle` using 41
+    profile stations. Separation flags are a screening result only [2]_.
+
+    References
+    ----------
+    .. [1] NOAA/NASA/USAF, "U.S. Standard Atmosphere, 1976", NOAA-S/T 76-1562 /
+           NASA-TM-X-74335. https://ntrs.nasa.gov/citations/19770009539
+    .. [2] NASA-SP8120-SEPARATION. NASA SP-8120, "Liquid Rocket Engine Nozzles", 1976, p. 17.
+           https://ntrs.nasa.gov/citations/19710021390
+    """
 
     if not 2 <= point_count <= 201:
         raise DomainError("Altitude point count must be between 2 and 201.")
