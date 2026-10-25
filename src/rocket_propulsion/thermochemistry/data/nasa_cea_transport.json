@@ -1,0 +1,4755 @@
+{
+ "schema_version": 1,
+ "source": {
+  "title": "NASA CEA transport property database (trans.inp)",
+  "authors": "NASA Glenn Research Center; data from Svehla (1995) and the per-record sources",
+  "url": "https://github.com/nasa/cea/blob/2f79a647e85737742fb08a127da00d1ea1d069da/data/trans.inp",
+  "repository": "https://github.com/nasa/cea",
+  "commit": "2f79a647e85737742fb08a127da00d1ea1d069da",
+  "sha256": "379c514a7f7638371d8d9254a1d653cd078084a9371061aa0b45c5a5c3334d41",
+  "license": "Apache-2.0",
+  "format_reference": "NASA RP-1311 Part I eq. (5.1); CEA source/database_compile.f90 subroutine utran, formats 99001 and 99002"
+ },
+ "model": {
+  "name": "ln(property) = A ln T + B/T + C/T^2 + D",
+  "coefficient_order": [
+   "A",
+   "B",
+   "C",
+   "D"
+  ],
+  "viscosity_unit": "micropoise",
+  "thermal_conductivity_unit": "microwatt/(cm K)"
+ },
+ "species": [
+  {
+   "name": "Ar",
+   "trans_inp_comment": "BICH ET AL (1990)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.61205763,
+      -67.714354,
+      190.4066,
+      2.1588272
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.69357334,
+      70.953943,
+      -28386.007,
+      1.4856447
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.76608935,
+      678.67215,
+      -849914.17,
+      0.77935167
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.60968928,
+      -70.892249,
+      584.20624,
+      1.9337152
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.69075463,
+      62.676058,
+      -25667.413,
+      1.2664189
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.76269502,
+      623.41752,
+      -718995.52,
+      0.56927918
+     ]
+    }
+   ]
+  },
+  {
+   "name": "BCL3",
+   "trans_inp_comment": "SVEHLA (1962)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.5257259,
+      -278.03504,
+      19159.256,
+      2.437379
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.62929553,
+      -60.72356,
+      -37711.618,
+      1.5615047
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.41518585,
+      -481.4996,
+      30788.06,
+      3.3168239
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.61148589,
+      -181.67042,
+      -20976.969,
+      1.7127671
+     ]
+    }
+   ]
+  },
+  {
+   "name": "BF3",
+   "trans_inp_comment": "SVEHLA (1962,1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.58778079,
+      -96.213686,
+      -376.60007,
+      2.1035273
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.64430285,
+      7.3362845,
+      -23890.605,
+      1.6330508
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.39288181,
+      -537.81426,
+      39023.491,
+      4.2287006
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.60695214,
+      -198.89031,
+      -23403.767,
+      2.4734586
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Br2",
+   "trans_inp_comment": "SVEHLA (1962,1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.45241871,
+      -525.42766,
+      61354.23,
+      3.532287
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.60111079,
+      -224.99274,
+      -14517.179,
+      2.2805949
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.13579199,
+      -801.37295,
+      83046.621,
+      4.8052172
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.13602376,
+      -2190.4601,
+      777699.13,
+      5.4980508
+     ]
+    }
+   ]
+  },
+  {
+   "name": "C",
+   "trans_inp_comment": "BIOLSI (1982)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.80124735,
+      172.61643,
+      -69940.019,
+      0.08836487
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      1.0344416,
+      3131.0924,
+      -4551202.0,
+      -2.3102402
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.80224051,
+      177.39617,
+      -72350.849,
+      1.0329911
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      1.0355137,
+      3148.983,
+      -4585402.8,
+      -1.3676372
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CCLF3",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.57775962,
+      -115.95656,
+      1389.4846,
+      2.0719367
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.64278913,
+      1.8533422,
+      -25000.775,
+      1.5313091
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.30701673,
+      -586.2112,
+      37562.739,
+      4.5977739
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.59447897,
+      -254.05493,
+      15214.514,
+      2.302247
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CCL2F2",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.55188576,
+      -180.84616,
+      7439.9094,
+      2.2089157
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.63820813,
+      -16.395245,
+      -31624.406,
+      1.4872353
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.37505967,
+      -459.75338,
+      13246.268,
+      3.8355232
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.59226968,
+      -259.88712,
+      21916.978,
+      2.1265525
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CCL3F",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.52599241,
+      -274.66441,
+      18699.061,
+      2.3965367
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.62963969,
+      -58.775545,
+      -37421.689,
+      1.5207986
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.25082525,
+      -692.36016,
+      58465.61,
+      4.6480202
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.58847038,
+      -296.13903,
+      29176.214,
+      1.9487185
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CCL4",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.52914726,
+      -261.73707,
+      16983.586,
+      2.2508228
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.63117223,
+      -50.873987,
+      -37435.436,
+      1.3896152
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.39796301,
+      -459.70713,
+      25887.539,
+      3.2182809
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.60345477,
+      -226.65258,
+      12105.253,
+      1.5795218
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CF4",
+   "trans_inp_comment": "BOUSHEHRI ET AL (1987)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.62364242,
+      -15.73454,
+      -11268.526,
+      1.782656
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.52895824,
+      -344.4129,
+      105727.86,
+      2.6483931
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.29102001,
+      -625.44847,
+      40137.545,
+      5.0559989
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.46958735,
+      -718.64138,
+      176015.42,
+      3.7798145
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CHCLF2",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.55518512,
+      -191.51112,
+      9230.2454,
+      2.2465942
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.63832814,
+      -18.642363,
+      -35632.589,
+      1.5442566
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.57111784,
+      -403.44356,
+      7684.1854,
+      2.6855196
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.57237181,
+      -421.44805,
+      17313.314,
+      2.6852328
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CHCL2F",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.54261029,
+      -236.93132,
+      14722.387,
+      2.2950603
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.6332205,
+      -43.091499,
+      -36892.355,
+      1.5269221
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.64554399,
+      -296.14334,
+      -3430.5973,
+      1.8524599
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.58133799,
+      -384.61009,
+      8699.9769,
+      2.3723154
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CHCL3",
+   "trans_inp_comment": "SVEHLA (1962,1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.52563815,
+      -280.25371,
+      19479.241,
+      2.3475804
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.62913497,
+      -61.794789,
+      -38001.753,
+      1.4716717
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.43704658,
+      -536.48192,
+      29187.663,
+      3.2672103
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.55383193,
+      -510.59645,
+      74636.57,
+      2.3891512
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CHF3",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.58092199,
+      -118.62927,
+      2503.9931,
+      2.0948315
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.64363521,
+      -0.70920001,
+      -25099.472,
+      1.5713073
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.73882642,
+      -170.58713,
+      -32698.111,
+      1.6126977
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.58787951,
+      -352.03256,
+      -17448.254,
+      2.8215977
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CH2CL2",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.57185884,
+      -345.99168,
+      32975.791,
+      2.1786059
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.60922943,
+      -187.84625,
+      -27411.214,
+      1.8227006
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.25979341,
+      -1051.0041,
+      110788.5,
+      5.1956543
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.48080771,
+      -951.2053,
+      171394.52,
+      3.5085367
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CH3CL",
+   "trans_inp_comment": "MONCHICK & MASON (1961)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.58181268,
+      -307.14376,
+      27516.618,
+      2.0941516
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.61479454,
+      -163.27574,
+      -27926.072,
+      1.7778956
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.4304839,
+      -965.86387,
+      91616.26,
+      4.4424192
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.44418462,
+      -1157.3896,
+      194228.38,
+      4.4366915
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CH4",
+   "trans_inp_comment": "BOUSHEHRI ET AL (1987)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.57643622,
+      -93.704079,
+      869.92395,
+      1.7333347
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.66400044,
+      10.860843,
+      -7630.7841,
+      1.0323984
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      1.0238177,
+      -310.92375,
+      32944.309,
+      0.67787437
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.77485028,
+      -400.89627,
+      -46551.082,
+      2.5671481
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CH3OH",
+   "trans_inp_comment": "MONCHICK & MASON (1961)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.5840839,
+      -306.77174,
+      27569.892,
+      1.9794348
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.61454903,
+      -165.40203,
+      -27881.995,
+      1.6830713
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.33374512,
+      -1161.7154,
+      108942.11,
+      5.7684124
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.42733576,
+      -1268.2528,
+      209004.63,
+      5.128386
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CO",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.62526577,
+      -31.779652,
+      -1640.7983,
+      1.7454992
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.87395209,
+      561.52222,
+      -173948.09,
+      -0.39335958
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.88503551,
+      909.02171,
+      -731290.61,
+      -0.53503838
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.85439436,
+      105.73224,
+      -12347.848,
+      0.47793128
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.88407146,
+      133.57293,
+      -11429.64,
+      0.24417019
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      2.4175411,
+      8046.2671,
+      3109074.0,
+      -14.516932
+     ]
+    }
+   ]
+  },
+  {
+   "name": "COS",
+   "trans_inp_comment": "SVEHLA (1962)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.52573161,
+      -276.6829,
+      18982.511,
+      2.535986
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.62947137,
+      -59.744762,
+      -37616.63,
+      1.6590382
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.56172985,
+      -421.67958,
+      28198.92,
+      2.6921796
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.65503267,
+      -171.03349,
+      -50472.397,
+      1.8756918
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CO2",
+   "trans_inp_comment": "BOUSHEHRI ET AL (1987)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.51137258,
+      -229.51321,
+      13710.678,
+      2.7075538
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.63978285,
+      -42.637076,
+      -15522.605,
+      1.6628843
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      0.72150912,
+      750.12895,
+      -1182550.7,
+      0.85493645
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.48056568,
+      -507.8672,
+      35088.811,
+      3.6747794
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.69857277,
+      -118.30477,
+      -50688.859,
+      1.8650551
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      1.0518358,
+      -4255.5944,
+      14288688.0,
+      -0.88950473
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CS2",
+   "trans_inp_comment": "SVEHLA (1962)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.5457374,
+      -360.42852,
+      33177.885,
+      2.3235206
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.61427787,
+      -153.37427,
+      -36078.656,
+      1.7122621
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.52603181,
+      -507.80062,
+      41502.601,
+      2.6684257
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.66331137,
+      -150.58989,
+      -68462.565,
+      1.4728865
+     ]
+    }
+   ]
+  },
+  {
+   "name": "C2H2,acetylene",
+   "trans_inp_comment": "SVEHLA (1962,1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.56299896,
+      -153.04865,
+      4601.9734,
+      1.8854528
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.64038318,
+      -7.2360229,
+      -29612.277,
+      1.2393032
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.84030505,
+      -100.5161,
+      -26171.483,
+      1.1926036
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.62672572,
+      -581.47342,
+      107517.24,
+      3.015226
+     ]
+    }
+   ]
+  },
+  {
+   "name": "C2H4",
+   "trans_inp_comment": "BOUSHEHRI ET AL (1987)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.59136053,
+      -140.88938,
+      3001.28,
+      1.7018932
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.66000894,
+      39.114999,
+      -52676.489,
+      1.1033601
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.2473665,
+      -1058.9987,
+      89911.568,
+      6.4456092
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.51616035,
+      -924.86351,
+      157238.87,
+      4.3873845
+     ]
+    }
+   ]
+  },
+  {
+   "name": "C2H6",
+   "trans_inp_comment": "BOUSHEHRI ET AL (1987)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.59089348,
+      -139.94405,
+      2986.8374,
+      1.5988866
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.66061323,
+      41.06222,
+      -52656.212,
+      0.9919164
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.7086749,
+      -630.16563,
+      50951.026,
+      2.9508724
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.57947247,
+      -649.90228,
+      -3780.6714,
+      3.9178395
+     ]
+    }
+   ]
+  },
+  {
+   "name": "C2H5OH",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.54586031,
+      -313.82676,
+      26089.2,
+      2.1078504
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.61957901,
+      -119.35847,
+      -34285.357,
+      1.4645259
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.22185435,
+      -1225.1941,
+      117166.32,
+      6.557158
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.4291584,
+      -1212.8199,
+      214629.28,
+      5.0153152
+     ]
+    }
+   ]
+  },
+  {
+   "name": "C2N2",
+   "trans_inp_comment": "SVEHLA (1962)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.52471007,
+      -288.39713,
+      20625.913,
+      2.3625791
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.62832879,
+      -66.440897,
+      -38542.772,
+      1.4840188
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.76361743,
+      -240.78764,
+      11152.243,
+      1.3726624
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.66495585,
+      -197.33792,
+      -59902.201,
+      2.0817971
+     ]
+    }
+   ]
+  },
+  {
+   "name": "CL2",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.53516134,
+      -236.24735,
+      13738.454,
+      2.4970463
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.6334843,
+      -38.78624,
+      -35830.615,
+      1.6699633
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.34156262,
+      -460.59166,
+      34712.872,
+      3.7412367
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.87392526,
+      198.7612,
+      -28784.264,
+      -0.53204988
+     ]
+    }
+   ]
+  },
+  {
+   "name": "D2",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.74566381,
+      43.611949,
+      -3239.6252,
+      0.48064872
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.96835229,
+      682.41861,
+      -211297.75,
+      -1.4883773
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      1.1180891,
+      297.71761,
+      -23323.095,
+      0.0942083
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      1.0670411,
+      498.11245,
+      -149042.99,
+      0.37216028
+     ]
+    }
+   ]
+  },
+  {
+   "name": "D2O",
+   "trans_inp_comment": "MATSUNAGA & NAGASHIMA(1983) SVEHLA(1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.51773336,
+      -664.1368,
+      82973.607,
+      2.9575078
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.58703537,
+      -551.0154,
+      61063.786,
+      2.387575
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.74656939,
+      -1059.2831,
+      178383.77,
+      2.6602773
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.50642285,
+      -1692.5317,
+      374934.03,
+      4.7558493
+     ]
+    }
+   ]
+  },
+  {
+   "name": "e-",
+   "trans_inp_comment": "MASON ET AL (1967)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 2000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      5.9319174,
+      5659.4215,
+      -2257612.5,
+      -53.458874
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 2000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      5.9320964,
+      5660.1476,
+      -2257733.2,
+      -42.5126
+     ]
+    }
+   ]
+  },
+  {
+   "name": "F2",
+   "trans_inp_comment": "SVEHLA (1962,1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.61198519,
+      -39.64796,
+      -1729.4474,
+      2.123771
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.64406091,
+      -0.58273377,
+      -5224.3255,
+      1.8666294
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.46767823,
+      -266.24115,
+      18169.657,
+      3.6165585
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      -0.19981248,
+      -2512.9092,
+      807753.79,
+      9.6845049
+     ]
+    }
+   ]
+  },
+  {
+   "name": "H",
+   "trans_inp_comment": "VANDERSLICE ET AL (1962)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.74226149,
+      -401.32865,
+      185541.65,
+      0.046741844
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.87486623,
+      -2502.2902,
+      7095504.8,
+      -0.93888455
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.74166119,
+      -404.87203,
+      187756.42,
+      3.4843121
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.87447639,
+      -2508.9452,
+      7108129.4,
+      2.4970991
+     ]
+    }
+   ]
+  },
+  {
+   "name": "HBr",
+   "trans_inp_comment": "ZELEZNIK & SVEHLA (1970)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.54286515,
+      -329.09036,
+      28143.861,
+      2.9266732
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.61904039,
+      -123.70443,
+      -36461.217,
+      2.2596924
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.9126976,
+      -154.5615,
+      21177.636,
+      -0.43914664
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.63722827,
+      -354.34488,
+      -16663.585,
+      1.7013527
+     ]
+    }
+   ]
+  },
+  {
+   "name": "HCN",
+   "trans_inp_comment": "ZELEZNIK & SVEHLA (1970)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.94863717,
+      -148.9149,
+      15258.721,
+      -0.72592817
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.57370725,
+      -852.39973,
+      179536.41,
+      2.4032031
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      1.1749061,
+      -191.00307,
+      15714.065,
+      -1.3488014
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.50543688,
+      -1389.1056,
+      280031.44,
+      4.209513
+     ]
+    }
+   ]
+  },
+  {
+   "name": "HCL",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.54302009,
+      -278.82979,
+      20927.618,
+      2.58955
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.62673906,
+      -81.516979,
+      -35869.154,
+      1.8707238
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.90670645,
+      -135.61693,
+      18563.886,
+      0.060312859
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.62521138,
+      -437.42347,
+      28720.932,
+      2.2964614
+     ]
+    }
+   ]
+  },
+  {
+   "name": "HF",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.81674828,
+      -236.35428,
+      22759.084,
+      0.70625888
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.58742532,
+      -555.43347,
+      67637.899,
+      2.5645661
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      1.2590294,
+      1.1896441,
+      -475.58763,
+      -1.9367617
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.51518587,
+      -1493.2469,
+      374820.86,
+      4.3206676
+     ]
+    }
+   ]
+  },
+  {
+   "name": "HI",
+   "trans_inp_comment": "SVEHLA (1962)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.53718504,
+      -225.04609,
+      12416.876,
+      2.7888146
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.63448421,
+      -33.714923,
+      -34599.137,
+      1.9723806
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.83653272,
+      -104.34645,
+      9007.5923,
+      -0.3898228
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.6586601,
+      -188.46822,
+      -37866.478,
+      0.9698736
+     ]
+    }
+   ]
+  },
+  {
+   "name": "H2",
+   "trans_inp_comment": "ASSAEL ET AL (1986)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.74553182,
+      43.555109,
+      -3257.934,
+      0.13556243
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.96730605,
+      679.31897,
+      -210251.79,
+      -1.8251697
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      1.0126129,
+      1497.3739,
+      -1442848.4,
+      -2.3254928
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      1.0059461,
+      279.51262,
+      -29792.018,
+      1.1996252
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      1.058245,
+      248.75372,
+      11736.907,
+      0.82758695
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      -0.2236442,
+      -6965.0442,
+      -77771.313,
+      13.189369
+     ]
+    }
+   ]
+  },
+  {
+   "name": "H2O",
+   "trans_inp_comment": "SENGERS & WATSON (1986)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 373.2,
+     "maximum_temperature_k": 1073.2,
+     "coefficients": [
+      0.50019557,
+      -697.12796,
+      88163.892,
+      3.0836508
+     ]
+    },
+    {
+     "minimum_temperature_k": 1073.2,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.58988538,
+      -537.69814,
+      54263.513,
+      2.3386375
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.64330087,
+      -95.668913,
+      -377422.83,
+      1.812519
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 373.2,
+     "maximum_temperature_k": 1073.2,
+     "coefficients": [
+      1.0966389,
+      -555.13429,
+      106234.08,
+      -0.2466455
+     ]
+    },
+    {
+     "minimum_temperature_k": 1073.2,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.39367933,
+      -2252.4226,
+      612174.58,
+      5.8011317
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      -0.41858737,
+      -14096.649,
+      19179190.0,
+      14.345613
+     ]
+    }
+   ]
+  },
+  {
+   "name": "H2S",
+   "trans_inp_comment": "ZELEZNIK & SVEHLA (1970)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.54078516,
+      -303.04377,
+      24073.168,
+      2.4952022
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.62320319,
+      -98.355396,
+      -37061.803,
+      1.7823252
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.99442135,
+      -198.49376,
+      18380.943,
+      -0.19947763
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.60597875,
+      -563.57581,
+      6702.7311,
+      2.860549
+     ]
+    }
+   ]
+  },
+  {
+   "name": "H6F6",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.59712969,
+      -367.75006,
+      38256.1,
+      1.5811495
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.60263706,
+      -236.19918,
+      -24765.049,
+      1.4745761
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.82019209,
+      -297.83007,
+      17372.752,
+      0.9470668
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.53249125,
+      -759.21725,
+      104216.49,
+      3.3089772
+     ]
+    }
+   ]
+  },
+  {
+   "name": "He",
+   "trans_inp_comment": "BICH ET AL (1990)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.75015944,
+      35.763243,
+      -2212.1291,
+      0.92126352
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.83394166,
+      220.82656,
+      -52852.591,
+      0.20809361
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.86316349,
+      962.05176,
+      -1249870.5,
+      -0.14115714
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.75007833,
+      36.577987,
+      -2363.66,
+      2.9766475
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.83319259,
+      221.57417,
+      -53304.53,
+      2.2684592
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.85920953,
+      898.73206,
+      -1106926.2,
+      1.9535742
+     ]
+    }
+   ]
+  },
+  {
+   "name": "I2",
+   "trans_inp_comment": "SVEHLA (1962)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.54929498,
+      -361.86119,
+      33655.931,
+      2.6154108
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.61338027,
+      -159.38416,
+      -35539.572,
+      2.0394438
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.29817264,
+      -624.70054,
+      63289.228,
+      3.0234067
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      -0.15544742,
+      -2884.3448,
+      966294.57,
+      7.5135419
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Kr",
+   "trans_inp_comment": "BICH ET AL (1990)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.58597795,
+      -129.24832,
+      4749.5759,
+      2.579365
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.68985845,
+      56.296306,
+      -36082.6,
+      1.7170715
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.76582939,
+      686.10377,
+      -825371.9,
+      0.97565128
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.58008139,
+      -137.92556,
+      6077.146,
+      1.6420039
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.68859431,
+      51.765647,
+      -34512.131,
+      0.7433213
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.76365443,
+      651.75847,
+      -735898.0,
+      0.012112126
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Li",
+   "trans_inp_comment": "HOLLAND ET AL (1986)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 3000.0,
+     "coefficients": [
+      1.18089,
+      1042.7008,
+      -426428.19,
+      -4.0060038
+     ]
+    },
+    {
+     "minimum_temperature_k": 3000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      1.3061758,
+      1044.6775,
+      134392.72,
+      -5.0720601
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 3000.0,
+     "coefficients": [
+      1.1802957,
+      1040.871,
+      -426554.45,
+      -2.4982084
+     ]
+    },
+    {
+     "minimum_temperature_k": 3000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      1.3086032,
+      1069.5497,
+      107810.83,
+      -3.5944181
+     ]
+    }
+   ]
+  },
+  {
+   "name": "N",
+   "trans_inp_comment": "LEVIN ET AL (1990)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.83724737,
+      439.9715,
+      -174507.53,
+      0.10365689
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.89986588,
+      1411.2801,
+      -1820047.8,
+      -0.55811716
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.83771661,
+      442.4327,
+      -175784.46,
+      0.89942915
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.9000171,
+      1414.1175,
+      -1826240.3,
+      0.24048513
+     ]
+    }
+   ]
+  },
+  {
+   "name": "NH3",
+   "trans_inp_comment": "ZELEZNIK & SVEHLA (1970)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.56652403,
+      -367.18083,
+      31663.844,
+      2.2647443
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.59761003,
+      -280.27339,
+      3753.2457,
+      1.9910129
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      1.7498387,
+      291.95254,
+      -33033.738,
+      -5.0944985
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.64477673,
+      -912.94723,
+      16890.182,
+      3.6939751
+     ]
+    }
+   ]
+  },
+  {
+   "name": "NO",
+   "trans_inp_comment": "BOUSHEHRI ET AL (1987)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.60262029,
+      -62.017783,
+      -139.54524,
+      2.0268332
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.7800905,
+      304.86891,
+      -94847.722,
+      0.52873381
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.80580582,
+      624.27878,
+      -578792.1,
+      0.2651645
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.95028758,
+      76.667058,
+      -9989.4764,
+      -0.0062776717
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.86215238,
+      445.68223,
+      -238564.66,
+      0.46209876
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      -1.0377865,
+      -34486.864,
+      67451187.0,
+      20.928749
+     ]
+    }
+   ]
+  },
+  {
+   "name": "NOCL",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.6050364,
+      -305.99542,
+      28616.29,
+      2.0637208
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.60958727,
+      -199.72327,
+      -22243.863,
+      1.9768724
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.52036442,
+      -537.58642,
+      52600.561,
+      2.9380096
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.92835992,
+      135.1124,
+      -79751.817,
+      -0.42066992
+     ]
+    }
+   ]
+  },
+  {
+   "name": "NO2",
+   "trans_inp_comment": "SVEHLA (1966)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.573791,
+      -126.36034,
+      2156.6823,
+      2.2287492
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.64239645,
+      0.60012144,
+      -27020.876,
+      1.6570566
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.48574998,
+      -507.0211,
+      46605.82,
+      3.6444556
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.97660465,
+      727.60751,
+      -325279.89,
+      -0.60899123
+     ]
+    }
+   ]
+  },
+  {
+   "name": "N2",
+   "trans_inp_comment": "BOUSHEHRI ET AL (1987)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.62526577,
+      -31.779652,
+      -1640.7983,
+      1.7454992
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.87395209,
+      561.52222,
+      -173948.09,
+      -0.39335958
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.88503551,
+      909.02171,
+      -731290.61,
+      -0.53503838
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.85439436,
+      105.73224,
+      -12347.848,
+      0.47793128
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.88407146,
+      133.57293,
+      -11429.64,
+      0.24417019
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      2.4176185,
+      8047.7749,
+      3105580.2,
+      -14.517761
+     ]
+    }
+   ]
+  },
+  {
+   "name": "N2O",
+   "trans_inp_comment": "BOUSHEHRI ET AL(1987)  URIBE ET AL(1990)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.58959112,
+      -155.65178,
+      3763.0431,
+      2.1223853
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.64571469,
+      -8.8806585,
+      -41560.559,
+      1.6332498
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.65165376,
+      -343.73058,
+      15090.399,
+      2.4242359
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.64720604,
+      -78.680195,
+      -119657.29,
+      2.3246569
+     ]
+    }
+   ]
+  },
+  {
+   "name": "N2O4",
+   "trans_inp_comment": "SVEHLA (1966)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.52508683,
+      -286.52689,
+      20354.406,
+      2.5287873
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.62841605,
+      -65.798081,
+      -38345.315,
+      1.6529852
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.33364942,
+      -687.02644,
+      52625.318,
+      4.7685793
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.59441359,
+      -262.39268,
+      -29309.96,
+      2.6245858
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Na",
+   "trans_inp_comment": "HOLLAND & BIOLSI (1987)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 500.0,
+     "maximum_temperature_k": 2000.0,
+     "coefficients": [
+      0.91803855,
+      227.90517,
+      -63721.828,
+      -1.281341
+     ]
+    },
+    {
+     "minimum_temperature_k": 2000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      1.1882599,
+      486.28768,
+      218338.35,
+      -3.5349734
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 500.0,
+     "maximum_temperature_k": 2000.0,
+     "coefficients": [
+      0.91834808,
+      228.37346,
+      -63906.051,
+      -0.97901956
+     ]
+    },
+    {
+     "minimum_temperature_k": 2000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      1.1900946,
+      498.42922,
+      209531.2,
+      -3.2479254
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Ne",
+   "trans_inp_comment": "BICH ET AL (1990)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.68398511,
+      18.732366,
+      -2366.3189,
+      1.8284755
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.72333495,
+      104.20872,
+      -25429.545,
+      1.4942434
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.7754935,
+      594.1485,
+      -696707.86,
+      0.97885712
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.68509965,
+      19.794924,
+      -2452.5539,
+      2.2586136
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.72278122,
+      105.2829,
+      -26355.706,
+      1.9367337
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.77589413,
+      612.83778,
+      -740157.05,
+      1.4114011
+     ]
+    }
+   ]
+  },
+  {
+   "name": "O",
+   "trans_inp_comment": "LEVIN ET AL (1990)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.77269241,
+      83.842977,
+      -58502.098,
+      0.85100827
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.87669586,
+      1015.842,
+      -1088456.6,
+      -0.18001077
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.77271664,
+      83.9891,
+      -58580.966,
+      1.51799
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.87676666,
+      1017.0744,
+      -1090669.0,
+      0.48644232
+     ]
+    }
+   ]
+  },
+  {
+   "name": "OH",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.59711536,
+      -461.00678,
+      37606.286,
+      2.4041761
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.64287721,
+      -181.73747,
+      -88543.767,
+      1.9636057
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.68627561,
+      -740.33274,
+      27559.033,
+      2.8308741
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      -0.47918112,
+      -9376.9908,
+      7050995.2,
+      14.203688
+     ]
+    }
+   ]
+  },
+  {
+   "name": "O2",
+   "trans_inp_comment": "BOUSHEHRI ET AL (1987)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.6091618,
+      -52.244847,
+      -599.74009,
+      2.0410801
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.72216486,
+      175.50839,
+      -57974.816,
+      1.0901044
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.73981127,
+      391.94906,
+      -378331.68,
+      0.9093178
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.77229167,
+      6.846321,
+      -5893.3377,
+      1.2210365
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.90917351,
+      291.24182,
+      -79650.171,
+      0.064851631
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      -1.1218262,
+      -19286.378,
+      23295011.0,
+      20.342043
+     ]
+    }
+   ]
+  },
+  {
+   "name": "SF6",
+   "trans_inp_comment": "BOUSHEHRI ET AL (1987)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.49748474,
+      -218.64084,
+      14509.989,
+      2.7631958
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.60769589,
+      -142.30978,
+      31449.312,
+      1.9086137
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.41857258,
+      -197.33612,
+      -25661.949,
+      3.4555207
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.60633905,
+      44.458129,
+      -52676.509,
+      1.9436963
+     ]
+    }
+   ]
+  },
+  {
+   "name": "SO2",
+   "trans_inp_comment": "ZELEZNIK & SVEHLA (1970)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.53157084,
+      -295.89873,
+      21224.84,
+      2.5975549
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.60783098,
+      -192.83581,
+      7823.2002,
+      1.9811072
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.61476551,
+      -564.09295,
+      49580.787,
+      2.3940064
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.53617558,
+      -694.13085,
+      75304.908,
+      3.0412002
+     ]
+    }
+   ]
+  },
+  {
+   "name": "SiCL4",
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.52724861,
+      -269.92512,
+      18062.726,
+      2.2413435
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.63025696,
+      -55.616232,
+      -37587.506,
+      1.3711284
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.48928637,
+      -340.31669,
+      15336.652,
+      2.3608171
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.62189282,
+      -146.44974,
+      -15293.955,
+      1.2815679
+     ]
+    }
+   ]
+  },
+  {
+   "name": "SiF4",
+   "trans_inp_comment": "SVEHLA (1962,1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.59609697,
+      -79.178529,
+      -1591.5012,
+      1.958054
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.64527457,
+      10.34818,
+      -21766.101,
+      1.5489951
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.44281914,
+      -380.82561,
+      16794.039,
+      3.5456135
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.62544021,
+      -111.92686,
+      -26345.285,
+      2.0583524
+     ]
+    }
+   ]
+  },
+  {
+   "name": "SiH4",
+   "trans_inp_comment": "SVEHLA (1962)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.57519423,
+      -123.26162,
+      1882.4028,
+      1.8761319
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.64257687,
+      1.2846016,
+      -26699.436,
+      1.3147047
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.5540867,
+      -643.3963,
+      55747.611,
+      3.7641386
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.56234379,
+      -449.31035,
+      -37165.926,
+      3.6059282
+     ]
+    }
+   ]
+  },
+  {
+   "name": "UF6",
+   "trans_inp_comment": "SVEHLA (1962)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.56019928,
+      -159.78215,
+      5286.6529,
+      2.4249812
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.63981806,
+      -9.5366264,
+      -30026.765,
+      1.760062
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "name": "Xe",
+   "trans_inp_comment": "BICH ET AL (1990)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.57988418,
+      -188.06666,
+      10508.723,
+      2.6502107
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.68506945,
+      47.671749,
+      -54767.718,
+      1.7531546
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.75436414,
+      691.00248,
+      -751405.93,
+      1.0621747
+     ]
+    }
+   ],
+   "thermal_conductivity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.57308328,
+      -199.91432,
+      12872.027,
+      1.2718931
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.6831965,
+      40.020092,
+      -52038.474,
+      0.33623407
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.7559364,
+      729.23858,
+      -824078.34,
+      -0.39025477
+     ]
+    }
+   ]
+  }
+ ],
+ "binary_interactions": [
+  {
+   "pair": [
+    "C",
+    "O"
+   ],
+   "trans_inp_comment": "CAPITELLI & FICOCELLI (1973)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 4000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      1.2635466,
+      4686.6528,
+      -5978929.2,
+      -4.3066246
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "CH4",
+    "O2"
+   ],
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.68971658,
+      -0.82884483,
+      -4755.7575,
+      1.149747
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.69426262,
+      -17.685146,
+      5945.2784,
+      1.1244994
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "CO",
+    "CO2"
+   ],
+   "trans_inp_comment": "SVEHLA (1995)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.68926185,
+      -1.3796096,
+      -4684.7568,
+      1.3060681
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.69417954,
+      -18.02184,
+      6095.0694,
+      1.2779603
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      0.61979004,
+      -798.30067,
+      1113085.8,
+      2.0233248
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "CO",
+    "N2"
+   ],
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.62526577,
+      -31.779652,
+      -1640.7983,
+      1.7454992
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.87395209,
+      561.52222,
+      -173948.09,
+      -0.39335958
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.88503551,
+      909.02171,
+      -731290.61,
+      -0.53503838
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "CO",
+    "O2"
+   ],
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.70122551,
+      5.1717887,
+      -1424.0838,
+      1.2895991
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.66744478,
+      -86.348036,
+      27445.341,
+      1.5855986
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.21151565,
+      -9188.1544,
+      18253525.0,
+      6.5600002
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "CO2",
+    "H2"
+   ],
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.66101867,
+      -40.651732,
+      -4287.7325,
+      0.74444661
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.70351908,
+      19.946369,
+      -13336.698,
+      0.39931502
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      0.66401272,
+      -336.71205,
+      416706.34,
+      0.78993145
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "CO2",
+    "H2O"
+   ],
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.564991,
+      -322.1955,
+      26301.733,
+      2.6351165
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.68455483,
+      -33.114757,
+      -58456.473,
+      1.6048763
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      0.70748069,
+      115.8607,
+      -227728.41,
+      1.3865863
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "CO2",
+    "N2"
+   ],
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.68926185,
+      -1.3796096,
+      -4684.7568,
+      1.3060681
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.69417954,
+      -18.02184,
+      6095.0694,
+      1.2779603
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      0.61979004,
+      -798.30067,
+      1113085.8,
+      2.0233248
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "CO2",
+    "O2"
+   ],
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.55753165,
+      -171.4002,
+      7259.445,
+      2.4603725
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.66011947,
+      25.362441,
+      -39828.007,
+      1.6020458
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      0.66564107,
+      130.62608,
+      -275194.63,
+      1.5433736
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "e-",
+    "H"
+   ],
+   "trans_inp_comment": "CAPITELLI ET AL (1976)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 2000.0,
+     "maximum_temperature_k": 8000.0,
+     "coefficients": [
+      1.2996657,
+      2904.92,
+      -1931588.0,
+      -9.6081497
+     ]
+    },
+    {
+     "minimum_temperature_k": 8000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      1.3439163,
+      6298.1265,
+      -14088393.0,
+      -10.24004
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "e-",
+    "H2"
+   ],
+   "trans_inp_comment": "CAPITELLI ET AL (1976)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 8000.0,
+     "coefficients": [
+      1.3682927,
+      7066.5102,
+      -5674856.1,
+      -10.480386
+     ]
+    },
+    {
+     "minimum_temperature_k": 8000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      2.0875514,
+      27345.7,
+      -63775336.0,
+      -18.571585
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "e-",
+    "N"
+   ],
+   "trans_inp_comment": "CAPITELLI & DEVOTO (1973)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      1.4373966,
+      18230.345,
+      -27492090.0,
+      -9.6279246
+     ]
+    },
+    {
+     "minimum_temperature_k": 10000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      2.2566004,
+      48916.05,
+      -139960430.0,
+      -19.116958
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "e-",
+    "NO"
+   ],
+   "trans_inp_comment": "GUPTA ET AL (1990)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 2000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      0.61252493,
+      4676.8585,
+      -3029208.0,
+      -3.0467956
+     ]
+    },
+    {
+     "minimum_temperature_k": 6000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      -3.1058569,
+      -69841.116,
+      153593840.0,
+      37.370344
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "e-",
+    "N2"
+   ],
+   "trans_inp_comment": "CAPITELLI & DEVOTO (1973)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      2.2167522,
+      22078.28,
+      -26142843.0,
+      -18.975334
+     ]
+    },
+    {
+     "minimum_temperature_k": 10000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      1.4276153,
+      8130.6835,
+      4138292.5,
+      -10.615166
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "e-",
+    "O"
+   ],
+   "trans_inp_comment": "GUPTA ET AL (1990)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 2000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      -0.3687646,
+      -1926.1587,
+      722351.59,
+      8.2699294
+     ]
+    },
+    {
+     "minimum_temperature_k": 6000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.12858415,
+      8817.334,
+      -22555849.0,
+      2.7992711
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "e-",
+    "O2"
+   ],
+   "trans_inp_comment": "GUPTA ET AL (1990)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 2000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      -1.2686144,
+      -6496.1158,
+      3761599.8,
+      15.676996
+     ]
+    },
+    {
+     "minimum_temperature_k": 6000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      4.4642126,
+      65553.833,
+      -109197360.0,
+      -43.066392
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "H",
+    "H+"
+   ],
+   "trans_inp_comment": "CAPITELLI ET AL (1976)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 2000.0,
+     "maximum_temperature_k": 8000.0,
+     "coefficients": [
+      0.65497943,
+      436.20326,
+      -200322.9,
+      -1.5933989
+     ]
+    },
+    {
+     "minimum_temperature_k": 8000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.35775595,
+      -5629.8406,
+      14552701.0,
+      1.6055465
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "H",
+    "H2"
+   ],
+   "trans_inp_comment": "TANG & WEI (1974)  SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.91735768,
+      220.52887,
+      -57464.994,
+      -0.9374149
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.9405621,
+      -17.266834,
+      827079.57,
+      -1.1228741
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "H",
+    "Li"
+   ],
+   "trans_inp_comment": "KRUPENIE ET AL (1963)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.888708,
+      254.60216,
+      -71635.951,
+      -2.4355021
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      0.96451195,
+      781.51762,
+      -441375.15,
+      -3.1717326
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "H",
+    "N"
+   ],
+   "trans_inp_comment": "STALLCOP ET AL (1992b)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      0.75455738,
+      -156.97085,
+      97258.456,
+      -0.048331565
+     ]
+    },
+    {
+     "minimum_temperature_k": 6000.0,
+     "maximum_temperature_k": 16000.0,
+     "coefficients": [
+      1.5653364,
+      8740.468,
+      -12001036.0,
+      -8.2485581
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "H",
+    "N2"
+   ],
+   "trans_inp_comment": "STALLCOP ET AL (1992a)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 600.0,
+     "maximum_temperature_k": 3000.0,
+     "coefficients": [
+      1.0228384,
+      533.49114,
+      -113653.13,
+      -2.3880331
+     ]
+    },
+    {
+     "minimum_temperature_k": 3000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      1.3275932,
+      1470.1554,
+      -147252.96,
+      -5.1365002
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "H",
+    "O"
+   ],
+   "trans_inp_comment": "KRUPENIE ET AL (1963)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.8547948,
+      186.80077,
+      -46790.687,
+      -1.1272657
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      0.88515794,
+      64.12728,
+      639432.3,
+      -1.3887887
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "HF",
+    "H6F6"
+   ],
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.52633473,
+      -328.96634,
+      26842.682,
+      2.2132195
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.62213454,
+      -102.39431,
+      -38543.254,
+      1.3902717
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "H2",
+    "H2O"
+   ],
+   "trans_inp_comment": "SVEHLA (1964)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.6008549,
+      -67.691161,
+      -2131.9326,
+      1.4199776
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.64550551,
+      10.165601,
+      -18735.061,
+      1.0502885
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      0.66153255,
+      223.89456,
+      -370736.22,
+      0.88511419
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "H2",
+    "N2"
+   ],
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.66038264,
+      3.5574798,
+      -957.78014,
+      0.70536614
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.62938039,
+      -69.072207,
+      19855.881,
+      0.97133819
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 8000.0,
+     "coefficients": [
+      -0.07781866,
+      -8276.4842,
+      11699769.0,
+      8.1689807
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "H2",
+    "O2"
+   ],
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.69018087,
+      -0.23876092,
+      -4843.2502,
+      0.66856355
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.69427291,
+      -17.583177,
+      5874.8504,
+      0.64692305
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      0.62089983,
+      -782.64233,
+      1086404.4,
+      1.3816401
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "H2O",
+    "N2"
+   ],
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.57304553,
+      -148.53813,
+      3902.9324,
+      2.346278
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.64243064,
+      2.501838,
+      -36924.43,
+      1.75677
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      0.64420052,
+      1.0592615,
+      -34300.588,
+      1.7418827
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "H2O",
+    "O2"
+   ],
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.64727375,
+      -4.2110733,
+      -4525.549,
+      1.6510807
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.65299406,
+      -17.723412,
+      5090.653,
+      1.6154623
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 10000.0,
+     "coefficients": [
+      0.60614671,
+      -452.18012,
+      561493.52,
+      2.0791053
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "He",
+    "N2"
+   ],
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.70332377,
+      7.7412205,
+      -1771.54,
+      1.1440787
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.66785742,
+      -84.659628,
+      26695.708,
+      1.4530051
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      1.6804077,
+      15615.203,
+      -28112833.0,
+      -9.1877596
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "N",
+    "N+"
+   ],
+   "trans_inp_comment": "STALLCOP ET AL (1991)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.81904143,
+      -59.239089,
+      21722.555,
+      -0.14759287
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      1.4065434,
+      5244.7258,
+      -5894415.5,
+      -5.9756079
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "N",
+    "NO"
+   ],
+   "trans_inp_comment": "CUBLEY & MASON (1975)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.79891098,
+      169.29386,
+      -49068.896,
+      0.47986716
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.85695322,
+      702.23546,
+      -655894.91,
+      -0.096805084
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "N",
+    "N2"
+   ],
+   "trans_inp_comment": "CUBLEY & MASON (1975)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.84730498,
+      221.58858,
+      -65003.723,
+      0.051991532
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.92821273,
+      971.22155,
+      -927739.23,
+      -0.75253261
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "N",
+    "O"
+   ],
+   "trans_inp_comment": "LEVIN ET AL (1990)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.70857405,
+      -140.2553,
+      76739.975,
+      1.3001914
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.98622236,
+      2365.32,
+      -2716594.5,
+      -1.4539746
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "N",
+    "O+"
+   ],
+   "trans_inp_comment": "PARTRIDGE ET AL (1991)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.71806621,
+      -226.92123,
+      630.51343,
+      0.88739853
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      1.2913413,
+      4952.2731,
+      -5781416.5,
+      -4.7998532
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "N",
+    "O2"
+   ],
+   "trans_inp_comment": "CUBLEY & MASON (1975)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.76538325,
+      136.24746,
+      -39083.438,
+      0.80110069
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.81011289,
+      543.73468,
+      -498680.94,
+      0.35701613
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "N+",
+    "O"
+   ],
+   "trans_inp_comment": "PARTRIDGE ET AL (1991)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      1.1462863,
+      1241.0378,
+      -567940.94,
+      -2.9071183
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      1.0155522,
+      -327.31184,
+      1718757.3,
+      -1.5714289
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "NO",
+    "O"
+   ],
+   "trans_inp_comment": "CUBLEY & MASON (1975)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.75990752,
+      131.33851,
+      -37679.635,
+      0.8780754
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.8025908,
+      519.91196,
+      -475572.26,
+      0.45433467
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "N2",
+    "O"
+   ],
+   "trans_inp_comment": "CUBLEY & MASON (1975)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.79176378,
+      162.26176,
+      -47001.647,
+      0.58989646
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.84676036,
+      666.85159,
+      -621018.96,
+      0.043522696
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "N2",
+    "O2"
+   ],
+   "trans_inp_comment": "SVEHLA (1994)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.70122551,
+      5.1717887,
+      -1424.0838,
+      1.2895991
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.66744478,
+      -86.348036,
+      27445.341,
+      1.5855986
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.21151565,
+      -9188.1544,
+      18253525.0,
+      6.5600002
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "O",
+    "O+"
+   ],
+   "trans_inp_comment": "STALLCOP ET AL (1991)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.96270522,
+      579.16036,
+      -285499.38,
+      -1.2297154
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.99113919,
+      -80.815595,
+      1719865.1,
+      -1.4201124
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  },
+  {
+   "pair": [
+    "O",
+    "O2"
+   ],
+   "trans_inp_comment": "CUBLEY & MASON (1975)",
+   "viscosity": [
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 5000.0,
+     "coefficients": [
+      0.73493993,
+      109.11663,
+      -31057.767,
+      1.0998186
+     ]
+    },
+    {
+     "minimum_temperature_k": 5000.0,
+     "maximum_temperature_k": 15000.0,
+     "coefficients": [
+      0.76924754,
+      420.04937,
+      -379544.41,
+      0.75936688
+     ]
+    }
+   ],
+   "thermal_conductivity": []
+  }
+ ]
+}
