@@ -1,7 +1,23 @@
-"""Exact coolant ledgers and directed Swamee-Jain formula exports.
+"""Exact coolant ledgers and directed Swamee-Jain friction-factor exports.
 
-These implement a prescribed constant-property bulk model. They do not bound
-correlation error, establish cross-section validity or predict boiling.
+These helpers implement the prescribed constant-property bulk model of
+:mod:`rocket_propulsion.thermodynamics.regenerative`. Energy and hydraulic
+ledgers are exact rational expressions of the binary64 inputs; the
+Swamee-Jain friction factor [1]_, [2]_ is enclosed with directed power and
+logarithm bounds before rounding. They do not bound correlation error,
+establish cross-section validity or predict boiling.
+
+References
+----------
+.. [1] SWAMEE-JAIN-1976-IDENTITY. Swamee and Jain, "Explicit Equations
+       for Pipe-Flow Problems", J. Hydraulics Division 102(5),
+       657-664, 1976, https://doi.org/10.1061/JYCEAJ.0004542
+.. [2] EPANET22-FRICTION-SOURCE. EPANET v2.2, ``src/hydcoeffs.c``,
+       ``frictionFactor`` and base-ten logarithm conversion,
+       https://raw.githubusercontent.com/OpenWaterAnalytics/EPANET/v2.2/src/hydcoeffs.c
+.. [3] NASA-GFSSP6-NONCIRCULAR. NASA GFSSP v6 user manual, printed p. 40
+       (PDF p. 80), equation 28,
+       https://www.nasa.gov/wp-content/uploads/2024/04/gfssp-v6-usermanual.pdf
 """
 from fractions import Fraction
 from functools import lru_cache
@@ -22,6 +38,13 @@ _COOLANT_POLICY='exact_binary_coolant_ledgers_and_enclosed_swamee_jain_exports_v
 
 
 def _ledgers(inputs):
+    """Return exact rational energy and hydraulic ledgers of the coolant inputs.
+
+    ``capacity = m cp``, ``rise = H / capacity``, ``outlet = inlet + rise``,
+    ``V = m / (rho N A)``, ``Re = m D / (N A mu)`` and the dynamic-head scale
+    ``(L/D) rho V^2 / 2`` that multiplies the Darcy factor. No intermediate
+    is rounded to binary64.
+    """
     f=Fraction;m=f(inputs.coolant_mass_flow_kg_s);cp=f(inputs.coolant_specific_heat_j_kg_k)
     area=inputs.channel_count*f(inputs.channel_flow_area_m2)
     density=f(inputs.coolant_density_kg_m3);diameter=f(inputs.hydraulic_diameter_m)
@@ -35,12 +58,28 @@ def _ledgers(inputs):
 
 
 def _exact_argument(reynolds,relative_roughness):
+    """Return the exact Swamee-Jain logarithm argument, or ``None``.
+
+    The argument is ``a = (e/D)/3.7 + 5.74 / Re^(9/10)`` [1]_. It is exact
+    only when ``Re`` has an exact rational tenth root; otherwise ``None`` is
+    returned and callers use directed bounds.
+
+    References
+    ----------
+    .. [1] SWAMEE-JAIN-1976-IDENTITY. Swamee and Jain, "Explicit Equations
+           for Pipe-Flow Problems", J. Hydraulics Division 102(5),
+           657-664, 1976, https://doi.org/10.1061/JYCEAJ.0004542
+    .. [2] EPANET22-FRICTION-SOURCE. EPANET v2.2, ``src/hydcoeffs.c``,
+           ``frictionFactor`` and base-ten logarithm conversion,
+           https://raw.githubusercontent.com/OpenWaterAnalytics/EPANET/v2.2/src/hydcoeffs.c
+    """
     n,d=_integer_root(reynolds.numerator,10),_integer_root(reynolds.denominator,10)
     if n is None or d is None:return None
     return relative_roughness/Fraction(37,10)+Fraction(287,50)*Fraction(d,n)**9
 
 
 def _decimal_log_integer(value):
+    """Return ``k`` when ``value`` is exactly ``10**k`` for an integer ``k``, else ``None``."""
     n,d=value.numerator,value.denominator
     if n!=1 and d!=1:return None
     item=n if d==1 else d;power=0
@@ -50,6 +89,7 @@ def _decimal_log_integer(value):
 
 @lru_cache(maxsize=2048)
 def _argument_bounds(reynolds,relative_roughness,precision):
+    """Return Decimal bounds of the Swamee-Jain logarithm argument at ``precision``."""
     math=_Intervals(precision)
     exact=_exact_argument(reynolds,relative_roughness)
     if exact is not None:return math.rational(exact)
@@ -58,6 +98,15 @@ def _argument_bounds(reynolds,relative_roughness,precision):
 
 
 def _friction_basis(reynolds,relative_roughness):
+    """Return ``(exact friction or None, side)`` for the Swamee-Jain branch.
+
+    ``side`` is -1 when the logarithm argument is below one (physical
+    branch) and +1 when it exceeds one (formula extension with a negative
+    unsquared inverse-friction root). The exact friction factor is available
+    only when the argument is an exact integer power of ten. An argument of
+    exactly one is a pole and raises :class:`DomainError`; a side that stays
+    unresolved raises :class:`ConvergenceError`.
+    """
     exact=_exact_argument(reynolds,relative_roughness)
     if exact==1:
         raise DomainError('Swamee-Jain logarithm is exactly zero.',code='singular_swamee_jain_argument',field='roughness_m')
@@ -73,6 +122,21 @@ def _friction_basis(reynolds,relative_roughness):
 
 @lru_cache(maxsize=1024)
 def _friction_bounds(reynolds,relative_roughness,precision):
+    """Return Decimal bounds of ``f = 0.25 / log10(a)^2`` [1]_, [2]_.
+
+    The base-ten logarithm is formed as ``ln(a) / ln(10)``, so
+    ``f = ln(10)^2 / (4 ln(a)^2)``. Precision is raised until the logarithm
+    interval excludes zero; otherwise :class:`ConvergenceError` is raised.
+
+    References
+    ----------
+    .. [1] SWAMEE-JAIN-1976-IDENTITY. Swamee and Jain, "Explicit Equations
+           for Pipe-Flow Problems", J. Hydraulics Division 102(5),
+           657-664, 1976, https://doi.org/10.1061/JYCEAJ.0004542
+    .. [2] EPANET22-FRICTION-SOURCE. EPANET v2.2, ``src/hydcoeffs.c``,
+           ``frictionFactor`` and base-ten logarithm conversion,
+           https://raw.githubusercontent.com/OpenWaterAnalytics/EPANET/v2.2/src/hydcoeffs.c
+    """
     for p in _PRECISIONS:
         if p<precision:continue
         math=_Intervals(p);lo,hi=_argument_bounds(reynolds,relative_roughness,p)
@@ -90,11 +154,31 @@ def _friction_bounds(reynolds,relative_roughness,precision):
 
 
 def _optional_output(value,label):
+    """Round an optional diagnostic, returning ``None`` when it is unrepresentable."""
     try:return _finite_rational(value,label)
     except DomainError:return None
 
 
 def _values(inputs):
+    """Return the exported coolant fields and the Swamee-Jain argument side.
+
+    Regimes use the exact Reynolds number: laminar below 2300 with
+    ``f = K / Re`` [3]_, transition on ``[2300, 4000)`` and turbulent from
+    4000, both with the Swamee-Jain formula. Pressure loss multiplies the
+    unrounded friction factor by the unrounded dynamic-head scale.
+
+    References
+    ----------
+    .. [1] SWAMEE-JAIN-1976-IDENTITY. Swamee and Jain, "Explicit Equations
+           for Pipe-Flow Problems", J. Hydraulics Division 102(5),
+           657-664, 1976, https://doi.org/10.1061/JYCEAJ.0004542
+    .. [2] EPANET22-FRICTION-SOURCE. EPANET v2.2, ``src/hydcoeffs.c``,
+           ``frictionFactor`` and base-ten logarithm conversion,
+           https://raw.githubusercontent.com/OpenWaterAnalytics/EPANET/v2.2/src/hydcoeffs.c
+    .. [3] NASA-GFSSP6-NONCIRCULAR. NASA GFSSP v6 user manual, printed p. 40
+           (PDF p. 80), equation 28,
+           https://www.nasa.gov/wp-content/uploads/2024/04/gfssp-v6-usermanual.pdf
+    """
     ledgers=_ledgers(inputs);reynolds=ledgers['reynolds_number'];pressure_scale=ledgers.pop('pressure_scale')
     result={name:_finite_rational(value,name) for name,value in ledgers.items()}
     regime='laminar' if reynolds<2300 else 'transition' if reynolds<4000 else 'turbulent'

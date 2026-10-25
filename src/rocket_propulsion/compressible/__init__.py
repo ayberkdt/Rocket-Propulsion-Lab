@@ -1,4 +1,18 @@
-"""Compressible-flow relations for calorically perfect gases."""
+"""Compressible-flow relations for calorically perfect gases.
+
+The package provides one-dimensional isentropic, normal-shock, oblique-shock,
+Prandtl-Meyer [1]_, Fanno and Rayleigh relations, ideal and off-design
+converging-diverging nozzle performance [2]_, and the U.S. Standard Atmosphere
+1976 pressure used for altitude sweeps. Each public callable documents its own
+assumptions and sources.
+
+References
+----------
+.. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+       Compressible Flow", NACA Report 1135, 1953.
+.. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+       Elements", 9th ed., Wiley, 2017.
+"""
 
 from .duct_flow import FannoResult, RayleighResult, calculate_fanno, calculate_rayleigh
 from .isentropic import IsentropicResult, calculate_isentropic, mach_from_isentropic

@@ -1,16 +1,27 @@
 """Interior characteristic intersection for a constant-gamma, irrotational gas.
 
-This is a prerequisite unit process, not a complete nozzle designer. Axis and
-sonic/throat boundary processes, shock handling, wall construction and the
-legacy mapped nozzle remain unqualified and are not replaced by this module.
+This module provides one unit process, not a complete nozzle designer. Axis
+and wall boundary processes are in :mod:`.moc_boundary`; sonic/throat
+starting lines, shock handling and wall design are outside its scope. Neither
+this process nor the mapped minimum-length contour of :mod:`.moc` is
+validated against hardware.
 
-Cartesian compatibility follows Aldo/Argrow (1993), equations (1a,b):
-https://ntrs.nasa.gov/citations/19940019183
-The cylindrical continuity term has sigma=1 (planar sigma=0); the sentence
-assigning sigma=0 to both cases in that scanned report is a typographical
-inconsistency. The cylindrical divergence equation determines this convention.
-Finite-difference coefficient averaging is also described in NASA TR R-33:
-https://ntrs.nasa.gov/citations/19980232191
+Cartesian compatibility follows Aldo and Argrow, equations (1a,b) [1]_. The
+cylindrical continuity term has ``sigma = 1`` (planar ``sigma = 0``); the
+sentence assigning ``sigma = 0`` to both cases in that scanned report is a
+typographical inconsistency, and the cylindrical divergence form of
+continuity [3]_ determines the convention used here. Finite-difference
+coefficient averaging follows NASA TR R-33 [2]_.
+
+References
+----------
+.. [1] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+       compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+.. [2] NASA-TRR33-AXISYMMETRIC. Guentert and Neumann, 1959, radius source and
+       averaged characteristic coefficients.
+       https://ntrs.nasa.gov/citations/19980232191
+.. [3] NASA-TND4960-AXIS-CONTINUITY. Anderson, 1969, Appendix C equation C1 and
+       streamline definitions. https://ntrs.nasa.gov/citations/19690005234
 """
 from collections.abc import Mapping
 from dataclasses import dataclass, fields
@@ -28,6 +39,15 @@ _TOLERANCE = Fraction(64 * ulp(1.0))
 
 
 def _owned(value, kind, label):
+    """Return a fresh ``kind`` instance copied from a mapping or a ``kind`` record.
+
+    Raises
+    ------
+    DomainError
+        If ``value`` is neither a mapping nor a ``kind`` instance, or if
+        construction from it fails with a type, value, key, index, attribute
+        or overflow error.
+    """
     try:
         if isinstance(value, Mapping):return kind(**dict(value))
         if isinstance(value, kind):return kind(**{f.name:getattr(value,f.name) for f in fields(kind)})
@@ -38,7 +58,35 @@ def _owned(value, kind, label):
 
 @dataclass(frozen=True, slots=True)
 class MocFlowPoint:
-    """An interior supersonic state; positions are metres, angle is degrees."""
+    """A supersonic flow state at one point; positions in m, angle in degrees.
+
+    Attributes
+    ----------
+    x_m, radius_m : float
+        Axial and radial (or transverse, planar) coordinates in m.
+    mach : float
+        Mach number, greater than one.
+    flow_angle_deg : float
+        Flow angle from the axis in degrees, ``|theta| < 90``.
+
+    Raises
+    ------
+    DomainError
+        If the state is not supersonic, not axially directed, or its axial
+        Mach component ``M cos(theta)`` does not exceed one (the unit
+        processes march in ``x``).
+
+    Notes
+    -----
+    The characteristic equations used by the unit processes [1]_ are written
+    with ``x`` as the marching coordinate, which requires a supersonic axial
+    velocity component.
+
+    References
+    ----------
+    .. [1] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+           compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+    """
     x_m:float
     radius_m:float
     mach:float
@@ -55,6 +103,28 @@ class MocFlowPoint:
 
 @dataclass(frozen=True, slots=True)
 class MocUnitInputs:
+    """Validated inputs of :func:`solve_moc_interior_point`.
+
+    Attributes
+    ----------
+    plus_parent : MocFlowPoint
+        Upstream point on the ``C+`` (left-running) characteristic.
+    minus_parent : MocFlowPoint
+        Upstream point on the ``C-`` (right-running) characteristic.
+    gamma : float, default 1.4
+        Ratio of specific heats, greater than one.
+    axisymmetric : bool, default True
+        Include the cylindrical source term.
+    max_iterations : int, default 128
+        Corrector budget, between 1 and 256.
+
+    Raises
+    ------
+    DomainError
+        If a field is malformed, the parents coincide, or an axisymmetric
+        parent lies on or below the axis.
+    """
+
     plus_parent:MocFlowPoint
     minus_parent:MocFlowPoint
     gamma:float=1.4
@@ -78,7 +148,39 @@ class MocUnitInputs:
 
 
 def _coefficients(point, gamma, family, axisymmetric):
-    """Dimensionless velocities use sonic speed a*; retain private a**2 exactly."""
+    """Return characteristic coefficients of ``point`` for one family.
+
+    Velocities are normalized by the critical speed of sound ``a*`` and
+    ``(a/a*)^2 = (gamma + 1)/(2 + (gamma - 1) M^2)`` is kept exact.
+
+    Parameters
+    ----------
+    point : MocFlowPoint
+        Flow state.
+    gamma : float
+        Ratio of specific heats.
+    family : int
+        ``+1`` for ``C+`` or ``-1`` for ``C-``.
+    axisymmetric : bool
+        Include the cylindrical source term.
+
+    Returns
+    -------
+    tuple
+        ``(lambda, Q, R, S, u, v)`` with characteristic slope
+        ``lambda = tan(theta + family mu)``, ``Q = u^2 - a^2``,
+        ``R = 2 u v - Q lambda`` and ``S = sigma a^2 v / r``, such that the
+        compatibility relation along the characteristic is
+        ``Q du + R dv - S dx = 0`` [1]_, [2]_.
+
+    References
+    ----------
+    .. [1] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+           compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+    .. [2] NASA-TRR33-AXISYMMETRIC. Guentert and Neumann, 1959, radius source and
+           averaged characteristic coefficients.
+           https://ntrs.nasa.gov/citations/19980232191
+    """
     m=Fraction(point.mach);g=Fraction(gamma)
     a2=(g+1)/(2+(g-1)*m*m)
     speed=_sqrt_output(m*m*a2,'Characteristic speed / a*')
@@ -94,7 +196,16 @@ def _coefficients(point, gamma, family, axisymmetric):
 
 
 def _intersection(a,b,lp,lm):
-    """Exact line solve relative to binary64 slopes, without a parallelism epsilon."""
+    """Return the exact intersection of the lines through ``a`` and ``b``.
+
+    The slopes ``lp`` and ``lm`` are used as given (binary64 values); no
+    parallelism tolerance is applied.
+
+    Raises
+    ------
+    ConvergenceError
+        If the slopes are exactly equal.
+    """
     denominator=lp-lm
     if denominator==0:raise ConvergenceError('Characteristic slopes coincide.',code='moc_unit_parallel')
     x=(Fraction(b.radius_m)-Fraction(a.radius_m)+lp*Fraction(a.x_m)-lm*Fraction(b.x_m))/denominator
@@ -103,6 +214,18 @@ def _intersection(a,b,lp,lm):
 
 
 def _midpoint_equations(inputs, point):
+    """Return parent and candidate coefficients with family-wise averages.
+
+    The averaged ``(lambda, Q, R, S)`` of each family is the mean of its
+    parent and candidate-point values, the averaged-coefficient corrector of
+    [1]_.
+
+    References
+    ----------
+    .. [1] NASA-TRR33-AXISYMMETRIC. Guentert and Neumann, 1959, radius source and
+           averaged characteristic coefficients.
+           https://ntrs.nasa.gov/citations/19980232191
+    """
     plus=_coefficients(inputs.plus_parent,inputs.gamma,1,inputs.axisymmetric)
     minus=_coefficients(inputs.minus_parent,inputs.gamma,-1,inputs.axisymmetric)
     pplus=_coefficients(point,inputs.gamma,1,inputs.axisymmetric)
@@ -113,12 +236,25 @@ def _midpoint_equations(inputs, point):
 
 
 def _coordinate_cell_radius(value):
-    """Maximum half-spacing of a binary64 coordinate cell, not physical error."""
+    """Return the larger half-gap from ``value`` to its binary64 neighbours.
+
+    It describes coordinate representation only, not a physical error.
+    """
     return max(abs(Fraction(n)-Fraction(value))/2 for n in (nextafter(value,-inf),nextafter(value,inf)) if isfinite(n))
 
 
 def _residual(inputs,point):
-    """Exact normalized residual of the represented discrete equations, not physics."""
+    """Return the residuals of the discrete interior equations at ``point``.
+
+    Returns
+    -------
+    tuple of Fraction
+        ``(raw, adjusted, allowance)``: the largest normalized geometric
+        (characteristic line) or compatibility residual; the same with each
+        geometric residual reduced by its coordinate rounding allowance; and
+        the largest allowance. They measure the represented discrete algebra,
+        not the physical or truncation error.
+    """
     plus,minus,at_point,averaged=_midpoint_equations(inputs,point)
     a,b=inputs.plus_parent,inputs.minus_parent
     scale=max(abs(Fraction(a.x_m)-Fraction(b.x_m)),abs(Fraction(a.radius_m)-Fraction(b.radius_m)))
@@ -139,11 +275,22 @@ def _residual(inputs,point):
 
 
 def _upper_residual(value):
+    """Return the smallest binary64 value not below the exact rational ``value``."""
     number=float(value)
     return nextafter(number,inf) if Fraction(number)<value else number
 
 
 def _point_from_velocity(x,y,u,v,gamma):
+    """Return the flow point at ``(x, y)`` for velocity ``(u, v)`` in units of ``a*``.
+
+    ``(a/a*)^2 = ((gamma + 1) - (gamma - 1)(u^2 + v^2))/2`` from the energy
+    equation; Mach number is ``|V|/a``.
+
+    Raises
+    ------
+    ConvergenceError
+        If the state is not on the supersonic, forward-flowing energy branch.
+    """
     g=Fraction(gamma);speed2=u*u+v*v
     a2=((g+1)-(g-1)*speed2)/2
     if a2<=0 or speed2<=a2 or u<=0:
@@ -154,7 +301,13 @@ def _point_from_velocity(x,y,u,v,gamma):
 
 
 def _check_output_topology(point,inputs):
-    """Output quantization may not collapse the downstream marching topology."""
+    """Return ``point`` if it lies strictly downstream of both parents.
+
+    Raises
+    ------
+    ConvergenceError
+        If binary64 output collapses the downstream ordering.
+    """
     if point.x_m<=max(inputs.plus_parent.x_m,inputs.minus_parent.x_m):
         raise ConvergenceError('The exported point cannot resolve downstream topology.',code='moc_unit_unresolved_topology')
     return point
@@ -162,6 +315,28 @@ def _check_output_topology(point,inputs):
 
 @lru_cache(maxsize=16)
 def _solve(inputs):
+    """Solve the interior point; return the fields of :class:`MocUnitResult`.
+
+    A predictor intersects the parent characteristics; the corrector repeats
+    the intersection and the 2x2 compatibility solve with averaged
+    coefficients [1]_, [2]_ until the rounding-adjusted residual is within 64
+    units in the last place of one. Constant planar flow and parallel axial
+    axisymmetric flow are returned directly.
+
+    Raises
+    ------
+    ConvergenceError
+        If the intersection is not downstream, reaches the axis, becomes
+        singular, leaves the supersonic branch, or the budget is exhausted.
+
+    References
+    ----------
+    .. [1] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+           compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+    .. [2] NASA-TRR33-AXISYMMETRIC. Guentert and Neumann, 1959, radius source and
+           averaged characteristic coefficients.
+           https://ntrs.nasa.gov/citations/19980232191
+    """
     a,b=inputs.plus_parent,inputs.minus_parent
     left=_coefficients(a,inputs.gamma,1,inputs.axisymmetric)
     right=_coefficients(b,inputs.gamma,-1,inputs.axisymmetric)
@@ -208,6 +383,58 @@ def _solve(inputs):
 
 @dataclass(frozen=True, slots=True)
 class MocUnitResult:
+    """Interior characteristic point and its discrete-equation diagnostics.
+
+    Construction re-solves the point from ``inputs`` and rejects any field
+    that does not match.
+
+    Attributes
+    ----------
+    point : MocFlowPoint
+        Solved point.
+    iterations : int
+        Corrector iterations used.
+    equation_residual_max : float
+        Upper bound of the largest normalized discrete residual.
+    inputs : MocUnitInputs
+        Owned inputs.
+    solution_kind : str
+        ``"constant_state_intersection"`` or
+        ``"iterated_midpoint_intersection"``.
+    rounding_adjusted_residual_max : float
+        Residual after subtracting coordinate rounding allowances.
+    coordinate_rounding_allowance_max : float
+        Largest coordinate rounding allowance.
+    representation_limited : bool
+        ``True`` when the raw residual exceeds the acceptance tolerance only
+        because of coordinate rounding.
+    numerical_policy : str
+        Identifier of the numerical policy.
+    physical_model_qualified, full_nozzle_solution : bool
+        Always ``False``.
+    discretization_error_bound : None
+        Always ``None``; no truncation-error bound is available.
+
+    Raises
+    ------
+    DomainError
+        If a field is malformed, a qualification claim is made, or the record
+        does not reproduce from ``inputs``.
+
+    Notes
+    -----
+    The residuals refer to the averaged characteristic and compatibility
+    equations of [1]_ and [2]_.
+
+    References
+    ----------
+    .. [1] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+           compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+    .. [2] NASA-TRR33-AXISYMMETRIC. Guentert and Neumann, 1959, radius source and
+           averaged characteristic coefficients.
+           https://ntrs.nasa.gov/citations/19980232191
+    """
+
     point:MocFlowPoint
     iterations:int
     equation_residual_max:float
@@ -242,12 +469,49 @@ class MocUnitResult:
 def solve_moc_interior_point(*,plus_parent,minus_parent,gamma=1.4,axisymmetric=True,max_iterations=128):
     """Intersect C+ and C- with averaged Cartesian compatibility coefficients.
 
-    The residual bounds only the represented discrete algebra, not the
-    characteristic integration/truncation error. Axisymmetric radii must stay
-    positive: no zero-radius regularity limit or sonic boundary is invented.
-    Coordinate rounding cells are reported separately and subtracted only
-    from geometric residuals for the iteration decision. They are not
-    measurement uncertainty or a continuous characteristic error estimate.
+    Parameters
+    ----------
+    plus_parent, minus_parent : MocFlowPoint or mapping
+        Upstream points on the ``C+`` and ``C-`` characteristics.
+    gamma : float, default 1.4
+        Ratio of specific heats, greater than one.
+    axisymmetric : bool, default True
+        Include the cylindrical source term ``a^2 v / r``.
+    max_iterations : int, default 128
+        Corrector budget, between 1 and 256.
+
+    Returns
+    -------
+    MocUnitResult
+        Solved point and its discrete-equation diagnostics.
+
+    Raises
+    ------
+    DomainError
+        If the inputs are invalid.
+    ConvergenceError
+        If no downstream supersonic intersection is found within the budget,
+        or the point reaches the axis.
+
+    Notes
+    -----
+    Along each characteristic ``dr/dx = tan(theta +- mu)`` and
+    ``Q du + R dv - S dx = 0`` [1]_, with coefficients averaged between the
+    parent and the new point [2]_. The residual bounds only the represented
+    discrete algebra, not the characteristic integration/truncation error.
+    Axisymmetric radii must stay positive: no zero-radius regularity limit or
+    sonic boundary is assumed. Coordinate rounding cells are reported
+    separately and subtracted only from geometric residuals for the iteration
+    decision; they are not measurement uncertainty or a continuous
+    characteristic error estimate.
+
+    References
+    ----------
+    .. [1] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+           compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+    .. [2] NASA-TRR33-AXISYMMETRIC. Guentert and Neumann, 1959, radius source and
+           averaged characteristic coefficients.
+           https://ntrs.nasa.gov/citations/19980232191
     """
     inputs=MocUnitInputs(plus_parent,minus_parent,gamma,axisymmetric,max_iterations)
     point,count,residual,kind,adjusted,allowance,limited=_solve(inputs)

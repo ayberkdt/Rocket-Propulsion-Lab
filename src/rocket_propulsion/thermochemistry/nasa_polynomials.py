@@ -2,7 +2,14 @@
 
 The representation is often called NASA9 because seven heat-capacity
 coefficients are accompanied by two integration constants. Equations follow
-NASA/TP-2002-211556 exactly.
+NASA/TP-2002-211556 exactly [1]_. The molar gas constant is the registered
+``MOLAR_GAS_CONSTANT_J_MOL_K`` of :mod:`rocket_propulsion.core.constants`.
+
+References
+----------
+.. [1] NASA/TP-2002-211556. NASA Glenn, "NASA Glenn Coefficients for
+       Calculating Thermodynamic Properties of Individual Species".
+       https://ntrs.nasa.gov/citations/20020085330
 """
 
 from __future__ import annotations
@@ -18,7 +25,27 @@ UNIVERSAL_GAS_CONSTANT_J_MOL_K = MOLAR_GAS_CONSTANT_J_MOL_K
 
 @dataclass(frozen=True, slots=True)
 class NasaPolynomialInterval:
-    """One temperature interval of a NASA Glenn polynomial fit."""
+    """One temperature interval of a NASA Glenn polynomial fit.
+
+    Attributes
+    ----------
+    minimum_temperature_k, maximum_temperature_k : float
+        Interval bounds in K; the minimum is positive and below the maximum.
+    coefficients : tuple of float
+        ``(a1, ..., a7, b1, b2)``: seven heat-capacity coefficients and the
+        enthalpy and entropy integration constants [1]_.
+
+    Raises
+    ------
+    DomainError
+        If the interval bounds are not positive and increasing.
+
+    References
+    ----------
+    .. [1] NASA/TP-2002-211556. NASA Glenn, "NASA Glenn Coefficients for
+           Calculating Thermodynamic Properties of Individual Species".
+           https://ntrs.nasa.gov/citations/20020085330
+    """
 
     minimum_temperature_k: float
     maximum_temperature_k: float
@@ -31,7 +58,22 @@ class NasaPolynomialInterval:
             raise DomainError("NASA polynomial temperature interval must be increasing.")
 
     def contains(self, temperature_k: float, *, include_upper: bool = True) -> bool:
-        """Return whether this interval owns a temperature."""
+        """Return whether this interval owns a temperature.
+
+        Parameters
+        ----------
+        temperature_k : float
+            Temperature in K.
+        include_upper : bool, default True
+            Treat the upper bound as part of the interval. Adjacent intervals
+            share bounds, so all but the last interval of a species exclude
+            it.
+
+        Returns
+        -------
+        bool
+            ``True`` if the temperature lies in the interval.
+        """
 
         upper_ok = (
             temperature_k <= self.maximum_temperature_k
@@ -41,7 +83,29 @@ class NasaPolynomialInterval:
         return self.minimum_temperature_k <= temperature_k and upper_ok
 
     def cp_molar_j_mol_k(self, temperature_k: float) -> float:
-        """Return standard-state molar heat capacity at constant pressure."""
+        """Return standard-state molar heat capacity at constant pressure.
+
+        Parameters
+        ----------
+        temperature_k : float
+            Temperature in K inside the interval (not checked here).
+
+        Returns
+        -------
+        float
+            ``cp`` in J/(mol K).
+
+        Notes
+        -----
+        ``cp/R = a1 T^-2 + a2 T^-1 + a3 + a4 T + a5 T^2 + a6 T^3 + a7 T^4``
+        [1]_.
+
+        References
+        ----------
+        .. [1] NASA/TP-2002-211556. NASA Glenn, "NASA Glenn Coefficients for
+               Calculating Thermodynamic Properties of Individual Species".
+               https://ntrs.nasa.gov/citations/20020085330
+        """
 
         a1, a2, a3, a4, a5, a6, a7, _, _ = self.coefficients
         t = temperature_k
@@ -57,7 +121,29 @@ class NasaPolynomialInterval:
         return cp_over_r * UNIVERSAL_GAS_CONSTANT_J_MOL_K
 
     def enthalpy_molar_j_mol(self, temperature_k: float) -> float:
-        """Return standard-state molar enthalpy including heat of formation."""
+        """Return standard-state molar enthalpy including heat of formation.
+
+        Parameters
+        ----------
+        temperature_k : float
+            Temperature in K inside the interval (not checked here).
+
+        Returns
+        -------
+        float
+            ``H`` in J/mol on the NASA Glenn assigned-enthalpy basis.
+
+        Notes
+        -----
+        ``H/(R T) = -a1 T^-2 + a2 ln(T)/T + a3 + a4 T/2 + a5 T^2/3 + a6 T^3/4
+        + a7 T^4/5 + b1/T`` [1]_.
+
+        References
+        ----------
+        .. [1] NASA/TP-2002-211556. NASA Glenn, "NASA Glenn Coefficients for
+               Calculating Thermodynamic Properties of Individual Species".
+               https://ntrs.nasa.gov/citations/20020085330
+        """
 
         a1, a2, a3, a4, a5, a6, a7, b1, _ = self.coefficients
         t = temperature_k
@@ -74,7 +160,29 @@ class NasaPolynomialInterval:
         return h_over_rt * UNIVERSAL_GAS_CONSTANT_J_MOL_K * t
 
     def entropy_molar_j_mol_k(self, temperature_k: float) -> float:
-        """Return standard-state molar entropy at one reference bar."""
+        """Return standard-state molar entropy at one reference bar.
+
+        Parameters
+        ----------
+        temperature_k : float
+            Temperature in K inside the interval (not checked here).
+
+        Returns
+        -------
+        float
+            ``S`` in J/(mol K) at the 1 bar standard-state pressure.
+
+        Notes
+        -----
+        ``S/R = -a1 T^-2/2 - a2/T + a3 ln(T) + a4 T + a5 T^2/2 + a6 T^3/3
+        + a7 T^4/4 + b2`` [1]_.
+
+        References
+        ----------
+        .. [1] NASA/TP-2002-211556. NASA Glenn, "NASA Glenn Coefficients for
+               Calculating Thermodynamic Properties of Individual Species".
+               https://ntrs.nasa.gov/citations/20020085330
+        """
 
         a1, a2, a3, a4, a5, a6, a7, _, b2 = self.coefficients
         t = temperature_k

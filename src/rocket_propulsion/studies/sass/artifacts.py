@@ -2,7 +2,8 @@
 
 References
 ----------
-NASA-SE-6: 6.5/6.6 configuration and technical-data integrity.
+.. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+       Management"; 6.5/6.6 configuration and technical-data integrity.
 """
 
 from pathlib import Path
@@ -12,11 +13,23 @@ from rocket_propulsion.core.errors import DomainError
 
 
 def distinct_artifact_paths(paths: tuple[Path, ...]) -> None:
-    """Reject path aliases, existing hard links and directory destinations.
+    """Refuse path aliases, existing hard links and non-file destinations.
+
+    Parameters
+    ----------
+    paths : tuple of pathlib.Path
+        Request, JSON output and report paths.
+
+    Raises
+    ------
+    DomainError
+        If an existing path is not a regular file or two paths resolve to the same
+        file.
 
     References
     ----------
-    NASA-SE-6: 6.5/6.6 preserve source and result configurations.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; 6.5/6.6 preserve source and result configurations.
     """
     for i, path in enumerate(paths):
         if path.exists() and not path.is_file():
@@ -29,15 +42,30 @@ def distinct_artifact_paths(paths: tuple[Path, ...]) -> None:
 
 
 def write_artifact_pair(artifacts: tuple[tuple[Path, str], ...]) -> None:
-    """Stage both files before replacing either, rolling back ordinary write errors.
+    """Stage all files before replacing any, rolling back on ordinary write errors.
 
-    Each replace is atomic on its filesystem. A power loss between replacements
+    Parameters
+    ----------
+    artifacts : tuple of (pathlib.Path, str)
+        Destination paths and UTF-8 text contents.
+
+    Raises
+    ------
+    OSError
+        If staging or replacement fails and the rollback succeeds.
+    DomainError
+        If the rollback itself fails.
+
+    Notes
+    -----
+    Each replacement is atomic on its filesystem. A power loss between replacements
     can still leave a mixed pair; the embedded study hash detects that case.
-    Concurrent writers are outside this CLI's permitted use.
+    Concurrent writers are outside the permitted use of the command-line tool.
 
     References
     ----------
-    NASA-SE-6: 6.5/6.6 retain internally identifiable result snapshots.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; 6.5/6.6 retain internally identifiable result snapshots.
     """
     staged = []
     committed = []

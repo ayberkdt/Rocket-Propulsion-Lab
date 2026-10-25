@@ -1,14 +1,28 @@
 """Traceable uncertainty propagation for pressure-fed propulsion histories.
 
-The module keeps uncertainty definition separate from astrodynamics. Each
-realization is a physically closed propulsion artifact that a future Sidera
-ensemble adapter can propagate without resampling or altering engine physics.
+Bounded, sourced input marginals are sampled by Latin hypercube [1]_ or plain
+Monte Carlo [3]_, optionally coupled through a Gaussian copula, and propagated through
+the deterministic blowdown model. Uncertainty definition stays separate from
+astrodynamics: every realization is a physically closed propulsion artifact that
+a downstream trajectory propagator (for example Sidera) can consume without
+resampling or altering engine physics. Every input is classified as aleatory
+or epistemic [4]_.
+
+Ensemble summaries are empirical statistics of the retained realizations. They
+are engineering uncertainty estimates, not flight certification, and the models
+are not validated against hardware by this module [2]_.
 
 References
 ----------
-NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
-NASA-SP-2009-569: https://ntrs.nasa.gov/citations/20090023159
+.. [1] MCKAY-1979. M. D. McKay, R. J. Beckman and W. J. Conover, "A Comparison
+       of Three Methods for Selecting Values of Input Variables in the Analysis
+       of Output from a Computer Code", Technometrics 21(2), 239-245, 1979.
+.. [2] NASA-STD-7009B, "Standard for Models and Simulations".
+       https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+.. [3] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+       NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
+.. [4] NASA/SP-2009-569, "Bayesian Inference for NASA Probabilistic Risk and
+       Reliability Analysis". https://ntrs.nasa.gov/citations/20090023159
 """
 
 from __future__ import annotations
@@ -70,15 +84,22 @@ UNCERTAINTY_REFERENCE_IDS = (
 
 
 class UncertaintyClass(str, Enum):
-    """Source class assigned to every uncertain input.
+    """Source class assigned to every uncertain input [1]_ [2]_.
 
-    ``ALEATORY`` denotes modeled variability between realizations;
-    ``EPISTEMIC`` denotes incomplete knowledge that may be reduced with data.
+    Attributes
+    ----------
+    ALEATORY
+        Modeled variability between realizations (irreducible at the stated
+        level of modeling).
+    EPISTEMIC
+        Incomplete knowledge that may be reduced with additional data.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-SP-2009-569: https://ntrs.nasa.gov/citations/20090023159
+    .. [1] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [2] NASA/SP-2009-569, "Bayesian Inference for NASA Probabilistic Risk and
+           Reliability Analysis". https://ntrs.nasa.gov/citations/20090023159
     """
 
     ALEATORY = "aleatory"
@@ -86,11 +107,26 @@ class UncertaintyClass(str, Enum):
 
 
 class DistributionKind(str, Enum):
-    """Supported bounded marginal distributions.
+    """Supported bounded marginal distributions [3]_.
+
+    Attributes
+    ----------
+    UNIFORM
+        Constant density on ``[lower, upper]``.
+    TRIANGULAR
+        Triangular density with mode ``nominal`` [1]_.
+    TRUNCATED_NORMAL
+        Normal density with mean ``nominal`` and ``standard_deviation``,
+        renormalized on ``[lower, upper]``.
+    LOG_UNIFORM
+        Uniform density of ``ln x`` on positive bounds [2]_.
 
     References
     ----------
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NIST-TRIPPF. NIST Dataplot, triangular percent point function.
+    .. [2] SCIPY-1.14.1-LOGUNIFORM. SciPy, log-uniform CDF and quantile formulas.
+    .. [3] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
     """
 
     UNIFORM = "uniform"
@@ -103,14 +139,40 @@ class DistributionKind(str, Enum):
 class UncertainParameter:
     """One bounded, sourced propulsion uncertainty input.
 
-    ``nominal`` is also the triangular mode. ``standard_deviation`` is required
-    only for a truncated-normal marginal. The source and rationale are
-    mandatory so an arbitrary engineering percentage cannot enter unnoticed.
+    Parameters
+    ----------
+    name : str
+        Model input name; nonempty.
+    nominal : float
+        Nominal value inside ``[lower, upper]``. It is also the triangular mode
+        and the truncated-normal mean.
+    lower, upper : float
+        Finite bounds with ``lower < upper``. Log-uniform marginals require
+        ``lower > 0``.
+    distribution : DistributionKind
+        Marginal distribution [2]_.
+    uncertainty_class : UncertaintyClass
+        Aleatory or epistemic classification [1]_.
+    source : str
+        Nonempty provenance of the bounds.
+    rationale : str
+        Nonempty justification. Source and rationale are mandatory so that an
+        arbitrary engineering percentage cannot enter unnoticed.
+    standard_deviation : float or None, optional
+        Positive finite sigma, required for and only allowed with a
+        truncated-normal marginal.
+
+    Raises
+    ------
+    DomainError
+        If any of the above constraints is violated.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [2] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
     """
 
     name: str
@@ -150,11 +212,33 @@ class UncertainParameter:
             raise DomainError("Log-uniform uncertainty requires positive bounds.")
 
     def value_at_probability(self, probability: float) -> float:
-        """Transform a unit-interval probability into this marginal.
+        """Return the marginal quantile at ``probability`` (inverse-CDF transform).
+
+        Parameters
+        ----------
+        probability : float
+            Probability in the open interval ``(0, 1)``.
+
+        Returns
+        -------
+        float
+            Correctly rounded quantile in ``[lower, upper]``; see
+            :func:`~rocket_propulsion.propulsion.burns.marginal_numerics.marginal_value`
+            for the distribution formulas [1]_ [2]_ [3]_. Inverse-CDF
+            sampling of the marginals follows [4]_.
+
+        Raises
+        ------
+        DomainError
+            If ``probability`` is not finite or not in ``(0, 1)``.
 
         References
         ----------
-        NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+        .. [1] NIST-TRIPPF. NIST Dataplot, triangular percent point function.
+        .. [2] SCIPY-1.14.1-LOGUNIFORM. SciPy, log-uniform CDF and quantile formulas.
+        .. [3] NIST-DLMF-7.8. NIST DLMF, error-function and Mills ratio bounds.
+        .. [4] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+               NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
         """
 
         probability = real(probability, "Sampling probability")
@@ -167,14 +251,37 @@ class UncertainParameter:
 class CorrelationModel:
     """Gaussian-copula correlation model for ordered uncertain inputs.
 
-    The matrix must be symmetric, positive definite, and have a unit diagonal.
-    Its source is mandatory because guessed correlations can dominate ensemble
-    tails even when every marginal is individually reasonable.
+    Parameters
+    ----------
+    parameter_names : tuple of str
+        At least two unique input names, in matrix order.
+    matrix : tuple of tuple of float
+        Correlation matrix of the latent standard normal variates. It must be
+        square, symmetric, strictly positive definite, have a unit diagonal and
+        off-diagonal entries in ``[-1, 1]``.
+    source : str
+        Nonempty provenance of the coefficients.
+    rationale : str
+        Nonempty justification. Source and rationale are mandatory because
+        guessed correlations can dominate ensemble tails even when every
+        marginal is individually reasonable [1]_ [2]_.
+
+    Raises
+    ------
+    DomainError
+        If the names or matrix violate the constraints above.
+
+    Notes
+    -----
+    Positive definiteness is decided with an exact rational ``L D L^T``
+    factorization, so the decision is free of rounding error.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [2] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
     """
 
     parameter_names: tuple[str, ...]
@@ -207,11 +314,24 @@ class CorrelationModel:
 
 @dataclass(frozen=True, slots=True)
 class UncertaintyDraw:
-    """One deterministic, indexed uncertainty realization.
+    """One deterministic, indexed uncertainty realization [1]_.
+
+    Parameters
+    ----------
+    index : int
+        Nonnegative realization index.
+    values : tuple of (str, float)
+        Sampled value of each named input; names must be unique.
+
+    Raises
+    ------
+    DomainError
+        If the index is negative or a name repeats.
 
     References
     ----------
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
     """
 
     index: int
@@ -224,11 +344,12 @@ class UncertaintyDraw:
             raise DomainError("Uncertainty draw requires a nonnegative index and unique names.")
 
     def as_dict(self) -> dict[str, float]:
-        """Return this immutable draw as a fresh name/value mapping.
+        """Return this immutable draw as a fresh name-to-value mapping.
 
-        References
-        ----------
-        NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+        Returns
+        -------
+        dict of str to float
+            A new dictionary; mutating it does not affect the draw.
         """
 
         return dict(self.values)
@@ -236,14 +357,51 @@ class UncertaintyDraw:
 
 @dataclass(frozen=True, slots=True)
 class PropulsionMetricStatistics:
-    """Empirical statistics and an unqualified IID-normal formula proxy.
+    """Empirical statistics of one metric and an unqualified IID-normal proxy.
 
-    The legacy ci95 fields contain mean +/- 1.96*s/sqrt(n). Their nominal
-    multiplier establishes neither coverage nor a design-specific LHS error.
+    The statistics summarize sampling-based propagation output [5]_.
+
+    Parameters
+    ----------
+    metric : str
+        Metric name.
+    mean, standard_deviation : float
+        Sample mean and ``n - 1`` sample standard deviation ``s`` [1]_.
+    mean_standard_error : float
+        ``s / sqrt(n)`` [2]_.
+    mean_ci95_lower, mean_ci95_upper : float
+        ``mean -/+ 1.96 s / sqrt(n)``. The normal multiplier assumes a known
+        standard deviation and independent draws [3]_; with an estimated ``s``
+        and dependent Latin-hypercube rows it establishes neither 95 % coverage
+        nor a design-specific sampling error.
+    minimum, maximum : float
+        Sample extrema.
+    p05, p50, p95 : float
+        Linear-interpolation sample percentiles [4]_.
+    mean_interval_kind : str, optional
+        Fixed label of the proxy interval kind.
+    coverage_established : bool, optional
+        Always ``False``.
+
+    Raises
+    ------
+    DomainError
+        If dispersion is negative, percentiles are not ordered within the
+        extrema, the proxy does not bracket the mean, or the record claims
+        established coverage.
 
     References
     ----------
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NIST TN 1297, "Guidelines for Evaluating and Expressing the Uncertainty
+           of NIST Measurement Results", 1994 (Type A evaluation).
+           https://www.nist.gov/pml/nist-technical-note-1297
+    .. [2] NIST-MEAN-INTERVAL. NIST, confidence limits for the mean.
+    .. [3] NIST-KNOWN-SIGMA-INTERVAL. NIST, known and estimated population
+           deviation in confidence intervals.
+    .. [4] NUMPY-2.2-LINEAR-QUANTILE. NumPy, ``numpy.quantile``, linear
+           (Hyndman-Fan type 7) sample quantile definition.
+    .. [5] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
     """
 
     metric: str
@@ -278,12 +436,35 @@ class PropulsionMetricStatistics:
 class PropulsionSensitivity:
     """Pearson screening sensitivity for one parameter/metric pair.
 
-    Correlation is a screening statistic, not proof of causality or a complete
-    global-sensitivity decomposition.
+    Correlation is a screening statistic [1]_ [2]_. It is not proof of causality nor
+    a complete global-sensitivity decomposition, and it can miss nonlinear
+    interactions.
+
+    Parameters
+    ----------
+    metric, parameter : str
+        Output metric and input parameter names.
+    correlation : float or None
+        Pearson coefficient in ``[-1, 1]``; ``None`` when either vector is
+        constant.
+    absolute_correlation : float or None
+        ``abs(correlation)``; ``None`` when undefined.
+    rank : int or None
+        Positive rank by absolute correlation within the metric; ``None`` when
+        undefined.
+    undefined_reason : str or None, optional
+        ``"constant_input_or_output"`` exactly when ``correlation`` is ``None``.
+
+    Raises
+    ------
+    DomainError
+        If the defined and undefined fields are inconsistent.
 
     References
     ----------
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NIST-PEARSON. NIST Dataplot, centered-product correlation definition.
+    .. [2] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
     """
 
     metric: str
@@ -312,13 +493,37 @@ class PropulsionSensitivity:
 class SamplingConvergenceEvidence:
     """First-half versus full-ensemble stability diagnostic.
 
-    This diagnostic does not certify probabilistic convergence. It makes sample
-    adequacy visible and allows a workflow to demand more realizations.
+    The diagnostic does not certify probabilistic convergence. It makes sample
+    adequacy visible and allows a workflow to demand more realizations [1]_ [2]_.
+
+    Parameters
+    ----------
+    metric : str
+        Metric under test.
+    half_sample_count, full_sample_count : int
+        ``full_sample_count >= 4`` and ``half_sample_count`` equal to its floor
+        half.
+    mean_relative_change : float
+        ``|m_half - m_full| / max(|m_half|, |m_full|)``.
+    standard_deviation_relative_change : float
+        ``|s_half - s_full| / max(s_half, s_full)``.
+    requested_tolerance : float
+        Positive acceptance tolerance.
+    converged : bool
+        ``True`` when both changes are within the tolerance.
+
+    Raises
+    ------
+    DomainError
+        If counts, changes or tolerance are out of range, or the flag
+        contradicts the displayed changes.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [2] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
     """
 
     metric: str
@@ -349,10 +554,37 @@ class SamplingConvergenceEvidence:
 class BlowdownUncertaintySample:
     """One physically closed blowdown realization and its exchange artifact.
 
+    The realization is one run of the pressure-fed blowdown model [1]_ [2]_.
+
+    Parameters
+    ----------
+    index : int
+        Nonnegative realization index.
+    inputs : tuple of (str, float)
+        Sampled inputs with unique names.
+    duration_s, delivered_impulse_n_s, consumed_propellant_kg : float
+        Burn metrics; must equal the artifact's values.
+    thrust_centroid_time_s : float
+        Thrust-weighted mean time; must equal the artifact's value.
+    final_supply_pressure_pa : float
+        Positive supply pressure at cutoff [Pa].
+    cutoff_reason : str
+        Reason the blowdown simulation terminated.
+    artifact : TabulatedBurnArtifact
+        Complete thrust and mass-flow history of the realization.
+
+    Raises
+    ------
+    DomainError
+        If the record is inconsistent with its artifact or a constraint above
+        is violated.
+
     References
     ----------
-    NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-    NASA-CR-131400: https://ntrs.nasa.gov/citations/19730012094
+    .. [1] NASA SP-8112, "Pressurization Systems for Liquid Rockets".
+           https://ntrs.nasa.gov/citations/19760015212
+    .. [2] NASA CR-131400, "Reliability Model of a Monopropellant Auxiliary
+           Propulsion System". https://ntrs.nasa.gov/citations/19730012094
     """
 
     index: int
@@ -380,13 +612,59 @@ class BlowdownUncertaintySample:
 
 @dataclass(frozen=True, slots=True)
 class BlowdownUncertaintyResult:
-    """Traceable propulsion ensemble ready for later trajectory propagation.
+    """Traceable blowdown uncertainty ensemble ready for trajectory propagation.
+
+    Construction recomputes every statistic, sensitivity and stability record
+    from the retained samples and rejects a record that does not reproduce, so a
+    persisted result cannot carry summaries inconsistent with its realizations.
+    The statistics are engineering estimates for credibility assessment [2]_ of
+    sampling-based propagation [3]_ through pressure-fed blowdown histories
+    [4]_.
+
+    Parameters
+    ----------
+    method : {"latin-hypercube", "monte-carlo"}
+        Sampling method [1]_.
+    seed : int
+        Random seed of the sampling stream.
+    sample_count : int
+        Number of realizations, 4 to 10000.
+    aleatory_parameter_count, epistemic_parameter_count : int
+        Counts by uncertainty class; must reproduce from ``parameters``.
+    parameters : tuple of UncertainParameter
+        Supported blowdown inputs with unique names.
+    correlation : CorrelationModel or None
+        Optional Gaussian-copula model in parameter order.
+    samples : tuple of BlowdownUncertaintySample
+        One sample per index ``0 .. sample_count - 1``, inside declared bounds.
+    statistics : tuple of PropulsionMetricStatistics
+        Per-metric empirical statistics.
+    sensitivity : tuple of PropulsionSensitivity
+        Pearson screening sensitivities.
+    convergence : SamplingConvergenceEvidence
+        Half/full stability of delivered impulse.
+    reference_ids, warnings : tuple of str
+        Source identifiers and interpretation warnings.
+    sampling_numerics, summary_numerics : str, optional
+        Fixed numerical-policy identifiers.
+
+    Raises
+    ------
+    DomainError
+        If any record does not reproduce from the retained samples or a
+        constraint above is violated.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
-    NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
+    .. [1] MCKAY-1979. M. D. McKay, R. J. Beckman and W. J. Conover, "A Comparison
+           of Three Methods for Selecting Values of Input Variables in the Analysis
+           of Output from a Computer Code", Technometrics 21(2), 239-245, 1979.
+    .. [2] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [3] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
+    .. [4] NASA SP-8112, "Pressurization Systems for Liquid Rockets".
+           https://ntrs.nasa.gov/citations/19760015212
     """
 
     method: str
@@ -418,6 +696,17 @@ class BlowdownUncertaintyResult:
 
 
 def _cholesky(matrix: tuple[tuple[float, ...], ...]) -> tuple[tuple[float, ...], ...]:
+    """Return the lower Cholesky factor of a correlation matrix.
+
+    The ``L D L^T`` factorization is computed in exact rational arithmetic, so
+    the positive-definiteness decision is exact. Only the final coefficients
+    ``L_ij sqrt(D_j)`` are rounded, each once.
+
+    Raises
+    ------
+    DomainError
+        If the matrix is not strictly positive definite.
+    """
     size = len(matrix)
     # Exact LDL^T decisions; only the final Cholesky coefficients are rounded.
     lower = [[Fraction(int(row == column)) for column in range(size)] for row in range(size)]
@@ -435,6 +724,17 @@ def _cholesky(matrix: tuple[tuple[float, ...], ...]) -> tuple[tuple[float, ...],
 
 
 def _open_random(random):
+    """Return a variate from ``random.random()`` in the open interval ``(0, 1)``.
+
+    The zero endpoint is redrawn up to 1024 times.
+
+    Raises
+    ------
+    DomainError
+        If the generator returns a value outside ``[0, 1)``.
+    ConvergenceError
+        If every draw returns zero.
+    """
     for _ in range(1024):
         value=real(random.random(),"Unit random variate")
         if 0 < value < 1:return value
@@ -443,6 +743,17 @@ def _open_random(random):
 
 
 def _stratum_probability(index, value, count):
+    """Return the binary64 probability ``(index + value) / count`` inside its stratum.
+
+    The result lies in the open unit interval and in the half-open stratum
+    ``[index / count, (index + 1) / count)``; it is moved by one ulp when
+    rounding would leave the stratum.
+
+    Raises
+    ------
+    DomainError
+        If the stratum contains no representable open probability.
+    """
     lower,upper=Fraction(index,count),Fraction(index+1,count)
     exact=(index+_fraction(value))/count
     # This is an intermediate; zero may need one directed step into the cell.
@@ -457,6 +768,23 @@ def _stratum_probability(index, value, count):
 def _unit_samples(
     dimension: int, *, sample_count: int, seed: int, method: str
 ) -> list[list[float]]:
+    """Return ``sample_count`` rows of ``dimension`` open unit-interval variates.
+
+    ``"latin-hypercube"`` places one variate in each of ``sample_count`` equal
+    strata per column and permutes each column independently [1]_;
+    ``"monte-carlo"`` draws independent variates.
+
+    Raises
+    ------
+    DomainError
+        If the method is not supported.
+
+    References
+    ----------
+    .. [1] MCKAY-1979. M. D. McKay, R. J. Beckman and W. J. Conover, "A Comparison
+           of Three Methods for Selecting Values of Input Variables in the Analysis
+           of Output from a Computer Code", Technometrics 21(2), 239-245, 1979.
+    """
     random = Random(seed)
     if method == "latin-hypercube":
         columns: list[list[float]] = []
@@ -480,15 +808,55 @@ def sample_uncertain_parameters(
 ) -> tuple[UncertaintyDraw, ...]:
     """Generate reproducible bounded draws, optionally through a Gaussian copula.
 
-    Latin-hypercube stratification is exact for independent marginals. When a
-    correlation model is supplied, the Gaussian-copula transform prioritizes
-    the declared dependency structure; the final marginal ranks are therefore
-    not claimed to remain an exact Latin hypercube.
+    Unit-interval variates are produced by Latin hypercube [1]_ or Monte Carlo
+    sampling and mapped through each marginal's inverse CDF. With a correlation
+    model, each row is mapped to independent standard normal variates
+    ``u = Phi^-1(p)``, correlated as ``z = L u`` with the lower Cholesky factor
+    ``L`` of the matrix, and passed to the marginals as the latent ``Phi(z)``.
+
+    Parameters
+    ----------
+    parameters : tuple of UncertainParameter
+        Nonempty inputs with unique names.
+    sample_count : int
+        Number of draws, 4 to 10000.
+    seed : int
+        Seed of the ``random.Random`` stream; equal seeds give equal draws.
+    method : {"latin-hypercube", "monte-carlo"}, optional
+        Sampling method (case-insensitive).
+    correlation : CorrelationModel or None, optional
+        Gaussian-copula model whose ``parameter_names`` match ``parameters``
+        in order.
+
+    Returns
+    -------
+    tuple of UncertaintyDraw
+        Draws indexed ``0 .. sample_count - 1``.
+
+    Raises
+    ------
+    DomainError
+        If the inputs, count, method or correlation order are invalid.
+    ConvergenceError
+        If a certified quantile comparison cannot be resolved.
+
+    Notes
+    -----
+    Latin-hypercube stratification is exact for independent marginals. With a
+    correlation model the copula transform prioritizes the declared dependency
+    structure, so the final marginal ranks are not claimed to remain an exact
+    Latin hypercube. Sampling-based propagation follows [2]_; the draws carry
+    no credibility claim beyond their declared sources [3]_.
 
     References
     ----------
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [1] MCKAY-1979. M. D. McKay, R. J. Beckman and W. J. Conover, "A Comparison
+           of Three Methods for Selecting Values of Input Variables in the Analysis
+           of Output from a Computer Code", Technometrics 21(2), 239-245, 1979.
+    .. [2] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
+    .. [3] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
     """
 
     parameters=records(parameters,UncertainParameter,"Uncertainty parameters")
@@ -534,6 +902,18 @@ def sample_uncertain_parameters(
 
 
 def _custom_parameter_value(parameter, probability):
+    """Evaluate a subclass ``value_at_probability`` and check its bounds.
+
+    A Gaussian-copula latent value is converted to a float probability with
+    ``statistics.NormalDist`` because custom callbacks take a float; a
+    probability that rounds to 0 or 1 is rejected instead of being clipped.
+
+    Raises
+    ------
+    DomainError
+        If the probability is not representable in ``(0, 1)`` or the returned
+        value is outside the declared bounds.
+    """
     if isinstance(probability,_GaussianProbability):
         # Custom callbacks retain their public float interface; no silent tail clip.
         value=NormalDist().cdf(float(probability.z))
@@ -547,10 +927,32 @@ def _custom_parameter_value(parameter, probability):
 
 
 def _percentile(values: list[float], probability: float) -> float:
+    """Return the linear-interpolation sample percentile [1]_.
+
+    References
+    ----------
+    .. [1] NUMPY-2.2-LINEAR-QUANTILE. NumPy, ``numpy.quantile``, linear
+           (Hyndman-Fan type 7) sample quantile definition.
+    """
     return _linear_quantile(values,probability)
 
 
 def _statistics(metric: str, values: list[float]) -> PropulsionMetricStatistics:
+    """Return exact-input empirical statistics of one metric.
+
+    The mean, ``n - 1`` standard deviation [1]_, standard error ``s / sqrt(n)``
+    and the proxy endpoints ``mean -/+ 1.96 s / sqrt(n)`` [2]_ are each rounded
+    once from exact rationals; percentiles use linear interpolation [3]_.
+
+    References
+    ----------
+    .. [1] NIST TN 1297, "Guidelines for Evaluating and Expressing the Uncertainty
+           of NIST Measurement Results", 1994 (Type A evaluation).
+           https://www.nist.gov/pml/nist-technical-note-1297
+    .. [2] NIST-MEAN-INTERVAL. NIST, confidence limits for the mean.
+    .. [3] NUMPY-2.2-LINEAR-QUANTILE. NumPy, ``numpy.quantile``, linear
+           (Hyndman-Fan type 7) sample quantile definition.
+    """
     ledger=_sample_ledger(values)
     mean = _finite_rational(ledger.mean,"Sample mean")
     deviation = _sqrt_output(ledger.variance,"Sample standard deviation")
@@ -572,14 +974,33 @@ def _statistics(metric: str, values: list[float]) -> PropulsionMetricStatistics:
 
 
 def _correlation(left: list[float], right: list[float]) -> float | None:
+    """Return the Pearson coefficient [1]_, or ``None`` for a constant vector.
+
+    References
+    ----------
+    .. [1] NIST-PEARSON. NIST Dataplot, centered-product correlation definition.
+    """
     return _pearson(left,right)
 
 
 def _relative_change(previous: float, current: float) -> float:
+    """Return ``|previous - current| / max(|previous|, |current|)``."""
     return _relative_exact(previous,current)
 
 
 def _sampling_convergence(values,tolerance):
+    """Compare the first-half and full-sample mean and standard deviation.
+
+    Both decisions are made on exact rationals: the mean passes when its
+    relative change is within ``tolerance``; the standard deviation passes when
+    ``min(v_half, v_full) / max(v_half, v_full) >= (1 - tolerance)**2``, which is
+    equivalent to a relative standard-deviation change within ``tolerance``.
+
+    Raises
+    ------
+    DomainError
+        If fewer than four values are supplied or the tolerance is not positive.
+    """
     tolerance=real(tolerance,"Sampling convergence tolerance")
     full=_sample_ledger(values)
     if len(full.values)<4 or tolerance<=0:
@@ -609,6 +1030,15 @@ _BLOWDOWN_INPUT_NAMES={
 
 
 def _sensitivity_records(samples,parameters):
+    """Rank Pearson screening sensitivities [1]_ of every metric to every input.
+
+    Within each metric, inputs are ranked by absolute correlation; undefined
+    coefficients (constant input or output) are listed last with no rank.
+
+    References
+    ----------
+    .. [1] NIST-PEARSON. NIST Dataplot, centered-product correlation definition.
+    """
     result=[]
     for metric in _BLOWDOWN_METRICS:
         output=[getattr(row,metric) for row in samples]
@@ -621,6 +1051,17 @@ def _sensitivity_records(samples,parameters):
 
 
 def _validate_uncertainty_result(result):
+    """Check that a blowdown result reproduces from its retained samples.
+
+    Samples are reordered by index, and statistics and sensitivities are
+    replaced by their recomputed canonical values after the comparison.
+
+    Raises
+    ------
+    DomainError
+        If counts, coverage, bounds, statistics, sensitivities or stability
+        evidence do not reproduce.
+    """
     if result.method not in {'latin-hypercube','monte-carlo'} or not 4<=result.sample_count<=10000:
         raise DomainError("Unsupported blowdown sampling method or sample count.")
     names=tuple(p.name for p in result.parameters)
@@ -673,25 +1114,83 @@ def simulate_blowdown_uncertainty(
 ) -> BlowdownUncertaintyResult:
     """Propagate sourced input uncertainty into closed blowdown histories.
 
-    Supported input names are ``initial_pressure_pa``,
-    ``initial_ullage_volume_m3``, ``initial_propellant_mass_kg``,
-    ``propellant_density_kg_m3``, ``polytropic_exponent``,
-    ``rated_delivered_thrust_n``, ``rated_system_specific_impulse_s``,
-    ``minimum_supply_pressure_pa``, ``thrust_pressure_exponent``,
-    ``specific_impulse_pressure_exponent``, ``chamber_pressure_exponent``,
-    ``reserve_mass_kg`` and ``cant_efficiency``.
-
     Every realization recomputes stream mass flows from delivered thrust and
-    system Isp, executes the deterministic blowdown convergence gate, and
-    retains its complete tabulated artifact. Invalid realizations abort the
-    study with their sample index; they are never silently discarded.
+    system specific impulse, runs the deterministic pressure-fed blowdown model
+    with its convergence gate [1]_ [2]_, and retains the complete tabulated
+    artifact. An invalid realization aborts the study with its sample index; it
+    is never silently discarded.
+
+    Parameters
+    ----------
+    tank : BlowdownTankModel
+        Nominal tank state.
+    rated_point : EngineOperatingPoint
+        Nominal rated operating point.
+    pressure_law : PressurePerformanceLaw
+        Nominal supply-pressure performance law.
+    parameters : tuple of UncertainParameter
+        Uncertain inputs. Supported names are ``initial_pressure_pa``,
+        ``initial_ullage_volume_m3``, ``initial_propellant_mass_kg``,
+        ``propellant_density_kg_m3``, ``polytropic_exponent``,
+        ``rated_delivered_thrust_n``, ``rated_system_specific_impulse_s``,
+        ``minimum_supply_pressure_pa``, ``thrust_pressure_exponent``,
+        ``specific_impulse_pressure_exponent``, ``chamber_pressure_exponent``,
+        ``reserve_mass_kg`` and ``cant_efficiency``. Each ``nominal`` must equal
+        the corresponding model input.
+    reserve_mass_kg : float, optional
+        Nominal unusable reserve [kg], nonnegative.
+    cant_efficiency : float, optional
+        Nominal axial cant efficiency in ``(0, 1]``.
+    sample_count : int, optional
+        Number of realizations, 4 to 10000.
+    seed : int, optional
+        Sampling seed.
+    method : {"latin-hypercube", "monte-carlo"}, optional
+        Sampling method [3]_.
+    correlation : CorrelationModel or None, optional
+        Gaussian-copula model in parameter order.
+    convergence_tolerance : float, optional
+        Positive tolerance of the half/full stability diagnostic.
+    maximum_mass_step_kg : float, optional
+        Positive maximum propellant-mass integration step [kg].
+    integration_relative_tolerance : float, optional
+        Positive relative tolerance of the blowdown integration.
+
+    Returns
+    -------
+    BlowdownUncertaintyResult
+        Retained realizations with statistics, Pearson screening
+        sensitivities and stability evidence.
+
+    Raises
+    ------
+    DomainError
+        If a record type, control, parameter name, nominal or bound is invalid;
+        if the uncertainty bounds can exceed the pressure-law validity, remove
+        the usable pressure range or consume the whole inventory; or if any
+        realization fails.
+
+    Notes
+    -----
+    The reported mean interval is an IID normal-formula proxy without
+    established 95 % coverage; Latin-hypercube rows are dependent, so it is not
+    a design-specific confidence interval. Pearson sensitivity is a screening
+    measure. Statistics are engineering uncertainty estimates, not flight
+    certification [4]_ [5]_.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
-    NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-    NASA-CR-131400: https://ntrs.nasa.gov/citations/19730012094
+    .. [1] NASA SP-8112, "Pressurization Systems for Liquid Rockets".
+           https://ntrs.nasa.gov/citations/19760015212
+    .. [2] NASA CR-131400, "Reliability Model of a Monopropellant Auxiliary
+           Propulsion System". https://ntrs.nasa.gov/citations/19730012094
+    .. [3] MCKAY-1979. M. D. McKay, R. J. Beckman and W. J. Conover, "A Comparison
+           of Three Methods for Selecting Values of Input Variables in the Analysis
+           of Output from a Computer Code", Technometrics 21(2), 239-245, 1979.
+    .. [4] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [5] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
     """
 
     if not isinstance(tank,BlowdownTankModel) or not isinstance(rated_point,EngineOperatingPoint) or not isinstance(pressure_law,PressurePerformanceLaw):

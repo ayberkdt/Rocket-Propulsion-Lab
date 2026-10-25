@@ -1,4 +1,37 @@
-"""Declared performance-factor ledgers; coupled engine validity remains open."""
+"""Declared performance-factor ledgers with first-order covariance proxy bands.
+
+Combustion (c*), discharge, boundary-layer and divergence factors are applied in
+that order to an ideal thrust and Isp, and each change is attributed to its factor.
+Relative standard uncertainties are propagated to first order with a declared
+correlation matrix. Coupled engine validity, double counting between factors and
+coverage of the bands are not established.
+
+Notes
+-----
+Two operating bases are supported. ``'fixed-mass-flow-lumped'`` treats all four
+inputs as effective multipliers of thrust and Isp at fixed mass flow; there
+``discharge_coefficient`` is a performance multiplier, not the actual/ideal throat
+mass-flow ratio. ``'fixed-pressure-area'`` holds the reference chamber pressure
+times throat area: the intrinsic c* efficiency multiplies Isp and divides mass
+flow, the discharge coefficient multiplies mass flow and divides Isp, and the
+boundary-layer and divergence factors multiply the net thrust coefficient and
+hence thrust and Isp. [1]_ [2]_ [3]_ Uncertainty propagation follows the first-order law of
+propagation with covariances [4]_ [5]_.
+
+References
+----------
+.. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+       Elements", 9th ed., Wiley, 2017.
+.. [2] NASA-SP8120-DISCHARGE. NASA SP-8120, "Liquid Rocket Engine Nozzles", 1976,
+       discharge coefficient and flow effects, printed pp. 10, 19-20 and 93.
+.. [3] ROCKETISP-CSTAR-CD-CONVENTION. RocketIsp 0.1.13 project documentation,
+       declared intrinsic c*/discharge-coefficient relation; not an independent NASA
+       qualification.
+.. [4] NIST-TN1297-COVARIANCE. NIST Technical Note 1297, Appendix A: first-order
+       propagation of uncertainty with sensitivity coefficients and covariances.
+.. [5] JCGM 100:2008, "Evaluation of Measurement Data - Guide to the Expression of
+       Uncertainty in Measurement", Joint Committee for Guides in Metrology, 2008.
+"""
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -29,7 +62,25 @@ _FLAGS = ('enable_combustion_loss', 'enable_discharge_loss', 'enable_boundary_la
 
 
 def _checked_correlation(value):
-    """Own a 4x4 correlation matrix and check exact positive semidefiniteness."""
+    """Return an owned 4x4 correlation matrix after an exact semidefiniteness check.
+
+    Parameters
+    ----------
+    value : sequence of sequences
+        Candidate correlation matrix ordered combustion, discharge, boundary layer,
+        divergence.
+
+    Returns
+    -------
+    tuple of tuple of float
+
+    Raises
+    ------
+    DomainError
+        If the matrix is not 4x4, not symmetric, has a non-unit diagonal or an entry
+        outside [-1, 1], or is not positive semidefinite in exact rational
+        elimination.
+    """
     rows = real_matrix(value, 'Loss correlation matrix')
     if len(rows) != 4 or any(len(row) != 4 for row in rows):
         raise DomainError('Loss correlations require a 4x4 matrix.', field='correlation_matrix')
@@ -50,6 +101,59 @@ def _checked_correlation(value):
 
 @dataclass(frozen=True, slots=True)
 class LossBudgetInputs:
+    """Validated inputs for a declared performance-factor budget.
+
+    Attributes
+    ----------
+    ideal_thrust_n : float
+        Reference ideal thrust, N; positive.
+    ideal_specific_impulse_s : float
+        Reference ideal specific impulse, s; positive.
+    discharge_coefficient : float, default 0.98
+        Discharge factor, in (0, 1]; meaning depends on ``operating_basis``.
+    divergence_efficiency : float, default 0.98
+        Nozzle divergence factor of the thrust coefficient, in (0, 1].
+    boundary_layer_efficiency : float, default 0.985
+        Viscous (boundary-layer) factor of the thrust coefficient, in (0, 1].
+    combustion_efficiency : float, default 0.97
+        Combustion (c*) efficiency, in (0, 1].
+    enable_discharge_loss, enable_divergence_loss : bool, default True
+        Switches; a disabled factor is treated as one.
+    enable_boundary_layer_loss, enable_combustion_loss : bool, default True
+        Switches; a disabled factor is treated as one.
+    relative_uncertainty : float, default 0.02
+        Common relative standard uncertainty of each enabled factor, in [0, 0.25].
+    operating_basis : {'fixed-mass-flow-lumped', 'fixed-pressure-area'}
+        Interpretation of the factors.
+    correlation_matrix : tuple of tuple of float
+        4x4 factor correlation matrix; identity by default.
+
+    Raises
+    ------
+    DomainError
+        If a value, switch, basis or the correlation matrix is invalid.
+
+    Notes
+    -----
+    Two operating bases are supported. ``'fixed-mass-flow-lumped'`` treats all four
+    inputs as effective multipliers of thrust and Isp at fixed mass flow; there
+    ``discharge_coefficient`` is a performance multiplier, not the actual/ideal throat
+    mass-flow ratio. ``'fixed-pressure-area'`` holds the reference chamber pressure
+    times throat area: the intrinsic c* efficiency multiplies Isp and divides mass
+    flow, the discharge coefficient multiplies mass flow and divides Isp, and the
+    boundary-layer and divergence factors multiply the net thrust coefficient and
+    hence thrust and Isp. [1]_ [2]_ [3]_
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [2] NASA-SP8120-DISCHARGE. NASA SP-8120, "Liquid Rocket Engine Nozzles", 1976,
+           discharge coefficient and flow effects, printed pp. 10, 19-20 and 93.
+    .. [3] ROCKETISP-CSTAR-CD-CONVENTION. RocketIsp 0.1.13 project documentation,
+           declared intrinsic c*/discharge-coefficient relation; not an independent NASA
+           qualification.
+    """
     ideal_thrust_n: float
     ideal_specific_impulse_s: float
     discharge_coefficient: float = .98
@@ -82,6 +186,29 @@ class LossBudgetInputs:
 
 
 def _owned(value, kind, label):
+    """Return a typed record of ``kind`` from a record or mapping.
+
+    Warning records also have their text fields and severity normalized.
+
+    Parameters
+    ----------
+    value : object
+        Record or mapping of its fields.
+    kind : type
+        Expected record type.
+    label : str
+        Label used in errors.
+
+    Returns
+    -------
+    object
+        Instance of ``kind``.
+
+    Raises
+    ------
+    DomainError
+        If the value is malformed, of the wrong type, or has an unknown severity.
+    """
     if isinstance(value, Mapping):
         try:
             value = kind(**dict(value))
@@ -102,7 +229,39 @@ def _owned(value, kind, label):
 
 @dataclass(frozen=True, slots=True)
 class LossTerm:
-    """One ordered attribution, replayed from retained inputs and its key."""
+    """One ordered factor attribution, replayable from the retained inputs and its key.
+
+    Attributes
+    ----------
+    key : {'combustion', 'discharge', 'boundary_layer', 'divergence'}
+        Factor identifier.
+    label : str
+        Display label.
+    enabled : bool
+        Whether the factor is applied.
+    efficiency : float
+        Declared factor value.
+    thrust_loss_n : float
+        Signed thrust change attributed to this factor in sequence, N.
+    specific_impulse_loss_s : float
+        Signed Isp change attributed to this factor in sequence, s.
+    source : str
+        Physical meaning of the factor under the operating basis.
+    inputs : LossBudgetInputs
+        Retained inputs.
+    numerical_policy : str
+        Identifier of the arithmetic and rounding policy.
+
+    Raises
+    ------
+    DomainError
+        If the key, switch or policy is unknown or a field does not replay.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
     key: str
     label: str
     enabled: bool
@@ -126,7 +285,62 @@ class LossTerm:
 
 @dataclass(frozen=True, slots=True)
 class PerformanceLossBudget:
-    """Owned component attribution; zero residuals are algebraic identities."""
+    """Ordered factor attribution with first-order uncertainty proxy bands.
+
+    On construction the record evaluates the budget again from ``inputs`` and refuses
+    any field that the evaluation does not reproduce. Zero balance residuals are
+    algebraic identities of the sequential attribution, not measured validation, and
+    ``coverage_qualified`` must be False.
+
+    Attributes
+    ----------
+    ideal_thrust_n, delivered_thrust_n : float
+        Reference and factored thrust, N.
+    ideal_specific_impulse_s, delivered_specific_impulse_s : float
+        Reference and factored Isp, s.
+    total_efficiency : float
+        Delivered/ideal thrust ratio.
+    total_thrust_loss_n, total_specific_impulse_loss_s : float
+        Ideal minus delivered thrust (N) and Isp (s).
+    terms : tuple of LossTerm
+        Ordered attributions.
+    thrust_balance_residual_n, specific_impulse_balance_residual_s : float
+        Zero by construction.
+    one_sigma_relative : float
+        First-order relative standard uncertainty of thrust.
+    delivered_thrust_band_n, delivered_specific_impulse_band_s : tuple of float
+        Delivered value times (1 -/+ relative standard uncertainty).
+    assumptions : tuple of str
+        Model assumptions.
+    inputs : LossBudgetInputs
+        Retained inputs.
+    operating_basis : str
+        Interpretation of the factors.
+    specific_impulse_ratio, mass_flow_ratio : float
+        Delivered/ideal Isp and mass-flow ratios.
+    specific_impulse_one_sigma_relative, mass_flow_one_sigma_relative : float
+        First-order relative standard uncertainties of Isp and mass flow.
+    numerical_policy, uncertainty_kind : str
+        Identifiers of the arithmetic and uncertainty policies.
+    coverage_qualified : bool
+        Always False.
+    warnings : tuple of WarningMessage
+        Scope warnings.
+
+    Raises
+    ------
+    DomainError
+        If a policy is unknown, a band is malformed, or a field does not replay.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [2] NIST-TN1297-COVARIANCE. NIST Technical Note 1297, Appendix A: first-order
+           propagation of uncertainty with sensitivity coefficients and covariances.
+    .. [3] JCGM 100:2008, "Evaluation of Measurement Data - Guide to the Expression of
+           Uncertainty in Measurement", Joint Committee for Guides in Metrology, 2008.
+    """
     ideal_thrust_n: float
     delivered_thrust_n: float
     ideal_specific_impulse_s: float
@@ -177,7 +391,40 @@ class PerformanceLossBudget:
 
 
 def _ledgers(source):
-    """Retain exact factor ratios until each separate public export."""
+    """Apply the factors in order and keep exact ratios until export.
+
+    Parameters
+    ----------
+    source : LossBudgetInputs
+        Validated inputs.
+
+    Returns
+    -------
+    tuple
+        ``(thrust_ratio, isp_ratio, flow_ratio, changes)`` as exact fractions, where
+        ``changes`` holds the per-factor (thrust, Isp) ratio decrements.
+
+    Notes
+    -----
+    Two operating bases are supported. ``'fixed-mass-flow-lumped'`` treats all four
+    inputs as effective multipliers of thrust and Isp at fixed mass flow; there
+    ``discharge_coefficient`` is a performance multiplier, not the actual/ideal throat
+    mass-flow ratio. ``'fixed-pressure-area'`` holds the reference chamber pressure
+    times throat area: the intrinsic c* efficiency multiplies Isp and divides mass
+    flow, the discharge coefficient multiplies mass flow and divides Isp, and the
+    boundary-layer and divergence factors multiply the net thrust coefficient and
+    hence thrust and Isp. [1]_ [2]_ [3]_
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [2] NASA-SP8120-DISCHARGE. NASA SP-8120, "Liquid Rocket Engine Nozzles", 1976,
+           discharge coefficient and flow effects, printed pp. 10, 19-20 and 93.
+    .. [3] ROCKETISP-CSTAR-CD-CONVENTION. RocketIsp 0.1.13 project documentation,
+           declared intrinsic c*/discharge-coefficient relation; not an independent NASA
+           qualification.
+    """
     force, impulse, flow = Fraction(1), Fraction(1), Fraction(1)
     physical = source.operating_basis == 'fixed-pressure-area'
     terms = []
@@ -202,6 +449,24 @@ def _ledgers(source):
 
 
 def _term_values(source):
+    """Return the field values of the four ordered :class:`LossTerm` records.
+
+    Parameters
+    ----------
+    source : LossBudgetInputs
+        Validated inputs.
+
+    Returns
+    -------
+    list of dict
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [2] NASA-SP8120-DISCHARGE. NASA SP-8120, "Liquid Rocket Engine Nozzles", 1976,
+           discharge coefficient and flow effects, printed pp. 10, 19-20 and 93.
+    """
     _force, _impulse, _flow, changes = _ledgers(source)
     physical = source.operating_basis == 'fixed-pressure-area'
     labels = ('Yanma / c*', 'Deşarj / debi' if physical else 'Deşarj adlı eski performans çarpanı',
@@ -220,7 +485,33 @@ def _term_values(source):
 
 
 def _relative_variances(source):
-    """First-order log-elasticity propagation, including signed covariance."""
+    """Propagate the factor uncertainties to relative thrust, Isp and flow variances.
+
+    Parameters
+    ----------
+    source : LossBudgetInputs
+        Validated inputs.
+
+    Returns
+    -------
+    tuple of Fraction
+        Relative variances of thrust, Isp and mass flow.
+
+    Notes
+    -----
+    For a product of power-law factors the first-order relative variance is
+    u**2 * e^T R e, with u the common relative standard uncertainty, R the
+    correlation matrix and e the log-elasticities of the output with respect to the
+    enabled factors (zero for disabled ones), including signed covariance terms
+    [1]_ [2]_.
+
+    References
+    ----------
+    .. [1] NIST-TN1297-COVARIANCE. NIST Technical Note 1297, Appendix A: first-order
+           propagation of uncertainty with sensitivity coefficients and covariances.
+    .. [2] JCGM 100:2008, "Evaluation of Measurement Data - Guide to the Expression of
+           Uncertainty in Measurement", Joint Committee for Guides in Metrology, 2008.
+    """
     elasticities = ((0, 0, 1, 1), (1, -1, 1, 1), (-1, 1, 0, 0)) if (
         source.operating_basis == 'fixed-pressure-area') else ((1,)*4, (1,)*4, (0,)*4)
     variance = []
@@ -233,6 +524,30 @@ def _relative_variances(source):
 
 
 def _budget_values(source):
+    """Evaluate the factor budget and proxy bands and return all result fields.
+
+    Parameters
+    ----------
+    source : LossBudgetInputs
+        Validated inputs.
+
+    Returns
+    -------
+    dict
+        Field values for :class:`PerformanceLossBudget`.
+
+    Raises
+    ------
+    DomainError
+        If an output is not representable.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [2] NIST-TN1297-COVARIANCE. NIST Technical Note 1297, Appendix A: first-order
+           propagation of uncertainty with sensitivity coefficients and covariances.
+    """
     force, impulse, flow, _changes = _ledgers(source)
     f0, i0 = Fraction(source.ideal_thrust_n), Fraction(source.ideal_specific_impulse_s)
     f, isp = f0*force, i0*impulse
@@ -281,6 +596,65 @@ def calculate_loss_budget(
     relative_uncertainty: float = .02, operating_basis: str = 'fixed-mass-flow-lumped',
     correlation_matrix: tuple[tuple[float, ...], ...] = _IDENTITY,
 ) -> PerformanceLossBudget:
-    """Compute a declared factor budget and unqualified covariance proxy bands."""
+    """Compute a declared performance-factor budget and unqualified covariance bands.
+
+    Parameters
+    ----------
+    ideal_thrust_n : float
+        Reference ideal thrust, N; positive.
+    ideal_specific_impulse_s : float
+        Reference ideal specific impulse, s; positive.
+    discharge_coefficient, divergence_efficiency : float
+        Discharge and divergence factors, in (0, 1].
+    boundary_layer_efficiency, combustion_efficiency : float
+        Boundary-layer and combustion (c*) factors, in (0, 1].
+    enable_discharge_loss, enable_divergence_loss : bool
+        Factor switches.
+    enable_boundary_layer_loss, enable_combustion_loss : bool
+        Factor switches.
+    relative_uncertainty : float
+        Common relative standard uncertainty of each enabled factor, in [0, 0.25].
+    operating_basis : {'fixed-mass-flow-lumped', 'fixed-pressure-area'}
+        Interpretation of the factors.
+    correlation_matrix : tuple of tuple of float
+        4x4 positive semidefinite correlation matrix.
+
+    Returns
+    -------
+    PerformanceLossBudget
+        Delivered thrust and Isp, ordered attributions, ratios, proxy bands and
+        warnings.
+
+    Raises
+    ------
+    DomainError
+        If an input is invalid or an output is not representable.
+
+    Notes
+    -----
+    Two operating bases are supported. ``'fixed-mass-flow-lumped'`` treats all four
+    inputs as effective multipliers of thrust and Isp at fixed mass flow; there
+    ``discharge_coefficient`` is a performance multiplier, not the actual/ideal throat
+    mass-flow ratio. ``'fixed-pressure-area'`` holds the reference chamber pressure
+    times throat area: the intrinsic c* efficiency multiplies Isp and divides mass
+    flow, the discharge coefficient multiplies mass flow and divides Isp, and the
+    boundary-layer and divergence factors multiply the net thrust coefficient and
+    hence thrust and Isp. [1]_ [2]_ [3]_ The factors may share or overlap physical effects;
+    sequential attribution does not prove the absence of double counting. Bands use
+    first-order factor covariance only [4]_; nonlinear effects, the uncertainty of the
+    ideal reference and probability coverage are not included.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [2] NASA-SP8120-DISCHARGE. NASA SP-8120, "Liquid Rocket Engine Nozzles", 1976,
+           discharge coefficient and flow effects, printed pp. 10, 19-20 and 93.
+    .. [3] ROCKETISP-CSTAR-CD-CONVENTION. RocketIsp 0.1.13 project documentation,
+           declared intrinsic c*/discharge-coefficient relation; not an independent NASA
+           qualification.
+    .. [4] NIST-TN1297-COVARIANCE. NIST Technical Note 1297, Appendix A: first-order
+           propagation of uncertainty with sensitivity coefficients and covariances.
+    """
     source = LossBudgetInputs(**locals())
     return PerformanceLossBudget(**_budget_values(source))

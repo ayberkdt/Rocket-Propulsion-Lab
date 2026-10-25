@@ -1,4 +1,8 @@
-"""Dependency-free HTML reporting for standalone burn results."""
+"""Self-contained HTML reports for standalone burn results.
+
+The report formats values already stored in a result; it does not recompute
+any physical quantity and needs no third-party dependency.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +12,26 @@ from .models import BurnResult, ProfiledBurnResult
 
 
 def build_burn_html_report(result: BurnResult | ProfiledBurnResult) -> str:
-    """Render a self-contained engineering summary without recomputing physics."""
+    """Render a self-contained HTML engineering summary of a burn result.
+
+    Parameters
+    ----------
+    result : BurnResult or ProfiledBurnResult
+        The result to report.  A profiled result also gets a throttle-schedule
+        table.
+
+    Returns
+    -------
+    str
+        A complete HTML document with summary, tank consumption, closure
+        evidence, warnings, schema and content hashes.  All text taken from
+        the result is HTML-escaped.
+
+    Notes
+    -----
+    Values are formatted from the stored result; no physical quantity is
+    recomputed.
+    """
 
     summary = result.summary
     status = "Target reached" if summary.target_achieved else "Constraint limited"

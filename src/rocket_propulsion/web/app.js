@@ -28,7 +28,9 @@ function formatValue(value, key) {
   if (key.endsWith("_deg")) return `${numberFormatter.format(value)}°`;
   const magnitude = Math.abs(value);
   if ((magnitude > 0 && magnitude < 1e-5) || magnitude >= 1e7) {
-    return Number(value).toExponential(6);
+    const [mantissa, exponent] = Number(value).toExponential(6).split("e");
+    const power = [...String(Number(exponent))].map((digit) => SUPERSCRIPT_DIGITS[digit]).join("");
+    return `${mantissa.replace(".", ",")}×10${power}`;
   }
   return numberFormatter.format(value);
 }
@@ -41,6 +43,11 @@ function formPayload(form) {
   return payload;
 }
 
+function announceResult(form, data) {
+  // Lets the visual layer (visuals.js) draw extra charts from the same API result.
+  form.dispatchEvent(new CustomEvent("calculated", { bubbles: true, detail: data }));
+}
+
 function apiErrorMessage(payload, fallback) {
   if (typeof payload?.error === "string") return payload.error;
   if (payload?.error?.message) return payload.error.message;
@@ -49,6 +56,9 @@ function apiErrorMessage(payload, fallback) {
 
 function renderResults(module, data) {
   module.querySelectorAll("[data-key]").forEach((element) => {
+    // A nested workbench owns its own fields: re-solving the normal shock must not
+    // overwrite the oblique-shock results that share keys such as downstream_mach.
+    if (element.closest("[data-module]") !== module) return;
     const key = element.dataset.key;
     element.textContent = formatValue(data[key], key);
   });
@@ -63,12 +73,29 @@ function svgElement(tag, attributes = {}, text = "") {
   return element;
 }
 
+const tickFormatter = new Intl.NumberFormat("tr-TR", { maximumSignificantDigits: 4 });
+const SUPERSCRIPT_DIGITS = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
+
 function chartTick(value) {
+  // Turkish decimal comma on every axis; very large or small ticks use m×10ⁿ, never "e+".
   const magnitude = Math.abs(value);
-  if (magnitude >= 10000 || (magnitude > 0 && magnitude < 0.001)) {
-    return value.toExponential(1);
+  if (magnitude >= 1e9 || (magnitude > 0 && magnitude < 0.001)) {
+    const [mantissa, exponent] = value.toExponential(1).split("e");
+    const power = [...String(Number(exponent))].map((digit) => SUPERSCRIPT_DIGITS[digit]).join("");
+    return `${mantissa.replace(".", ",")}×10${power}`;
   }
-  return Number(value.toPrecision(4)).toString();
+  return tickFormatter.format(Number(value.toPrecision(4)));
+}
+
+// Series classes map onto the Sunumatik chart theme slots (chart-theme.css):
+// colour from --color-data-N, plus a dash pattern per slot so colour is never the only cue.
+const SERIES_SLOTS = { "series-1": "1", "series-2": "2", "series-3": "3" };
+
+function seriesAttributes(className) {
+  const slot = SERIES_SLOTS[className];
+  const attributes = { class: `chart-line series-line ${className}` };
+  if (slot) attributes["data-series-slot"] = slot;
+  return attributes;
 }
 
 function chartAxis(values, paddingFraction) {
@@ -94,6 +121,38 @@ function chartAxis(values, paddingFraction) {
   };
 }
 
+function axisTicks(axis, { count = 5, integer = false } = {}) {
+  // Round 1–2–2.5–5 steps in real units with one decimal count per axis. When the
+  // padded range is not a finite real span (±MAX_VALUE, subnormal), fall back to
+  // six evenly spaced fractions so every coordinate and label stays finite.
+  const lower = axis.tick(0);
+  const upper = axis.tick(1);
+  const span = upper - lower;
+  const power = Number.isFinite(span) && span > 0 ? 10 ** Math.floor(Math.log10(span / count)) : 0;
+  const magnitude = Math.max(Math.abs(lower), Math.abs(upper));
+  if (!Number.isFinite(power) || power === 0 || magnitude >= 1e9 || magnitude < 1e-3) {
+    return [0, 0.2, 0.4, 0.6, 0.8, 1].map((fraction) => ({ fraction, label: chartTick(axis.tick(fraction)) }));
+  }
+  const niceStep = [1, 2, 2.5, 5, 10].map((factor) => factor * power).find((candidate) => span / candidate <= count + 1);
+  // Discrete x (stage, term, sample index) never shows fractional ticks.
+  const step = integer ? Math.max(1, Math.ceil(niceStep)) : niceStep;
+  // Large axes (≥ 10⁵) share one engineering power of ten so labels stay short: 2,5×10⁶.
+  const exponent = magnitude >= 1e5 ? 3 * Math.floor(Math.log10(magnitude) / 3) : 0;
+  const unit = 10 ** exponent;
+  const suffix = exponent ? `×10${[...String(exponent)].map((digit) => SUPERSCRIPT_DIGITS[digit]).join("")}` : "";
+  const scaledStep = step / unit;
+  const decimals = Math.max(0, -Math.floor(Math.log10(scaledStep) + 1e-9))
+    + (Math.abs(step / power - 2.5) < 1e-9 ? 1 : 0);
+  const formatter = new Intl.NumberFormat("tr-TR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  const ticks = [];
+  for (let index = Math.ceil(lower / step - 1e-9); index * step <= upper + step * 1e-9; index += 1) {
+    const value = index * step;
+    const label = value === 0 ? "0" : `${formatter.format(value / unit)}${suffix}`;
+    ticks.push({ fraction: (value - lower) / span, label });
+  }
+  return ticks;
+}
+
 function renderLineChart(svg, series, { xLabel, yLabel }) {
   const width = 720;
   const height = 280;
@@ -113,15 +172,18 @@ function renderLineChart(svg, series, { xLabel, yLabel }) {
   const yScale = value => margin.top + plotHeight - yAxis.fraction(value) * plotHeight;
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
-  for (let index = 0; index <= 5; index += 1) {
-    const fraction = index / 5;
+  for (const { fraction, label } of axisTicks(xAxis, { integer: series.some((item) => item.points) })) {
     const x = margin.left + fraction * plotWidth;
-    const y = margin.top + fraction * plotHeight;
     svg.append(
       svgElement("line", { x1: x, y1: margin.top, x2: x, y2: margin.top + plotHeight, class: "chart-grid-line" }),
+      svgElement("text", { x, y: margin.top + plotHeight + 20, "text-anchor": "middle", class: "chart-tick" }, label),
+    );
+  }
+  for (const { fraction, label } of axisTicks(yAxis)) {
+    const y = margin.top + (1 - fraction) * plotHeight;
+    svg.append(
       svgElement("line", { x1: margin.left, y1: y, x2: margin.left + plotWidth, y2: y, class: "chart-grid-line" }),
-      svgElement("text", { x, y: margin.top + plotHeight + 20, "text-anchor": "middle", class: "chart-tick" }, chartTick(xAxis.tick(fraction))),
-      svgElement("text", { x: margin.left - 10, y: y + 4, "text-anchor": "end", class: "chart-tick" }, chartTick(yAxis.tick(1 - fraction))),
+      svgElement("text", { x: margin.left - 10, y: y + 4, "text-anchor": "end", class: "chart-tick" }, label),
     );
   }
   svg.append(
@@ -132,6 +194,19 @@ function renderLineChart(svg, series, { xLabel, yLabel }) {
   );
 
   series.forEach((item, index) => {
+    const className = item.className || `series-${index + 1}`;
+    if (item.points) {
+      // Discrete x (stage, loss term, sample index): markers, not a line between categories.
+      for (const point of item.data) {
+        const x = Number(point[item.x]);
+        const y = Number(point[item.y]);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        const marker = seriesAttributes(className);
+        marker.class = `series-marker ${className}`;
+        svg.append(svgElement("circle", { ...marker, cx: xScale(x).toFixed(2), cy: yScale(y).toFixed(2), r: 4 }));
+      }
+      return;
+    }
     let drawing = false;
     const parts = [];
     for (const point of item.data) {
@@ -142,8 +217,18 @@ function renderLineChart(svg, series, { xLabel, yLabel }) {
       drawing = true;
     }
     const path = parts.join(" ");
-    svg.append(svgElement("path", { d: path, class: `chart-line ${item.className || `series-${index + 1}`}` }));
+    svg.append(svgElement("path", { d: path, ...seriesAttributes(className) }));
   });
+  // Scales and data for the pointer read-out and state markers (visuals.js).
+  svg.__chart = {
+    xScale, yScale, xLabel, yLabel,
+    plot: { left: margin.left, top: margin.top, width: plotWidth, height: plotHeight },
+    series: series.map((item, index) => ({
+      className: item.className || `series-${index + 1}`,
+      points: item.data.map((point) => ({ x: Number(point[item.x]), y: Number(point[item.y]) }))
+        .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y)),
+    })),
+  };
 }
 
 function renderPolytropicCharts(data) {
@@ -267,7 +352,7 @@ function renderLossBudget(data) {
   const terms = data.terms.map((term, index) => ({ ...term, index: index + 1 }));
   renderLineChart(
     document.getElementById("loss-budget-chart"),
-    [{ data: terms, x: "index", y: "thrust_loss_n", className: "series-2" }],
+    [{ data: terms, x: "index", y: "thrust_loss_n", className: "series-2", points: true }],
     { xLabel: "Terim sırası", yLabel: "İtki kaybı (N)" },
   );
 }
@@ -448,6 +533,7 @@ async function runBurn(form) {
     const payload = await response.json();
     if (!response.ok) throw new Error(apiErrorMessage(payload, "Burn çözümü tamamlanamadı."));
     renderBurn(payload.data, simulationRequest);
+    announceResult(form, payload.data);
     message.textContent = payload.data.summary.target_achieved
       ? "Burn hedefi analitik olarak kapandı."
       : `Hedefe ulaşılamadı: ${formatValue(payload.data.summary.cutoff_reason, "cutoff_reason")}.`;
@@ -472,7 +558,7 @@ function renderStaging(data) {
   const stages = data.stages.map((stage, index) => ({ ...stage, index: index + 1 }));
   renderLineChart(
     document.getElementById("staging-chart"),
-    [{ data: stages, x: "index", y: "delta_v_m_s", className: "series-3" }],
+    [{ data: stages, x: "index", y: "delta_v_m_s", className: "series-3", points: true }],
     { xLabel: "Kademe sırası", yLabel: "Δv (m/s)" },
   );
 }
@@ -522,7 +608,7 @@ function renderUncertainty(data) {
   const samples = data.samples.map((sample, index) => ({ index: index + 1, output: sample.output }));
   renderLineChart(
     document.getElementById("uncertainty-chart"),
-    [{ data: samples, x: "index", y: "output", className: "series-1" }],
+    [{ data: samples, x: "index", y: "output", className: "series-1", points: true }],
     { xLabel: "Örnek", yLabel: "Δv (m/s)" },
   );
 }
@@ -814,6 +900,7 @@ async function calculate(form, endpoint, onSuccess = null) {
     if (!response.ok) throw new Error(apiErrorMessage(payload, "Hesaplama tamamlanamadı."));
     renderResults(module, payload.data);
     if (onSuccess) onSuccess(payload.data);
+    announceResult(form, payload.data);
     message.textContent = "Durum başarıyla çözüldü.";
     message.className = "form-message success";
   } catch (error) {
@@ -1113,6 +1200,7 @@ async function loadPropellants(form) {
     const payload = await response.json();
     if (!response.ok) throw new Error(apiErrorMessage(payload, "Katalog yüklenemedi."));
     grid.replaceChildren(...payload.data.records.map(propellantCard));
+    announceResult(form, payload.data);
     message.textContent = `${payload.data.count} sistem gösteriliyor.`;
     message.className = "form-message success";
   } catch (error) {

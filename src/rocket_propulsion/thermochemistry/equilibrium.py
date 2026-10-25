@@ -1,9 +1,20 @@
 """Chemical-equilibrium provider contract and an experimental local solver.
 
-The local provider minimizes ideal-gas Gibbs energy with elemental constraints.
-It is intentionally limited to the bundled gas species and 200--6000 K.  The
-provider boundary also permits the validated NASA CEA adapter to be selected
-without coupling the rest of the application to an external executable.
+The local provider minimizes ideal-gas Gibbs energy subject to element
+conservation [1]_ using NASA Glenn species data [2]_. It is limited to the
+bundled gas species and 200--6000 K and is not validated against NASA CEA or
+hardware data. The provider protocol also lets the NASA CEA adapter of
+:mod:`.cea` be selected without coupling the rest of the application to an
+external executable.
+
+References
+----------
+.. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+       Equilibrium Compositions and Applications, Part I: Analysis".
+       https://ntrs.nasa.gov/citations/19950013764
+.. [2] NASA/TP-2002-211556. NASA Glenn, "NASA Glenn Coefficients for
+       Calculating Thermodynamic Properties of Individual Species".
+       https://ntrs.nasa.gov/citations/20020085330
 """
 
 from __future__ import annotations
@@ -24,7 +35,15 @@ from .species import Species, get_species, species_catalog
 
 @dataclass(frozen=True, slots=True)
 class ReactantAmount:
-    """A positive molar amount of one bundled species."""
+    """A positive molar amount of one bundled species.
+
+    Attributes
+    ----------
+    species : str
+        Upper-case species key.
+    moles : float
+        Finite, positive amount in mol.
+    """
 
     species: str
     moles: float
@@ -32,7 +51,42 @@ class ReactantAmount:
 
 @dataclass(frozen=True, slots=True)
 class EquilibriumProblem:
-    """A versioned TP, HP, or UV ideal-gas equilibrium problem."""
+    """A versioned TP, HP, or UV ideal-gas equilibrium problem.
+
+    Use the :meth:`tp`, :meth:`hp` and :meth:`uv` constructors; they validate
+    and sort the reactants.
+
+    Attributes
+    ----------
+    problem_type : str
+        ``"TP"`` (assigned temperature and pressure), ``"HP"`` (assigned
+        enthalpy and pressure) or ``"UV"`` (assigned internal energy and
+        volume) [1]_.
+    reactants : tuple of ReactantAmount
+        Reactant amounts sorted by species key.
+    pressure_pa : float or None
+        Pressure for TP and HP problems.
+    temperature_k : float or None
+        Temperature for TP problems.
+    reactant_temperature_k : float or None
+        Reactant temperature defining the default HP/UV energy target.
+    target_enthalpy_j, target_internal_energy_j : float or None
+        Explicit energy targets in J; when ``None`` the reactant enthalpy or
+        internal energy at ``reactant_temperature_k`` is used.
+    volume_m3 : float or None
+        Volume for UV problems.
+    candidate_species : tuple of str or None
+        Product species to consider; ``None`` uses every bundled species whose
+        elements are present in the reactants.
+    schema_version : str, default "1.0"
+        Problem schema version.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part I: Analysis".
+           https://ntrs.nasa.gov/citations/19950013764
+    """
 
     problem_type: str
     reactants: tuple[ReactantAmount, ...]
@@ -54,7 +108,38 @@ class EquilibriumProblem:
         pressure_pa: float,
         candidate_species: tuple[str, ...] | None = None,
     ) -> EquilibriumProblem:
-        """Build an assigned-temperature-and-pressure problem."""
+        """Build an assigned-temperature-and-pressure problem [1]_.
+
+        Parameters
+        ----------
+        reactants : mapping of str to float
+            Positive molar amount per species key.
+        temperature_k : float
+            Equilibrium temperature in K.
+        pressure_pa : float
+            Equilibrium pressure in Pa.
+        candidate_species : tuple of str, optional
+            Product species to consider.
+
+        Returns
+        -------
+        EquilibriumProblem
+            Problem with ``problem_type="TP"``.
+
+        Raises
+        ------
+        InputError
+            If no reactant is given, an amount is not numeric or a species is
+            unknown.
+        DomainError
+            If an amount is not finite and positive.
+
+        References
+        ----------
+        .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+               Equilibrium Compositions and Applications, Part I: Analysis".
+               https://ntrs.nasa.gov/citations/19950013764
+        """
 
         return cls(
             problem_type="TP",
@@ -74,7 +159,40 @@ class EquilibriumProblem:
         target_enthalpy_j: float | None = None,
         candidate_species: tuple[str, ...] | None = None,
     ) -> EquilibriumProblem:
-        """Build an assigned-enthalpy-and-pressure combustion problem."""
+        """Build an assigned-enthalpy-and-pressure combustion problem [1]_.
+
+        Parameters
+        ----------
+        reactants : mapping of str to float
+            Positive molar amount per species key.
+        pressure_pa : float
+            Combustion pressure in Pa.
+        reactant_temperature_k : float, default 298.15
+            Reactant temperature in K that sets the default enthalpy target.
+        target_enthalpy_j : float, optional
+            Explicit total enthalpy target in J.
+        candidate_species : tuple of str, optional
+            Product species to consider.
+
+        Returns
+        -------
+        EquilibriumProblem
+            Problem with ``problem_type="HP"``.
+
+        Raises
+        ------
+        InputError
+            If no reactant is given, an amount is not numeric or a species is
+            unknown.
+        DomainError
+            If an amount is not finite and positive.
+
+        References
+        ----------
+        .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+               Equilibrium Compositions and Applications, Part I: Analysis".
+               https://ntrs.nasa.gov/citations/19950013764
+        """
 
         return cls(
             problem_type="HP",
@@ -95,7 +213,40 @@ class EquilibriumProblem:
         target_internal_energy_j: float | None = None,
         candidate_species: tuple[str, ...] | None = None,
     ) -> EquilibriumProblem:
-        """Build an assigned-internal-energy-and-volume problem."""
+        """Build an assigned-internal-energy-and-volume problem [1]_.
+
+        Parameters
+        ----------
+        reactants : mapping of str to float
+            Positive molar amount per species key.
+        volume_m3 : float
+            Closed volume in m^3.
+        reactant_temperature_k : float, default 298.15
+            Reactant temperature in K that sets the default energy target.
+        target_internal_energy_j : float, optional
+            Explicit total internal-energy target in J.
+        candidate_species : tuple of str, optional
+            Product species to consider.
+
+        Returns
+        -------
+        EquilibriumProblem
+            Problem with ``problem_type="UV"``.
+
+        Raises
+        ------
+        InputError
+            If no reactant is given, an amount is not numeric or a species is
+            unknown.
+        DomainError
+            If an amount is not finite and positive.
+
+        References
+        ----------
+        .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+               Equilibrium Compositions and Applications, Part I: Analysis".
+               https://ntrs.nasa.gov/citations/19950013764
+        """
 
         return cls(
             problem_type="UV",
@@ -109,7 +260,17 @@ class EquilibriumProblem:
 
 @dataclass(frozen=True, slots=True)
 class EquilibriumSpeciesAmount:
-    """Equilibrium amount and fractions for one retained species."""
+    """Equilibrium amount and fractions for one retained species.
+
+    Attributes
+    ----------
+    species : str
+        Species key.
+    moles : float
+        Amount in mol.
+    mole_fraction, mass_fraction : float
+        Fractions in the product mixture.
+    """
 
     species: str
     moles: float
@@ -119,7 +280,21 @@ class EquilibriumSpeciesAmount:
 
 @dataclass(frozen=True, slots=True)
 class EquilibriumResiduals:
-    """Normalized conservation and state-closure residuals."""
+    """Normalized conservation and state-closure residuals.
+
+    Attributes
+    ----------
+    maximum_element_relative : float
+        Largest relative difference between product and reactant element
+        amounts.
+    mole_fraction_sum : float
+        ``|sum(x_j) - 1|``.
+    energy_relative : float or None
+        Relative enthalpy (HP) or internal-energy (UV) closure residual,
+        normalized by ``max(|target|, 1 J)``.
+    volume_relative : float or None
+        Relative volume closure residual (UV).
+    """
 
     maximum_element_relative: float
     mole_fraction_sum: float
@@ -129,7 +304,20 @@ class EquilibriumResiduals:
 
 @dataclass(frozen=True, slots=True)
 class EquilibriumConvergence:
-    """Iteration evidence retained with every successful solution."""
+    """Iteration record retained with every successful solution.
+
+    Attributes
+    ----------
+    converged : bool
+        Whether the solution was accepted.
+    composition_iterations : int
+        Iterations of the composition solve at the final state.
+    temperature_iterations, pressure_iterations : int
+        Iterations of the temperature and pressure closures.
+    maximum_residual : float
+        Largest of the composition, element, mole-fraction and closure
+        residuals.
+    """
 
     converged: bool
     composition_iterations: int
@@ -140,7 +328,49 @@ class EquilibriumConvergence:
 
 @dataclass(frozen=True, slots=True)
 class EquilibriumResult:
-    """Provider-neutral, versioned equilibrium result."""
+    """Provider-neutral, versioned equilibrium result.
+
+    The fields follow the equilibrium-state description of [1]_ and are filled
+    by the local Gibbs solver or the NASA CEA adapter.
+
+    Attributes
+    ----------
+    schema_version, provider, provider_version : str
+        Result schema and producing provider.
+    problem_type : str
+        ``"TP"``, ``"HP"`` or ``"UV"``.
+    temperature_k, pressure_pa : float
+        Equilibrium state.
+    total_moles, total_mass_kg : float
+        Product amount and mass.
+    molecular_mass_kg_mol, gas_constant_j_kg_k : float
+        Mixture molar mass and specific gas constant.
+    cp_j_kg_k, cv_j_kg_k, gamma : float
+        Specific heats and their ratio as reported by the provider (frozen
+        composition for the local provider).
+    enthalpy_j, internal_energy_j, entropy_j_k : float
+        Extensive state properties of the product mixture.
+    species : tuple of EquilibriumSpeciesAmount
+        Retained product species in decreasing amount.
+    element_moles : tuple of (str, float)
+        Reactant element inventory.
+    residuals : EquilibriumResiduals
+        Conservation and closure residuals.
+    convergence : EquilibriumConvergence
+        Iteration record.
+    assumptions : tuple of str
+        Model assumptions of the provider.
+    warnings : tuple of WarningMessage
+        Provider warnings.
+    source, source_url : str
+        Source of the model and data.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part I: Analysis".
+           https://ntrs.nasa.gov/citations/19950013764
+    """
 
     schema_version: str
     provider: str
@@ -170,16 +400,34 @@ class EquilibriumResult:
 
 @runtime_checkable
 class EquilibriumProvider(Protocol):
-    """Common interface implemented by local and external equilibrium engines."""
+    """Common interface implemented by local and external equilibrium engines.
+
+    Attributes
+    ----------
+    name, version : str
+        Provider identification copied into every result.
+    """
 
     name: str
     version: str
 
     def solve(self, problem: EquilibriumProblem) -> EquilibriumResult:
-        """Solve a validated equilibrium problem."""
+        """Solve a validated equilibrium problem.
+
+        Parameters
+        ----------
+        problem : EquilibriumProblem
+            Problem to solve.
+
+        Returns
+        -------
+        EquilibriumResult
+            Provider-neutral result.
+        """
 
 
 def _reactants(values: Mapping[str, float]) -> tuple[ReactantAmount, ...]:
+    """Validate reactant amounts and return them sorted by upper-case species key."""
     if not values:
         raise InputError("At least one reactant is required.", field="reactants")
     result: list[ReactantAmount] = []
@@ -201,7 +449,14 @@ def _reactants(values: Mapping[str, float]) -> tuple[ReactantAmount, ...]:
 
 
 def _solve_linear(matrix: list[list[float]], vector: list[float]) -> list[float]:
-    """Solve a small dense system with scaled partial pivoting."""
+    """Solve a small dense system by Gauss-Jordan elimination with partial pivoting.
+
+    Raises
+    ------
+    ConvergenceError
+        If a pivot magnitude falls below 1e-14
+        (code ``equilibrium_singular_jacobian``).
+    """
 
     size = len(vector)
     augmented = [row[:] + [value] for row, value in zip(matrix, vector, strict=True)]
@@ -227,12 +482,39 @@ def _solve_linear(matrix: list[list[float]], vector: list[float]) -> list[float]
 
 
 def _logsumexp(values: list[float]) -> float:
+    """Return ``log(sum(exp(values)))`` evaluated without overflow."""
     maximum = max(values)
     return maximum + log(sum(exp(value - maximum) for value in values))
 
 
 class LocalEquilibriumProvider:
-    """Experimental ideal-gas equilibrium solver for the bundled species set."""
+    """Experimental ideal-gas equilibrium solver for the bundled species set.
+
+    Attributes
+    ----------
+    name, version : str
+        Provider identification.
+    maximum_iterations : int
+        Newton iteration limit of the composition solve.
+    residual_tolerance : float
+        Acceptance tolerance of the composition residuals.
+
+    Notes
+    -----
+    Assumptions: ideal-gas mixture, gas-phase species only, bundled NASA Glenn
+    thermodynamic data [2]_, temperatures between 200 and 6000 K. Results carry
+    an ``experimental_equilibrium_provider`` warning; rocket design results
+    should be checked against NASA CEA [1]_.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part I: Analysis".
+           https://ntrs.nasa.gov/citations/19950013764
+    .. [2] NASA/TP-2002-211556. NASA Glenn, "NASA Glenn Coefficients for
+           Calculating Thermodynamic Properties of Individual Species".
+           https://ntrs.nasa.gov/citations/20020085330
+    """
 
     name = "local-gibbs"
     version = "0.1-experimental"
@@ -240,7 +522,42 @@ class LocalEquilibriumProvider:
     residual_tolerance = 2.0e-9
 
     def solve(self, problem: EquilibriumProblem) -> EquilibriumResult:
-        """Solve TP directly and HP/UV through nested state closure."""
+        """Solve TP directly and HP/UV through nested state closure.
+
+        Parameters
+        ----------
+        problem : EquilibriumProblem
+            Problem with ``schema_version="1.0"``.
+
+        Returns
+        -------
+        EquilibriumResult
+            Equilibrium composition, properties, residuals and warnings.
+
+        Raises
+        ------
+        InputError
+            If the schema or problem type is unsupported or a required state
+            variable is missing.
+        DomainError
+            If the state is outside the model range or the energy/volume
+            target is not bracketed.
+        ConvergenceError
+            If the composition or closure iterations fail.
+
+        Notes
+        -----
+        TP problems minimize Gibbs energy at the assigned state. HP problems
+        bisect temperature in ``[1800, 6000]`` K on the enthalpy residual. UV
+        problems bisect temperature on the internal-energy residual, with an
+        inner bisection on ``ln p`` for the volume at each temperature [1]_.
+
+        References
+        ----------
+        .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+               Equilibrium Compositions and Applications, Part I: Analysis".
+               https://ntrs.nasa.gov/citations/19950013764
+        """
 
         kind = problem.problem_type.strip().upper()
         if problem.schema_version != "1.0":
@@ -261,6 +578,7 @@ class LocalEquilibriumProvider:
         )
 
     def _inventory(self, problem: EquilibriumProblem) -> dict[str, float]:
+        """Return reactant element amounts in mol, sorted by element symbol."""
         inventory: dict[str, float] = {}
         for reactant in problem.reactants:
             for element, coefficient in get_species(reactant.species).formula:
@@ -270,6 +588,15 @@ class LocalEquilibriumProvider:
     def _candidates(
         self, problem: EquilibriumProblem, inventory: Mapping[str, float]
     ) -> tuple[Species, ...]:
+        """Return candidate product species composed only of reactant elements.
+
+        Raises
+        ------
+        DomainError
+            If no candidate matches (code ``no_equilibrium_species``) or the
+            candidates do not contain every reactant element
+            (code ``incomplete_element_basis``).
+        """
         active_elements = set(inventory)
         requested = (
             tuple(get_species(key) for key in problem.candidate_species)
@@ -309,6 +636,44 @@ class LocalEquilibriumProvider:
         temperature_k: float,
         pressure_pa: float,
     ) -> tuple[dict[str, float], int, float]:
+        """Return the equilibrium species amounts at fixed temperature and pressure.
+
+        Returns
+        -------
+        tuple
+            ``(amounts, iterations, residual)``: moles per species key, Newton
+            iterations and the final residual norm.
+
+        Raises
+        ------
+        DomainError
+            If the temperature is outside 200--6000 K or the pressure is not
+            positive.
+        ConvergenceError
+            If the Newton solve fails and no feasible boundary composition
+            exists.
+
+        Notes
+        -----
+        The element-potential form of Gibbs minimization is used [1]_: with
+        element potentials ``pi_i``, mole fractions are
+        ``x_j proportional to exp(-g_j/(R T) + sum_i a_ij pi_i - ln(p/p_ref))``
+        with standard-state ``g_j = h_j - T s_j`` from NASA Glenn data [2]_.
+        The unknowns are found by damped Newton iteration (forward-difference
+        Jacobian, step 1e-5, halving line search) so that the fractions sum to
+        one and every element ratio matches the reactant inventory. If the
+        Jacobian is singular or no step reduces the residual, the lowest-Gibbs
+        feasible boundary composition is returned instead.
+
+        References
+        ----------
+        .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+               Equilibrium Compositions and Applications, Part I: Analysis".
+               https://ntrs.nasa.gov/citations/19950013764
+        .. [2] NASA/TP-2002-211556. NASA Glenn, "NASA Glenn Coefficients for
+               Calculating Thermodynamic Properties of Individual Species".
+               https://ntrs.nasa.gov/citations/20020085330
+        """
         if not isfinite(temperature_k) or not 200.0 <= temperature_k <= 6000.0:
             raise DomainError(
                 "Local equilibrium temperature must be between 200 and 6000 K.",
@@ -453,9 +818,23 @@ class LocalEquilibriumProvider:
 
         At low combustion temperatures, dissociated fractions can be far below
         double-precision sensitivity and the interior atomic-potential Newton
-        system becomes singular.  Enumerating element-sized feasible bases
-        retains exact conservation while explicitly treating those trace
-        species as zero.
+        system becomes singular. Enumerating species subsets of at most the
+        number of elements, solving the scaled element balance by least
+        squares, and keeping non-negative solutions that conserve every
+        element within 1e-8 retains conservation while treating the omitted
+        trace species as zero. The candidate with the lowest ideal-mixture
+        Gibbs energy [1]_ is returned.
+
+        Raises
+        ------
+        ConvergenceError
+            If no feasible basis exists (code ``equilibrium_boundary_failure``).
+
+        References
+        ----------
+        .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+               Equilibrium Compositions and Applications, Part I: Analysis".
+               https://ntrs.nasa.gov/citations/19950013764
         """
 
         elements = tuple(inventory)
@@ -546,6 +925,13 @@ class LocalEquilibriumProvider:
         energy_target_j: float | None = None,
         volume_target_m3: float | None = None,
     ) -> EquilibriumResult:
+        """Assemble an :class:`EquilibriumResult` from solved species amounts.
+
+        Species below 1e-14 mol are dropped. Mixture properties use frozen
+        composition at the final state; ``U = H - n R T`` for the ideal-gas
+        mixture. Element, mole-fraction, energy and volume residuals are
+        recomputed from the retained amounts.
+        """
         retained = {key: value for key, value in amounts.items() if value > 1.0e-14}
         total_moles = sum(retained.values())
         mole_fractions = {key: value / total_moles for key, value in retained.items()}
@@ -666,6 +1052,7 @@ class LocalEquilibriumProvider:
         )
 
     def _solve_tp_problem(self, problem: EquilibriumProblem) -> EquilibriumResult:
+        """Solve an assigned temperature and pressure problem."""
         if problem.temperature_k is None or problem.pressure_pa is None:
             raise InputError("TP requires temperature and pressure.", field="problem")
         inventory = self._inventory(problem)
@@ -686,6 +1073,13 @@ class LocalEquilibriumProvider:
         )
 
     def _reactant_energy(self, problem: EquilibriumProblem) -> tuple[float, float]:
+        """Return reactant ``(H, U)`` in J at the reactant temperature.
+
+        Raises
+        ------
+        InputError
+            If ``reactant_temperature_k`` is missing.
+        """
         temperature = problem.reactant_temperature_k
         if temperature is None:
             raise InputError(
@@ -714,6 +1108,16 @@ class LocalEquilibriumProvider:
         tolerance: float = 1.0e-8,
         maximum_iterations: int = 80,
     ) -> tuple[float, int]:
+        """Return a bracketed root of ``function`` by bisection and the iteration count.
+
+        Raises
+        ------
+        DomainError
+            If the end values do not bracket a root
+            (code ``equilibrium_state_not_bracketed``).
+        ConvergenceError
+            If the iteration limit is reached.
+        """
         low_value = function(lower)
         high_value = function(upper)
         if low_value == 0.0:
@@ -743,6 +1147,7 @@ class LocalEquilibriumProvider:
         )
 
     def _solve_hp_problem(self, problem: EquilibriumProblem) -> EquilibriumResult:
+        """Solve an assigned enthalpy and pressure (adiabatic combustion) problem."""
         if problem.pressure_pa is None:
             raise InputError("HP requires pressure.", field="pressure_pa")
         reactant_enthalpy, _ = self._reactant_energy(problem)
@@ -793,6 +1198,7 @@ class LocalEquilibriumProvider:
         )
 
     def _solve_uv_problem(self, problem: EquilibriumProblem) -> EquilibriumResult:
+        """Solve an assigned internal energy and volume (constant-volume) problem."""
         if problem.volume_m3 is None or problem.volume_m3 <= 0.0:
             raise InputError("UV requires a positive volume.", field="volume_m3")
         _, reactant_internal_energy = self._reactant_energy(problem)

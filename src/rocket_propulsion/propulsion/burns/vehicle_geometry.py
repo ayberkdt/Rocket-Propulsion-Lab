@@ -17,7 +17,20 @@ body frame:
     and inertia with respect to every tank mass.
 
 Attitude dynamics and frame rotation stay in the consuming framework.  All
-vectors here are body-frame and SI.
+vectors here are body-frame and SI.  Thruster torque and rigid-body mass
+properties follow [1]_; centre-of-mass moment arms and thrust-vector
+misalignment during thrusting maneuvers are discussed in [2]_.  Thrust
+allocation uses a bounded-variable least-squares active-set method [3]_ [4]_.
+
+References
+----------
+.. [1] B. Wie, "Space Vehicle Dynamics and Control", 2nd ed., AIAA, 2008.
+.. [2] NASA SP-8059. NASA, "Spacecraft Attitude Control During Thrusting
+       Maneuvers", https://ntrs.nasa.gov/citations/19710016722.
+.. [3] C. L. Lawson and R. J. Hanson, "Solving Least Squares Problems",
+       Prentice-Hall, 1974 (NNLS algorithm; reprinted by SIAM, 1995).
+.. [4] P. B. Stark and R. L. Parker, "Bounded-Variable Least-Squares: an
+       Algorithm and Applications", Computational Statistics 10, 1995.
 """
 
 from __future__ import annotations
@@ -43,10 +56,12 @@ _ZERO: Vector = (0.0, 0.0, 0.0)
 
 
 def _vector(value: tuple[float, ...], label: str) -> Vector:
+    """Return a finite three-component vector or raise ``DomainError``."""
     return vector3(value, label)
 
 
 def _cross(a: Vector, b: Vector) -> Vector:
+    """Return the cross product ``a x b``."""
     return (
         a[1] * b[2] - a[2] * b[1],
         a[2] * b[0] - a[0] * b[2],
@@ -55,10 +70,12 @@ def _cross(a: Vector, b: Vector) -> Vector:
 
 
 def _dot(a: Vector, b: Vector) -> float:
+    """Return the dot product ``a . b``."""
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 
 
 def _sub(a: Vector, b: Vector) -> Vector:
+    """Return the difference ``a - b``."""
     return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
 
 
@@ -69,7 +86,12 @@ def _skew(a: Vector) -> Matrix3:
 
 
 def _shift_operator(r: Vector) -> Matrix3:
-    """Return ``(r.r) I - r r^T`` (parallel-axis operator per unit mass)."""
+    """Return the parallel-axis operator per unit mass, ``(r.r) I - r r^T``.
+
+    References
+    ----------
+    .. [1] B. Wie, "Space Vehicle Dynamics and Control", 2nd ed., AIAA, 2008.
+    """
 
     rr = _dot(r, r)
     return tuple(
@@ -78,6 +100,7 @@ def _shift_operator(r: Vector) -> Matrix3:
 
 
 def _matrix_add(*terms: tuple[float, Matrix3]) -> Matrix3:
+    """Return the weighted sum ``sum(weight * matrix)`` of 3x3 matrices."""
     return tuple(
         tuple(sum(weight * matrix[i][j] for weight, matrix in terms) for j in range(3))
         for i in range(3)
@@ -88,12 +111,25 @@ def _matrix_add(*terms: tuple[float, Matrix3]) -> Matrix3:
 class ThrusterMount:
     """One thruster's body-frame application point and force direction.
 
-    ``thrust_axis`` is the direction of the force *on the vehicle* (opposite
-    to the exhaust); it is normalized on construction.
+    Parameters
+    ----------
+    thruster_id : str
+        Non-empty thruster identifier.
+    position_m : tuple of float
+        Body-frame application point, in m.
+    thrust_axis : tuple of float
+        Direction of the force *on the vehicle* (opposite to the exhaust);
+        non-zero, normalized on construction.
+
+    Raises
+    ------
+    DomainError
+        If the identifier is blank, a vector is not finite and
+        three-dimensional, or the axis is zero.
 
     References
     ----------
-    B. Wie, Space Vehicle Dynamics and Control, 2nd ed., AIAA, 2008.
+    .. [1] B. Wie, "Space Vehicle Dynamics and Control", 2nd ed., AIAA, 2008.
     """
 
     thruster_id: str
@@ -114,9 +150,20 @@ class ThrusterMount:
 class ForceTorque:
     """Resultant body-frame force and torque about the centre of mass.
 
+    Parameters
+    ----------
+    force_n : tuple of float
+        Net force ``F = sum T_i u_i``, in N.
+    torque_n_m : tuple of float
+        Net torque ``sum (p_i - c) x T_i u_i`` about the centre of mass, N m.
+    total_thrust_n : float
+        Scalar sum of thruster thrusts, in N.
+    torque_wrt_center_of_mass : tuple of tuple of float
+        Jacobian ``d tau / d c = [F]x``, in N.
+
     References
     ----------
-    B. Wie, Space Vehicle Dynamics and Control, 2nd ed., AIAA, 2008.
+    .. [1] B. Wie, "Space Vehicle Dynamics and Control", 2nd ed., AIAA, 2008.
     """
 
     force_n: Vector
@@ -126,7 +173,16 @@ class ForceTorque:
 
 
 def _least_squares(columns: list[list[float]], target: list[float]) -> list[float] | None:
-    """Solve ``min ||A s - b||`` by Householder QR; ``None`` if rank deficient."""
+    """Solve ``min ||A s - b||`` by Householder QR; ``None`` if rank deficient.
+
+    A column is treated as dependent when its remaining norm is at most
+    ``1e-12`` times the largest absolute matrix entry (at least one).
+
+    References
+    ----------
+    .. [1] C. L. Lawson and R. J. Hanson, "Solving Least Squares Problems",
+           Prentice-Hall, 1974 (NNLS algorithm; reprinted by SIAM, 1995).
+    """
 
     rows = len(target)
     count = len(columns)
@@ -168,11 +224,30 @@ def _bvls(
 ) -> tuple[list[float], int]:
     """Bounded-variable least squares ``min ||A x - b||``, ``0 <= x <= upper``.
 
-    Active-set method: Lawson-Hanson NNLS generalized to upper bounds in the
-    manner of Stark and Parker.  With every upper bound infinite it reduces to
-    NNLS.  ``blocked`` holds variables that could not be freed without a rank
-    deficiency or without moving the solution; it is cleared whenever the
-    solution changes.
+    Active-set method: Lawson-Hanson NNLS [1]_ generalized to upper bounds in
+    the manner of Stark and Parker [2]_.  With every upper bound infinite it
+    reduces to NNLS.  ``blocked`` holds variables that could not be freed
+    without a rank deficiency or without moving the solution; it is cleared
+    whenever the solution changes.
+
+    Returns
+    -------
+    x : list of float
+        Bounded solution.
+    iterations : int
+        Number of inner least-squares iterations.
+
+    Raises
+    ------
+    ConvergenceError
+        If the inner iteration count exceeds ``max_iterations``.
+
+    References
+    ----------
+    .. [1] C. L. Lawson and R. J. Hanson, "Solving Least Squares Problems",
+           Prentice-Hall, 1974 (NNLS algorithm; reprinted by SIAM, 1995).
+    .. [2] P. B. Stark and R. L. Parker, "Bounded-Variable Least-Squares: an
+           Algorithm and Applications", Computational Statistics 10, 1995.
     """
 
     count = len(columns)
@@ -260,18 +335,36 @@ def _bvls(
 class ThrustAllocation:
     """Non-negative thruster commands that best reproduce a force/torque demand.
 
-    Every thrust lies in ``[0, maximum]``.  ``exact`` means the weighted
-    residual is within the requested tolerance, i.e. the demand is achievable
-    within the limits.  When it is not, the allocation is the best
-    bounded approximation and ``thrusters_at_maximum`` shows which limits
-    bind, so the caller can scale the demand or re-plan.
+    Parameters
+    ----------
+    thrusts_n : tuple of (str, float)
+        Thrust per thruster identifier, in N; each in ``[0, maximum]``.
+    force_n, torque_n_m : tuple of float
+        Achieved force (N) and torque about the centre of mass (N m).
+    force_residual_n, torque_residual_n_m : tuple of float
+        Achieved minus demanded force and torque.
+    weighted_residual_norm : float
+        Residual norm with torque rows divided by the torque length scale.
+    exact : bool
+        Whether the weighted residual is within the requested tolerance,
+        i.e. the demand is achievable within the limits.
+    thrusters_at_maximum : tuple of str
+        Thrusters at their upper bound.
+    iterations : int
+        Active-set iterations used.
+
+    Notes
+    -----
+    When ``exact`` is false the allocation is the best bounded approximation
+    [1]_ [2]_ and ``thrusters_at_maximum`` shows which limits bind, so the
+    caller can scale the demand or re-plan.
 
     References
     ----------
-    C. L. Lawson and R. J. Hanson, Solving Least Squares Problems,
-    Prentice-Hall, 1974 (NNLS algorithm; reprinted by SIAM, 1995).
-    P. B. Stark and R. L. Parker, Bounded-variable least-squares: an
-    algorithm and applications, Computational Statistics 10, 1995.
+    .. [1] C. L. Lawson and R. J. Hanson, "Solving Least Squares Problems",
+           Prentice-Hall, 1974 (NNLS algorithm; reprinted by SIAM, 1995).
+    .. [2] P. B. Stark and R. L. Parker, "Bounded-Variable Least-Squares: an
+           Algorithm and Applications", Computational Statistics 10, 1995.
     """
 
     thrusts_n: tuple[tuple[str, float], ...]
@@ -289,15 +382,29 @@ class ThrustAllocation:
 class ThrusterLayout:
     """Immutable set of body-mounted thrusters.
 
+    Parameters
+    ----------
+    mounts : tuple of ThrusterMount
+        At least one mount; identifiers must be unique.
+
+    Raises
+    ------
+    DomainError
+        If the layout is empty or identifiers are duplicated.
+
+    Notes
+    -----
     For thruster ``i`` at ``p_i`` with axis ``u_i`` and thrust ``T_i``, about
-    the centre of mass ``c``::
+    the centre of mass ``c`` [1]_ [2]_::
 
         F = sum T_i u_i,     tau = sum (p_i - c) x T_i u_i
         d tau / d c = [F]x
 
     References
     ----------
-    B. Wie, Space Vehicle Dynamics and Control, 2nd ed., AIAA, 2008.
+    .. [1] B. Wie, "Space Vehicle Dynamics and Control", 2nd ed., AIAA, 2008.
+    .. [2] NASA SP-8059. NASA, "Spacecraft Attitude Control During Thrusting
+           Maneuvers", https://ntrs.nasa.gov/citations/19710016722.
     """
 
     mounts: tuple[ThrusterMount, ...]
@@ -312,18 +419,33 @@ class ThrusterLayout:
 
     @property
     def thruster_ids(self) -> tuple[str, ...]:
+        """Thruster identifiers in mount order."""
         return tuple(mount.thruster_id for mount in self.mounts)
 
     def influence_matrix(self, center_of_mass_m: Vector) -> tuple[tuple[float, ...], ...]:
         """Return the 6xN force/torque produced by one newton on each thruster.
 
-        Rows 0-2 are force, rows 3-5 torque about ``center_of_mass_m``;
-        columns follow :attr:`thruster_ids`.  This is the matrix a thrust
-        allocator inverts subject to non-negative, bounded thrust.
+        Parameters
+        ----------
+        center_of_mass_m : tuple of float
+            Body-frame centre of mass, in m.
+
+        Returns
+        -------
+        tuple of tuple of float
+            Rows 0-2 are force (N/N), rows 3-5 torque about
+            ``center_of_mass_m`` (N m/N); columns follow
+            :attr:`thruster_ids`.  A thrust allocator inverts this matrix
+            subject to non-negative, bounded thrust.
+
+        Raises
+        ------
+        DomainError
+            If the centre of mass is not a finite three-vector.
 
         References
         ----------
-        B. Wie, Space Vehicle Dynamics and Control, 2nd ed., AIAA, 2008.
+        .. [1] B. Wie, "Space Vehicle Dynamics and Control", 2nd ed., AIAA, 2008.
         """
 
         center = _vector(center_of_mass_m, "Centre of mass")
@@ -338,12 +460,29 @@ class ThrusterLayout:
     ) -> ForceTorque:
         """Return net force, torque about the centre of mass and ``d tau/d c``.
 
-        Thrusters not listed are off.  Thrust values must be finite and
-        non-negative.
+        Parameters
+        ----------
+        thrusts_n : Mapping of str to float
+            Thrust per thruster identifier, in N; finite and non-negative.
+            Thrusters not listed are off.
+        center_of_mass_m : tuple of float
+            Body-frame centre of mass, in m.
+
+        Returns
+        -------
+        ForceTorque
+            Resultant force, torque and torque Jacobian.
+
+        Raises
+        ------
+        DomainError
+            If a thruster is unknown or a thrust is negative or non-finite.
 
         References
         ----------
-        B. Wie, Space Vehicle Dynamics and Control, 2nd ed., AIAA, 2008.
+        .. [1] B. Wie, "Space Vehicle Dynamics and Control", 2nd ed., AIAA, 2008.
+        .. [2] NASA SP-8059. NASA, "Spacecraft Attitude Control During Thrusting
+               Maneuvers", https://ntrs.nasa.gov/citations/19710016722.
         """
 
         center = _vector(center_of_mass_m, "Centre of mass")
@@ -384,26 +523,61 @@ class ThrusterLayout:
         tolerance: float = 1e-9,
         balance_weight: float = 0.0,
     ) -> ThrustAllocation:
-        """Find non-negative thrusts minimizing the force/torque mismatch.
+        """Find bounded, non-negative thrusts minimizing the force/torque mismatch.
 
+        Parameters
+        ----------
+        force_n : tuple of float
+            Demanded body-frame force, in N.
+        torque_n_m : tuple of float
+            Demanded torque about the centre of mass, in N m.
+        center_of_mass_m : tuple of float
+            Body-frame centre of mass, in m.
+        torque_length_scale_m : float, optional
+            Positive length dividing torque rows so newtons and newton-metres
+            are weighed consistently, in m.
+        maximum_thrust_n : float or Mapping of str to float or None, optional
+            Common or per-thruster upper bound, in N; ``None`` is unbounded.
+            A mapping must name every thruster.  Bounds must be positive.
+        tolerance : float, optional
+            Positive relative tolerance on the weighted residual for
+            ``exact``.
+        balance_weight : float, optional
+            Non-negative regularization weight ``lambda``.
+
+        Returns
+        -------
+        ThrustAllocation
+            Thrusts, achieved force and torque, residuals and binding limits.
+
+        Raises
+        ------
+        DomainError
+            If an input is outside its domain or a bound mapping is
+            incomplete.
+        ConvergenceError
+            If the active-set iteration does not converge.
+
+        Notes
+        -----
         Solves ``min ||W (A T - b)||`` subject to ``0 <= T <= T_max`` with a
-        bounded-variable active-set method (Lawson-Hanson NNLS extended to
-        upper bounds), where ``A`` is :meth:`influence_matrix` and ``W``
-        divides torque rows by ``torque_length_scale_m`` so newtons and
-        newton-metres are weighed consistently.  If several allocations meet
-        the demand exactly and ``balance_weight`` is zero, one of them is
-        returned.  A positive ``balance_weight`` (lambda, dimensionless:
-        weighted residual per newton of thrust) solves the strictly convex
-        problem ``min ||W (A T - b)||^2 + lambda^2 ||T||^2`` instead: the
-        unique minimum-effort allocation, at the cost of a residual of order
-        ``lambda^2``.
+        bounded-variable active-set method (Lawson-Hanson NNLS [1]_ extended
+        to upper bounds [2]_), where ``A`` is :meth:`influence_matrix` and
+        ``W`` divides torque rows by ``torque_length_scale_m``.  If several
+        allocations meet the demand exactly and ``balance_weight`` is zero,
+        one of them is returned.  A positive ``balance_weight`` (lambda,
+        dimensionless: weighted residual per newton of thrust) solves the
+        strictly convex problem ``min ||W (A T - b)||^2 + lambda^2 ||T||^2``
+        instead: the unique minimum-effort allocation, at the cost of a
+        residual of order ``lambda^2``.  ``exact`` compares the weighted
+        residual with ``tolerance`` times ``max(1, ||W b||)``.
 
         References
         ----------
-        C. L. Lawson and R. J. Hanson, Solving Least Squares Problems,
-        Prentice-Hall, 1974.
-        P. B. Stark and R. L. Parker, Bounded-variable least-squares: an
-        algorithm and applications, Computational Statistics 10, 1995.
+        .. [1] C. L. Lawson and R. J. Hanson, "Solving Least Squares Problems",
+               Prentice-Hall, 1974 (NNLS algorithm; reprinted by SIAM, 1995).
+        .. [2] P. B. Stark and R. L. Parker, "Bounded-Variable Least-Squares: an
+               Algorithm and Applications", Computational Statistics 10, 1995.
         """
 
         desired_force = _vector(force_n, "Desired force")
@@ -474,11 +648,37 @@ class ThrusterLayout:
         )
 
     def axial_efficiency(self, thrusts_n: Mapping[str, float], axis: Vector) -> float:
-        """Return ``(F . a) / sum T_i``: the cosine loss of a canted cluster.
+        """Return the axial (cosine) efficiency ``(F . a) / (|a| sum T_i)``.
+
+        Parameters
+        ----------
+        thrusts_n : Mapping of str to float
+            Thrust per thruster identifier, in N.
+        axis : tuple of float
+            Non-zero reference axis; need not be a unit vector.
+
+        Returns
+        -------
+        float
+            Fraction of the summed thrust delivered along ``axis``; less than
+            one for a canted cluster.
+
+        Raises
+        ------
+        DomainError
+            If the axis is zero, a thrust is invalid, or no thruster fires.
+
+        Notes
+        -----
+        The ratio quantifies the cosine loss of canted thrusters and the axial
+        component of a misaligned thrust vector [1]_ [2]_.
 
         References
         ----------
-        NASA-SP-125: https://ntrs.nasa.gov/citations/19710019929
+        .. [1] NASA-SP-125. NASA, "Design of Liquid Propellant Rocket Engines",
+               2nd ed., https://ntrs.nasa.gov/citations/19710019929.
+        .. [2] NASA SP-8059. NASA, "Spacecraft Attitude Control During Thrusting
+               Maneuvers", https://ntrs.nasa.gov/citations/19710016722.
         """
 
         direction = _vector(axis, "Axis")
@@ -495,12 +695,26 @@ class ThrusterLayout:
 class PropellantStation:
     """Point-mass location of one propagated tank state in the body frame.
 
-    The propellant is lumped at a fixed centroid; slosh and centroid travel
-    inside the tank are not represented.
+    Parameters
+    ----------
+    state_name : str
+        Name of the propagated tank-mass state.
+    position_m : tuple of float
+        Body-frame propellant centroid, in m.
+
+    Raises
+    ------
+    DomainError
+        If the name is blank or the position is not a finite three-vector.
+
+    Notes
+    -----
+    The propellant is lumped at a fixed centroid [1]_; slosh and centroid
+    travel inside the tank are not represented.
 
     References
     ----------
-    B. Wie, Space Vehicle Dynamics and Control, 2nd ed., AIAA, 2008.
+    .. [1] B. Wie, "Space Vehicle Dynamics and Control", 2nd ed., AIAA, 2008.
     """
 
     state_name: str
@@ -515,11 +729,22 @@ class PropellantStation:
 class MassPropertiesEvaluation:
     """Mass, centre of mass, inertia and their tank-mass derivatives.
 
-    ``inertia_kg_m2`` is about the current centre of mass in body axes.
+    Parameters
+    ----------
+    mass_kg : float
+        Total vehicle mass, in kg.
+    center_of_mass_m : tuple of float
+        Body-frame centre of mass, in m.
+    inertia_kg_m2 : tuple of tuple of float
+        Inertia about the current centre of mass in body axes, kg m**2.
+    center_of_mass_wrt_state : tuple of (str, tuple of float)
+        ``dc/dm_k`` per tank state, in m/kg.
+    inertia_wrt_state : tuple of (str, 3x3 tuple)
+        ``dI_c/dm_k`` per tank state, in m**2.
 
     References
     ----------
-    B. Wie, Space Vehicle Dynamics and Control, 2nd ed., AIAA, 2008.
+    .. [1] B. Wie, "Space Vehicle Dynamics and Control", 2nd ed., AIAA, 2008.
     """
 
     mass_kg: float
@@ -533,17 +758,41 @@ class MassPropertiesEvaluation:
 class PropellantMassModel:
     """Dry rigid body plus point-mass propellant stations.
 
-    With dry mass ``m_d`` at ``d``, dry inertia ``J_d`` about ``d``, and tank
-    masses ``m_k`` at ``p_k``; ``M = m_d + sum m_k`` and
-    ``c = (m_d d + sum m_k p_k) / M``.  Using ``S(r) = (r.r) I - r r^T``::
+    Parameters
+    ----------
+    dry_mass_kg : float
+        Dry mass ``m_d``, in kg.  Finite and positive.
+    dry_center_of_mass_m : tuple of float
+        Dry centre of mass ``d``, in m.
+    dry_inertia_kg_m2 : 3x3 tuple of float
+        Dry inertia ``J_d`` about ``d``, in kg m**2; symmetric with
+        non-negative diagonal satisfying the triangle inequality.
+    stations : tuple of PropellantStation
+        One station per tank state.
+
+    Raises
+    ------
+    DomainError
+        If the dry mass is non-positive, the inertia is not a symmetric 3x3
+        matrix with admissible principal values, or a tank state has more
+        than one station.
+
+    Notes
+    -----
+    With tank masses ``m_k`` at ``p_k``, ``M = m_d + sum m_k`` and
+    ``c = (m_d d + sum m_k p_k) / M``.  Using the parallel-axis operator
+    ``S(r) = (r.r) I - r r^T`` [1]_::
 
         I_c = J_d + m_d S(d) + sum m_k S(p_k) - M S(c)
         dc/dm_k   = (p_k - c) / M
         dI_c/dm_k = S(p_k) - S(c) - [2 (c.e) I - (e c^T + c e^T)],  e = p_k - c
 
+    The symmetry check uses a relative tolerance of ``1e-9`` and the
+    triangle-inequality check an absolute tolerance of ``1e-9`` kg m**2.
+
     References
     ----------
-    B. Wie, Space Vehicle Dynamics and Control, 2nd ed., AIAA, 2008.
+    .. [1] B. Wie, "Space Vehicle Dynamics and Control", 2nd ed., AIAA, 2008.
     """
 
     dry_mass_kg: float
@@ -582,9 +831,27 @@ class PropellantMassModel:
     def evaluate(self, additional_states: Mapping[str, float]) -> MassPropertiesEvaluation:
         """Return mass properties for the current tank-state masses.
 
+        Parameters
+        ----------
+        additional_states : Mapping of str to float
+            Tank-state masses, in kg; must contain every station's state and
+            be finite and non-negative.
+
+        Returns
+        -------
+        MassPropertiesEvaluation
+            Mass, centre of mass, inertia about it, and their analytic
+            derivatives with respect to every tank mass (see class Notes).
+
+        Raises
+        ------
+        DomainError
+            If a station's state is missing or a mass is negative or
+            non-finite.
+
         References
         ----------
-        B. Wie, Space Vehicle Dynamics and Control, 2nd ed., AIAA, 2008.
+        .. [1] B. Wie, "Space Vehicle Dynamics and Control", 2nd ed., AIAA, 2008.
         """
 
         states = real_mapping(additional_states, "Tank states")

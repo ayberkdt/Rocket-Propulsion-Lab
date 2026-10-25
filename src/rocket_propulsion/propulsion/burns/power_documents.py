@@ -1,7 +1,17 @@
-"""Closed electric/throttle document structures and declared model metadata.
+"""Structural validators for electric and throttleable-engine model documents.
 
-Source identifiers and hashes remain caller-supplied metadata. These structures
+Each validator checks a parsed JSON document [1]_ against a closed member set:
+every required member is present, no unknown member appears, and every value
+has the declared JSON type.  Physical ranges and content hashes are checked
+afterwards by the model constructors and ``from_dict`` readers.
+
+Source identifiers and hashes are caller-supplied metadata.  These structures
 neither authenticate a test campaign nor establish physical qualification.
+
+References
+----------
+.. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+       Format", https://www.rfc-editor.org/rfc/rfc8259.
 """
 
 from rocket_propulsion.core.errors import InputError
@@ -10,6 +20,13 @@ from .exchange_documents import _array, _number, _object, _string, _strings
 
 
 def _parameters(values):
+    """Validate an array of estimable-parameter objects.
+
+    Raises
+    ------
+    InputError
+        If the array or an item has missing, unknown or mistyped members.
+    """
     for item in _array(values, "parameters"):
         _object(
             item, {"name", "reference_value", "scale", "minimum", "maximum", "unit"}, "Parameter"
@@ -21,6 +38,13 @@ def _parameters(values):
 
 
 def _table_document(payload):
+    """Validate the structure of an electric throttle-table document.
+
+    Raises
+    ------
+    InputError
+        If a member is missing, unknown or of the wrong JSON type.
+    """
     _object(
         payload,
         {"schema", "source_id", "source_sha256", "reference_ids", "levels", "table_hash"},
@@ -77,6 +101,17 @@ _POWER_METADATA = (
 
 
 def _power_document(payload):
+    """Validate the structure of a power-limited propulsion model document.
+
+    A ``discrete_throttle_path`` law requires an embedded ``throttle_table``;
+    a ``fixed_efficiency`` law forbids one.
+
+    Raises
+    ------
+    InputError
+        If a member is missing, unknown or mistyped, the throttle law is
+        unknown, or the presence of ``throttle_table`` does not match the law.
+    """
     _object(payload, _POWER_FIELDS, "Power-limited model", ("throttle_table",))
     for key in _POWER_TEXT:
         _string(payload[key], key)
@@ -112,6 +147,13 @@ def _power_document(payload):
 
 
 def _curve_document(value, label):
+    """Validate an optional ``{"x": [...], "y": [...]}`` numeric curve object.
+
+    Raises
+    ------
+    InputError
+        If the object or one of its arrays is malformed.
+    """
     if value is None:
         return
     _object(value, {"x", "y"}, label)
@@ -146,6 +188,14 @@ _THROTTLE_FIELDS = _THROTTLE_TEXT | {
 
 
 def _throttle_document(payload):
+    """Validate the structure of a throttleable-engine model document.
+
+    Raises
+    ------
+    InputError
+        If a member is missing, unknown or mistyped, or a stream-fraction
+        entry is not a two-element ``[name, value]`` array.
+    """
     _object(payload, _THROTTLE_FIELDS, "Throttleable engine")
     for key in _THROTTLE_TEXT:
         _string(payload[key], key)

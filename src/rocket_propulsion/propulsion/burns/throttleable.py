@@ -3,20 +3,34 @@
 The propagator bridge replays a *prescribed* thrust history.  A trajectory
 optimizer or a closed-loop guidance law instead chooses the throttle ``u`` as
 a control and needs ``a(u)``, ``mdot(u)`` and their derivatives with respect to
-``u``.  :class:`ThrottleableEngineModel` provides that:
+``u`` [4]_.  :class:`ThrottleableEngineModel` provides that::
 
-    F(u)    = F_rated * f_T(u) * s_F - p_a A_e
+    F(u)    = F_rated * f_T(u) * s_F - p_a * A_e
     mdot(u) = mdot_rated * f_m(u) * s_m
 
-with ``u = 0`` (off) or ``u`` in ``[u_min, u_max]``.  The thrust and flow
-fractions ``f_T`` and ``f_m`` default to ``u``; measured throttle
-characteristics (for example specific impulse falling at deep throttle) are
-given as :class:`MonotoneCubicCurve` instances, which are C1-continuous so a
-gradient-based optimizer sees no kinks, and which never overshoot monotone
+with ``u = 0`` (off) or ``u`` in ``[u_min, u_max]``.  The ``- p_a * A_e`` term
+is the ambient-pressure correction of the rocket thrust equation [1]_.  The
+thrust and flow fractions ``f_T`` and ``f_m`` default to ``u``; measured
+throttle characteristics (for example specific impulse falling at deep
+throttle) are given as :class:`MonotoneCubicCurve` instances.  These monotone
+piecewise cubic Hermite interpolants [2]_, [3]_ are C1-continuous, so a
+gradient-based optimizer sees no kinks, and they never overshoot monotone
 data.
 
-Throttle values between zero and ``u_min`` are refused: a deep-throttle gap
-is a hard engine limit, not something to interpolate.
+Throttle values strictly between zero and ``u_min`` are refused: a
+deep-throttle gap is a hard engine limit, not something to interpolate.
+
+References
+----------
+.. [1] NASA Glenn Research Center, "Rocket Thrust Equation".
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
+.. [2] F. N. Fritsch and R. E. Carlson, "Monotone Piecewise Cubic
+       Interpolation", SIAM J. Numer. Anal. 17(2), 1980.
+.. [3] F. N. Fritsch and J. Butland, "A Method for Constructing Local
+       Monotone Piecewise Cubic Interpolants", SIAM J. Sci. Stat. Comput.
+       5(2), 1984.
+.. [4] Orekit 13.1.5, "PropulsionModel / EventDetector API", API documentation of
+       org.orekit.forces.maneuvers.propulsion.PropulsionModel.
 """
 
 from __future__ import annotations
@@ -66,18 +80,40 @@ _THROTTLE_TOLERANCE = 1e-12
 
 @dataclass(frozen=True, slots=True)
 class MonotoneCubicCurve:
-    """Shape-preserving piecewise cubic Hermite curve (PCHIP), no extrapolation.
+    """Shape-preserving piecewise cubic Hermite curve (PCHIP) without extrapolation.
 
-    The curve passes through every node, is continuously differentiable, and
-    is monotone on every interval where the data are monotone (no overshoot).
-    Evaluation returns the value and analytic derivative rounded at export.
+    Parameters
+    ----------
+    x : tuple of float
+        At least two strictly increasing finite abscissae.
+    y : tuple of float
+        Finite ordinates, one per abscissa.
+
+    Raises
+    ------
+    DomainError
+        If fewer than two nodes are given, the lengths differ, a value is
+        non-finite, or the abscissae are not strictly increasing.
+
+    Notes
+    -----
+    Nodal slopes follow Fritsch-Carlson [1]_ with the Fritsch-Butland
+    weighted-harmonic-mean interior slopes [2]_, the scheme also used by
+    [3]_.  The curve passes through every node, is continuously
+    differentiable, and is monotone on every interval where the data are
+    monotone (no overshoot).  Slopes and segment coefficients are held as
+    exact rationals; evaluation rounds the value and the analytic derivative
+    once at output.
 
     References
     ----------
-    F. N. Fritsch and R. E. Carlson, Monotone Piecewise Cubic Interpolation,
-    SIAM Journal on Numerical Analysis 17(2), 1980.
-    F. N. Fritsch and J. Butland, A Method for Constructing Local Monotone
-    Piecewise Cubic Interpolants, SIAM J. Sci. Stat. Comput. 5(2), 1984.
+    .. [1] F. N. Fritsch and R. E. Carlson, "Monotone Piecewise Cubic
+           Interpolation", SIAM J. Numer. Anal. 17(2), 1980.
+    .. [2] F. N. Fritsch and J. Butland, "A Method for Constructing Local
+           Monotone Piecewise Cubic Interpolants", SIAM J. Sci. Stat. Comput.
+           5(2), 1984.
+    .. [3] SCIPY-1.14.1-PCHIP. SciPy 1.14.1, documentation and implementation of
+           "scipy.interpolate.PchipInterpolator".
     """
 
     x: tuple[float, ...]
@@ -99,7 +135,32 @@ class MonotoneCubicCurve:
             for i in range(len(self.x)-1)))
 
     def evaluate(self, value: float) -> tuple[float, float]:
-        """Return ``(y(value), dy/dvalue)``; values outside the nodes are refused."""
+        """Return the curve value and its derivative at ``value``.
+
+        Parameters
+        ----------
+        value : float
+            Abscissa inside ``[x[0], x[-1]]``.  Values within a relative
+            ``1e-12`` (absolute ``1e-12`` near zero) of an end node are
+            clamped to it.
+
+        Returns
+        -------
+        tuple of float
+            ``(y(value), dy/dvalue)`` of the monotone cubic Hermite
+            interpolant [1]_.
+
+        Raises
+        ------
+        DomainError
+            If ``value`` is non-finite or outside the node range beyond the
+            clamping tolerance; extrapolation is refused.
+
+        References
+        ----------
+        .. [1] F. N. Fritsch and R. E. Carlson, "Monotone Piecewise Cubic
+               Interpolation", SIAM J. Numer. Anal. 17(2), 1980.
+        """
 
         value = real(value, "Curve argument")
         tolerance = 1e-12 * max(1.0, abs(self.x[0]), abs(self.x[-1]))
@@ -111,17 +172,18 @@ class MonotoneCubicCurve:
         return self._evaluate_checked(min(max(value, self.x[0]), self.x[-1]))
 
     def _evaluate_checked(self, value: float) -> tuple[float, float]:
-        """Evaluate a float already validated and clamped to the nodes."""
+        """Return ``(value, derivative)`` for an argument already validated and clamped."""
 
         index = min(max(bisect_right(self.x, value) - 1, 0), len(self.x) - 2)
         return _hermite_segment(self._segments[index], value)
 
     def _value_checked(self, value: float) -> float:
-        """Value-only internal query; avoid computing an unused derivative."""
+        """Return the value only for an argument already validated and clamped."""
         index = min(max(bisect_right(self.x, value)-1, 0), len(self.x)-2)
         return _hermite_segment(self._segments[index], value, derivative=False)
 
     def to_dict(self) -> dict[str, object]:
+        """Return the JSON-ready node document ``{"x": [...], "y": [...]}``."""
         return {"x": list(self.x), "y": list(self.y)}
 
 
@@ -129,10 +191,39 @@ class MonotoneCubicCurve:
 class ThrottleablePartials:
     """Analytic local derivatives of one throttle-commanded evaluation.
 
+    Attributes
+    ----------
+    acceleration_wrt_mass : tuple of float
+        ``da/dm = -F * d_hat / m**2``, m/s^2 per kg.
+    acceleration_wrt_direction : tuple of tuple of float
+        3 x 3 Jacobian of ``a = F * d / (m * |d|)`` with respect to the
+        unnormalized direction ``d``.
+    acceleration_wrt_throttle : tuple of float
+        ``(dF/du) * d_hat / m``.
+    mass_rate_wrt_throttle : float
+        ``-dmdot/du``, kg/s.
+    additional_state_rates_wrt_throttle : tuple of (str, float)
+        Per-tank share of ``-dmdot/du``.
+    acceleration_wrt_ambient_pressure : tuple of float
+        ``-A_e * d_hat / m``; zero without a nozzle exit area.
+    acceleration_wrt_parameters : tuple of (str, tuple of float)
+        Acceleration sensitivities to ``thrust_scale`` and
+        ``mass_flow_scale``.
+    mass_rate_wrt_parameters : tuple of (str, float)
+        Vehicle mass-rate sensitivities to the scale parameters.
+    additional_state_rates_wrt_parameters : tuple of (str, tuple of (str, float))
+        Per-tank mass-rate sensitivities to the scale parameters.
+
+    Notes
+    -----
+    The blocks are the acceleration, mass-derivative and parameter-driver
+    partials of a propagation-time propulsion model [1]_; all are zero while
+    the engine is off or inhibited.
+
     References
     ----------
-    Orekit PropulsionModel 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+    .. [1] Orekit 13.1.5, "PropulsionModel / EventDetector API", API documentation of
+           org.orekit.forces.maneuvers.propulsion.PropulsionModel.
     """
 
     acceleration_wrt_mass: tuple[float, float, float]
@@ -152,15 +243,49 @@ class ThrottleablePartials:
 
 @dataclass(frozen=True, slots=True)
 class ThrottleableEvaluation:
-    """Force, drains and partials for one throttle command.
+    """Force, tank drains and partials for one throttle command.
 
-    ``net_thrust_margin_n`` (net thrust with ambient back-pressure) is defined
-    only while the engine fires and has a nozzle exit area; it is ``None``
-    otherwise, so a consumer monitors it only while firing.
+    Attributes
+    ----------
+    throttle : float
+        Validated throttle; ``0.0`` when off.
+    active : bool
+        Whether the engine fires.
+    thrust_n : float
+        Axial thrust after the ambient-pressure correction, N.
+    force_vector_n, acceleration_m_s2 : tuple of float
+        Thrust force, N, and thrust acceleration, m/s^2.
+    mass_derivative_kg_s : float
+        Vehicle mass rate, ``-mdot``, kg/s.
+    additional_state_derivatives : tuple of (str, float)
+        Tank mass rates, kg/s.
+    vacuum_specific_impulse_s : float or None
+        ``F_vac / (g0 * mdot)`` with ``g0`` the registered
+        ``STANDARD_GRAVITY_M_S2``; ``None`` when off.
+    net_thrust_margin_n : float or None
+        Net thrust with ambient back-pressure, N.
+    parameters : tuple of (str, float)
+        Resolved parameter values.
+    inhibited_by : tuple of str
+        Inventory limits that inhibited firing.
+    partials : ThrottleablePartials
+        Analytic local derivatives.
+
+    Notes
+    -----
+    ``net_thrust_margin_n`` is defined only while the engine fires and has a
+    nozzle exit area; otherwise it is ``None``, so a consumer monitors it only
+    while firing.  Thrust and its ambient-pressure correction follow [1]_ and
+    specific impulse follows [2]_; [3]_ gives the transient-modelling context.
 
     References
     ----------
-    NASA-20040000363: https://ntrs.nasa.gov/citations/20040000363
+    .. [1] NASA Glenn Research Center, "Rocket Thrust Equation".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
+    .. [2] NASA Glenn Research Center, "Specific Impulse".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+    .. [3] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
     """
 
     throttle: float
@@ -184,20 +309,59 @@ _ZERO3 = (0.0, 0.0, 0.0)
 class ThrottleableEngineModel:
     """Throttle-commanded engine with smooth throttle characteristics.
 
-    ``stream_fractions`` splits total flow into named tank states (for
-    example ``(("m_ox", 0.78), ("m_fu", 0.22))``); fractions must sum to one,
-    with a supplied sum within 1e-12 of one. Accepted fractions are normalized
-    by their exact binary sum, preserving relative weights. The internal
-    total/tank ledger closes exactly; exported fields round independently.
-    ``thrust_curve`` and
-    ``flow_curve`` map throttle to the fraction of rated thrust and flow and
-    must cover ``[minimum_throttle, maximum_throttle]``.
+    Parameters
+    ----------
+    rated_thrust_n : float
+        Positive rated vacuum thrust ``F_rated``, N.
+    rated_mass_flow_kg_s : float
+        Positive rated total mass flow ``mdot_rated``, kg/s.
+    minimum_throttle, maximum_throttle : float
+        Throttle limits with ``0 < minimum <= maximum``.
+    stream_fractions : tuple of (str, float)
+        Non-negative split of total flow into uniquely named tank states, for
+        example ``(("m_ox", 0.78), ("m_fu", 0.22))``.
+    thrust_curve, flow_curve : MonotoneCubicCurve or None
+        Positive fractions of rated thrust and flow as functions of throttle;
+        ``None`` uses the fraction ``u``.
+    state_constraints : tuple of AdditionalStateConstraint
+        Tank reserves; each must refer to a drained state.
+    protected_dry_mass_kg : float or None
+        Positive vehicle mass below which firing is inhibited, kg.
+    nozzle_exit_area_m2 : float or None
+        Positive nozzle exit area ``A_e`` for the ambient correction, m^2.
+    parameters : tuple of EstimableParameter
+        Exactly ``thrust_scale`` and ``mass_flow_scale``; empty selects both
+        with reference value 1.
+    model_id : str, default "throttleable-engine"
+        Model identifier.
+    schema : str
+        Must equal ``THROTTLEABLE_ENGINE_SCHEMA``.
+
+    Raises
+    ------
+    DomainError
+        If the schema is unsupported or any field violates the constraints
+        above.
+
+    Notes
+    -----
+    Thrust is ``F = F_rated * f_T(u) * s_F - p_a * A_e`` [1]_ and flow
+    ``mdot = mdot_rated * f_m(u) * s_m``.  Stream fractions must sum to one
+    within ``1e-12``; accepted fractions are normalized by their exact binary
+    sum, which preserves relative weights.  The internal total/tank ledger
+    closes exactly; exported fields round independently.  ``thrust_curve``
+    and ``flow_curve`` must cover ``[minimum_throttle, maximum_throttle]``.
+    The model exposes the acceleration, mass-derivative, parameter-driver and
+    event contract of [2]_; [3]_ gives the transient-modelling context.
 
     References
     ----------
-    NASA-20040000363: https://ntrs.nasa.gov/citations/20040000363
-    Orekit PropulsionModel 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+    .. [1] NASA Glenn Research Center, "Rocket Thrust Equation".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
+    .. [2] Orekit 13.1.5, "PropulsionModel / EventDetector API", API documentation of
+           org.orekit.forces.maneuvers.propulsion.PropulsionModel.
+    .. [3] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
     """
 
     rated_thrust_n: float
@@ -276,12 +440,32 @@ class ThrottleableEngineModel:
             raise DomainError("Throttleable model requires exactly thrust_scale and mass_flow_scale.")
 
     def _fraction(self, curve: MonotoneCubicCurve | None, throttle: float) -> tuple[float, float]:
+        """Return ``(fraction, d fraction / du)``; ``(u, 1)`` when no curve is set."""
         if curve is None:
             return throttle, 1.0
         return curve.evaluate(throttle)
 
     def validated_throttle(self, throttle: float) -> float:
-        """Return ``throttle`` if it is 0 or inside the limits, snapping round-off."""
+        """Return a throttle that is zero or inside the limits.
+
+        Parameters
+        ----------
+        throttle : float
+            Requested throttle.
+
+        Returns
+        -------
+        float
+            ``0.0`` when ``|throttle| <= 1e-12``; otherwise the throttle
+            clamped to ``[minimum_throttle, maximum_throttle]`` when it lies
+            within ``1e-12`` of that interval.
+
+        Raises
+        ------
+        DomainError
+            If the throttle is non-finite or lies in neither region, including
+            the deep-throttle gap between zero and the minimum.
+        """
 
         value = real(throttle, "Throttle")
         if abs(value) <= _THROTTLE_TOLERANCE:
@@ -296,12 +480,19 @@ class ThrottleableEngineModel:
         )
 
     def inventory_surfaces(self) -> tuple[BurnEventSurface, ...]:
-        """Return stopping dry-mass and reserve roots.
+        """Return the burn-stopping dry-mass and tank-reserve event surfaces.
+
+        Returns
+        -------
+        tuple of BurnEventSurface
+            A dry-mass surface when ``protected_dry_mass_kg`` is set, followed
+            by one reserve surface per state constraint, for an event
+            detector [1]_.
 
         References
         ----------
-        Orekit EventDetector 13.1.5 API:
-        https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+        .. [1] Orekit 13.1.5, "PropulsionModel / EventDetector API", API documentation of
+               org.orekit.forces.maneuvers.propulsion.PropulsionModel.
         """
 
         surfaces = []
@@ -322,7 +513,32 @@ class ThrottleableEngineModel:
         return tuple(surfaces)
 
     def resolved_parameters(self, overrides: Mapping[str, float] | None = None) -> dict[str, float]:
-        """Resolve named overrides against the bounded drivers."""
+        """Resolve named overrides against the bounded parameter drivers.
+
+        Parameters
+        ----------
+        overrides : Mapping[str, float] or None
+            Values for ``thrust_scale`` or ``mass_flow_scale``.
+
+        Returns
+        -------
+        dict of str to float
+            Every parameter, using its reference value when not overridden.
+
+        Raises
+        ------
+        DomainError
+            If a name is unknown or a value violates its driver bounds.
+
+        Notes
+        -----
+        The drivers are estimable propulsion parameters in the sense of [1]_.
+
+        References
+        ----------
+        .. [1] Orekit 13.1.5, "PropulsionModel / EventDetector API", API documentation of
+               org.orekit.forces.maneuvers.propulsion.PropulsionModel.
+        """
 
         supplied = real_mapping(overrides, "Parameter overrides")
         unknown = set(supplied) - {parameter.name for parameter in self.parameters}
@@ -344,13 +560,61 @@ class ThrottleableEngineModel:
         parameter_overrides: Mapping[str, float] | None = None,
         apply_inventory_limits: bool = True,
     ) -> ThrottleableEvaluation:
-        """Evaluate force, drains and analytic partials for one throttle command.
+        """Evaluate force, tank drains and analytic partials for one throttle command.
+
+        Parameters
+        ----------
+        throttle : float
+            Throttle command, zero or inside the limits.
+        vehicle_mass_kg : float
+            Positive vehicle mass ``m``, kg.
+        direction : tuple of float
+            Non-zero thrust direction ``d``; it need not be normalized.
+        additional_states : Mapping[str, float]
+            Tank states; every drained state must be present.
+        ambient_pressure_pa : float or None
+            Non-negative ambient pressure ``p_a``, Pa; required while firing
+            when a nozzle exit area is set and refused when none is set.
+        parameter_overrides : Mapping[str, float] or None
+            Overrides of ``thrust_scale`` and ``mass_flow_scale``.
+        apply_inventory_limits : bool, default True
+            Whether dry-mass and reserve limits (with ``1e-12`` margin)
+            inhibit firing.
+
+        Returns
+        -------
+        ThrottleableEvaluation
+            Force, acceleration, drains, vacuum specific impulse and partials;
+            all zero when the throttle is zero or a limit inhibits firing.
+
+        Raises
+        ------
+        DomainError
+            If an input is outside its domain, a tank state is missing, the
+            ambient pressure is inconsistent with the nozzle exit area, or the
+            active flow fraction is not positive.
+
+        Notes
+        -----
+        Thrust is ``F = F_rated * f_T(u) * s_F - p_a * A_e`` [1]_, flow is
+        ``mdot = mdot_rated * f_m(u) * s_m`` split by the normalized stream
+        fractions, acceleration is ``a = F * d / (m * |d|)``, and vacuum
+        specific impulse is ``F_vac / (g0 * mdot)`` [2]_ with ``g0`` the
+        registered ``STANDARD_GRAVITY_M_S2``.  Intermediate quantities are
+        exact rationals rounded once per exported field.  The outputs follow
+        the propagation-time propulsion contract of [3]_; [4]_ gives the
+        transient-modelling context.
 
         References
         ----------
-        NASA-20040000363: https://ntrs.nasa.gov/citations/20040000363
-        Orekit PropulsionModel 13.1.5 API:
-        https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+        .. [1] NASA Glenn Research Center, "Rocket Thrust Equation".
+               https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
+        .. [2] NASA Glenn Research Center, "Specific Impulse".
+               https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+        .. [3] Orekit 13.1.5, "PropulsionModel / EventDetector API", API documentation of
+               org.orekit.forces.maneuvers.propulsion.PropulsionModel.
+        .. [4] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+               Systems". https://ntrs.nasa.gov/citations/20040000363
         """
 
         throttle = self.validated_throttle(throttle)
@@ -499,9 +763,35 @@ class ThrottleableEngineModel:
     ) -> PropellantMassClosure:
         """Compare vehicle mass with the drained tank states.
 
+        Parameters
+        ----------
+        vehicle_mass_kg : float
+            Positive vehicle mass, kg.
+        additional_states : Mapping[str, float]
+            Tank states; every drained state must be present.
+        non_propellant_mass_kg : float
+            Non-negative mass not held in the drained tanks, kg.
+
+        Returns
+        -------
+        PropellantMassClosure
+            Vehicle, non-propellant and tank-inventory ledger with its
+            closure residual.
+
+        Raises
+        ------
+        DomainError
+            If a mass is outside its domain or a tank state is missing.
+
+        Notes
+        -----
+        Vehicle mass should equal non-propellant mass plus the propellant held
+        in the tanks of the pressurization and feed system [1]_.
+
         References
         ----------
-        NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
+        .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+               https://ntrs.nasa.gov/citations/19760015212
         """
 
         vehicle_mass_kg = real(vehicle_mass_kg, "Vehicle mass")
@@ -519,7 +809,20 @@ class ThrottleableEngineModel:
         )
 
     def manifest(self, *, include_hash: bool = True) -> dict[str, object]:
-        """Return the complete deterministic model document."""
+        """Return the complete deterministic model document.
+
+        Parameters
+        ----------
+        include_hash : bool, default True
+            Whether to add ``model_hash``, the canonical SHA-256 of the
+            document without it.
+
+        Returns
+        -------
+        dict
+            Schema, numerics policies, rated values, limits, stream fractions,
+            curves, constraints, parameters and reference identifiers.
+        """
 
         payload: dict[str, object] = {
             "schema": self.schema,
@@ -556,12 +859,23 @@ class ThrottleableEngineModel:
 
     @property
     def model_hash(self) -> str:
-        """Content identity of the engine model."""
+        """Canonical SHA-256 content identity of the engine model."""
 
         return canonical_sha256(self.manifest(include_hash=False))
 
     def to_json(self, *, indent: int | None = 2) -> str:
-        """Serialize the complete model document."""
+        """Serialize the complete model document as sorted, NaN-free JSON.
+
+        Parameters
+        ----------
+        indent : int or None, default 2
+            JSON indentation; ``None`` gives a compact document.
+
+        Returns
+        -------
+        str
+            JSON text of :meth:`manifest`.
+        """
 
         return json.dumps(
             self.manifest(), allow_nan=False, ensure_ascii=False, indent=indent, sort_keys=True
@@ -569,7 +883,25 @@ class ThrottleableEngineModel:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, object]) -> ThrottleableEngineModel:
-        """Rebuild a model and verify its hash."""
+        """Rebuild a model from a document and verify its integrity.
+
+        Parameters
+        ----------
+        payload : Mapping[str, object]
+            Document produced by :meth:`manifest`.
+
+        Returns
+        -------
+        ThrottleableEngineModel
+            Reconstructed model.
+
+        Raises
+        ------
+        InputError
+            If the document is malformed or violates the model constraints,
+            its hash does not match its contents, or its numerical policies
+            or metadata differ from the rebuilt model.
+        """
 
         _throttle_document(payload)
         try:
@@ -608,6 +940,22 @@ class ThrottleableEngineModel:
 
     @classmethod
     def from_json(cls, text_value: str) -> ThrottleableEngineModel:
-        """Deserialize and integrity-check a model document."""
+        """Deserialize and integrity-check a JSON model document.
+
+        Parameters
+        ----------
+        text_value : str
+            JSON text produced by :meth:`to_json`.
+
+        Returns
+        -------
+        ThrottleableEngineModel
+            Reconstructed model.
+
+        Raises
+        ------
+        InputError
+            If the text is not a valid model document.
+        """
 
         return read_json_document(text_value, "Throttleable engine document", cls.from_dict)

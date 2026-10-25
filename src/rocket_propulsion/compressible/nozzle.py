@@ -1,4 +1,18 @@
-"""Ideal choked converging-diverging rocket-nozzle performance."""
+"""Ideal choked converging-diverging rocket-nozzle performance.
+
+Quasi-one-dimensional, isentropic, frozen-property flow of a calorically
+perfect gas [1]_, [2]_ with the choked-throat mass flow [3]_.
+
+References
+----------
+.. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+       Elements", 9th ed., Wiley, 2017.
+.. [2] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+       Compressible Flow", NACA Report 1135, 1953.
+.. [3] NASA-GLENN-MASS-FLOW. NASA Glenn Research Center, isentropic mass-flow
+       conservation and density/velocity context.
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/mass-flow-rate-equations/
+"""
 
 from dataclasses import dataclass
 from math import isfinite, sqrt
@@ -11,7 +25,35 @@ from .isentropic import calculate_isentropic, mach_from_isentropic
 
 @dataclass(frozen=True, slots=True)
 class NozzleResult:
-    """One-dimensional design-point state for an ideal choked nozzle."""
+    """One-dimensional design-point state for an ideal choked nozzle [1]_.
+
+    Attributes
+    ----------
+    throat_area_m2, exit_area_m2 : float
+        Throat and exit areas in m^2.
+    area_ratio : float
+        Exit-to-throat area ratio.
+    exit_mach, exit_temperature_k, exit_pressure_pa, exit_velocity_m_s : float
+        Exit-plane state on the supersonic isentropic branch.
+    mass_flow_kg_s : float
+        Choked mass flow.
+    momentum_thrust_n, pressure_thrust_n, thrust_n : float
+        ``mdot V_e``, ``(p_e - p_a) A_e`` and their sum, in N.
+    characteristic_velocity_m_s : float
+        ``c* = p_c A_t / mdot``.
+    thrust_coefficient : float
+        ``C_F = F / (p_c A_t)``.
+    specific_impulse_s : float
+        ``F / (mdot g0)`` with ``g0`` from ``STANDARD_GRAVITY_M_S2``.
+    pressure_regime : str
+        ``"adapted"`` when ``|p_e - p_a| <= 0.01 max(p_e, 1 Pa)``, otherwise
+        ``"underexpanded"`` or ``"overexpanded"``.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
 
     throat_area_m2: float
     exit_area_m2: float
@@ -31,6 +73,7 @@ class NozzleResult:
 
 
 def _positive(value: float, label: str) -> None:
+    """Raise :class:`DomainError` unless ``value`` is finite and positive."""
     if not isfinite(value) or value <= 0.0:
         raise DomainError(f"{label} must be finite and greater than zero.")
 
@@ -47,10 +90,52 @@ def calculate_ideal_nozzle(
 ) -> NozzleResult:
     """Calculate ideal, frozen-property, supersonic C-D nozzle performance.
 
+    Parameters
+    ----------
+    chamber_pressure_pa : float
+        Chamber stagnation pressure ``p_c`` in Pa, finite and positive.
+    chamber_temperature_k : float
+        Chamber stagnation temperature ``T_c`` in K, finite and positive.
+    throat_area_m2 : float
+        Throat area ``A_t`` in m^2, finite and positive.
+    area_ratio : float
+        Exit-to-throat area ratio ``A_e/A_t``, at least one.
+    ambient_pressure_pa : float
+        Ambient pressure ``p_a`` in Pa, finite and non-negative.
+    gamma : float, default 1.22
+        Frozen ratio of specific heats, finite and greater than one.
+    gas_constant_j_kg_k : float, default 355.0
+        Specific gas constant ``R`` in J/(kg K), finite and positive.
+
+    Returns
+    -------
+    NozzleResult
+        Exit state, mass flow, thrust components and performance figures.
+
+    Raises
+    ------
+    DomainError
+        If an input is outside its domain or the resulting thrust is not
+        positive.
+
+    Notes
+    -----
     Chamber properties are treated as stagnation conditions. The throat is
-    choked and the requested exit area ratio uses the supersonic isentropic
-    branch. Boundary-layer, divergence, chemistry, separation, and discharge
-    losses are not included.
+    choked, so ``mdot = p_c A_t sqrt(gamma/(R T_c))
+    (2/(gamma+1))^((gamma+1)/(2(gamma-1)))`` [3]_, and the exit Mach number is
+    taken from the supersonic branch of the isentropic area ratio [2]_. Thrust
+    is ``F = mdot V_e + (p_e - p_a) A_e`` [1]_. Boundary-layer, divergence,
+    chemistry, separation and discharge losses are not included.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [2] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    .. [3] NASA-GLENN-MASS-FLOW. NASA Glenn Research Center, isentropic mass-flow
+           conservation and density/velocity context.
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/mass-flow-rate-equations/
     """
 
     for value, label in (

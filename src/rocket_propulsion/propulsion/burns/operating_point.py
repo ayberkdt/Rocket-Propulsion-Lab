@@ -1,4 +1,15 @@
-"""Provider protocol and convenience constructors for constant performance."""
+"""Performance-provider protocol and constant-performance constructors.
+
+A provider supplies the delivered operating point consumed by the burn
+solvers.  The constant (L0) provider builds stream-closed points from delivered
+thrust and system specific impulse through ``mdot = F / (g0 * Isp)`` [1]_,
+with ``g0`` the registered ``STANDARD_GRAVITY_M_S2``.
+
+References
+----------
+.. [1] NASA Glenn Research Center, "Specific Impulse".
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+"""
 
 from __future__ import annotations
 
@@ -21,38 +32,90 @@ from .models import (
 
 
 class PropulsionProvider(Protocol):
-    """Small performance-provider boundary consumed by future burn solvers."""
+    """Structural contract of a performance provider consumed by burn solvers.
+
+    Attributes
+    ----------
+    provider_id : str
+        Stable provider identifier.
+    provider_version : str
+        Provider version string.
+
+    Notes
+    -----
+    A provider resolves one delivered operating point whose total tank flow
+    satisfies ``mdot = F / (g0 * Isp)`` [1]_ and reports the schedule
+    discontinuities a solver must step across.
+
+    References
+    ----------
+    .. [1] NASA Glenn Research Center, "Specific Impulse".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+    """
 
     provider_id: str
     provider_version: str
 
     def operating_point(self) -> EngineOperatingPoint:
-        """Return the resolved delivered performance law for L0."""
+        """Return the resolved delivered operating point."""
 
     def discontinuities_s(self, definition: BurnDefinition) -> tuple[float, ...]:
-        """Return exact schedule discontinuities relative to command time."""
+        """Return schedule discontinuity times relative to the command time, s."""
 
 
 def _positive(value: float, label: str) -> None:
+    """Raise `DomainError` unless ``value`` is finite and strictly positive."""
     if not isfinite(value) or value <= 0.0:
         raise DomainError(f"{label} must be finite and greater than zero.")
 
 
 @dataclass(frozen=True, slots=True)
 class ConstantPerformanceProvider:
-    """L0 provider that returns one immutable delivered operating point."""
+    """L0 provider that returns one immutable delivered operating point.
+
+    Parameters
+    ----------
+    point : EngineOperatingPoint
+        Delivered operating point returned for every query.
+    provider_id : str, default "constant-performance"
+        Provider identifier.
+    provider_version : str, default "1.0"
+        Provider version string.
+
+    Notes
+    -----
+    The classmethod constructors derive total tank flow from delivered thrust
+    and system specific impulse, ``mdot = F / (g0 * Isp)`` [1]_, with ``g0`` the
+    registered ``STANDARD_GRAVITY_M_S2``.
+
+    References
+    ----------
+    .. [1] NASA Glenn Research Center, "Specific Impulse".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+    """
 
     point: EngineOperatingPoint
     provider_id: str = "constant-performance"
     provider_version: str = "1.0"
 
     def operating_point(self) -> EngineOperatingPoint:
-        """Return the immutable point represented by this provider."""
+        """Return the immutable operating point held by this provider."""
 
         return self.point
 
     def discontinuities_s(self, definition: BurnDefinition) -> tuple[float, ...]:
-        """A constant provider has no internal discontinuities."""
+        """Return an empty tuple: a constant provider has no discontinuities.
+
+        Parameters
+        ----------
+        definition : BurnDefinition
+            Burn definition; unused.
+
+        Returns
+        -------
+        tuple of float
+            Always ``()``.
+        """
 
         del definition
         return ()
@@ -82,9 +145,71 @@ class ConstantPerformanceProvider:
     ) -> ConstantPerformanceProvider:
         """Build a stream-closed bipropellant point from system performance.
 
-        ``oxidizer_fuel_ratio`` applies to total tank drain. Optional dump flow
-        is subtracted from the selected role's main-chamber stream, preserving
-        both the total mixture ratio and the system-Isp mass law.
+        Parameters
+        ----------
+        delivered_thrust_n : float
+            Delivered thrust ``F``, N; finite and positive.
+        system_specific_impulse_s : float
+            System specific impulse referenced to total tank drain, s; finite
+            and positive.
+        oxidizer_fuel_ratio : float
+            Oxidizer-to-fuel mass ratio of total tank drain; finite and
+            positive.
+        ideal_thrust_n : float or None, default None
+            Ideal thrust, N; ``None`` uses ``delivered_thrust_n``.
+        chamber_specific_impulse_s : float or None, default None
+            Chamber specific impulse, s; ``None`` derives
+            ``F / (g0 * mdot_chamber)``.
+        dump_mass_flow_kg_s : float, default 0.0
+            Non-negative open-cycle dump flow that bypasses the chamber, kg/s.
+        dump_role : PropellantRole, default PropellantRole.FUEL
+            Component that feeds the dump; fuel or oxidizer.
+        commanded_throttle, realized_throttle : float, default 1.0
+            Commanded and realized throttle fractions.
+        active_engine_count : int, default 1
+            Number of active engines.
+        chamber_pressure_pa : float, default 1.0
+            Chamber pressure, Pa.
+        ambient_pressure_pa : float, default 0.0
+            Ambient pressure, Pa.
+        oxidizer_tank_id, fuel_tank_id : str
+            Source tank identifiers.
+        oxidizer_key, fuel_key : str
+            Propellant keys.
+        name : str
+            Operating-point name.
+        source : str
+            Provenance label.
+
+        Returns
+        -------
+        ConstantPerformanceProvider
+            Provider holding the stream-closed operating point.
+
+        Raises
+        ------
+        DomainError
+            If thrust, specific impulse or mixture ratio is not finite and
+            positive, the dump flow is negative or non-finite, the dump role is
+            neither fuel nor oxidizer, or the dump flow is not smaller than its
+            component's tank flow.
+
+        Notes
+        -----
+        Total tank flow is ``mdot = F / (g0 * Isp_sys)`` [1]_ with ``g0`` the
+        registered ``STANDARD_GRAVITY_M_S2``; fuel flow is ``mdot / (1 + O/F)``
+        [2]_ and the oxidizer receives the remainder.  ``oxidizer_fuel_ratio``
+        applies to total tank drain.  An optional dump flow is subtracted from
+        the selected component's main-chamber stream and carried as a
+        non-thrust-contributing stream, so the total mixture ratio and the
+        system-Isp mass relation are both preserved.
+
+        References
+        ----------
+        .. [1] NASA Glenn Research Center, "Specific Impulse".
+               https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+        .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket
+               Propulsion Elements", 9th ed., Wiley, 2017.
         """
 
         _positive(delivered_thrust_n, "Delivered thrust")
@@ -185,7 +310,54 @@ class ConstantPerformanceProvider:
         name: str = "constant monopropellant point",
         source: str = "constant provider",
     ) -> ConstantPerformanceProvider:
-        """Build a single-stream monopropellant operating point."""
+        """Build a single-stream monopropellant operating point.
+
+        Parameters
+        ----------
+        delivered_thrust_n : float
+            Delivered thrust ``F``, N; finite and positive.
+        system_specific_impulse_s : float
+            System specific impulse, s; finite and positive.  Chamber and
+            system specific impulse are equal for a single chamber stream.
+        ideal_thrust_n : float or None, default None
+            Ideal thrust, N; ``None`` uses ``delivered_thrust_n``.
+        commanded_throttle, realized_throttle : float, default 1.0
+            Commanded and realized throttle fractions.
+        active_engine_count : int, default 1
+            Number of active engines.
+        chamber_pressure_pa : float, default 1.0
+            Chamber pressure, Pa.
+        ambient_pressure_pa : float, default 0.0
+            Ambient pressure, Pa.
+        tank_id : str
+            Source tank identifier.
+        propellant_key : str
+            Propellant key.
+        name : str
+            Operating-point name.
+        source : str
+            Provenance label.
+
+        Returns
+        -------
+        ConstantPerformanceProvider
+            Provider holding the single-stream operating point.
+
+        Raises
+        ------
+        DomainError
+            If thrust or specific impulse is not finite and positive.
+
+        Notes
+        -----
+        Mass flow is ``mdot = F / (g0 * Isp)`` [1]_ with ``g0`` the registered
+        ``STANDARD_GRAVITY_M_S2``.
+
+        References
+        ----------
+        .. [1] NASA Glenn Research Center, "Specific Impulse".
+               https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+        """
 
         _positive(delivered_thrust_n, "Delivered thrust")
         _positive(system_specific_impulse_s, "System specific impulse")
@@ -227,7 +399,38 @@ class ConstantPerformanceProvider:
 def simulate_burn(
     definition: BurnDefinition, provider: PropulsionProvider
 ) -> BurnResult | ProfiledBurnResult:
-    """Evaluate a supported provider through the common provider-facing API."""
+    """Evaluate a burn with a supported provider through the common entry point.
+
+    Parameters
+    ----------
+    definition : BurnDefinition
+        Burn command, duration and vehicle state.
+    provider : PropulsionProvider
+        Performance provider.  A ``ProfiledPerformanceProvider`` is routed to
+        the profiled solver; any other provider must report no
+        discontinuities and is routed to the constant (L0) solver.
+
+    Returns
+    -------
+    BurnResult or ProfiledBurnResult
+        Constant-burn result, or profiled-burn result for a profiled provider.
+
+    Raises
+    ------
+    DomainError
+        If a non-profiled provider reports schedule discontinuities, or the
+        selected solver rejects the inputs.
+
+    Notes
+    -----
+    Both solvers integrate thrust and propellant consumption linked by
+    ``mdot = F / (g0 * Isp)`` [1]_.
+
+    References
+    ----------
+    .. [1] NASA Glenn Research Center, "Specific Impulse".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+    """
 
     from .profile_integration import simulate_profiled_burn
     from .profiles import ProfiledPerformanceProvider

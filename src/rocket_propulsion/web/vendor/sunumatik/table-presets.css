@@ -1,0 +1,34 @@
+/* Sunumatik presets/color_themes/components/table-presets.css — subset vendored by scripts/sync_sunumatik_presets.py.
+   6 rules kept, 18 unused rules dropped; source hash in PROVENANCE.json. */
+.sci-table {
+  --table-font-size: 26px;
+  --table-pad-y: 16px;
+  --table-pad-x: 22px;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--table-font-size);
+  line-height: 1.3;
+  color: var(--color-ink, #2d2624);
+  background: transparent;
+}
+.sci-table th, .sci-table td {
+  padding: var(--table-pad-y) var(--table-pad-x);
+  text-align: left;
+  vertical-align: baseline;
+  border: 0;
+}
+.sci-table thead th {
+  font-weight: 700;
+  font-size: calc(var(--table-font-size) * .85);
+  letter-spacing: .04em;
+  border-bottom: 3px solid var(--color-ink, #2d2624);
+}
+.sci-table tbody td, .sci-table tbody th {
+  border-bottom: 1.5px solid var(--color-rule, #d4cba2);
+}
+.sci-table tbody tr:last-child td, .sci-table tbody tr:last-child th {
+  border-bottom: 3px solid var(--color-ink, #2d2624);
+}
+.sci-table--data td:not(:first-child), .sci-table--data thead th:not(:first-child) {
+  text-align: right;
+}

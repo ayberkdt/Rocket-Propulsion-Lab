@@ -24,6 +24,17 @@ modifying Lunaris:
 Lunaris carries vehicle mass but no tank states, so finite-burn bridges must
 be mass-only (no stream bindings).  Ambient back-pressure, performance
 surfaces and jettison events have no Lunaris counterpart and are refused.
+
+The impulsive mass law is the ideal rocket equation [1]_ with the
+conventional standard gravity ``STANDARD_GRAVITY_M_S2`` [2]_.
+
+References
+----------
+.. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation",
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
+.. [2] BIPM-SI. BIPM, "The International System of Units (SI Brochure)", 9th ed.,
+       2019 (conventional standard gravity),
+       https://www.bipm.org/en/publications/si-brochure
 """
 
 from __future__ import annotations
@@ -57,6 +68,7 @@ LUNARIS_FRAMES = ("inertial", "ric")
 
 
 def _lunaris_plans() -> Any:
+    """Import ``lunaris.core.propagation.plans`` or raise :class:`FeatureUnavailableError`."""
     try:
         return import_module("lunaris.core.propagation.plans")
     except ImportError as error:
@@ -69,15 +81,54 @@ def _lunaris_plans() -> Any:
 class LunarisImpulsiveEquivalent:
     """One finite burn reduced to a Lunaris impulsive maneuver, with evidence.
 
-    ``initial_mass_kg``/``final_mass_kg`` are identical for the finite burn and
-    for the impulse (``isp_s`` is chosen for that).  ``finite_burn_duration_s``
-    states how much time the impulse compresses; the positional effect of that
-    compression (finite-burn / gravity loss) is not represented.
+    Attributes
+    ----------
+    burn_id : str
+        Timeline burn identifier.
+    t_burn_s : float
+        Impulse time: biased ignition plus the acceleration-weighted
+        centroid of the burn, s.
+    dv_mps : tuple of float
+        Delta-v vector in ``frame``, m/s.
+    frame : {"inertial", "ric"}
+        Lunaris frame of ``dv_mps``.
+    isp_s : float
+        ``c_eff / g_n`` with ``c_eff = dv / ln(m0 / mf)``, s.
+    delta_v_m_s : float
+        Free-space delta-v magnitude of the finite burn, m/s.
+    initial_mass_kg, final_mass_kg : float
+        Vehicle mass before and after the burn, kg.
+    ignition_time_s : float
+        Bias-shifted ignition time, s.
+    finite_burn_duration_s : float
+        Duration of the finite burn that the impulse replaces, s.
+    quadrature_error_estimate_m_s : float
+        Estimated quadrature error of ``delta_v_m_s``, m/s.
+    bridge_model_hash : str
+        Hash of the propagator bridge that produced the burn.
+
+    Notes
+    -----
+    ``initial_mass_kg`` and ``final_mass_kg`` are identical for the finite
+    burn and for the impulse, because ``isp_s`` is chosen so that the ideal
+    rocket equation [1]_ with the conventional standard gravity [2]_
+    reproduces the mass ratio. The delta-v integral is evaluated by
+    quadrature [3]_. ``finite_burn_duration_s`` states how much time the
+    impulse compresses; the positional effect of that compression
+    (finite-burn or gravity loss, see [4]_ for transient modelling context)
+    is not represented.
 
     References
     ----------
-    NIST DLMF 3.5(v): https://dlmf.nist.gov/3.5#v
-    NASA-20040000363: https://ntrs.nasa.gov/citations/20040000363
+    .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
+    .. [2] BIPM-SI. BIPM, "The International System of Units (SI Brochure)", 9th ed.,
+           2019 (conventional standard gravity),
+           https://www.bipm.org/en/publications/si-brochure
+    .. [3] NIST DLMF §3.5(v), "Gauss quadrature" (Gauss-Legendre nodes and weights),
+           https://dlmf.nist.gov/3.5#v
+    .. [4] NASA, "Transient Mathematical Modeling for Liquid Rocket
+           Engine Systems", https://ntrs.nasa.gov/citations/20040000363
     """
 
     burn_id: str
@@ -94,7 +145,29 @@ class LunarisImpulsiveEquivalent:
     bridge_model_hash: str
 
     def to_lunaris(self) -> Any:
-        """Return ``lunaris.core.propagation.plans.ImpulsiveManeuver``."""
+        """Return this impulse as a Lunaris ``ImpulsiveManeuver``.
+
+        Returns
+        -------
+        object
+            ``lunaris.core.propagation.plans.ImpulsiveManeuver`` with
+            ``t_burn_s``, ``dv_mps``, ``frame`` and ``isp_s``.
+
+        Raises
+        ------
+        FeatureUnavailableError
+            If Lunaris is not installed.
+
+        Notes
+        -----
+        Lunaris applies the ideal-rocket mass drop ``m exp(-|dv| / (g0 Isp))``
+        [1]_ at the impulse.
+
+        References
+        ----------
+        .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation",
+               https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
+        """
 
         plans = _lunaris_plans()
         return plans.ImpulsiveManeuver(
@@ -111,14 +184,48 @@ def lunaris_impulsive_equivalents(
 ) -> tuple[LunarisImpulsiveEquivalent, ...]:
     """Reduce every timeline burn to an exact-mass impulsive equivalent.
 
-    ``directions`` maps each burn id to ``(vector, frame)`` with frame
-    ``"inertial"`` or ``"ric"`` (Lunaris' radial/in-track/cross-track order).
-    Burns are processed in time order; each burn starts from the previous
-    burn's final mass.
+    Parameters
+    ----------
+    timeline : PropulsionTimeline
+        Non-overlapping timeline without jettisons. Bridges must not depend
+        on performance surfaces or ambient pressure.
+    initial_mass_kg : float
+        Vehicle mass before the first burn, kg; must be positive.
+    directions : mapping
+        Burn id to ``(vector, frame)`` with frame ``"inertial"`` or ``"ric"``
+        (Lunaris' radial/in-track/cross-track order). Vectors need not be
+        unit length.
+    parameter_overrides : mapping, optional
+        Burn id to driver overrides (``thrust_scale``, ``mass_flow_scale``,
+        ``ignition_time_bias_s``, ...), validated exactly as by
+        :func:`lunaris_burn_windows`.
+
+    Returns
+    -------
+    tuple of LunarisImpulsiveEquivalent
+        One impulse per burn, in time order.
+
+    Raises
+    ------
+    DomainError
+        If the timeline has jettisons or overlapping burns, a burn depends
+        on operating conditions or ambient pressure, a direction is missing
+        or malformed, a burn produces no delta-v or would be truncated at
+        its protected dry mass, or the impulse times are not strictly
+        increasing.
+
+    Notes
+    -----
+    Burns are processed in time order; each starts from the previous burn's
+    final mass. The free-space delta-v is integrated by quadrature [2]_ and
+    the equivalent ``isp_s`` follows from the ideal rocket equation [1]_.
 
     References
     ----------
-    NIST DLMF 3.5(v): https://dlmf.nist.gov/3.5#v
+    .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
+    .. [2] NIST DLMF §3.5(v), "Gauss quadrature" (Gauss-Legendre nodes and weights),
+           https://dlmf.nist.gov/3.5#v
     """
 
     if not isinstance(timeline, PropulsionTimeline):
@@ -203,9 +310,31 @@ def lunaris_impulsive_equivalents(
 def to_lunaris_maneuver_plan(equivalents: tuple[LunarisImpulsiveEquivalent, ...]) -> Any:
     """Return a Lunaris ``ManeuverPlan`` from impulsive equivalents.
 
+    Parameters
+    ----------
+    equivalents : tuple of LunarisImpulsiveEquivalent
+        Impulses in strictly increasing time order, as returned by
+        :func:`lunaris_impulsive_equivalents`.
+
+    Returns
+    -------
+    object
+        ``lunaris.core.propagation.plans.ManeuverPlan``.
+
+    Raises
+    ------
+    FeatureUnavailableError
+        If Lunaris is not installed.
+
+    Notes
+    -----
+    Each impulse carries the ``isp_s`` that makes the ideal-rocket mass
+    law [1]_ reproduce the finite burn's final mass.
+
     References
     ----------
-    NIST DLMF 3.5(v): https://dlmf.nist.gov/3.5#v
+    .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
     """
 
     plans = _lunaris_plans()
@@ -216,17 +345,55 @@ def to_lunaris_maneuver_plan(equivalents: tuple[LunarisImpulsiveEquivalent, ...]
 class LunarisBurnWindow:
     """Effective firing window of one burn, as the finite-burn wrapper sees it.
 
-    ``ignition_time_s`` includes the resolved ``ignition_time_bias_s`` driver.
-    ``depletion_time_s`` is a guarded, represented cutoff for the burn's
-    protected dry mass and declared inventory margin (``None`` when no cut
-    is needed). The burn is off from that date on. The reported numerical
-    shortfall bound measures unused mass relative to that margin-adjusted
-    target; it is not a physical uncertainty bound.
-    ``mass_at_ignition_kg`` is ``None`` when no initial mass was given.
+    Attributes
+    ----------
+    burn_id : str
+        Timeline burn identifier.
+    ignition_time_s : float
+        Ignition time including the resolved ``ignition_time_bias_s``
+        driver, s.
+    cutoff_time_s : float
+        End of the active window: the profile end or the depletion cut, s.
+    mass_at_ignition_kg : float or None
+        Predicted vehicle mass at ignition; ``None`` without an initial
+        mass.
+    depletion_time_s : float or None
+        Guarded, represented cutoff for the burn's protected dry mass and
+        declared inventory margin; ``None`` when no cut is needed. The burn
+        is off from that date on.
+    time_events_s : tuple of float
+        Strictly increasing discontinuity dates from ignition to cutoff.
+    cutoff_profile_time_ratio : tuple of int or None
+        Exact profile time of the cutoff as ``(numerator, denominator)``.
+    mass_at_cutoff_kg : float or None
+        Predicted vehicle mass at cutoff.
+    depletion_mass_shortfall_bound_kg : float or None
+        Outward-rounded bound on the unused mass relative to the
+        margin-adjusted target; a numerical bound, not a physical
+        uncertainty.
+    cutoff_numerics : str
+        Identifier of the cutoff numerical policy.
+
+    Raises
+    ------
+    DomainError
+        If the fields are inconsistent: cutoff before ignition, nonpositive
+        masses, a depletion date different from the cutoff, event dates not
+        strictly increasing between the endpoints, a malformed ratio, or an
+        unknown numerical policy.
+
+    Notes
+    -----
+    Masses follow from the exact integral of the burn's mass-flow profile;
+    the cutoff is the latest represented date [2]_ at which the ideal mass
+    budget [1]_ is not exceeded.
 
     References
     ----------
-    NASA-SP-125: https://ntrs.nasa.gov/citations/19710019929
+    .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
+    .. [2] PYTHON-3.12-NEXTAFTER. Python 3.12, ``math.nextafter``,
+           https://docs.python.org/3.12/library/math.html#math.nextafter
     """
 
     burn_id: str
@@ -282,7 +449,11 @@ class LunarisBurnWindow:
 
 
 def _consumed_by(bridge: Any, mass_flow_scale: float, relative_time_s: float) -> float:
-    """Propellant used from ignition to ``relative_time_s`` (piecewise-linear flow)."""
+    """Return the propellant mass used from ignition to ``relative_time_s``.
+
+    The mass flow is piecewise linear in profile time and scaled by
+    ``mass_flow_scale``; the integral is exact and rounded once.
+    """
 
     return _finite_rational(_consumption(bridge.artifact.segments, _scale(mass_flow_scale),
                                          _fraction(relative_time_s)), 'Native consumed mass')
@@ -291,9 +462,11 @@ def _consumed_by(bridge: Any, mass_flow_scale: float, relative_time_s: float) ->
 def _time_to_consume(bridge: Any, mass_flow_scale: float, amount_kg: float) -> float | None:
     """Return the relative time at which ``amount_kg`` has been consumed, or ``None``.
 
-    The returned scalar is the greatest safe represented relative time, with
-    decisions made against the exact mass integral. The existing inventory
-    margin remains a caller/model policy, not measurement uncertainty.
+    The result is the greatest represented relative time whose exact
+    consumption does not exceed ``amount_kg`` less the inventory-limit
+    tolerance; ``None`` means the profile never consumes that much. The
+    tolerance is a model policy shared with the bridge's clamp, not a
+    measurement uncertainty.
     """
 
     # The bridge's clamp treats a mass within INVENTORY_LIMIT_TOLERANCE of the
@@ -312,21 +485,52 @@ def lunaris_burn_windows(
 ) -> tuple[LunarisBurnWindow, ...]:
     """Return every burn's effective window: bias-shifted events and dry-mass cut.
 
-    For a mass-only burn without operating-condition surfaces the mass flow is
-    a function of time alone. With a known ``initial_mass_kg``, exact supplied-
-    binary mass integrals select a safe date on the represented epoch clock.
-    The date can precede the analytical crossing; the window reports an
-    outward-rounded unused-mass bound. Lunaris event functions only see the
-    first six state elements, so the cut is exposed as a segment boundary.
-    Bridges with a protected
-    dry mass therefore need ``initial_mass_kg``; overlapping timelines are
-    refused because a cut of one burn changes the other's mass history.
+    Parameters
+    ----------
+    timeline : PropulsionTimeline
+        Timeline whose burns are evaluated.
+    parameter_overrides : mapping, optional
+        Burn id to driver overrides; unknown burn ids are refused.
+    initial_mass_kg : float, optional
+        Vehicle mass before the first burn, kg. Required when any bridge has
+        a protected dry mass.
+
+    Returns
+    -------
+    tuple of LunarisBurnWindow
+        One window per burn, ordered by biased ignition time.
+
+    Raises
+    ------
+    DomainError
+        If overrides are malformed or name unknown burns, the initial mass
+        is not positive or is missing for protected bridges, protected burns
+        overlap, jettisons are present with a mass prediction, a bridge has
+        a performance surface while a mass prediction is requested, biased
+        burns overlap on the represented clock, or the predicted vehicle
+        mass reaches a nonpositive value.
+
+    Notes
+    -----
+    For a mass-only burn without operating-condition surfaces the mass flow
+    is a function of time alone. With a known ``initial_mass_kg``, exact
+    rational mass integrals select a safe date on the represented epoch
+    clock [3]_. That date can precede the analytical crossing; the window
+    reports an outward-rounded unused-mass bound. Lunaris event functions
+    see only the first six state elements, so the cut is exposed as a
+    segment boundary rather than as a mass event [2]_. Overlapping
+    timelines are refused for protected bridges because a cut of one burn
+    changes the other's mass history. Vehicle mass follows the ideal mass
+    budget of the rocket equation [1]_.
 
     References
     ----------
-    NASA-SP-125: https://ntrs.nasa.gov/citations/19710019929
-    Orekit EventDetector 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+    .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
+    .. [2] Orekit 13.1.5, "PropulsionModel / EventDetector" API,
+           https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+    .. [3] PYTHON-3.12-NEXTAFTER. Python 3.12, ``math.nextafter``,
+           https://docs.python.org/3.12/library/math.html#math.nextafter
     """
 
     if not isinstance(timeline, PropulsionTimeline):
@@ -426,15 +630,38 @@ def lunaris_segmentation_times(
 ) -> tuple[float, ...]:
     """Return every burn discontinuity time, strictly increasing.
 
-    Times include each burn's resolved ``ignition_time_bias_s`` and, with
-    ``initial_mass_kg``, the guarded dry-mass cut dates (see
-    :func:`lunaris_burn_windows`).  Pass the same ``parameter_overrides`` as
-    to :class:`LunarisFiniteBurnDynamics`, or use its ``segmentation_plan()``.
+    Parameters
+    ----------
+    timeline : PropulsionTimeline
+        Timeline whose burns are evaluated.
+    parameter_overrides : mapping, optional
+        Burn id to driver overrides; pass the same values as to
+        :class:`LunarisFiniteBurnDynamics`.
+    initial_mass_kg : float, optional
+        Vehicle mass before the first burn; adds the guarded dry-mass cut
+        dates.
+
+    Returns
+    -------
+    tuple of float
+        Sorted, de-duplicated discontinuity dates, s.
+
+    Raises
+    ------
+    DomainError
+        Under the same conditions as :func:`lunaris_burn_windows`.
+
+    Notes
+    -----
+    Times include each burn's resolved ``ignition_time_bias_s``. Splitting
+    integration at these dates plays the role of event detection [1]_.
+    :meth:`LunarisFiniteBurnDynamics.segmentation_plan` returns the same
+    dates for a configured wrapper.
 
     References
     ----------
-    Orekit EventDetector 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+    .. [1] Orekit 13.1.5, "PropulsionModel / EventDetector" API,
+           https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
     """
 
     windows = lunaris_burn_windows(
@@ -449,6 +676,7 @@ def _merged_times(values: Iterator[float] | Any) -> tuple[float, ...]:
 
 
 def _window(start_s: float | None, end_s: float | None) -> tuple[float, float]:
+    """Return a validated ``(start, end)`` window; ``None`` means unbounded."""
     start = float("-inf") if start_s is None else real(start_s, "Window start")
     end = float("inf") if end_s is None else real(end_s, "Window end")
     if end < start:
@@ -459,6 +687,7 @@ def _window(start_s: float | None, end_s: float | None) -> tuple[float, float]:
 def _segmentation_plan(
     times: tuple[float, ...], start_s: float | None = None, end_s: float | None = None
 ) -> Any:
+    """Return a Lunaris ``ManeuverPlan`` of zero impulses at ``times`` inside the window."""
     start, end = _window(start_s, end_s)
     plans = _lunaris_plans()
     return plans.ManeuverPlan(
@@ -480,16 +709,44 @@ def lunaris_segmentation_plan(
 ) -> Any:
     """Return a Lunaris ``ManeuverPlan`` of zero-delta-v markers at discontinuities.
 
-    Lunaris restarts integration at every maneuver time; zero impulses with no
-    ``isp_s`` change neither velocity nor mass, so the finite-burn right-hand
-    side is integrated piecewise-smoothly.  Lunaris refuses maneuvers outside
-    the propagation window ``[t0, t0 + duration]``; pass that window as
+    Parameters
+    ----------
+    timeline : PropulsionTimeline
+        Timeline whose discontinuities are marked.
+    parameter_overrides : mapping, optional
+        Burn id to driver overrides.
+    initial_mass_kg : float, optional
+        Vehicle mass before the first burn; adds the dry-mass cut dates.
+    start_s, end_s : float, optional
+        Propagation window; markers outside it are dropped. ``None`` means
+        unbounded on that side.
+
+    Returns
+    -------
+    object
+        ``lunaris.core.propagation.plans.ManeuverPlan``.
+
+    Raises
+    ------
+    DomainError
+        If the window is reversed or the windows cannot be computed (see
+        :func:`lunaris_burn_windows`).
+    FeatureUnavailableError
+        If Lunaris is not installed.
+
+    Notes
+    -----
+    Lunaris restarts integration at every maneuver time; zero impulses with
+    no ``isp_s`` change neither velocity nor mass, so the finite-burn
+    right-hand side is integrated piecewise-smoothly, analogous to event
+    handling in a propagator [1]_. Lunaris refuses maneuvers outside the
+    propagation window ``[t0, t0 + duration]``; pass that window as
     ``start_s``/``end_s`` to propagate only part of a timeline.
 
     References
     ----------
-    Orekit EventDetector 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+    .. [1] Orekit 13.1.5, "PropulsionModel / EventDetector" API,
+           https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
     """
 
     return _segmentation_plan(
@@ -502,7 +759,7 @@ def lunaris_segmentation_plan(
 
 
 class _LazyDirections(Mapping):
-    """Directions computed only for the burns the timeline asks for."""
+    """Read-only mapping that evaluates the direction law only for requested burns."""
 
     def __init__(self, law: Callable[[str, float, Any], tuple[float, float, float]],
                  burn_ids: tuple[str, ...], time_s: float, state: Any) -> None:
@@ -526,9 +783,30 @@ class _LazyDirections(Mapping):
 def velocity_direction(burn_id: str, time_s: float, state: Any) -> tuple[float, float, float]:
     """Direction law: thrust along the inertial velocity (prograde).
 
+    Parameters
+    ----------
+    burn_id : str
+        Burn identifier (unused).
+    time_s : float
+        Evaluation time (unused).
+    state : sequence
+        Lunaris state; ``state[3:6]`` is the inertial velocity.
+
+    Returns
+    -------
+    tuple of float
+        The inertial velocity vector, not normalized; the timeline
+        normalizes directions.
+
+    Notes
+    -----
+    Thrust-vector pointing is a guidance choice of the caller [1]_; this law
+    is a convenience default.
+
     References
     ----------
-    NASA-20040000363: https://ntrs.nasa.gov/citations/20040000363
+    .. [1] NASA SP-8059. NASA, "Spacecraft Attitude Control During Thrusting
+           Maneuvers", https://ntrs.nasa.gov/citations/19710016722
     """
 
     return (float(state[3]), float(state[4]), float(state[5]))
@@ -537,6 +815,35 @@ def velocity_direction(burn_id: str, time_s: float, state: Any) -> tuple[float, 
 class LunarisFiniteBurnDynamics:
     """Lunaris dynamics wrapper that adds finite-burn thrust and mass flow.
 
+    Parameters
+    ----------
+    base_dynamics : object
+        Lunaris dynamics providing ``build_rhs()``.
+    timeline : PropulsionTimeline
+        Mass-only timeline: no stream bindings or state constraints, no
+        performance surfaces or nozzle exit area, no jettisons.
+    direction_law : callable, optional
+        ``direction_law(burn_id, t, y)`` returning the inertial thrust
+        direction; defaults to :func:`velocity_direction`.
+    parameter_overrides : mapping, optional
+        Burn id to driver overrides.
+    apply_inventory_limits : bool or None, optional
+        Whether the bridge's internal dry-mass clamp is active; ``None``
+        chooses automatically (see below).
+    initial_mass_kg : float, optional
+        Vehicle mass at the start of propagation; enables exact dry-mass
+        cuts and the per-segment mass consistency check.
+    mass_tolerance : float, optional
+        Relative tolerance of that check, in (0, 1).
+
+    Raises
+    ------
+    DomainError
+        If the timeline, direction law, base dynamics or options violate
+        the conditions above.
+
+    Notes
+    -----
     ``direction_law(burn_id, t, y)`` returns the inertial thrust direction.
     Attributes other than the right-hand-side builders are delegated to the
     wrapped dynamics, so Lunaris still finds ``grav``, ``flags`` and the rest.
@@ -563,11 +870,18 @@ class LunarisFiniteBurnDynamics:
     was started with a different mass or another maneuver changed the mass,
     and the precomputed dry-mass cut would be wrong, so it fails closed.
 
+    The right-hand side adds the thrust acceleration ``F / m`` [2]_ to the
+    velocity derivatives and the propellant mass rate to ``y[6]``,
+    following the force/mass-derivative split of a propagator propulsion
+    model [1]_.
+
     References
     ----------
-    Orekit PropulsionModel 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
-    NASA-SP-125: https://ntrs.nasa.gov/citations/19710019929
+    .. [1] Orekit 13.1.5, "PropulsionModel" API,
+           https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+    .. [2] MIT-522-L5. MIT OCW, "16.522 Session 5: Review of Classical Astrodynamics",
+           equation (19), thrust acceleration F/m,
+           https://ocw.mit.edu/courses/16-522-space-propulsion-spring-2015/6127948308ccbe73c1c44751e2509ae0_MIT16_522S15_Lecture5.pdf
     """
 
     def __init__(
@@ -632,43 +946,77 @@ class LunarisFiniteBurnDynamics:
         self._burns = {burn.burn_id: burn for burn in timeline.burns}
 
     def __getattr__(self, name: str) -> Any:
+        """Delegate non-dunder attribute lookups to the wrapped dynamics."""
         if name.startswith("__") or name == "_base":
             raise AttributeError(name)
         return getattr(self._base, name)
 
     @property
     def burn_windows(self) -> tuple[LunarisBurnWindow, ...]:
-        """Effective burn windows used by this wrapper."""
+        """tuple of LunarisBurnWindow: Effective burn windows used by this wrapper."""
 
         return self._windows
 
     @property
     def segmentation_times(self) -> tuple[float, ...]:
-        """Every discontinuity time of this wrapper, strictly increasing."""
+        """tuple of float: Every discontinuity time of this wrapper, strictly increasing."""
 
         return self._boundaries
 
     def segmentation_plan(self, start_s: float | None = None, end_s: float | None = None) -> Any:
-        """Lunaris ``ManeuverPlan`` of zero-delta-v markers at :attr:`segmentation_times`.
+        """Return a ``ManeuverPlan`` of zero-delta-v markers at :attr:`segmentation_times`.
 
-        ``start_s``/``end_s`` keep only markers inside a propagation window
-        (Lunaris refuses maneuvers outside ``[t0, t0 + duration]``).
+        Parameters
+        ----------
+        start_s, end_s : float, optional
+            Propagation window; only markers inside it are kept (Lunaris
+            refuses maneuvers outside ``[t0, t0 + duration]``).
+
+        Returns
+        -------
+        object
+            ``lunaris.core.propagation.plans.ManeuverPlan``.
+
+        Raises
+        ------
+        DomainError
+            If the window is reversed.
+        FeatureUnavailableError
+            If Lunaris is not installed.
 
         References
         ----------
-        Orekit EventDetector 13.1.5 API:
-        https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+        .. [1] Orekit 13.1.5, "PropulsionModel / EventDetector" API,
+               https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
         """
 
         return _segmentation_plan(self._boundaries, start_s, end_s)
 
     def predicted_mass_kg(self, time_s: float) -> float:
-        """Vehicle mass implied by the timeline at ``time_s`` (needs ``initial_mass_kg``)."""
+        """Return the vehicle mass implied by the timeline at ``time_s``.
+
+        Parameters
+        ----------
+        time_s : float
+            Absolute time, s.
+
+        Returns
+        -------
+        float
+            Initial mass minus the exact propellant consumed by all burns up
+            to ``time_s`` (each limited to its cutoff), kg.
+
+        Raises
+        ------
+        DomainError
+            If the wrapper was built without ``initial_mass_kg`` or the value
+            is not representable.
+        """
 
         return _finite_rational(self._predicted_mass(time_s), 'Native predicted vehicle mass')
 
     def _predicted_mass(self, time_s):
-        """Keep the shared mass ledger exact through initial-state consistency checks."""
+        """Return the predicted vehicle mass at ``time_s`` as an exact rational."""
 
         if self._initial_mass is None:
             raise DomainError("Predicted mass needs initial_mass_kg.")
@@ -689,6 +1037,7 @@ class LunarisFiniteBurnDynamics:
         return mass
 
     def _stopped(self, time_s: float, side: str) -> frozenset[str]:
+        """Return the burns already cut off at ``time_s`` for the given one-sided limit."""
         stopped = set()
         for window in self._windows:
             cut = window.depletion_time_s
@@ -701,6 +1050,13 @@ class LunarisFiniteBurnDynamics:
         return frozenset(stopped)
 
     def _wrap(self, base_rhs: Callable[[float, Any], Any]) -> Callable[[float, Any], Any]:
+        """Return a right-hand side that adds propulsion to ``base_rhs``.
+
+        The first evaluation of a segment takes right-hand limits at
+        discontinuities and, with an initial mass, checks the state mass
+        against the timeline prediction; later evaluations exactly on a
+        boundary take left-hand limits.
+        """
         first_time: list[float] = []
         boundaries = self._boundaries
         timeline = self._timeline
@@ -755,12 +1111,16 @@ class LunarisFiniteBurnDynamics:
         return rhs
 
     def build_rhs(self) -> Callable[[float, Any], Any]:
-        """Return the wrapped right-hand side (validated base builder)."""
+        """Return the base ``build_rhs()`` right-hand side with propulsion added."""
 
         return self._wrap(self._base.build_rhs())
 
     def _build_solver_rhs(self) -> Callable[[float, Any], Any]:
-        """Return the wrapped trusted right-hand side used by Lunaris' propagator."""
+        """Return Lunaris' trusted solver right-hand side with propulsion added.
+
+        Falls back to ``build_rhs()`` when the base dynamics has no
+        ``_build_solver_rhs``.
+        """
 
         trusted = getattr(self._base, "_build_solver_rhs", None)
         return self._wrap(trusted() if callable(trusted) else self._base.build_rhs())

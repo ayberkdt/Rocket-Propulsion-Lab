@@ -4,7 +4,17 @@ This module is the stable boundary between Rocket Propulsion Lab and Sidera.
 It deliberately contains no orbit integrator: Sidera owns epochs, frames,
 attitude, event localization, and state integration; this package owns thrust,
 propellant drains, operating-domain limits, propulsion events, and their
-analytic partial derivatives.
+analytic partial derivatives. The split mirrors the force, mass-derivative,
+parameter and event contract of a propagator propulsion model [1]_.
+
+References
+----------
+.. [1] Orekit 13.1.5, "PropulsionModel" API,
+       https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+.. [2] NASA, "Transient Mathematical Modeling for Liquid Rocket
+       Engine Systems", https://ntrs.nasa.gov/citations/20040000363
+.. [3] CCSDS 502.0-B-3. CCSDS, "Orbit Data Messages", Recommended Standard
+       502.0-B-3, https://ccsds.org/Pubs/502x0b3e1.pdf
 """
 
 from __future__ import annotations
@@ -53,18 +63,34 @@ SIDERA_PROPULSION_REQUIRED_CAPABILITIES = (
 
 @dataclass(frozen=True, slots=True)
 class SideraBodyPropulsionEvaluation:
-    """Coupled propulsion state rates and body-frame force/moment.
+    """Coupled propulsion state rates and body-frame force and moment.
 
+    Attributes
+    ----------
+    dynamics : PropulsionDynamicsEvaluation
+        Scalar-thrust bridge evaluation probed along body +X.
+    wrench : ClusterWrenchEvaluation
+        Force and moment of the mounted engine cluster about the reference
+        point, in the body frame.
+    force_closure_residual_n : float
+        Sum of enabled command thrusts minus the bridge's axial thrust, N.
+
+    Notes
+    -----
     ``dynamics.acceleration_m_s2`` is only the bridge's scalar-thrust probe
-    along body +X.  A 6-DOF Sidera consumer must use
+    along body +X. A 6-DOF Sidera consumer must use
     ``wrench.force_body_n / vehicle_mass`` after transforming that force with
-    its attitude state.  Keeping both records exposes, rather than hides, the
-    scalar-performance-to-mounted-hardware closure.
+    its attitude state. Keeping both records exposes, rather than hides, the
+    closure between scalar performance and mounted hardware: thrust pointing
+    and moment arms [1]_ and the gimbal transformation [2]_.
 
     References
     ----------
-    NASA-SP-8059: https://ntrs.nasa.gov/citations/19710016722
-    NASA/TM-20240012525: https://ntrs.nasa.gov/citations/20240012525
+    .. [1] NASA SP-8059. NASA, "Spacecraft Attitude Control During Thrusting
+           Maneuvers", https://ntrs.nasa.gov/citations/19710016722
+    .. [2] NASA/TM-20240012525. NASA, "MSFC-TVC TB-03: Derivation of Thrust Vector
+           Control Actuator-Force / Gimbal-Torque Transformation Matrix",
+           https://ntrs.nasa.gov/citations/20240012525
     """
 
     dynamics: PropulsionDynamicsEvaluation
@@ -76,23 +102,51 @@ class SideraBodyPropulsionEvaluation:
 class SideraPropulsionProviderHandoff:
     """Hash-bound, propagation-ready Rocket Propulsion Lab provider contract.
 
-    ``ignition_epoch_s`` maps Sidera's absolute propagation time to the
-    bridge's relative burn time.  Additional-state ordering is explicit and
-    must cover every bound propellant state exactly once.  The optional engine
-    cluster adds a 6-DOF body-wrench contract without making propulsion own
-    attitude propagation.
+    Attributes
+    ----------
+    bridge : PropagatorPropulsionBridge
+        Canonical propulsion bridge; re-opened from its serialization on
+        construction.
+    ignition_epoch_s : float
+        Sidera epoch at which the bridge's relative burn time is zero, s.
+    additional_state_order : tuple of str
+        Order of the propellant states in Sidera's additional-state vector;
+        empty means the sorted bound state names.
+    engine_cluster : MountedEngineCluster or None
+        Optional mounted cluster for the 6-DOF body-wrench contract.
+    provider_id : str
+        Provider identifier.
+    schema : str
+        Must equal ``SIDERA_PROPULSION_HANDOFF_SCHEMA``.
 
-    The hand-off remains useful before Sidera implements the native provider:
-    it can be serialized, reviewed, replayed, and evaluated independently.
+    Raises
+    ------
+    DomainError
+        If the schema differs, the bridge or cluster has the wrong type,
+        the epoch or identifiers are malformed, or the state order repeats
+        names or does not cover every bound propellant state exactly once.
+
+    Notes
+    -----
+    ``ignition_epoch_s`` maps Sidera's absolute propagation time to the
+    bridge's relative burn time. The optional engine cluster adds a body
+    wrench without making propulsion own attitude propagation. The contract
+    follows the force, mass-derivative, parameter-driver and event split of
+    [1]_, with transient-modelling context from [2]_ and versioned,
+    unit-explicit exchange [3]_. It does not require an installed Sidera
+    provider: it can be serialized, inspected, replayed and evaluated
+    independently, which supports the traceability expected by [4]_.
 
     References
     ----------
-    Orekit PropulsionModel 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
-    NASA transient propulsion modeling:
-    https://ntrs.nasa.gov/citations/20040000363
-    CCSDS 502.0-B-3: https://ccsds.org/Pubs/502x0b3e1.pdf
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [1] Orekit 13.1.5, "PropulsionModel" API,
+           https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+    .. [2] NASA, "Transient Mathematical Modeling for Liquid Rocket
+           Engine Systems", https://ntrs.nasa.gov/citations/20040000363
+    .. [3] CCSDS 502.0-B-3. CCSDS, "Orbit Data Messages", Recommended Standard
+           502.0-B-3, https://ccsds.org/Pubs/502x0b3e1.pdf
+    .. [4] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
     """
 
     bridge: PropagatorPropulsionBridge
@@ -142,19 +196,41 @@ class SideraPropulsionProviderHandoff:
 
     @property
     def required_operating_conditions(self) -> tuple[str, ...]:
-        """Return the deterministic operating-condition input order."""
+        """tuple of str: Operating-condition axis names in evaluation order.
+
+        Empty when the bridge has no performance surface.
+        """
 
         surface = self.bridge.performance_surface or self.bridge.stream_performance_surface
         return () if surface is None else tuple(axis.name for axis in surface.axes)
 
     @property
     def handoff_hash(self) -> str:
-        """Return the canonical content identity of the complete contract."""
+        """str: Canonical SHA-256 of the manifest without its own hash."""
 
         return canonical_sha256(self.manifest(include_hash=False))
 
     def manifest(self, *, include_hash: bool = True) -> dict[str, object]:
-        """Return reviewable state, event, frame, and capability semantics."""
+        """Return the state, event, frame and capability semantics of the hand-off.
+
+        Parameters
+        ----------
+        include_hash : bool, optional
+            Add ``handoff_hash`` (the canonical SHA-256 of the other fields).
+
+        Returns
+        -------
+        dict
+            Schema, provider id, ignition epoch, nested model hashes, state
+            layout, operating conditions, estimable parameters, event ids,
+            force/mass/time semantics, required Sidera capabilities and
+            reference identifiers.
+
+        References
+        ----------
+        .. [1] Orekit 13.1.5, "PropulsionModel" API,
+               https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+        """
 
         payload: dict[str, object] = {
             "schema": self.schema,
@@ -198,7 +274,7 @@ class SideraPropulsionProviderHandoff:
         return payload
 
     def to_dict(self) -> dict[str, object]:
-        """Serialize the complete provider hand-off and nested model artifacts."""
+        """Return the manifest together with the serialized bridge and engine cluster."""
 
         payload = self.manifest()
         payload["bridge"] = self.bridge.to_dict()
@@ -208,7 +284,28 @@ class SideraPropulsionProviderHandoff:
         return payload
 
     def to_json(self, *, indent: int | None = 2) -> str:
-        """Serialize the hand-off as deterministic finite JSON."""
+        """Serialize the hand-off as deterministic finite JSON.
+
+        Parameters
+        ----------
+        indent : int or None, optional
+            Indentation passed to :func:`json.dumps`.
+
+        Returns
+        -------
+        str
+            JSON text with sorted keys and no non-finite numbers [1]_.
+
+        Raises
+        ------
+        ValueError
+            If a value is not finite (``allow_nan=False``).
+
+        References
+        ----------
+        .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+               Format", https://www.rfc-editor.org/rfc/rfc8259
+        """
 
         return json.dumps(
             self.to_dict(), allow_nan=False, ensure_ascii=False, indent=indent, sort_keys=True
@@ -216,7 +313,24 @@ class SideraPropulsionProviderHandoff:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, object]) -> SideraPropulsionProviderHandoff:
-        """Rebuild the provider and refuse malformed or hash-altered content."""
+        """Rebuild the provider from a decoded document and verify its hash.
+
+        Parameters
+        ----------
+        payload : mapping
+            Decoded hand-off document.
+
+        Returns
+        -------
+        SideraPropulsionProviderHandoff
+            The verified hand-off.
+
+        Raises
+        ------
+        InputError
+            If the root is not a mapping, a field is missing or malformed, or
+            ``handoff_hash`` does not match the rebuilt contents.
+        """
 
         if not isinstance(payload, Mapping):
             raise InputError("Sidera propulsion hand-off root must be an object.")
@@ -243,7 +357,32 @@ class SideraPropulsionProviderHandoff:
 
     @classmethod
     def from_json(cls, document: str) -> SideraPropulsionProviderHandoff:
-        """Parse and integrity-check a Sidera propulsion hand-off document."""
+        """Parse JSON text and integrity-check the provider hand-off.
+
+        Parameters
+        ----------
+        document : str
+            JSON document text.
+
+        Returns
+        -------
+        SideraPropulsionProviderHandoff
+            The verified hand-off.
+
+        Raises
+        ------
+        InputError
+            If the text violates the strict JSON reading rules of
+            :func:`~rocket_propulsion.core.validation.read_json_document`
+            [1]_, [2]_ or fails :meth:`from_dict`.
+
+        References
+        ----------
+        .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+               Format", https://www.rfc-editor.org/rfc/rfc8259
+        .. [2] PYTHON-3.12-JSON. Python 3.12, "json - JSON encoder and decoder",
+               https://docs.python.org/3.12/library/json.html
+        """
 
         return read_json_document(document, "Sidera propulsion hand-off", cls.from_dict)  # type: ignore[return-value]
 
@@ -261,7 +400,49 @@ class SideraPropulsionProviderHandoff:
         apply_inventory_limits: bool = True,
         boundary_tolerance_s: float | None = None,
     ) -> PropulsionDynamicsEvaluation:
-        """Evaluate propulsion at a Sidera epoch through the canonical bridge."""
+        """Evaluate propulsion at a Sidera epoch through the canonical bridge.
+
+        Parameters
+        ----------
+        epoch_s : float
+            Absolute Sidera epoch, s; the bridge is evaluated at
+            ``epoch_s - ignition_epoch_s``.
+        vehicle_mass_kg : float
+            Current vehicle mass, kg.
+        direction : tuple of float
+            Host-resolved thrust direction.
+        additional_states : mapping, optional
+            Propellant state values by name.
+        operating_conditions : mapping, optional
+            Operating-condition values by axis name.
+        parameter_overrides : mapping, optional
+            Estimable-parameter overrides.
+        ambient_pressure_pa : float, optional
+            Ambient pressure for pressure-thrust correction, Pa.
+        side : {"right", "left"}, optional
+            One-sided limit at a discontinuity.
+        apply_inventory_limits : bool, optional
+            Apply the bridge's inventory clamps.
+        boundary_tolerance_s : float, optional
+            Tolerance for snapping to a profile boundary, s.
+
+        Returns
+        -------
+        PropulsionDynamicsEvaluation
+            Thrust, acceleration, mass derivative and named state
+            derivatives.
+
+        Raises
+        ------
+        DomainError
+            If the epoch or direction is malformed or the bridge refuses the
+            evaluation.
+
+        References
+        ----------
+        .. [1] Orekit 13.1.5, "PropulsionModel" API,
+               https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+        """
 
         epoch = real(epoch_s, "Sidera propagation epoch")
         return self.bridge.evaluate(
@@ -280,7 +461,24 @@ class SideraPropulsionProviderHandoff:
     def ordered_additional_state_derivatives(
         self, evaluation: PropulsionDynamicsEvaluation
     ) -> tuple[float, ...]:
-        """Pack named derivatives in the declared Sidera state-vector order."""
+        """Pack named state derivatives in the declared Sidera state-vector order.
+
+        Parameters
+        ----------
+        evaluation : PropulsionDynamicsEvaluation
+            Result of :meth:`evaluate`.
+
+        Returns
+        -------
+        tuple of float
+            Derivatives ordered as ``additional_state_order``.
+
+        Raises
+        ------
+        DomainError
+            If ``evaluation`` has the wrong type or its state names differ
+            from the declared layout.
+        """
 
         if not isinstance(evaluation, PropulsionDynamicsEvaluation):
             raise DomainError("Expected a PropulsionDynamicsEvaluation.")
@@ -307,15 +505,56 @@ class SideraPropulsionProviderHandoff:
     ) -> SideraBodyPropulsionEvaluation:
         """Evaluate scalar propulsion and close it to a mounted body wrench.
 
-        The sum of enabled engine-command thrust magnitudes must reproduce the
-        bridge's instantaneous scalar axial thrust.  This prevents guidance or
-        an adapter from silently creating or losing thrust while distributing
-        it across a gimballed cluster.
+        Parameters
+        ----------
+        epoch_s : float
+            Absolute Sidera epoch, s.
+        vehicle_mass_kg : float
+            Current vehicle mass, kg.
+        commands : tuple of EngineVectorCommand
+            Per-engine thrust and gimbal commands.
+        reference_point_body_m : tuple of float
+            Moment reference point in the body frame, m.
+        additional_states, operating_conditions, parameter_overrides : mapping, optional
+            As for :meth:`evaluate`.
+        ambient_pressure_pa : float, optional
+            Ambient pressure, Pa.
+        side : {"right", "left"}, optional
+            One-sided limit at a discontinuity.
+        apply_inventory_limits : bool, optional
+            Apply the bridge's inventory clamps.
+        boundary_tolerance_s : float, optional
+            Boundary snapping tolerance, s.
+        closure_tolerance_n : float, optional
+            Absolute force-closure tolerance, N; nonnegative. A relative
+            tolerance of 1e-12 also applies.
+
+        Returns
+        -------
+        SideraBodyPropulsionEvaluation
+            Scalar dynamics, body wrench and force-closure residual.
+
+        Raises
+        ------
+        DomainError
+            If the hand-off has no engine cluster, the commands or tolerance
+            are invalid, or the enabled command thrusts do not close to the
+            bridge's axial thrust.
+
+        Notes
+        -----
+        The sum of enabled engine-command thrust magnitudes must reproduce
+        the bridge's instantaneous scalar axial thrust. This prevents
+        guidance or an adapter from silently creating or losing thrust while
+        distributing it across a gimballed cluster [1]_, [2]_.
 
         References
         ----------
-        NASA-SP-8059: https://ntrs.nasa.gov/citations/19710016722
-        NASA/TM-20240012525: https://ntrs.nasa.gov/citations/20240012525
+        .. [1] NASA SP-8059. NASA, "Spacecraft Attitude Control During Thrusting
+               Maneuvers", https://ntrs.nasa.gov/citations/19710016722
+        .. [2] NASA/TM-20240012525. NASA, "MSFC-TVC TB-03: Derivation of Thrust Vector
+               Control Actuator-Force / Gimbal-Torque Transformation Matrix",
+               https://ntrs.nasa.gov/citations/20240012525
         """
 
         if self.engine_cluster is None:
@@ -360,12 +599,30 @@ def missing_sidera_propulsion_capabilities(
     capabilities: SideraCapabilities,
     handoff: SideraPropulsionProviderHandoff,
 ) -> tuple[str, ...]:
-    """Return the exact public Sidera capabilities needed by ``handoff``.
+    """Return the public Sidera capabilities that ``handoff`` needs but lacks.
+
+    Parameters
+    ----------
+    capabilities : SideraCapabilities
+        Observed capabilities.
+    handoff : SideraPropulsionProviderHandoff
+        Provider contract; an engine cluster additionally requires
+        ``body_frame_force_moment_available``.
+
+    Returns
+    -------
+    tuple of str
+        Names of missing capability flags; empty when none is missing.
+
+    Raises
+    ------
+    DomainError
+        If either argument has the wrong type.
 
     References
     ----------
-    Orekit PropulsionModel 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+    .. [1] Orekit 13.1.5, "PropulsionModel" API,
+           https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
     """
 
     if not isinstance(capabilities, SideraCapabilities):
@@ -384,9 +641,27 @@ def require_sidera_propulsion_capabilities(
 ) -> None:
     """Fail closed unless Sidera can consume the provider hand-off exactly.
 
+    Parameters
+    ----------
+    capabilities : SideraCapabilities
+        Observed capabilities.
+    handoff : SideraPropulsionProviderHandoff
+        Provider contract.
+
+    Raises
+    ------
+    FeatureUnavailableError
+        If a required capability is missing; ``details`` lists the missing
+        capabilities, the hand-off hash and the Sidera version.
+    DomainError
+        If either argument has the wrong type.
+
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [1] Orekit 13.1.5, "PropulsionModel" API,
+           https://www.orekit.org/static/apidocs/org/orekit/forces/maneuvers/propulsion/PropulsionModel.html
+    .. [2] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
     """
 
     missing = missing_sidera_propulsion_capabilities(capabilities, handoff)

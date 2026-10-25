@@ -2,8 +2,11 @@
 
 References
 ----------
-NASA-SE-6: 6.8.1.2.3-6, weighted matrices, operational scales and decision reports.
-NASA-SE-APP: Appendix D, requirement/source/verification traceability.
+.. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+       Management"; 6.8.1.2.3-6, weighted matrices, operational scales and decision
+       reports.
+.. [2] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Appendix D,
+       requirement/source/verification traceability.
 """
 
 from __future__ import annotations
@@ -22,11 +25,33 @@ from .evidence import Citation, CitedScalar, derived, quantity
 
 @dataclass(frozen=True, slots=True)
 class Requirement:
-    """An analyst-selected numerical screen, never a fabricated course requirement.
+    """An analyst-selected numerical screen; never a fabricated course requirement.
+
+    Attributes
+    ----------
+    identifier : str
+        Unique requirement identifier.
+    description : str
+        Requirement text.
+    metric : str
+        Name of the screened metric.
+    relation : {'at_most', 'at_least'}
+        Direction of the limit.
+    limit : CitedScalar
+        Threshold with its source or assumption.
+    verification : str, default 'preliminary numerical analysis'
+        Verification method [1]_.
+
+    Raises
+    ------
+    DomainError
+        If a text field is empty, the relation is unknown, or the limit lacks
+        evidence.
 
     References
     ----------
-    NASA-SE-APP: Appendix D, identifier, source and verification approach.
+    .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Appendix D,
+           identifier, source and verification approach.
     """
 
     identifier: str
@@ -41,7 +66,8 @@ class Requirement:
 
         References
         ----------
-        NASA-SE-APP: Appendix D, traceable requirement and verification method.
+        .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Appendix D,
+               traceable requirement and verification method.
         """
         for name in ("identifier", "description", "metric", "verification"):
             text(getattr(self, name), name)
@@ -53,11 +79,23 @@ class Requirement:
 
 @dataclass(frozen=True, slots=True)
 class RequirementCheck:
-    """A screen result with an evidence-bearing signed margin, or explicit unknown.
+    """A screen result with an evidence-bearing signed margin, or an explicit unknown.
+
+    Attributes
+    ----------
+    requirement : Requirement
+        Screened requirement.
+    status : {'pass', 'fail', 'unknown'}
+        Result; ``'unknown'`` when the metric is absent.
+    measured : CitedScalar or None
+        Evaluated metric.
+    margin : CitedScalar or None
+        Signed margin; positive is feasible.
 
     References
     ----------
-    NASA-SE-APP: Appendix D, verification matrix and analysis evidence.
+    .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Appendix D,
+           verification matrix and analysis evidence.
     """
 
     requirement: Requirement
@@ -68,14 +106,35 @@ class RequirementCheck:
 
 def check_requirements(metrics: Mapping[str, CitedScalar], requirements: tuple[Requirement, ...]
                        ) -> tuple[RequirementCheck, ...]:
-    """Evaluate all constraints, leaving absent data unknown and visible.
+    """Evaluate all screens, leaving absent data unknown and visible.
 
-    Positive margin is feasible. Passing means only that the provided numbers
-    pass this preliminary analysis; tests/hardware compliance are not inferred.
+    Parameters
+    ----------
+    metrics : Mapping of str to CitedScalar
+        Metrics of one alternative.
+    requirements : tuple of Requirement
+        Uniquely identified screens.
+
+    Returns
+    -------
+    tuple of RequirementCheck
+        One check per requirement in input order. The margin is limit - value for
+        ``'at_most'`` and value - limit for ``'at_least'``.
+
+    Raises
+    ------
+    DomainError
+        If ``metrics`` is not a mapping, identifiers repeat, or a unit differs.
+
+    Notes
+    -----
+    Passing means only that the supplied numbers pass this preliminary analysis [1]_;
+    test or hardware compliance is not inferred.
 
     References
     ----------
-    NASA-SE-APP: Appendix D, source-linked requirements verification matrix.
+    .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Appendix D,
+           source-linked requirements verification matrix.
     """
     if not isinstance(metrics, Mapping):
         raise DomainError("Metrics must be a name-to-cited-quantity mapping.")
@@ -99,15 +158,33 @@ def check_requirements(metrics: Mapping[str, CitedScalar], requirements: tuple[R
 
 @dataclass(frozen=True, slots=True)
 class Criterion:
-    """Fixed best/worst utility anchors and a user-sourced weight.
+    """Fixed best/worst utility anchors and an analyst-sourced weight.
 
-    Anchors define preferences, not an empirical data-extrapolation model.
-    They are fixed across alternatives so adding a dominated candidate cannot
-    rescale the existing scores. Values outside the anchors are clipped.
+    Anchors define preferences, not an empirical extrapolation model. They are fixed
+    across alternatives, so adding a dominated candidate cannot rescale existing
+    scores [1]_. Values outside the anchors are clipped.
+
+    Attributes
+    ----------
+    metric : str
+        Scored metric.
+    best, worst : CitedScalar
+        Distinct anchors in the metric's unit; utility 1 at ``best``, 0 at
+        ``worst``.
+    weight : CitedScalar
+        Dimensionless weight in [0, 1].
+
+    Raises
+    ------
+    DomainError
+        If anchors are equal, lack evidence or differ in unit, their separation is
+        not finite, or the weight is outside [0, 1].
 
     References
     ----------
-    NASA-SE-6: 6.8.1.2.3-4, weighted matrices and operational normalization scales.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; 6.8.1.2.3-4, weighted matrices and operational normalization
+           scales.
     """
 
     metric: str
@@ -120,7 +197,8 @@ class Criterion:
 
         References
         ----------
-        NASA-SE-6: 6.8.1.2.4, repeatable criteria scales and explicit weights.
+        .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+               Management"; 6.8.1.2.4, repeatable criteria scales and explicit weights.
         """
         text(self.metric, "trade metric")
         if not isinstance(self.best, CitedScalar):
@@ -136,11 +214,29 @@ class Criterion:
 
 @dataclass(frozen=True, slots=True)
 class AlternativeScore:
-    """Complete alternatives have a score; failed or incomplete ones remain visible.
+    """Trade result of one alternative; failed or incomplete ones remain visible.
+
+    Attributes
+    ----------
+    name : str
+        Alternative name.
+    eligibility : {'eligible', 'infeasible', 'incomplete'}
+        ``'infeasible'`` if any screen fails, ``'incomplete'`` if a metric or screen
+        is unknown.
+    score : CitedScalar or None
+        Weighted utility sum; only for eligible alternatives.
+    utilities : tuple of (str, CitedScalar)
+        Clipped utility of each available criterion.
+    checks : tuple of RequirementCheck
+        Screen results.
+    missing_metrics : tuple of str
+        Criteria without data.
 
     References
     ----------
-    NASA-SE-6: 6.8.1.2.4-6, constraints before recommendation and retain alternatives.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; 6.8.1.2.4-6, constraints before recommendation and retain
+           alternatives.
     """
 
     name: str
@@ -154,21 +250,44 @@ class AlternativeScore:
 def weighted_trade(alternatives: Mapping[str, Mapping[str, CitedScalar]],
                     criteria: tuple[Criterion, ...], requirements: tuple[Requirement, ...]
                     ) -> tuple[AlternativeScore, ...]:
-    """Compute sum(w*clip((x-worst)/(best-worst),0,1)) after hard screens.
+    """Score alternatives by a weighted sum of clipped affine utilities after screens.
 
-    This explicit affine preference rule is this implementation's choice of
-    the cited normalization method; NASA does not prescribe these anchors or
-    weights. Missing power, mass, cost or heritage data never becomes zero.
-    Returned order is input order; the caller can inspect ties without a
-    hidden tie-break or a claim of a universally best propulsion technology.
-    Affine utilities and weighted terms use exact rational input arithmetic;
-    displayed utilities and the final sum are rounded separately. The final
-    sum never consumes already rounded utility/contribution display values.
+    Parameters
+    ----------
+    alternatives : Mapping of str to Mapping of str to CitedScalar
+        Non-empty mapping of alternative name to metrics.
+    criteria : tuple of Criterion
+        Non-empty, unique criteria whose weights sum to one.
+    requirements : tuple of Requirement
+        Hard screens applied before scoring.
+
+    Returns
+    -------
+    tuple of AlternativeScore
+        In input order; ties are visible without a hidden tie-break.
+
+    Raises
+    ------
+    DomainError
+        If the inputs are empty or malformed, criteria repeat, the weights do not sum
+        to one, or a unit differs.
+
+    Notes
+    -----
+    score = sum(w * clip((x - worst) / (best - worst), 0, 1)). This explicit affine
+    preference rule is this implementation's choice of the cited normalization method
+    [1]_; NASA does not prescribe these anchors or weights, and the selection rule and
+    all alternatives are reported [2]_. Missing data never becomes zero. Utilities
+    and weighted terms use exact rational arithmetic; displayed utilities and the
+    final sum are rounded separately, and the sum never consumes rounded display
+    values.
 
     References
     ----------
-    NASA-SE-6: 6.8.1.2.3-4, weighted matrices and repeatable normalization.
-    NASA-SE-APP: Trade Study Report, state selection rule and all alternatives.
+    .. [1] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; 6.8.1.2.3-4, weighted matrices and repeatable normalization.
+    .. [2] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Trade Study
+           Report, state selection rule and all alternatives.
     """
     if not isinstance(alternatives, Mapping) or not alternatives:
         raise DomainError("Trade study needs a non-empty mapping of alternatives.")

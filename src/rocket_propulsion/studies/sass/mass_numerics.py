@@ -2,8 +2,10 @@
 
 References
 ----------
-NASA-ROCKET: sequential rocket-equation mass ratios; rearrangement derived here.
-NASA-7009B: numerical verification, declared limits and uncertainty reporting.
+.. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation"; sequential
+       rocket-equation mass ratios; rearrangement derived in this module.
+.. [2] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+       numerical verification, declared limits and uncertainty reporting.
 """
 
 from decimal import Context, Decimal, DecimalException, localcontext
@@ -19,7 +21,8 @@ def _loss_fraction(exponent: Decimal) -> Decimal:
 
     References
     ----------
-    NASA-ROCKET: exponential mass ratio; Taylor rearrangement derived here.
+    .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation"; exponential
+           mass ratio; Taylor rearrangement derived in this module.
     """
     if exponent == 0:
         return Decimal(0)
@@ -45,7 +48,8 @@ def _binary_rows(rows: tuple) -> tuple[tuple, Decimal]:
 
     References
     ----------
-    NASA-7009B: finite-precision numerical errors and reporting boundaries.
+    .. [1] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+           finite-precision numerical errors and reporting boundaries.
     """
     converted = []
     maximum_difference = Decimal(0)
@@ -73,9 +77,12 @@ def _at_precision(dry: float, residual: float, reserve: float,
 
     References
     ----------
-    NASA-ROCKET: mass ratio and ordered burns; closure algebra derived here.
-    NASA-ISP: mass flow, on-time and impulse identities.
-    NASA-7009B: numerical domain and precision/convergence evidence.
+    .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation"; mass ratio
+           and ordered burns; closure algebra derived in this module.
+    .. [2] NASA-ISP. NASA Glenn Research Center, "Specific Impulse"; mass flow, on-time
+           and impulse identities.
+    .. [3] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+           numerical domain and precision/convergence evidence.
     """
     with localcontext(Context(prec=precision)):
         d, f, r = map(Decimal, (dry, residual, reserve))
@@ -162,15 +169,46 @@ def _at_precision(dry: float, residual: float, reserve: float,
 
 def solve_mass_budget(dry: float, residual: float, reserve: float,
                       burns: tuple[tuple[float, float, float, float, float], ...]) -> tuple:
-    """Require identical physical binary channels at two resolved precisions.
+    """Solve the mission mass ledger and require agreement at two resolved precisions.
 
-    Inputs have already passed the public, evidence-bearing domain checks.
-    Decimal precision is isolated from the caller's process-wide context.
-    Failure to resolve a boundary by 640 digits is explicit, not feasibility.
+    Parameters
+    ----------
+    dry : float
+        Dry mass, kg.
+    residual : float
+        Residual fraction of loaded propellant.
+    reserve : float
+        Fixed retained reserve, kg.
+    burns : tuple of tuple of float
+        ``(delta_v, thrust, isp, axial_efficiency, duty)`` per burn, in order.
+
+    Returns
+    -------
+    tuple
+        ``(summary_rows, burn_rows, diagnostics)``: binary64 summary channels,
+        per-burn channels and Decimal numerical evidence, including the checked
+        precisions.
+
+    Raises
+    ------
+    DomainError
+        If no finite wet mass closes the budget, an output is not representable, the
+        decimal domain is exceeded, or the result does not resolve within 640
+        digits.
+
+    Notes
+    -----
+    Inputs have already passed the public, evidence-bearing domain checks. Decimal
+    precision is isolated from the caller's context. The mass closure follows the
+    rocket equation [1]_; consecutive precisions must give identical binary physical
+    channels [2]_. Failure to resolve is explicit, not a feasibility statement.
 
     References
     ----------
-    NASA-ROCKET: mass closure; NASA-7009B: numerical convergence and limits.
+    .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation"; mass
+           closure.
+    .. [2] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+           numerical convergence and limits.
     """
     previous = None
     checked = []

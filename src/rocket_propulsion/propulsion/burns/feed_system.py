@@ -1,10 +1,23 @@
-"""Propagation-ready regulated pressurant and propellant-feed dynamics.
+"""Regulated pressurant and propellant-feed dynamics for orbit propagation.
 
-The model is a compact, auditable zero-dimensional network: a finite
-pressurant bottle feeds a growing tank ullage through a dynamic regulator;
-liquid withdrawal creates ullage volume and a quadratic feed-line loss sets the
-engine inlet pressure.  It is intended as a numerical propagator additional-
-state model, not as a replacement for validated nodal or water-hammer tools.
+The model is a compact zero-dimensional network [1]_, [3]_: a finite pressurant
+bottle feeds a growing tank ullage through a dynamic regulator [2]_; liquid
+withdrawal creates ullage volume, and a quadratic feed-line loss sets the engine
+inlet pressure.  Regulator gas flow follows the compressible-restriction
+relation including choking [4]_.  The model supplies additional states for a
+numerical propagator; it does not replace validated nodal or water-hammer
+tools.
+
+References
+----------
+.. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+       https://ntrs.nasa.gov/citations/19760015212
+.. [2] NASA SP-8080. NASA, "Liquid Rocket Pressure Regulators and Valves".
+       https://ntrs.nasa.gov/citations/19740002611
+.. [3] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+       System", 2024. https://ntrs.nasa.gov/citations/20240003493
+.. [4] NASA Glenn Research Center, "Mass Flow Choking".
+       https://www.grc.nasa.gov/www/k-12/BGP/mflchk.html
 """
 
 from __future__ import annotations
@@ -33,25 +46,51 @@ FEED_SYSTEM_REFERENCE_IDS = (
 
 
 def _positive(value: float, label: str) -> None:
+    """Raise `DomainError` unless ``value`` is finite and strictly positive."""
     if not isfinite(value) or value <= 0.0:
         raise DomainError(f"{label} must be finite and greater than zero.")
 
 
 def _nonnegative(value: float, label: str) -> None:
+    """Raise `DomainError` unless ``value`` is finite and non-negative."""
     if not isfinite(value) or value < 0.0:
         raise DomainError(f"{label} must be finite and non-negative.")
 
 
 @dataclass(frozen=True, slots=True)
 class IdealPressurantGas:
-    """Calorically perfect pressurant properties used by both gas nodes.
+    """Calorically perfect pressurant properties shared by both gas nodes.
+
+    Parameters
+    ----------
+    specific_gas_constant_j_kg_k : float
+        Positive specific gas constant ``R``, J/(kg K).
+    gamma : float
+        Ratio of specific heats, finite and greater than one.
+    name : str, default "pressurant"
+        Non-blank gas label.
+
+    Raises
+    ------
+    DomainError
+        If ``R`` or the derived heat capacities are not finite and positive,
+        ``gamma <= 1``, or the name is blank.
+
+    Notes
+    -----
+    The heat capacities follow ``cp = cv + R`` and ``gamma = cp / cv`` [2]_.
+    The pressurant is a single ideal gas in both the bottle and the tank
+    ullage, as in pressurization-system sizing [1]_ and nodal feed modelling
+    [3]_.
 
     References
     ----------
-    NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-    NASA specific heats (cp=cv+R): https://www.grc.nasa.gov/www/k-12/airplane/specheat.html
-    NASA nodal feed/pressurization modeling:
-    https://ntrs.nasa.gov/citations/20240003493
+    .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+           https://ntrs.nasa.gov/citations/19760015212
+    .. [2] NASA Glenn Research Center, "Specific Heats".
+           https://www.grc.nasa.gov/www/k-12/airplane/specheat.html
+    .. [3] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+           System", 2024. https://ntrs.nasa.gov/citations/20240003493
     """
 
     specific_gas_constant_j_kg_k: float
@@ -70,24 +109,24 @@ class IdealPressurantGas:
 
     @property
     def specific_heat_cv_j_kg_k(self) -> float:
-        """Return ``cv = R/(gamma-1)``.
+        """Constant-volume heat capacity ``cv = R / (gamma - 1)`` [1]_, J/(kg K).
 
         References
         ----------
-        NASA nodal feed/pressurization modeling:
-        https://ntrs.nasa.gov/citations/20240003493
+        .. [1] NASA Glenn Research Center, "Specific Heats".
+               https://www.grc.nasa.gov/www/k-12/airplane/specheat.html
         """
 
         return self.specific_gas_constant_j_kg_k / (self.gamma - 1.0)
 
     @property
     def specific_heat_cp_j_kg_k(self) -> float:
-        """Return ``cp = gamma*R/(gamma-1)``.
+        """Constant-pressure heat capacity ``cp = gamma R / (gamma - 1)`` [1]_, J/(kg K).
 
         References
         ----------
-        NASA nodal feed/pressurization modeling:
-        https://ntrs.nasa.gov/citations/20240003493
+        .. [1] NASA Glenn Research Center, "Specific Heats".
+               https://www.grc.nasa.gov/www/k-12/airplane/specheat.html
         """
 
         return self.gamma * self.specific_heat_cv_j_kg_k
@@ -95,19 +134,75 @@ class IdealPressurantGas:
 
 @dataclass(frozen=True, slots=True)
 class RegulatedFeedConfiguration:
-    """Immutable geometry, control, thermal, and cutoff configuration.
+    """Immutable geometry, control, thermal and cutoff configuration.
 
-    The regulator command is proportional to tank-pressure error and clipped
-    to ``[0, 1]``.  Flow through the effective regulator area follows the
-    isentropic compressible-orifice relation, including choking.  Liquid line
-    loss is ``delta_p = resistance * mdot**2``.
+    Parameters
+    ----------
+    gas : IdealPressurantGas
+        Pressurant properties.
+    tank_internal_volume_m3 : float
+        Positive rigid internal tank volume, m^3.
+    propellant_density_kg_m3 : float
+        Positive constant liquid density, kg/m^3.
+    bottle_volume_m3 : float
+        Positive rigid pressurant-bottle volume, m^3.
+    regulator_set_pressure_pa : float
+        Positive regulated tank pressure, Pa.
+    regulator_full_open_error_pa : float
+        Positive tank-pressure error at which the command saturates, Pa.
+    regulator_maximum_area_m2 : float
+        Positive fully open regulator flow area, m^2.
+    regulator_discharge_coefficient : float
+        Discharge coefficient in ``(0, 1]``.
+    valve_time_constant_s : float
+        Positive first-order regulator time constant, s.
+    feed_line_resistance_pa_s2_kg2 : float
+        Non-negative quadratic liquid-line resistance, Pa s^2/kg^2.
+    tank_heat_transfer_w_k : float
+        Non-negative tank wall-to-gas conductance, W/K.
+    tank_wall_temperature_k : float
+        Positive tank wall temperature, K.
+    bottle_heat_transfer_w_k : float
+        Non-negative bottle wall-to-gas conductance, W/K.
+    bottle_wall_temperature_k : float
+        Positive bottle wall temperature, K.
+    minimum_propellant_mass_kg : float, default 0.0
+        Non-negative propellant-reserve cutoff, kg.
+    minimum_injector_pressure_pa : float, default 0.0
+        Non-negative injector-pressure cutoff, Pa.
+    minimum_bottle_pressure_margin_pa : float, default 0.0
+        Non-negative bottle-minus-tank pressure margin cutoff, Pa.
+    maximum_tank_pressure_pa : float or None, default None
+        Optional tank overpressure cutoff, Pa; must exceed the set pressure.
+    model_id : str, default "regulated-single-node-feed"
+        Non-blank model identifier.
+    schema : str, default FEED_SYSTEM_SCHEMA
+        Configuration schema; only the current schema is accepted.
+
+    Raises
+    ------
+    DomainError
+        If the schema is unsupported, the identifier is blank, a value is
+        outside its domain, or the overpressure limit does not exceed the
+        set pressure.
+
+    Notes
+    -----
+    The regulator command is proportional to the tank-pressure error and
+    clipped to ``[0, 1]``; the opening follows it with a first-order lag.
+    Flow through the effective regulator area ``Cd * A_max * opening``
+    follows the isentropic compressible-restriction relation, including
+    choking [3]_.  The liquid line loss is ``delta_p = R_line * mdot**2``.
+    [1]_ and [2]_ give the pressurization-system and regulator design context.
 
     References
     ----------
-    NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-    NASA-SP-8080: https://ntrs.nasa.gov/citations/19740002611
-    NASA mass-flow choking relation:
-    https://www.grc.nasa.gov/www/k-12/BGP/mflchk.html
+    .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+           https://ntrs.nasa.gov/citations/19760015212
+    .. [2] NASA SP-8080. NASA, "Liquid Rocket Pressure Regulators and Valves".
+           https://ntrs.nasa.gov/citations/19740002611
+    .. [3] NASA Glenn Research Center, "Mass Flow Choking".
+           https://www.grc.nasa.gov/www/k-12/BGP/mflchk.html
     """
 
     gas: IdealPressurantGas
@@ -176,11 +271,38 @@ class RegulatedFeedConfiguration:
 class RegulatedFeedState:
     """Six additional states propagated with the spacecraft.
 
+    Parameters
+    ----------
+    propellant_mass_kg : float
+        Positive liquid mass in the tank, kg.
+    tank_pressurant_mass_kg : float
+        Positive pressurant mass in the tank ullage, kg.
+    tank_gas_temperature_k : float
+        Positive ullage gas temperature, K.
+    bottle_pressurant_mass_kg : float
+        Positive pressurant mass in the bottle, kg.
+    bottle_gas_temperature_k : float
+        Positive bottle gas temperature, K.
+    regulator_opening : float
+        Regulator opening fraction in ``[0, 1]``.
+
+    Raises
+    ------
+    DomainError
+        If a mass or temperature is not finite and positive, or the opening
+        lies outside ``[0, 1]``.
+
+    Notes
+    -----
+    Masses and temperatures are the conserved node variables of a lumped
+    feed network [1]_; pressures are derived algebraically from them [2]_.
+
     References
     ----------
-    NASA nodal feed/pressurization modeling:
-    https://ntrs.nasa.gov/citations/20240003493
-    NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
+    .. [1] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+           System", 2024. https://ntrs.nasa.gov/citations/20240003493
+    .. [2] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+           https://ntrs.nasa.gov/citations/19760015212
     """
 
     propellant_mass_kg: float
@@ -206,12 +328,27 @@ class RegulatedFeedState:
 
 @dataclass(frozen=True, slots=True)
 class RegulatedFeedDerivative:
-    """ODE right-hand side in the exact state order.
+    """Right-hand side of the feed ODE in `RegulatedFeedState` field order.
+
+    Attributes
+    ----------
+    propellant_mass_kg_s : float
+        Liquid mass rate, the negative of the demanded flow, kg/s.
+    tank_pressurant_mass_kg_s : float
+        Regulator inflow to the tank ullage, kg/s.
+    tank_gas_temperature_k_s : float
+        Ullage gas temperature rate from the tank energy balance [1]_, K/s.
+    bottle_pressurant_mass_kg_s : float
+        Bottle mass rate, the negative of the regulator flow, kg/s.
+    bottle_gas_temperature_k_s : float
+        Bottle gas temperature rate from the bottle energy balance, K/s.
+    regulator_opening_s : float
+        Opening rate ``(command - opening) / tau``, 1/s.
 
     References
     ----------
-    NASA nodal feed/pressurization modeling:
-    https://ntrs.nasa.gov/citations/20240003493
+    .. [1] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+           System", 2024. https://ntrs.nasa.gov/citations/20240003493
     """
 
     propellant_mass_kg_s: float
@@ -222,21 +359,16 @@ class RegulatedFeedDerivative:
     regulator_opening_s: float
 
     def __post_init__(self) -> None:
-        """Refuse a non-finite ODE stage before it reaches the propagator.
-
-        References
-        ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-        """
+        """Coerce every rate to a finite real; raise `DomainError` otherwise."""
         coerce_fields(self, "Feed derivative")
 
     def as_tuple(self) -> tuple[float, ...]:
-        """Return derivatives in `RegulatedFeedState` field order.
+        """Return the six node rates [1]_ in `RegulatedFeedState` field order.
 
         References
         ----------
-        NASA nodal feed/pressurization modeling:
-        https://ntrs.nasa.gov/citations/20240003493
+        .. [1] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+               System", 2024. https://ntrs.nasa.gov/citations/20240003493
         """
 
         return (
@@ -253,22 +385,33 @@ class RegulatedFeedDerivative:
 class FeedPressurePartials:
     """Analytic injector-pressure derivatives for Jacobian composition.
 
+    Attributes
+    ----------
+    injector_pressure_wrt_state : tuple of (str, float)
+        Derivative of injector pressure with respect to each named state.
+        Through the ideal-gas ullage pressure ``p_t = m_t R T_t / V_u`` [2]_
+        only the propellant mass, tank pressurant mass and tank temperature
+        contribute.
+    injector_pressure_wrt_propellant_flow : float
+        ``d p_inj / d mdot = -2 R_line mdot``, Pa s/kg.
+
+    Notes
+    -----
+    These partials feed the coupled Jacobian of the lumped network [1]_.
+
     References
     ----------
-    NASA nodal feed/pressurization modeling:
-    https://ntrs.nasa.gov/citations/20240003493
+    .. [1] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+           System", 2024. https://ntrs.nasa.gov/citations/20240003493
+    .. [2] NASA-GAS. NASA Glenn Research Center, "Equation of State (Ideal Gas)".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/equation-of-state-ideal-gas-2/
     """
 
     injector_pressure_wrt_state: tuple[tuple[str, float], ...]
     injector_pressure_wrt_propellant_flow: float
 
     def __post_init__(self) -> None:
-        """Preserve finite, detached pressure Jacobian entries.
-
-        References
-        ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-        """
+        """Coerce entries to finite reals and detach the named-pair sequence."""
         coerce_fields(self, "Feed pressure partials")
         object.__setattr__(self, "injector_pressure_wrt_state", name_value_pairs(
             self.injector_pressure_wrt_state, "Injector-pressure state partials"))
@@ -276,13 +419,44 @@ class FeedPressurePartials:
 
 @dataclass(frozen=True, slots=True)
 class RegulatedFeedEvaluation:
-    """Algebraic feed state and simultaneous ODE derivative.
+    """Algebraic feed variables and the simultaneous ODE right-hand side.
+
+    Attributes
+    ----------
+    tank_ullage_volume_m3 : float
+        Ullage volume ``V_tank - m_p / rho`` [1]_, m^3.
+    tank_pressure_pa : float
+        Ideal-gas ullage pressure, Pa.
+    bottle_pressure_pa : float
+        Ideal-gas bottle pressure, Pa.
+    injector_pressure_pa : float
+        Tank pressure minus the quadratic line loss, Pa.
+    feed_line_pressure_drop_pa : float
+        ``R_line * mdot**2``, Pa.
+    regulator_command : float
+        Proportional command clipped to ``[0, 1]``.
+    regulator_mass_flow_kg_s : float
+        Bottle-to-tank pressurant flow, kg/s.
+    regulator_choked : bool
+        Whether the regulator flow is choked.
+    tank_heat_flow_w : float
+        Wall-to-ullage heat flow, W.
+    bottle_heat_flow_w : float
+        Wall-to-bottle-gas heat flow, W.
+    derivative : RegulatedFeedDerivative
+        Six-state ODE right-hand side [2]_.
+    pressure_partials : FeedPressurePartials
+        Analytic injector-pressure derivatives.
+    reverse_flow_event_extension : bool, default False
+        ``True`` when a negative liquid flow was evaluated as a signed
+        continuation for zero-flow event location only.
 
     References
     ----------
-    NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-    NASA nodal feed/pressurization modeling:
-    https://ntrs.nasa.gov/citations/20240003493
+    .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+           https://ntrs.nasa.gov/citations/19760015212
+    .. [2] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+           System", 2024. https://ntrs.nasa.gov/citations/20240003493
     """
 
     tank_ullage_volume_m3: float
@@ -300,22 +474,24 @@ class RegulatedFeedEvaluation:
     reverse_flow_event_extension: bool = False
 
     def __post_init__(self) -> None:
-        """Reject non-finite algebraic outputs as well as non-finite derivatives.
-
-        References
-        ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-        """
+        """Coerce every algebraic output to a finite value; raise otherwise."""
         coerce_fields(self, "Feed evaluation")
 
 
 class FeedEventKind(str, Enum):
-    """Protective cutoff surfaces owned by the feed system.
+    """Protective cutoff limits owned by the feed system.
+
+    Members are the propellant reserve, minimum injector pressure, minimum
+    bottle-to-tank pressure margin and, when configured, tank overpressure;
+    [1]_ and [2]_ give the pressurization and regulator design context for
+    these limits.
 
     References
     ----------
-    NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-    NASA-SP-8080: https://ntrs.nasa.gov/citations/19740002611
+    .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+           https://ntrs.nasa.gov/citations/19760015212
+    .. [2] NASA SP-8080. NASA, "Liquid Rocket Pressure Regulators and Valves".
+           https://ntrs.nasa.gov/citations/19740002611
     """
 
     PROPELLANT_RESERVE = "propellant_reserve"
@@ -326,13 +502,29 @@ class FeedEventKind(str, Enum):
 
 @dataclass(frozen=True, slots=True)
 class FeedSystemEventSurface:
-    """Positive-safe signed root function for one feed-system limit.
+    """Signed event function for one feed-system limit, positive inside it.
+
+    Attributes
+    ----------
+    event_id : str
+        Stable event identifier.
+    kind : FeedEventKind
+        Limit that the event function measures.
+    stops_burn : bool, default True
+        Whether a zero crossing terminates the burn.
+
+    Notes
+    -----
+    The sign convention suits the zero-crossing event detectors of a
+    propagator [2]_; the limits come from the pressurization-system design
+    [1]_.
 
     References
     ----------
-    NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-    Orekit EventDetector 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+    .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+           https://ntrs.nasa.gov/citations/19760015212
+    .. [2] Orekit Project, "PropulsionModel / EventDetector" API documentation,
+           Orekit 13.1.5.
     """
 
     event_id: str
@@ -342,14 +534,36 @@ class FeedSystemEventSurface:
 
 @dataclass(frozen=True, slots=True)
 class FeedCouplingEvidence:
-    """Fixed-point convergence evidence for feed/performance closure.
+    """Fixed-point convergence evidence for the feed/performance closure.
+
+    Attributes
+    ----------
+    method : str
+        Identifier of the iteration scheme.
+    iterations : int
+        Iterations performed, including the accepted one.
+    converged : bool
+        Whether the flow residual met the tolerance.
+    relative_tolerance : float
+        Relative flow tolerance (scale floor 1 kg/s).
+    relaxation : float
+        Under-relaxation factor in ``(0, 1]``.
+    mass_flow_residual_kg_s : float
+        Absolute demanded-minus-assumed flow residual, kg/s.
+    injector_pressure_change_pa : float
+        Injector-pressure change over the last iteration, Pa.
+
+    Notes
+    -----
+    [1]_ and [2]_ give the transient and nodal feed-network modelling context
+    of the closure.
 
     References
     ----------
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
-    NASA nodal feed/pressurization modeling:
-    https://ntrs.nasa.gov/citations/20240003493
+    .. [1] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
+    .. [2] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+           System", 2024. https://ntrs.nasa.gov/citations/20240003493
     """
 
     method: str
@@ -363,22 +577,38 @@ class FeedCouplingEvidence:
 
 @dataclass(frozen=True, slots=True)
 class CoupledFeedPartials:
-    """Implicit derivatives through the feed-pressure/engine-flow loop.
+    """Implicit derivatives through the feed-pressure / engine-flow loop.
 
-    If engine demand is ``q = Q(p)`` and injector pressure is ``p = P(x,q)``,
+    Attributes
+    ----------
+    algebraic_denominator : float
+        ``1 - P_q Q_p``; its magnitude measures the distance from an algebraic
+        singularity of the loop.
+    injector_pressure_wrt_feed_state : tuple of (str, float)
+        Closed derivative ``dp/dx`` for each feed state.
+    propellant_flow_wrt_feed_state : tuple of (str, float)
+        ``Q_p dp/dx`` for each feed state.
+    acceleration_wrt_feed_state : tuple of (str, (float, float, float))
+        Thrust-acceleration derivative for each feed state.
+
+    Notes
+    -----
+    If engine demand is ``q = Q(p)`` and injector pressure is ``p = P(x, q)``,
     the closed derivative is
 
     ``dp/dx = P_x / (1 - P_q Q_p)``.
 
-    The reported denominator makes proximity to an algebraic singularity
-    auditable instead of hiding it inside a fixed-point iteration.
+    The denominator is reported explicitly so that proximity to an algebraic
+    singularity is visible to the caller rather than implicit in the
+    fixed-point iteration.  [1]_ and [2]_ give the coupled-component
+    modelling context.
 
     References
     ----------
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
-    NASA nodal feed/pressurization modeling:
-    https://ntrs.nasa.gov/citations/20240003493
+    .. [1] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
+    .. [2] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+           System", 2024. https://ntrs.nasa.gov/citations/20240003493
     """
 
     algebraic_denominator: float
@@ -393,12 +623,28 @@ class CoupledFeedPartials:
 class CoupledFeedPropulsionEvaluation:
     """Closed feed-system and propagator-force evaluation at one stage.
 
+    Attributes
+    ----------
+    propulsion : PropulsionDynamicsEvaluation
+        Engine evaluation at the converged injector pressure.
+    feed : RegulatedFeedEvaluation
+        Feed evaluation at the converged flow.
+    evidence : FeedCouplingEvidence
+        Convergence evidence.
+    partials : CoupledFeedPartials
+        Implicit closed-loop derivatives.
+
+    Notes
+    -----
+    [1]_ and [2]_ give the coupled transient and feed-network modelling
+    context.
+
     References
     ----------
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
-    NASA nodal feed/pressurization modeling:
-    https://ntrs.nasa.gov/citations/20240003493
+    .. [1] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
+    .. [2] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+           System", 2024. https://ntrs.nasa.gov/citations/20240003493
     """
 
     propulsion: PropulsionDynamicsEvaluation
@@ -411,36 +657,49 @@ class CoupledFeedPropulsionEvaluation:
 class RegulatedFeedSystem:
     """Single-ullage-node regulated feed model for propagation.
 
-    The tank energy equation includes inlet enthalpy, ullage boundary work and
-    wall heat transfer.  The fixed-volume bottle includes outlet enthalpy and
-    wall heat transfer.  Pressurant mass is conserved exactly between nodes.
+    Parameters
+    ----------
+    configuration : RegulatedFeedConfiguration
+        Geometry, control, thermal and cutoff configuration.
 
-    The model omits line inertance, acoustic/water-hammer modes, stratified
-    ullage, phase change, dissolved gas, regulator hysteresis and real-fluid
-    properties.  Those omissions are explicit because fast pressure events may
-    require a higher-order validated nodal model.
+    Notes
+    -----
+    The tank energy equation includes inlet enthalpy, ullage boundary work
+    and wall heat transfer; the fixed-volume bottle includes outlet enthalpy
+    and wall heat transfer [3]_.  Pressurant mass is conserved exactly between
+    the two nodes.  [1]_ and [2]_ give the pressurization-system and regulator
+    design context.
+
+    The model omits line inertance, acoustic and water-hammer modes,
+    stratified ullage, phase change, dissolved gas, regulator hysteresis and
+    real-fluid properties.  Fast pressure events may require a higher-order
+    validated nodal model [3]_, [4]_.
 
     References
     ----------
-    NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-    NASA-SP-8080: https://ntrs.nasa.gov/citations/19740002611
-    NASA nodal feed/pressurization modeling:
-    https://ntrs.nasa.gov/citations/20240003493
-    NASA NESC transient-pressure bulletin:
-    https://ntrs.nasa.gov/citations/20220006583
+    .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+           https://ntrs.nasa.gov/citations/19760015212
+    .. [2] NASA SP-8080. NASA, "Liquid Rocket Pressure Regulators and Valves".
+           https://ntrs.nasa.gov/citations/19740002611
+    .. [3] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+           System", 2024. https://ntrs.nasa.gov/citations/20240003493
+    .. [4] NASA NESC Technical Bulletin 22-03, "Treatment of Transient Pressure
+           Events", 2022. https://ntrs.nasa.gov/citations/20220006583
     """
 
     configuration: RegulatedFeedConfiguration
 
     @property
     def model_hash(self) -> str:
-        """Bind configuration, event policy and reference identifiers.
+        """SHA-256 binding configuration, event policy and source identifiers.
 
-        This manifest digest is not a hash of the executable implementation.
+        The digest covers the manifest without its hash field, for model
+        traceability [1]_; it is not a hash of the executable implementation.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations", 2024.
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
         return canonical_sha256(self.manifest(include_hash=False))
@@ -448,11 +707,28 @@ class RegulatedFeedSystem:
     def manifest(self, *, include_hash: bool = True) -> dict[str, object]:
         """Return the deterministic integration manifest.
 
+        Parameters
+        ----------
+        include_hash : bool, default True
+            Whether to append ``model_hash`` computed over the other fields.
+
+        Returns
+        -------
+        dict
+            Schema, model identifier, gas properties, configuration values,
+            state order, source identifiers and the reverse-flow event policy.
+
+        Notes
+        -----
+        The manifest records the node configuration of [2]_ for model
+        traceability [1]_.
+
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-        NASA nodal feed/pressurization modeling:
-        https://ntrs.nasa.gov/citations/20240003493
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations", 2024.
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [2] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+               System", 2024. https://ntrs.nasa.gov/citations/20240003493
         """
 
         config = self.configuration
@@ -517,11 +793,46 @@ class RegulatedFeedSystem:
     ) -> RegulatedFeedState:
         """Build a mass-consistent state from declared node pressures.
 
+        Parameters
+        ----------
+        propellant_mass_kg : float
+            Positive liquid mass leaving positive ullage, kg.
+        tank_pressure_pa : float
+            Positive initial ullage pressure, Pa.
+        tank_gas_temperature_k : float
+            Positive initial ullage temperature, K.
+        bottle_pressure_pa : float
+            Positive initial bottle pressure, Pa.
+        bottle_gas_temperature_k : float
+            Positive initial bottle temperature, K.
+        regulator_opening : float, default 0.0
+            Initial opening fraction in ``[0, 1]``.
+
+        Returns
+        -------
+        RegulatedFeedState
+            State whose pressurant masses are ``m = p V / (R T)`` [3]_ for the
+            ullage volume ``V_tank - m_p / rho`` [1]_ and the bottle volume.
+
+        Raises
+        ------
+        DomainError
+            If an input is outside its domain or the propellant leaves no
+            positive ullage.
+
+        Notes
+        -----
+        Node masses rather than pressures are the conserved states of the
+        lumped network [2]_.
+
         References
         ----------
-        NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-        NASA nodal feed/pressurization modeling:
-        https://ntrs.nasa.gov/citations/20240003493
+        .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+               https://ntrs.nasa.gov/citations/19760015212
+        .. [2] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+               System", 2024. https://ntrs.nasa.gov/citations/20240003493
+        .. [3] NASA-GAS. NASA Glenn Research Center, "Equation of State (Ideal Gas)",
+               Beginner's Guide to Aeronautics, accessed 2026-10-18.
         """
 
         propellant_mass_kg = real(propellant_mass_kg, "Initial propellant mass")
@@ -554,6 +865,16 @@ class RegulatedFeedSystem:
         )
 
     def _ullage_volume(self, propellant_mass_kg: float) -> float:
+        """Return the rigid-tank ullage volume ``V_tank - m_p / rho`` [1]_, m^3.
+
+        Raises `DomainError` unless the propellant leaves a positive,
+        representable ullage below tank capacity.
+
+        References
+        ----------
+        .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+               https://ntrs.nasa.gov/citations/19760015212
+        """
         config = self.configuration
         maximum_propellant = (
             config.tank_internal_volume_m3 * config.propellant_density_kg_m3
@@ -569,6 +890,16 @@ class RegulatedFeedSystem:
         return ullage
 
     def _pressures(self, state: RegulatedFeedState) -> tuple[float, float, float]:
+        """Return ``(ullage_m3, tank_pa, bottle_pa)`` from the ideal-gas law.
+
+        Each node pressure is ``p = m R T / V`` [1]_; non-positive or
+        non-representable pressures raise `DomainError`.
+
+        References
+        ----------
+        .. [1] NASA-GAS. NASA Glenn Research Center, "Equation of State (Ideal Gas)",
+               Beginner's Guide to Aeronautics, accessed 2026-10-18.
+        """
         config = self.configuration
         ullage = self._ullage_volume(state.propellant_mass_kg)
         gas_constant = config.gas.specific_gas_constant_j_kg_k
@@ -596,14 +927,35 @@ class RegulatedFeedSystem:
         downstream_pressure_pa: float,
         opening: float,
     ) -> tuple[float, bool]:
+        """Return the compressible regulator mass flow and whether it is choked.
+
+        With pressure ratio ``r = p_down / p_up``, area
+        ``A = A_max * opening`` and ``G = Cd A p_up / sqrt(R T_up)``, the flow
+        is [1]_
+
+        ``mdot = G sqrt(2 gamma / (gamma - 1) * (r**(2/gamma) - r**((gamma+1)/gamma)))``
+
+        for ``r`` above the critical ratio ``(2 / (gamma + 1))**(gamma/(gamma-1))``
+        and the choked value
+        ``mdot = G sqrt(gamma) (1 + (gamma - 1) / 2)**(-(gamma+1) / (2 (gamma-1)))``
+        otherwise.  ``log r`` is formed with ``log1p`` near equilibrium and the
+        unchoked bracket is evaluated as ``r**(2/gamma) * -expm1(...)`` to
+        avoid cancellation.  Zero flow is returned when the regulator is
+        closed or the pressure difference is not forward.
+
+        References
+        ----------
+        .. [1] NASA Glenn Research Center, "Mass Flow Choking".
+               https://www.grc.nasa.gov/www/k-12/BGP/mflchk.html
+        """
         config = self.configuration
         gas = config.gas
         if upstream_pressure_pa <= downstream_pressure_pa or opening <= 0.0:
             return 0.0, False
         area = config.regulator_maximum_area_m2 * opening
         delta_gamma = gas.gamma - 1.0
-        # log1p preserves the original pressure gap near equilibrium, where
-        # first rounding p_down/p_up and subtracting two powers loses flow.
+        # log1p keeps the exact pressure gap near equilibrium; rounding
+        # p_down/p_up first and subtracting two powers would lose the flow.
         log_ratio = (log1p((downstream_pressure_pa - upstream_pressure_pa) / upstream_pressure_pa)
                      if downstream_pressure_pa > .5 * upstream_pressure_pa else
                      log(downstream_pressure_pa) - log(upstream_pressure_pa))
@@ -634,32 +986,65 @@ class RegulatedFeedSystem:
         *,
         for_event_location: bool = False,
     ) -> RegulatedFeedEvaluation:
-        """Return algebraic pressures and the six-state ODE right-hand side.
+        """Return the algebraic pressures and the six-state ODE right-hand side.
 
-        Positive ``propellant_mass_flow_kg_s`` drains the liquid tank.  The gas
-        node energy balances are
+        Parameters
+        ----------
+        state : RegulatedFeedState
+            Current feed state.
+        propellant_mass_flow_kg_s : float
+            Liquid demand; positive values drain the tank, kg/s.
+        for_event_location : bool, default False
+            Permit a negative demand as a signed continuation for locating a
+            zero-flow cutoff.
+
+        Returns
+        -------
+        RegulatedFeedEvaluation
+            Pressures, regulator flow, heat flows, ODE right-hand side and
+            injector-pressure partials.
+
+        Raises
+        ------
+        DomainError
+            If ``state`` has the wrong type, ``for_event_location`` is not a
+            bool, a negative demand is supplied without
+            ``for_event_location`` or with a non-zero static line resistance,
+            or a derived quantity is not finite and positive.
+
+        Notes
+        -----
+        Node pressures follow the ideal-gas law on the ullage
+        ``V_u = V_tank - m_p / rho`` [1]_ and the bottle.  The gas-node energy
+        balances [2]_ are
 
         ``d(m_t cv T_t)/dt = mdot_r cp T_b + Q_t - p_t dV_u/dt``
 
         and
 
-        ``d(m_b cv T_b)/dt = -mdot_r cp T_b + Q_b``.
+        ``d(m_b cv T_b)/dt = -mdot_r cp T_b + Q_b``,
 
-        Negative liquid flow is refused by default. ``for_event_location``
-        permits a signed continuation only with zero static line resistance,
-        for locating the dynamic line's zero-flow cutoff. Tank mass and ullage
-        work retain that signed flow so the trial RHS conserves mass and gas
-        energy. A negative-flow result is marked ``reverse_flow_event_extension``;
-        it does not describe approved sustained reverse operation. The caller
-        must terminate physical propagation at the zero-flow event.
+        with wall heat flows ``Q = hA (T_wall - T_gas)``.  The regulator flow
+        ``mdot_r`` follows the compressible-restriction relation with choking
+        [3]_, and the injector pressure is ``p_t - R_line mdot**2``.
+
+        Negative liquid flow is refused by default.  ``for_event_location``
+        permits a signed continuation, only with zero static line resistance,
+        for locating the dynamic line's zero-flow cutoff.  Tank mass and ullage
+        work retain the signed flow so that the trial right-hand side conserves
+        mass and gas energy.  Such a result is marked
+        ``reverse_flow_event_extension``; it does not describe sustained
+        reverse operation, and physical propagation terminates at the zero-flow
+        event.
 
         References
         ----------
-        NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-        NASA nodal feed/pressurization modeling:
-        https://ntrs.nasa.gov/citations/20240003493
-        NASA mass-flow choking relation:
-        https://www.grc.nasa.gov/www/k-12/BGP/mflchk.html
+        .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+               https://ntrs.nasa.gov/citations/19760015212
+        .. [2] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+               System", 2024. https://ntrs.nasa.gov/citations/20240003493
+        .. [3] NASA Glenn Research Center, "Mass Flow Choking".
+               https://www.grc.nasa.gov/www/k-12/BGP/mflchk.html
         """
 
         if not isinstance(state, RegulatedFeedState):
@@ -766,12 +1151,21 @@ class RegulatedFeedSystem:
         )
 
     def event_surfaces(self) -> tuple[FeedSystemEventSurface, ...]:
-        """Return all configured positive-safe feed cutoff roots.
+        """Return every configured feed cutoff event.
+
+        Returns
+        -------
+        tuple of FeedSystemEventSurface
+            Propellant-reserve, injector-pressure and bottle-margin events,
+            plus tank overpressure when ``maximum_tank_pressure_pa`` is set.
+            [1]_ and [2]_ give the design context of these limits.
 
         References
         ----------
-        NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-        NASA-SP-8080: https://ntrs.nasa.gov/citations/19740002611
+        .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+               https://ntrs.nasa.gov/citations/19760015212
+        .. [2] NASA SP-8080. NASA, "Liquid Rocket Pressure Regulators and Valves".
+               https://ntrs.nasa.gov/citations/19740002611
         """
 
         surfaces = [
@@ -799,13 +1193,37 @@ class RegulatedFeedSystem:
         state: RegulatedFeedState,
         propellant_mass_flow_kg_s: float,
     ) -> float:
-        """Evaluate one positive-safe cutoff root.
+        """Evaluate one feed cutoff function, positive inside the permitted domain.
+
+        Parameters
+        ----------
+        surface : FeedSystemEventSurface
+            Event to evaluate.
+        state : RegulatedFeedState
+            Current feed state.
+        propellant_mass_flow_kg_s : float
+            Non-negative liquid demand, kg/s.
+
+        Returns
+        -------
+        float
+            Reserve margin ``m_p - m_min``, injector margin
+            ``p_inj - p_inj_min``, bottle margin ``p_b - p_t - margin_min``, or
+            overpressure margin ``p_max - p_t``; a sign change marks the event
+            for a zero-crossing detector [2]_.  The limits follow the
+            pressurization-system design [1]_.
+
+        Raises
+        ------
+        DomainError
+            If the event kind is unsupported or the feed evaluation fails.
 
         References
         ----------
-        NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-        Orekit EventDetector 13.1.5 API:
-        https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+        .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+               https://ntrs.nasa.gov/citations/19760015212
+        .. [2] Orekit Project, "PropulsionModel / EventDetector" API documentation,
+               Orekit 13.1.5.
         """
 
         config = self.configuration
@@ -845,21 +1263,79 @@ def evaluate_coupled_feed_propulsion(
     relaxation: float = 0.5,
     maximum_iterations: int = 100,
 ) -> CoupledFeedPropulsionEvaluation:
-    """Close engine flow demand against feed-line-dependent inlet pressure.
+    """Close engine flow demand against the feed-line-dependent inlet pressure.
 
-    The bridge's performance surface produces tank-flow demand from injector
-    pressure, while the feed line produces injector pressure from that same
-    flow.  A relaxed fixed-point iteration resolves this algebraic loop and
-    returns explicit residual evidence.  Non-convergence fails closed.
+    Parameters
+    ----------
+    bridge : PropagatorPropulsionBridge
+        Propagator bridge with a performance surface.
+    feed_system : RegulatedFeedSystem
+        Regulated feed model.
+    feed_state : RegulatedFeedState
+        Current feed state.
+    relative_time_s : float
+        Time from burn start, s.
+    vehicle_mass_kg : float
+        Current vehicle mass, kg.
+    direction : tuple of float
+        Thrust direction in the propagation frame.
+    pressure_condition_name : str
+        Non-blank performance-surface axis driven by injector pressure.
+    other_operating_conditions : Mapping[str, float] or None, default None
+        Remaining operating conditions; must not contain
+        ``pressure_condition_name``.
+    additional_states : Mapping[str, float] or None, default None
+        Additional propagated states passed to the bridge.
+    parameter_overrides : Mapping[str, float] or None, default None
+        Parameter values passed to the bridge.
+    initial_mass_flow_kg_s : float, default 0.0
+        Non-negative initial flow guess, kg/s.
+    apply_inventory_limits : bool, default True
+        Whether the bridge applies inventory cutoffs.
+    ambient_pressure_pa : float or None, default None
+        Ambient pressure passed to the bridge, Pa.
+    relative_tolerance : float, default 1e-10
+        Positive relative flow tolerance (scale floor 1 kg/s).
+    relaxation : float, default 0.5
+        Under-relaxation factor in ``(0, 1]``.
+    maximum_iterations : int, default 100
+        Positive iteration limit.
+
+    Returns
+    -------
+    CoupledFeedPropulsionEvaluation
+        Converged engine and feed evaluations, convergence evidence and the
+        implicit closed-loop partials.
+
+    Raises
+    ------
+    DomainError
+        If an argument is outside its domain, the pressure condition is not a
+        performance axis or is also supplied in ``other_operating_conditions``,
+        the bridge does not expose the pressure-condition partials, the
+        algebraic Jacobian denominator is within ``1e-10`` of zero, an iterate
+        is invalid, or the iteration does not converge.
+
+    Notes
+    -----
+    The performance surface produces tank-flow demand ``Q(p)`` from injector
+    pressure, while the feed line produces injector pressure ``P(x, q)`` from
+    that flow.  The relaxed fixed-point iteration
+    ``q <- q + omega (Q(P(x, q)) - q)`` resolves this algebraic loop and
+    returns explicit residual evidence; non-convergence raises `DomainError`.
+    At convergence the state derivatives are closed through
+    ``dp/dx = P_x / (1 - P_q Q_p)``.  [1]_ and [2]_ give the coupled
+    feed-network modelling context and [3]_ a pressurization-control study of
+    the feed-pressure / flow coupling.
 
     References
     ----------
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
-    NASA nodal feed/pressurization modeling:
-    https://ntrs.nasa.gov/citations/20240003493
-    NASA computer-controlled pressurization study:
-    https://ntrs.nasa.gov/citations/20050206420
+    .. [1] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
+    .. [2] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+           System", 2024. https://ntrs.nasa.gov/citations/20240003493
+    .. [3] NASA, "Simulation Analysis of Computer-Controlled Pressurization for
+           Mixture Ratio Control", 2005. https://ntrs.nasa.gov/citations/20050206420
     """
 
     if bridge.performance_surface is None:

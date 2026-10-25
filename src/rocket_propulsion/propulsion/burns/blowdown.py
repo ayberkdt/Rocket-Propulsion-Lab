@@ -1,18 +1,20 @@
-"""Reference-backed pressure-fed blowdown propulsion model.
+"""Pressure-fed blowdown propulsion model.
 
-This preliminary L2 model resolves rigid-tank ullage expansion, a declared
-polytropic gas law, pressure-correlated thrust/Isp, and a converged tabulated
-force/mass-flow history.  It is propulsion-only and contains no orbit or frame
-logic.
+This preliminary L2 model resolves rigid-tank ullage expansion under a declared
+polytropic gas law [1]_, pressure-correlated thrust and specific impulse
+calibrated against hardware data [3]_, and a mesh-converged tabulated
+force/mass-flow history.  The unregulated monopropellant time histories of [2]_
+illustrate the pressure decay this model represents.  The module is
+propulsion-only and contains no orbit or reference-frame logic.
 
 References
 ----------
-NASA-SP-8112, *Pressurization Systems for Liquid Rockets*:
-https://ntrs.nasa.gov/citations/19760015212
-NASA-CR-131400, *Reliability Model of a Monopropellant Auxiliary Propulsion
-System*: https://ntrs.nasa.gov/citations/19730012094
-NASA-CR-122347, *Monopropellant Hydrazine Resisto Jet*:
-https://ntrs.nasa.gov/citations/19720011120
+.. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+       https://ntrs.nasa.gov/citations/19760015212
+.. [2] NASA CR-131400. NASA, "Reliability Model of a Monopropellant Auxiliary
+       Propulsion System". https://ntrs.nasa.gov/citations/19730012094
+.. [3] NASA CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet".
+       https://ntrs.nasa.gov/citations/19720011120
 """
 
 from __future__ import annotations
@@ -40,41 +42,68 @@ BLOWDOWN_REFERENCE_IDS = (
 
 
 class PressurePerformanceModel(Protocol):
-    """Structural contract for a pressure-to-operating-point model.
+    """Structural contract for a supply-pressure-to-operating-point model.
 
-    Implementations must declare their pressure validity interval and refuse
-    extrapolation. This keeps the blowdown integrator independent of whether
-    performance came from a compact correlation or a measured hot-fire map.
+    Implementations declare an inclusive supply-pressure validity interval
+    and refuse extrapolation outside it.  The blowdown integrator depends
+    only on this contract, so performance may come from a compact calibrated
+    correlation or from a measured hot-fire map [1]_, [2]_.
+
+    Attributes
+    ----------
+    minimum_supply_pressure_pa : float
+        Inclusive lower validity limit of the model, Pa.
 
     References
     ----------
-    NASA-CR-122347: https://ntrs.nasa.gov/citations/19720011120
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
+    .. [1] NASA CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet".
+           https://ntrs.nasa.gov/citations/19720011120
+    .. [2] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
     """
 
     minimum_supply_pressure_pa: float
 
     @property
     def maximum_pressure_pa(self) -> float:
-        """Return the inclusive upper validity limit."""
+        """Inclusive upper supply-pressure validity limit, Pa."""
 
         ...
 
     def scale_operating_point(
         self, rated_point: EngineOperatingPoint, supply_pressure_pa: float
     ) -> EngineOperatingPoint:
-        """Return a stream-closed point at the requested supply pressure."""
+        """Return a stream-closed operating point at a supply pressure.
+
+        Parameters
+        ----------
+        rated_point : EngineOperatingPoint
+            Reference operating point whose stream proportions are retained.
+        supply_pressure_pa : float
+            Tank supply pressure inside the declared validity interval, Pa.
+
+        Returns
+        -------
+        EngineOperatingPoint
+            Operating point at ``supply_pressure_pa``.
+
+        Raises
+        ------
+        DomainError
+            If ``supply_pressure_pa`` lies outside the validity interval.
+        """
 
         ...
 
 
 def _positive(value: float, label: str) -> None:
+    """Raise `DomainError` unless ``value`` is finite and strictly positive."""
     if not isfinite(value) or value <= 0.0:
         raise DomainError(f"{label} must be finite and greater than zero.")
 
 
 def _nonnegative(value: float, label: str) -> None:
+    """Raise `DomainError` unless ``value`` is finite and non-negative."""
     if not isfinite(value) or value < 0.0:
         raise DomainError(f"{label} must be finite and non-negative.")
 
@@ -90,6 +119,21 @@ def _scaled_operating_point(
     source: str,
     warning: str,
 ) -> EngineOperatingPoint:
+    """Rescale a rated point to a new thrust and system specific impulse.
+
+    Total tank flow follows the specific-impulse definition [1]_,
+    ``mdot = F / (g0 * Isp)`` with ``g0`` the registered
+    ``STANDARD_GRAVITY_M_S2``.  Every stream and the chamber flow are scaled by
+    the same ratio ``mdot / mdot_rated``, so stream proportions, mixture ratio
+    and tank-flow closure are preserved; ideal thrust scales with delivered
+    thrust and chamber specific impulse is recomputed from the scaled chamber
+    flow.
+
+    References
+    ----------
+    .. [1] NASA Glenn Research Center, "Specific Impulse".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+    """
     total_flow = delivered_thrust_n / (
         STANDARD_GRAVITY_M_S2 * system_specific_impulse_s
     )
@@ -139,17 +183,41 @@ def _scaled_operating_point(
 class BlowdownTankModel:
     """Rigid tank with incompressible propellant and polytropic ullage gas.
 
-    The pressure law is ``p = p0 * (V0 / V)**n``. ``n=1`` represents the
-    isothermal ideal-gas limit; a larger declared exponent approximates reduced
-    heat transfer. Propellant density is constant and dissolved-gas, diaphragm,
-    vapor-pressure, line-loss, and thermal-soak effects are outside this model.
+    Parameters
+    ----------
+    initial_pressure_pa : float
+        Initial ullage pressure ``p0``, Pa.
+    initial_ullage_volume_m3 : float
+        Initial ullage volume ``V0``, m^3.
+    initial_propellant_mass_kg : float
+        Initial liquid propellant mass, kg.
+    propellant_density_kg_m3 : float
+        Constant liquid density, kg/m^3.
+    polytropic_exponent : float, default 1.0
+        Declared ullage polytropic exponent ``n``.
+
+    Raises
+    ------
+    DomainError
+        If any input is non-finite or not strictly positive.
+
+    Notes
+    -----
+    The ullage follows the blowdown pressure law [1]_
+    ``p = p0 * (V0 / V)**n``, where ``V`` grows by the expelled liquid volume.
+    ``n = 1`` is the isothermal ideal-gas limit; a larger declared exponent
+    approximates reduced gas-wall heat transfer.  Propellant density is
+    constant.  Dissolved gas, diaphragm mechanics, vapour pressure, line losses
+    and thermal soak are outside the model.  The unregulated monopropellant
+    histories of [2]_ show the pressure decay this model idealizes.
 
     References
     ----------
-    NASA-SP-8112, blowdown-system section:
-    https://ntrs.nasa.gov/citations/19760015212
-    NASA-CR-131400, unregulated monopropellant performance history:
-    https://ntrs.nasa.gov/citations/19730012094
+    .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+           https://ntrs.nasa.gov/citations/19760015212
+    .. [2] NASA CR-131400. NASA, "Reliability Model of a Monopropellant
+           Auxiliary Propulsion System".
+           https://ntrs.nasa.gov/citations/19730012094
     """
 
     initial_pressure_pa: float
@@ -170,32 +238,51 @@ class BlowdownTankModel:
 
     @property
     def initial_propellant_volume_m3(self) -> float:
-        """Return initial liquid volume from the incompressible density model.
+        """Initial liquid volume ``m0 / rho`` of the incompressible propellant, m^3 [1]_.
 
         References
         ----------
-        NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
+        .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets",
+               1975. https://ntrs.nasa.gov/citations/19760015212
         """
 
         return self.initial_propellant_mass_kg / self.propellant_density_kg_m3
 
     @property
     def tank_volume_m3(self) -> float:
-        """Return rigid internal tank volume represented by the model.
+        """Rigid internal tank volume, initial ullage plus initial liquid, m^3 [1]_.
 
         References
         ----------
-        NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
+        .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets",
+               1975. https://ntrs.nasa.gov/citations/19760015212
         """
 
         return self.initial_ullage_volume_m3 + self.initial_propellant_volume_m3
 
     def ullage_volume_m3(self, remaining_propellant_mass_kg: float) -> float:
-        """Return ullage volume after expelling a declared propellant mass.
+        """Return the ullage volume after part of the propellant is expelled.
+
+        Parameters
+        ----------
+        remaining_propellant_mass_kg : float
+            Liquid mass still in the tank, within ``[0, initial mass]``, kg.
+
+        Returns
+        -------
+        float
+            ``V0 + (m0 - m) / rho``, m^3; a rigid tank gains the expelled
+            liquid volume as ullage [1]_.
+
+        Raises
+        ------
+        DomainError
+            If the remaining mass is non-finite or outside the initial inventory.
 
         References
         ----------
-        NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
+        .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets",
+               1975. https://ntrs.nasa.gov/citations/19760015212
         """
 
         self._validate_remaining_mass(remaining_propellant_mass_kg)
@@ -205,16 +292,35 @@ class BlowdownTankModel:
     def pressure_pa(self, remaining_propellant_mass_kg: float) -> float:
         """Evaluate the declared polytropic ullage-pressure law.
 
+        Parameters
+        ----------
+        remaining_propellant_mass_kg : float
+            Liquid mass still in the tank, within ``[0, initial mass]``, kg.
+
+        Returns
+        -------
+        float
+            Ullage pressure ``p0 * (V0 / V)**n``, Pa.
+
+        Raises
+        ------
+        DomainError
+            If the remaining mass is non-finite or outside the initial inventory.
+
         Notes
         -----
-        This is a preliminary thermodynamic closure, not a heat-transfer or
-        pressurant-dissolution model. The exponent is an explicit input rather
-        than an inferred gas property.
+        This is a preliminary thermodynamic closure [1]_, not a heat-transfer
+        or pressurant-dissolution model.  The exponent ``n`` is an explicit
+        input rather than an inferred gas property; [2]_ documents the pressure
+        decay of an unregulated system of this kind.
 
         References
         ----------
-        NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-        NASA-CR-131400: https://ntrs.nasa.gov/citations/19730012094
+        .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets",
+               1975. https://ntrs.nasa.gov/citations/19760015212
+        .. [2] NASA CR-131400. NASA, "Reliability Model of a Monopropellant
+               Auxiliary Propulsion System".
+               https://ntrs.nasa.gov/citations/19730012094
         """
 
         ullage = self.ullage_volume_m3(remaining_propellant_mass_kg)
@@ -223,11 +329,30 @@ class BlowdownTankModel:
         ) ** self.polytropic_exponent
 
     def remaining_mass_at_pressure(self, pressure_pa: float) -> float:
-        """Invert the polytropic law for a pressure-triggered cutoff.
+        """Invert the polytropic law to locate a pressure-triggered cutoff.
+
+        Parameters
+        ----------
+        pressure_pa : float
+            Ullage pressure at which the cutoff occurs, Pa.
+
+        Returns
+        -------
+        float
+            Remaining liquid mass at that pressure, kg.  The required ullage is
+            ``V0 * (p0 / p)**(1/n)`` [1]_; the result is clipped to
+            ``[0, initial mass]`` and equals the initial mass for
+            ``pressure_pa >= p0``.
+
+        Raises
+        ------
+        DomainError
+            If ``pressure_pa`` is non-finite or not strictly positive.
 
         References
         ----------
-        NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
+        .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets",
+               1975. https://ntrs.nasa.gov/citations/19760015212
         """
 
         _positive(pressure_pa, "Requested ullage pressure")
@@ -245,6 +370,7 @@ class BlowdownTankModel:
         )
 
     def _validate_remaining_mass(self, remaining_propellant_mass_kg: float) -> None:
+        """Raise `DomainError` unless the mass lies in ``[0, initial mass]``."""
         if (
             not isfinite(remaining_propellant_mass_kg)
             or remaining_propellant_mass_kg < 0.0
@@ -257,21 +383,48 @@ class BlowdownTankModel:
 
 @dataclass(frozen=True, slots=True)
 class PressurePerformanceLaw:
-    """Declared pressure correlation around a measured/reference operating point.
+    """Declared power-law pressure correlation around a reference operating point.
 
-    ``F/Fref = (p/pref)**a`` and ``Isp/Isp_ref = (p/pref)**b``. The exponents
-    are calibration inputs, not universal rocket laws. NASA-CR-122347 reports
-    nearly linear thrust decline with supply pressure for its tested device and
-    only small Isp variation over a 200-to-100 psi blowdown; other hardware
-    requires its own data fit.
+    Parameters
+    ----------
+    reference_supply_pressure_pa : float
+        Supply pressure ``p_ref`` of the rated operating point, Pa.
+    minimum_supply_pressure_pa : float
+        Inclusive lower validity limit, Pa.
+    thrust_pressure_exponent : float, default 1.0
+        Non-negative thrust exponent ``a``.
+    specific_impulse_pressure_exponent : float, default 0.0
+        Finite specific-impulse exponent ``b``.
+    chamber_pressure_exponent : float, default 1.0
+        Non-negative chamber-pressure exponent ``c``.
+    maximum_supply_pressure_pa : float or None, default None
+        Inclusive upper validity limit, Pa; ``None`` uses ``p_ref``.
+
+    Raises
+    ------
+    DomainError
+        If a pressure is not finite and positive, the validity interval is
+        empty, ``p_ref`` lies outside it, or an exponent violates its sign
+        or finiteness requirement.
+
+    Notes
+    -----
+    With ``r = p / p_ref`` the correlation is ``F / F_ref = r**a``,
+    ``Isp / Isp_ref = r**b`` and ``pc / pc_ref = r**c``.  The exponents are
+    hardware-specific calibration inputs, not universal rocket laws.  [1]_
+    (sections 3.2 and 3.3) reports a nearly linear thrust decline with supply
+    pressure for its tested device and only a small Isp variation over a
+    200-to-100 psi blowdown; other hardware requires its own data fit.  Thrust
+    and specific impulse remain linked through the thrust equation [2]_, [3]_.
 
     References
     ----------
-    NASA-CR-122347, sections 3.2 and 3.3:
-    https://ntrs.nasa.gov/citations/19720011120
-    NASA-SP-125: https://ntrs.nasa.gov/citations/19710019929
-    NASA rocket thrust equation:
-    https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
+    .. [1] NASA CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet".
+           https://ntrs.nasa.gov/citations/19720011120
+    .. [2] NASA SP-125. NASA, "Design of Liquid Propellant Rocket Engines".
+           https://ntrs.nasa.gov/citations/19710019929
+    .. [3] NASA Glenn Research Center, "Rocket Thrust Equation".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
     """
 
     reference_supply_pressure_pa: float
@@ -300,11 +453,16 @@ class PressurePerformanceLaw:
 
     @property
     def maximum_pressure_pa(self) -> float:
-        """Return the declared upper validity limit.
+        """Inclusive upper supply-pressure validity limit, Pa.
+
+        Equals ``maximum_supply_pressure_pa`` when declared, otherwise the
+        reference supply pressure; the calibration range follows the tested
+        pressure span of the source data [1]_.
 
         References
         ----------
-        NASA-CR-122347: https://ntrs.nasa.gov/citations/19720011120
+        .. [1] NASA CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet".
+               https://ntrs.nasa.gov/citations/19720011120
         """
 
         return self.maximum_supply_pressure_pa or self.reference_supply_pressure_pa
@@ -312,17 +470,41 @@ class PressurePerformanceLaw:
     def scale_operating_point(
         self, rated_point: EngineOperatingPoint, supply_pressure_pa: float
     ) -> EngineOperatingPoint:
-        """Scale a stream-closed point while preserving system-Isp identity.
+        """Scale a stream-closed point while preserving the system-Isp identity.
 
+        Parameters
+        ----------
+        rated_point : EngineOperatingPoint
+            Operating point measured or modelled at the reference pressure.
+        supply_pressure_pa : float
+            Tank supply pressure, Pa.  Values within a relative ``1e-12``
+            (absolute ``1e-9`` Pa) of the validity limits are clamped to them.
+
+        Returns
+        -------
+        EngineOperatingPoint
+            Operating point with thrust, system Isp and chamber pressure scaled
+            by the declared power laws [1]_.
+
+        Raises
+        ------
+        DomainError
+            If ``supply_pressure_pa`` is non-finite or outside the validity
+            interval beyond the clamping tolerance.
+
+        Notes
+        -----
         All tank-depleting and chamber streams retain their rated proportions.
-        Total flow is recomputed from ``F/(g0*Isp)``; it is never inferred from
-        chamber flow alone.
+        Total flow is recomputed as ``F / (g0 * Isp)`` [2]_ with ``g0`` the
+        registered ``STANDARD_GRAVITY_M_S2``; it is never inferred from chamber
+        flow alone.
 
         References
         ----------
-        NASA-CR-122347: https://ntrs.nasa.gov/citations/19720011120
-        NASA rocket thrust equation:
-        https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
+        .. [1] NASA CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet".
+               https://ntrs.nasa.gov/citations/19720011120
+        .. [2] NASA Glenn Research Center, "Rocket Thrust Equation".
+               https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
         """
 
         tolerance = max(1e-9, self.maximum_pressure_pa * 1e-12)
@@ -358,15 +540,36 @@ class PressurePerformanceLaw:
 
 @dataclass(frozen=True, slots=True)
 class PressurePerformanceSample:
-    """One measured or validated pressure-performance map row.
+    """One measured or validated row of a pressure-performance map.
 
+    Parameters
+    ----------
+    supply_pressure_pa : float
+        Tank supply pressure, Pa.
+    delivered_thrust_n : float
+        Delivered thrust at that pressure, N.
+    system_specific_impulse_s : float
+        System specific impulse at that pressure, s.
+    chamber_pressure_pa : float
+        Chamber pressure at that pressure, Pa.
+
+    Raises
+    ------
+    DomainError
+        If any value is non-finite or not strictly positive.
+
+    Notes
+    -----
     Values are absolute SI quantities rather than normalized multipliers, so
-    the map remains auditable without access to the original rated point.
+    the map is traceable to its test or model source [1]_, [2]_ without
+    access to the rated operating point.
 
     References
     ----------
-    NASA-CR-122347: https://ntrs.nasa.gov/citations/19720011120
-    NASA-TM-107318: https://ntrs.nasa.gov/citations/19970010379
+    .. [1] NASA CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet".
+           https://ntrs.nasa.gov/citations/19720011120
+    .. [2] NASA TM-107318. NASA, "RL10A-3-3A Rocket Engine Modeling Project".
+           https://ntrs.nasa.gov/citations/19970010379
     """
 
     supply_pressure_pa: float
@@ -388,17 +591,35 @@ class PressurePerformanceSample:
 class PressurePerformanceTable:
     """Piecewise-linear, non-extrapolating pressure-performance map.
 
-    The caller supplies pressure-ordered test or validated-model samples.
-    Interpolation is linear in each measured quantity. The table deliberately
-    refuses extrapolation and labels the resulting operating point with the
-    declared source identifier.
+    Parameters
+    ----------
+    samples : tuple of PressurePerformanceSample
+        At least two rows with strictly increasing supply pressure.
+    source_id : str
+        Non-blank identifier of the test or model source of the rows.
+
+    Raises
+    ------
+    DomainError
+        If fewer than two rows are supplied, the source is blank, or the
+        pressures are not strictly increasing.
+
+    Notes
+    -----
+    The rows come from hot-fire tests or a validated engine model [1]_, [2]_.
+    Each quantity is interpolated linearly in supply pressure between the
+    bracketing rows.  The table refuses extrapolation and labels the resulting
+    operating point with ``source_id``.  [3]_ gives the transient-modelling
+    context in which such component maps are used.
 
     References
     ----------
-    NASA-CR-122347: https://ntrs.nasa.gov/citations/19720011120
-    NASA-TM-107318: https://ntrs.nasa.gov/citations/19970010379
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
+    .. [1] NASA CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet".
+           https://ntrs.nasa.gov/citations/19720011120
+    .. [2] NASA TM-107318. NASA, "RL10A-3-3A Rocket Engine Modeling Project".
+           https://ntrs.nasa.gov/citations/19970010379
+    .. [3] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
     """
 
     samples: tuple[PressurePerformanceSample, ...]
@@ -415,22 +636,24 @@ class PressurePerformanceTable:
 
     @property
     def minimum_supply_pressure_pa(self) -> float:
-        """Return the inclusive lower validity limit.
+        """Inclusive lower validity limit: the first row's supply pressure, Pa [1]_.
 
         References
         ----------
-        NASA-CR-122347: https://ntrs.nasa.gov/citations/19720011120
+        .. [1] NASA CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet".
+               https://ntrs.nasa.gov/citations/19720011120
         """
 
         return self.samples[0].supply_pressure_pa
 
     @property
     def maximum_pressure_pa(self) -> float:
-        """Return the inclusive upper validity limit.
+        """Inclusive upper validity limit: the last row's supply pressure, Pa [1]_.
 
         References
         ----------
-        NASA-CR-122347: https://ntrs.nasa.gov/citations/19720011120
+        .. [1] NASA CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet".
+               https://ntrs.nasa.gov/citations/19720011120
         """
 
         return self.samples[-1].supply_pressure_pa
@@ -438,13 +661,40 @@ class PressurePerformanceTable:
     def scale_operating_point(
         self, rated_point: EngineOperatingPoint, supply_pressure_pa: float
     ) -> EngineOperatingPoint:
-        """Interpolate the measured map and preserve tank-stream closure.
+        """Interpolate the map and preserve tank-stream closure.
+
+        Parameters
+        ----------
+        rated_point : EngineOperatingPoint
+            Operating point whose stream proportions are retained.
+        supply_pressure_pa : float
+            Tank supply pressure, Pa.  Values within a relative ``1e-12``
+            (absolute ``1e-9`` Pa) of the table limits are clamped to them.
+
+        Returns
+        -------
+        EngineOperatingPoint
+            Operating point carrying the linearly interpolated thrust, system
+            Isp and chamber pressure [1]_.
+
+        Raises
+        ------
+        DomainError
+            If ``supply_pressure_pa`` is non-finite or outside the table range
+            beyond the clamping tolerance.
+
+        Notes
+        -----
+        Total flow is recomputed as ``F / (g0 * Isp)`` [2]_ from the
+        interpolated values, with ``g0`` the registered
+        ``STANDARD_GRAVITY_M_S2``, and all streams keep their rated proportions.
 
         References
         ----------
-        NASA-CR-122347: https://ntrs.nasa.gov/citations/19720011120
-        NASA rocket thrust equation:
-        https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
+        .. [1] NASA CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet".
+               https://ntrs.nasa.gov/citations/19720011120
+        .. [2] NASA Glenn Research Center, "Rocket Thrust Equation".
+               https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
         """
 
         tolerance = max(1e-9, self.maximum_pressure_pa * 1e-12)
@@ -495,11 +745,35 @@ class PressurePerformanceTable:
 
 @dataclass(frozen=True, slots=True)
 class BlowdownSample:
-    """One state in a pressure-fed blowdown history.
+    """One state of a pressure-fed blowdown history.
+
+    A sequence of samples records the pressure decay of an unregulated system
+    of the kind documented in [1]_.
+
+    Attributes
+    ----------
+    time_s : float
+        Elapsed burn time, s.
+    remaining_propellant_mass_kg : float
+        Liquid mass still in the tank, kg.
+    ullage_volume_m3 : float
+        Ullage volume, m^3.
+    supply_pressure_pa : float
+        Ullage (supply) pressure, Pa.
+    delivered_thrust_n : float
+        Delivered thrust magnitude, N.
+    axial_thrust_n : float
+        Delivered thrust multiplied by the cant efficiency, N.
+    system_specific_impulse_s : float
+        System specific impulse, s.
+    total_mass_flow_kg_s : float
+        Total tank outflow, kg/s.
 
     References
     ----------
-    NASA-CR-131400: https://ntrs.nasa.gov/citations/19730012094
+    .. [1] NASA CR-131400. NASA, "Reliability Model of a Monopropellant
+           Auxiliary Propulsion System".
+           https://ntrs.nasa.gov/citations/19730012094
     """
 
     time_s: float
@@ -514,12 +788,38 @@ class BlowdownSample:
 
 @dataclass(frozen=True, slots=True)
 class BlowdownIntegrationEvidence:
-    """Mesh-refinement evidence for the preliminary L2 history.
+    """Mesh-refinement and closure evidence for a blowdown history.
+
+    The residuals document the numerical closure of the integration; [1]_
+    gives the transient-modelling context.
+
+    Attributes
+    ----------
+    method : str
+        Identifier of the integration and refinement scheme.
+    mass_step_kg : float
+        Expelled-mass step of the accepted mesh, kg.
+    refinement_count : int
+        Number of step halvings performed.
+    relative_tolerance : float
+        Requested relative tolerance.
+    consumed_propellant_kg : float
+        Propellant expelled between start and cutoff, kg.
+    delivered_impulse_n_s : float
+        Composite-Simpson delivered impulse, N s.
+    mass_closure_error_kg : float
+        Absolute difference between tabulated and expected consumed mass, kg.
+    impulse_closure_error_n_s : float
+        Absolute difference between tabulated and Simpson impulse, N s.
+    duration_change_s : float
+        Burn-duration change from the previous refinement, s.
+    centroid_change_s : float
+        Thrust-centroid-time change from the previous refinement, s.
 
     References
     ----------
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
+    .. [1] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
     """
 
     method: str
@@ -536,13 +836,36 @@ class BlowdownIntegrationEvidence:
 
 @dataclass(frozen=True, slots=True)
 class BlowdownSimulationResult:
-    """Reference-labelled L2 blowdown profile and exchange artifact.
+    """Blowdown profile, exchange artifact and source labels of one simulation.
+
+    The history combines the ullage law of [1]_ with a pressure-performance
+    calibration of the kind reported in [3]_; [2]_ documents comparable
+    unregulated histories.
+
+    Attributes
+    ----------
+    samples : tuple of BlowdownSample
+        State history on the accepted expelled-mass mesh.
+    artifact : TabulatedBurnArtifact
+        Piecewise-linear force and mass-flow exchange artifact.
+    evidence : BlowdownIntegrationEvidence
+        Closure and mesh-refinement evidence.
+    cutoff_reason : str
+        ``"minimum_supply_pressure"`` or ``"propellant_reserve"``.
+    reference_ids : tuple of str
+        Identifiers of the sources behind the model.
+    warnings : tuple of str
+        Model-scope warnings.
 
     References
     ----------
-    NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-    NASA-CR-131400: https://ntrs.nasa.gov/citations/19730012094
-    NASA-CR-122347: https://ntrs.nasa.gov/citations/19720011120
+    .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+           https://ntrs.nasa.gov/citations/19760015212
+    .. [2] NASA CR-131400. NASA, "Reliability Model of a Monopropellant
+           Auxiliary Propulsion System".
+           https://ntrs.nasa.gov/citations/19730012094
+    .. [3] NASA CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet".
+           https://ntrs.nasa.gov/citations/19720011120
     """
 
     samples: tuple[BlowdownSample, ...]
@@ -554,6 +877,7 @@ class BlowdownSimulationResult:
 
 
 def _tank_flows(point: EngineOperatingPoint) -> tuple[tuple[str, float], ...]:
+    """Sum tank-depleting stream flows per tank, sorted by tank identifier."""
     flows: dict[str, float] = {}
     for stream in point.streams:
         if stream.tank_depleting:
@@ -562,6 +886,7 @@ def _tank_flows(point: EngineOperatingPoint) -> tuple[tuple[str, float], ...]:
 
 
 def _simpson(start: float, middle: float, end: float, width: float) -> float:
+    """Return the one-panel Simpson integral ``h * (f0 + 4 * f_mid + f1) / 6``."""
     return width * (start + 4.0 * middle + end) / 6.0
 
 
@@ -575,7 +900,29 @@ def _build_blowdown_mesh(
     maximum_mass_step_kg: float,
     source_hash: str,
 ) -> tuple[tuple[BlowdownSample, ...], TabulatedBurnArtifact, float]:
-    consumed = tank.initial_propellant_mass_kg - final_remaining_mass_kg
+    """Build one uniform expelled-mass mesh of the blowdown history.
+
+    The consumed mass is split into ``ceil(consumed / maximum_mass_step_kg)``
+    equal steps.  On each step the duration is the Simpson integral of
+    ``dt/dm = 1 / mdot`` and the impulse the Simpson integral of
+    ``dJ/dm = g0 * Isp`` [2]_, with ``g0`` the registered
+    ``STANDARD_GRAVITY_M_S2``; pressure at every node follows the polytropic
+    tank law [1]_.  Each step becomes one linear segment of the exchange
+    artifact.
+
+    Returns
+    -------
+    tuple
+        ``(samples, artifact, simpson_impulse_n_s)``.
+
+    References
+    ----------
+    .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+           https://ntrs.nasa.gov/citations/19760015212
+    .. [2] NASA Glenn Research Center, "Specific Impulse".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+    """
+    consumed =tank.initial_propellant_mass_kg - final_remaining_mass_kg
     segment_count = max(1, ceil(consumed / maximum_mass_step_kg))
     mass_step = consumed / segment_count
 
@@ -666,22 +1013,69 @@ def simulate_pressure_fed_blowdown(
 ) -> BlowdownSimulationResult:
     """Simulate an unregulated pressure-fed burn to reserve or pressure cutoff.
 
-    Integration uses expelled propellant mass as the independent variable:
-    ``dt/dm = 1/mdot`` and ``dJ/dm = g0*Isp``. Composite Simpson integration
-    supplies the reference duration/impulse, while the exchange artifact is
-    independently integrated and mesh-refined until mass, impulse, duration,
-    and centroid residuals satisfy the requested tolerance.
+    Parameters
+    ----------
+    tank : BlowdownTankModel
+        Rigid tank with polytropic ullage.
+    rated_point : EngineOperatingPoint
+        Operating point at the pressure model's reference pressure.
+    pressure_law : PressurePerformanceModel
+        Supply-pressure-to-performance model with a declared validity range.
+    reserve_mass_kg : float, default 0.0
+        Non-negative propellant mass left unburned, kg.
+    cant_efficiency : float, default 1.0
+        Axial fraction of delivered thrust, in ``(0, 1]``.
+    maximum_mass_step_kg : float, default 0.1
+        Initial upper bound on the expelled-mass step, kg.
+    relative_tolerance : float, default 1e-7
+        Relative tolerance on the mass, impulse, duration and centroid
+        residuals (absolute floor ``1e-11``).
+    maximum_refinements : int, default 12
+        Maximum number of step halvings.
 
-    This model is preliminary. The pressure-performance exponents must be fit
-    to a thruster map or hot-fire data; the function refuses extrapolation.
+    Returns
+    -------
+    BlowdownSimulationResult
+        Sampled history, exchange artifact, convergence evidence, cutoff
+        reason, source identifiers and model warnings.
+
+    Raises
+    ------
+    DomainError
+        If an argument is outside its domain, the initial tank pressure lies
+        outside the pressure model's validity range, the declared limits leave
+        no usable propellant, or the mesh does not converge within
+        ``maximum_refinements`` halvings.
+
+    Notes
+    -----
+    Cutoff occurs at the larger of the reserve mass and the remaining mass at
+    which the polytropic ullage pressure [1]_ reaches the model's minimum
+    supply pressure.  Expelled propellant mass ``m`` is the independent
+    variable, ``dt/dm = 1 / mdot`` and ``dJ/dm = g0 * Isp`` [4]_, with ``g0``
+    the registered ``STANDARD_GRAVITY_M_S2``.  Composite Simpson integration
+    supplies the reference duration and impulse; the exchange artifact is
+    integrated independently, and the mass step is halved until the mass,
+    impulse, duration and centroid residuals satisfy the requested tolerance.
+
+    The model is preliminary.  Pressure-performance exponents are fitted to a
+    thruster map or hot-fire data [3]_; the function refuses extrapolation.
+    [2]_ documents the pressure and performance histories of an unregulated
+    monopropellant system, and [5]_ the transient-modelling context.
 
     References
     ----------
-    NASA-SP-8112: https://ntrs.nasa.gov/citations/19760015212
-    NASA-CR-131400: https://ntrs.nasa.gov/citations/19730012094
-    NASA-CR-122347: https://ntrs.nasa.gov/citations/19720011120
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
+    .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets", 1975.
+           https://ntrs.nasa.gov/citations/19760015212
+    .. [2] NASA CR-131400. NASA, "Reliability Model of a Monopropellant
+           Auxiliary Propulsion System".
+           https://ntrs.nasa.gov/citations/19730012094
+    .. [3] NASA CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet".
+           https://ntrs.nasa.gov/citations/19720011120
+    .. [4] NASA Glenn Research Center, "Specific Impulse".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+    .. [5] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
     """
 
     _nonnegative(reserve_mass_kg, "Blowdown reserve mass")

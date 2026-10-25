@@ -1,4 +1,22 @@
-"""Restart, cooldown, and minimum-pulse validation for engine commands."""
+"""Restart, cooldown, and minimum-pulse validation for engine commands.
+
+The module enforces caller-declared, hardware-specific timing limits on a
+multi-engine pulse train and converts each engine's validated pulses into a
+:class:`~rocket_propulsion.propulsion.burns.models.ThrottleSchedule`.  It
+ships no generic minimum-pulse, cooldown or restart values: pulse rise,
+tailoff and minimum impulse bit depend on the valve and thruster [1]_ [2]_,
+and start count is a hardware reliability driver [3]_.
+
+References
+----------
+.. [1] NASA-CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet",
+       https://ntrs.nasa.gov/citations/19720011120.
+.. [2] NASA-20070032005. J. M. Parker and M. J. Wilson, "The Minimum Impulse
+       Thruster", 2005, https://ntrs.nasa.gov/citations/20070032005.
+.. [3] NASA-20050207429. NASA, "Key Reliability Drivers of Liquid Propulsion
+       Engines and a Reliability Model for Sensitivity Analysis",
+       https://ntrs.nasa.gov/citations/20050207429.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +30,7 @@ from .models import ThrottleSchedule, ThrottleSegment
 
 
 def _finite_nonnegative(value: float, label: str) -> None:
+    """Raise ``DomainError`` unless ``value`` is finite and non-negative."""
     if not isfinite(value) or value < 0.0:
         raise DomainError(f"{label} must be finite and non-negative.")
 
@@ -20,9 +39,43 @@ def _finite_nonnegative(value: float, label: str) -> None:
 class EngineDutyCycleLimits:
     """Operational timing limits for one independently commanded engine.
 
+    Parameters
+    ----------
+    engine_id : str
+        Non-empty engine identifier.
+    minimum_on_time_s : float, optional
+        Shortest permitted pulse, in s.  Finite and non-negative.
+    minimum_off_time_s : float, optional
+        Shortest permitted cooldown between consecutive pulses, in s.
+    maximum_starts : int or None, optional
+        Largest permitted number of pulses; ``None`` means unlimited.
+    ignition_delay_s : float, optional
+        Command-to-ignition delay carried for downstream response models, s.
+    response_time_constant_s : float, optional
+        First-order response time constant carried for downstream response
+        models, in s.
+
+    Raises
+    ------
+    DomainError
+        If the identifier is blank, a time is negative or non-finite, or
+        ``maximum_starts`` is declared below one.
+
+    Notes
+    -----
+    All limits are hardware-specific inputs.  Minimum on-time reflects the
+    valve response and minimum impulse bit of the selected thruster [1]_ [2]_;
+    the start count is a reliability driver of the selected engine [3]_.
+
     References
     ----------
-    NASA-CR-122347: https://ntrs.nasa.gov/citations/19720011120
+    .. [1] NASA-CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet",
+           https://ntrs.nasa.gov/citations/19720011120.
+    .. [2] NASA-20070032005. J. M. Parker and M. J. Wilson, "The Minimum
+           Impulse Thruster", 2005, https://ntrs.nasa.gov/citations/20070032005.
+    .. [3] NASA-20050207429. NASA, "Key Reliability Drivers of Liquid
+           Propulsion Engines and a Reliability Model for Sensitivity
+           Analysis", https://ntrs.nasa.gov/citations/20050207429.
     """
 
     engine_id: str
@@ -50,9 +103,31 @@ class EngineDutyCycleLimits:
 class EnginePulse:
     """One commanded on-interval for a named engine.
 
+    Parameters
+    ----------
+    engine_id : str
+        Non-empty identifier of the commanded engine.
+    start_time_s : float
+        Command start time, in s.  Finite and non-negative.
+    duration_s : float
+        Commanded on-time, in s.  Finite and positive.
+    throttle : float, optional
+        Constant commanded throttle in ``(0, 1]``.
+
+    Raises
+    ------
+    DomainError
+        If the identifier is blank or a field is outside its domain.
+
+    Notes
+    -----
+    The pulse is a command interval.  The realized thrust history, including
+    rise and tailoff [1]_, is produced by a response model.
+
     References
     ----------
-    NASA-CR-122347: https://ntrs.nasa.gov/citations/19720011120
+    .. [1] NASA-CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet",
+           https://ntrs.nasa.gov/citations/19720011120.
     """
 
     engine_id: str
@@ -71,16 +146,29 @@ class EnginePulse:
 
     @property
     def end_time_s(self) -> float:
+        """Command end time ``start_time_s + duration_s``, in s."""
         return self.start_time_s + self.duration_s
 
 
 @dataclass(frozen=True, slots=True)
 class EngineSequenceValidation:
-    """Normalized, successfully validated multi-engine command sequence.
+    """Normalized, validated multi-engine command sequence.
+
+    Instances are returned by :func:`validate_engine_sequence`.
+
+    Parameters
+    ----------
+    pulses : tuple of EnginePulse
+        Pulses sorted by engine identifier, then start time.
+    starts_by_engine : tuple of (str, int)
+        Pulse count of each engine, sorted by identifier.
+    duration_s : float
+        Latest pulse end time, in s.
 
     References
     ----------
-    NASA-CR-122347: https://ntrs.nasa.gov/citations/19720011120
+    .. [1] NASA-CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet",
+           https://ntrs.nasa.gov/citations/19720011120.
     """
 
     pulses: tuple[EnginePulse, ...]
@@ -90,7 +178,30 @@ class EngineSequenceValidation:
     def schedule_for_engine(
         self, engine_id: str, *, total_duration_s: float | None = None
     ) -> ThrottleSchedule:
-        """Convert one engine's pulse train into a discontinuity-safe schedule."""
+        """Convert one engine's pulse train into a throttle schedule.
+
+        Gaps before, between and after pulses become explicit zero-throttle
+        segments, so each on/off discontinuity is a segment boundary.
+
+        Parameters
+        ----------
+        engine_id : str
+            Engine whose pulses are converted.
+        total_duration_s : float or None, optional
+            Schedule length, in s; defaults to the sequence duration.  Must
+            cover every selected pulse.
+
+        Returns
+        -------
+        ThrottleSchedule
+            Piecewise-constant schedule starting at time zero.
+
+        Raises
+        ------
+        DomainError
+            If the engine has no validated pulses or the duration is
+            non-finite or shorter than its last pulse.
+        """
 
         selected = tuple(pulse for pulse in self.pulses if pulse.engine_id == engine_id)
         if not selected:
@@ -125,14 +236,41 @@ def validate_engine_sequence(
     pulses: tuple[EnginePulse, ...],
     limits: tuple[EngineDutyCycleLimits, ...],
 ) -> EngineSequenceValidation:
-    """Validate timing rules and return a deterministic normalized sequence.
+    """Validate pulse timing rules and return a deterministic sequence.
 
-    Limits are supplied as hardware-specific constraints; this function only
-    enforces them and does not claim generic minimum pulse or cooldown values.
+    Parameters
+    ----------
+    pulses : tuple of EnginePulse
+        At least one commanded pulse, in any order.
+    limits : tuple of EngineDutyCycleLimits
+        One limit record per engine; identifiers must be unique and cover
+        every engine that appears in ``pulses``.
+
+    Returns
+    -------
+    EngineSequenceValidation
+        Pulses sorted by engine and start time, with start counts.
+
+    Raises
+    ------
+    DomainError
+        If either input is empty, limits are duplicated or missing for an
+        engine, an engine exceeds its start count, a pulse is shorter than the
+        minimum on-time, pulses of one engine overlap, or a cooldown gap is
+        shorter than the minimum off-time.
+
+    Notes
+    -----
+    Comparisons use an absolute tolerance of ``1e-12`` s.  Limits are
+    hardware-specific constraints [1]_ [2]_; this function only enforces them
+    and does not supply generic minimum-pulse or cooldown values.
 
     References
     ----------
-    NASA-CR-122347: https://ntrs.nasa.gov/citations/19720011120
+    .. [1] NASA-CR-122347. NASA, "Monopropellant Hydrazine Resisto Jet",
+           https://ntrs.nasa.gov/citations/19720011120.
+    .. [2] NASA-20070032005. J. M. Parker and M. J. Wilson, "The Minimum
+           Impulse Thruster", 2005, https://ntrs.nasa.gov/citations/20070032005.
     """
 
     if not pulses:

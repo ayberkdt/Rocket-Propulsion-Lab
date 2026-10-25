@@ -6,8 +6,10 @@ limits and uncertainty bounds must be established outside this implementation.
 
 References
 ----------
-NASA-7009B: 4.2.5-4.2.7 empirical referents, validation domain and uncertainty.
-NASA-TRL: hardware demonstration is separate from model agreement.
+.. [1] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+       4.2.5-4.2.7 empirical referents, validation domain and uncertainty.
+.. [2] NASA-TRL. NASA ESTO, "Technology Readiness Levels"; hardware demonstration is
+       separate from model agreement.
 """
 
 from __future__ import annotations
@@ -27,16 +29,37 @@ from .evidence import CitedScalar, quantity
 
 @dataclass(frozen=True, slots=True)
 class ValidationSample:
-    """One holdout datum and prediction under a documented common condition.
+    """One holdout measurement and prediction under a documented common condition.
 
-    Bounds are absolute error bounds in the measurand's units, not standard
-    deviations or confidence intervals. None means unknown, never exact zero.
-    Domain membership requires external review of the condition record; the
-    boolean records that review and is not inferred from one numeric range.
+    Bounds are absolute error bounds in the measurand's units, not standard deviations
+    or confidence intervals; None means unknown, never exact zero. Domain membership
+    requires external review of the condition record; ``in_validation_domain`` records
+    that review and is not inferred from a numeric range [1]_.
+
+    Attributes
+    ----------
+    identifier : str
+        Unique sample identifier.
+    condition_record : str
+        Joint operating-condition record.
+    measured, predicted : CitedScalar
+        Measured referent and model prediction in the same unit.
+    measurement_bound, prediction_bound : CitedScalar or None
+        Absolute error bounds of measurement (positive) and prediction (non-negative).
+    allowable_error : CitedScalar
+        Approved absolute error allowance; non-negative.
+    in_validation_domain : bool
+        Outcome of the external domain review.
+
+    Raises
+    ------
+    DomainError
+        If units differ, a bound is negative, or the domain review is not a bool.
 
     References
     ----------
-    NASA-7009B: 4.2.5 validation referents/domain; 4.2.7 uncertainty rationale.
+    .. [1] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+           4.2.5 validation referents/domain; 4.2.7 uncertainty rationale.
     """
 
     identifier: str
@@ -53,7 +76,8 @@ class ValidationSample:
 
         References
         ----------
-        NASA-7009B: 4.2.1 units; 4.2.5/4.2.7 validation and uncertainty records.
+        .. [1] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+               4.2.1 units; 4.2.5/4.2.7 validation and uncertainty records.
         """
         text(self.identifier, "validation sample identifier")
         text(self.condition_record, "joint operating-condition record")
@@ -74,14 +98,38 @@ class ValidationSample:
 class ValidationEvidence:
     """A reproducible, independent holdout comparison with explicit pedigree.
 
-    The raw file digest binds the reviewed snapshot, not the analyst's numeric
-    transcription to it. A transcription-review record remains mandatory.
-    Calibration sample IDs cannot overlap holdout IDs. Dataset authorship,
-    applicability and sensor calibration are human-reviewed records.
+    The raw-file digest binds the reviewed data snapshot, not the analyst's numeric
+    transcription of it, so a transcription-review record is mandatory. Calibration
+    sample identifiers must not overlap holdout identifiers. Dataset authorship,
+    applicability and sensor calibration are human-reviewed records [1]_.
+
+    Attributes
+    ----------
+    test_article_id, model_configuration_id : str
+        Identifiers of the tested hardware and the model configuration.
+    raw_data_path : pathlib.Path
+        Archived raw data file.
+    raw_data_sha256, model_sha256 : str
+        Lowercase hexadecimal SHA-256 digests.
+    calibration_sample_ids : tuple of str
+        Samples used for calibration.
+    samples : tuple of ValidationSample
+        Non-empty, uniquely identified holdout samples.
+    independence_record, transcription_review_record : str
+        Review records.
+    uncertainty_basis, acceptance_approval_record : str
+        Basis of the bounds and approval of the allowances.
+
+    Raises
+    ------
+    DomainError
+        If a record is empty, a digest is malformed, the path is not a ``Path``, or
+        samples are missing, duplicated or overlap calibration.
 
     References
     ----------
-    NASA-7009B: 4.2.1 data pedigree, 4.2.5 empirical data and 4.2.7 uncertainty.
+    .. [1] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+           4.2.1 data pedigree, 4.2.5 empirical data and 4.2.7 uncertainty.
     """
 
     test_article_id: str
@@ -101,7 +149,8 @@ class ValidationEvidence:
 
         References
         ----------
-        NASA-7009B: 4.1.1.5 project acceptance criteria; 4.2.5 data referents.
+        .. [1] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+               4.1.1.5 project acceptance criteria; 4.2.5 data referents.
         """
         for field in ("test_article_id", "model_configuration_id", "independence_record",
                       "transcription_review_record", "uncertainty_basis", "acceptance_approval_record"):
@@ -129,8 +178,10 @@ def _outward_endpoint(value: Fraction, *, upward: bool) -> float:
 
     References
     ----------
-    NASA-7009B: declared numerical representation limits and error reporting.
-    BIPM-SI: preserve the units of bounded errors; rounding method derived here.
+    .. [1] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+           declared numerical representation limits and error reporting.
+    .. [2] BIPM-SI. BIPM, "SI Brochure, 9th edition"; preserve the units of bounded
+           errors; rounding method defined in this module.
     """
     try:
         binary = float(value)
@@ -148,20 +199,44 @@ def _outward_endpoint(value: Fraction, *, upward: bool) -> float:
 
 
 def compare_validation_sample(sample: ValidationSample) -> dict[str, object]:
-    """Bound |prediction-truth| by the supplied bounded error intervals.
+    """Bound the prediction error with the supplied error intervals and classify it.
 
-    max error = |prediction-measurement| + measurement_bound + prediction_bound.
-    min error = max(0, |prediction-measurement| - both bounds). Pass requires
-    the complete residual interval inside the approved allowance. A partial
-    overlap is indeterminate; no Gaussian assumptions or fitted tolerances.
-    This conservative interval rule is our stated method, not a NASA formula.
-    Exact rational intervals are rounded outward for publication. Decisions
-    use those reported bounds and an outward-rounded numerical review guard.
+    Parameters
+    ----------
+    sample : ValidationSample
+        Reviewed holdout sample.
+
+    Returns
+    -------
+    dict
+        ``status`` is ``'unassessed'`` (with a reason) outside the reviewed domain or
+        without both bounds; otherwise ``'pass'``, ``'fail'`` or ``'indeterminate'``
+        with the discrepancy, minimum and maximum error, allowance and numerical
+        guard.
+
+    Raises
+    ------
+    DomainError
+        If ``sample`` is not a ``ValidationSample`` or an interval endpoint is not
+        finite.
+
+    Notes
+    -----
+    max error = |prediction - measurement| + measurement_bound + prediction_bound and
+    min error = max(0, |prediction - measurement| - both bounds), by the triangle
+    inequality on like-unit intervals [2]_. Pass requires the whole interval inside
+    the approved allowance; a partial overlap is indeterminate, with no Gaussian
+    assumption or fitted tolerance [1]_. This conservative interval rule is the
+    method defined by this module, not a NASA formula. Exact rational intervals are
+    rounded outward for publication and decisions use those bounds plus an
+    outward-rounded guard of 16 machine epsilons of the reported scale.
 
     References
     ----------
-    NASA-7009B: 4.2.5 and 4.2.7 require justified metrics and uncertainty.
-    BIPM-SI: like-unit interval arithmetic; triangle inequality derived here.
+    .. [1] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+           4.2.5 and 4.2.7 require justified metrics and uncertainty.
+    .. [2] BIPM-SI. BIPM, "SI Brochure, 9th edition"; like-unit interval arithmetic;
+           triangle inequality applied in this module.
     """
     if not isinstance(sample, ValidationSample):
         raise DomainError("Expected a reviewed validation sample.")
@@ -189,15 +264,39 @@ def compare_validation_sample(sample: ValidationSample) -> dict[str, object]:
 
 
 def assess_validation(evidence: ValidationEvidence) -> dict[str, object]:
-    """Verify the archived bytes and summarize all holdout samples without TRL promotion.
+    """Verify the archived raw bytes and summarize all holdout comparisons.
 
-    A supplied digest of model code is recorded, not independently verified by
-    this function. Hashes identify content, not authorship or test authenticity.
+    Parameters
+    ----------
+    evidence : ValidationEvidence
+        Complete evidence record.
+
+    Returns
+    -------
+    dict
+        ``comparison_status`` (``'fail'`` if any sample fails, ``'pass'`` only if all
+        pass, otherwise ``'unassessed'``), the per-sample rows and the evidence
+        records. Hardware readiness and qualification are always reported as not
+        established.
+
+    Raises
+    ------
+    DomainError
+        If the evidence type is wrong, the raw file cannot be read, or its SHA-256
+        does not match.
+
+    Notes
+    -----
+    The supplied model digest is recorded, not independently verified. Hashes
+    identify content, not authorship or test authenticity [1]_; agreement does not
+    promote hardware readiness [2]_.
 
     References
     ----------
-    NASA-7009B: 4.3.8 report unresolved evidence and uncertainty.
-    NASA-TRL: system hardware/environment demonstration cannot be inferred here.
+    .. [1] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+           4.3.8 report unresolved evidence and uncertainty.
+    .. [2] NASA-TRL. NASA ESTO, "Technology Readiness Levels"; system
+           hardware/environment demonstration cannot be inferred from this check.
     """
     if not isinstance(evidence, ValidationEvidence):
         raise DomainError("Expected complete validation evidence.")

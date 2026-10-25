@@ -1,4 +1,18 @@
-"""Conditional two-phase exit-state accounting, not a coupled particle solver."""
+"""Conditional two-phase exit-state accounting; not a coupled gas/particle solver.
+
+A reference thrust with a prescribed gas exit state is split into momentum and
+pressure parts. The momentum part is debited for a condensed exhaust fraction whose
+velocity lags the gas by a user-supplied ratio range; the pressure part is kept
+separate. The two scenario endpoints are neither a validated physical bound nor a
+statistical coverage interval.
+
+References
+----------
+.. [1] DREWNIAK-TWO-PHASE-2022. Drewniak, Boyer and Yetter, 2022, Eq. (3): separate
+       gas and particle momentum terms and pressure thrust.
+.. [2] KIBBEY-TWO-PHASE-2012. Kibbey, 2012, coupled gas/particle nozzle flow and the
+       two-phase momentum debit.
+"""
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -34,6 +48,41 @@ _PAIRS = ('particle_coupling_efficiency_range', 'particle_velocity_ratio_range',
 
 @dataclass(frozen=True, slots=True)
 class TwoPhaseInputs:
+    """Validated inputs for a conditional two-phase exit-state scenario range.
+
+    Attributes
+    ----------
+    ideal_thrust_n : float
+        Reference total thrust for the prescribed gas exit state, N; positive.
+    ideal_specific_impulse_s : float
+        Reference specific impulse, s; positive.
+    condensed_mass_fraction : float
+        Condensed-phase fraction chi of the exhaust mass flow, in [0, 1]; not the
+        initial propellant loading.
+    minimum_particle_coupling_efficiency, maximum_particle_coupling_efficiency : float
+        Ordered particle/gas ratio endpoints in [0, 1], interpreted according to
+        ``coupling_definition``.
+    reference_pressure_thrust_n : float, default 0
+        Pressure-thrust part of the reference thrust, N. The momentum part
+        ``ideal_thrust_n - reference_pressure_thrust_n`` must be positive.
+    coupling_definition : {'exit-velocity-ratio', 'specific-kinetic-energy-ratio'}
+        ``'exit-velocity-ratio'``: k = u_p / u_g. ``'specific-kinetic-energy-ratio'``:
+        k is the particle/gas per-unit-mass kinetic-energy ratio, so u_p / u_g =
+        sqrt(k).
+
+    Raises
+    ------
+    DomainError
+        If a reference value, fraction, range or coupling definition is out of
+        domain.
+
+    References
+    ----------
+    .. [1] DREWNIAK-TWO-PHASE-2022. Drewniak, Boyer and Yetter, 2022, Eq. (3): separate
+           gas and particle momentum terms and pressure thrust.
+    .. [2] KIBBEY-TWO-PHASE-2012. Kibbey, 2012, coupled gas/particle nozzle flow and the
+           two-phase momentum debit.
+    """
     ideal_thrust_n: float
     ideal_specific_impulse_s: float
     condensed_mass_fraction: float
@@ -58,6 +107,22 @@ class TwoPhaseInputs:
 
 
 def _retained_inputs(value):
+    """Return retained inputs as a typed :class:`TwoPhaseInputs` record.
+
+    Parameters
+    ----------
+    value : TwoPhaseInputs or Mapping
+        Typed inputs or a mapping of their fields.
+
+    Returns
+    -------
+    TwoPhaseInputs
+
+    Raises
+    ------
+    DomainError
+        If the value is malformed or of the wrong type.
+    """
     if isinstance(value, Mapping):
         try:
             value = TwoPhaseInputs(**dict(value))
@@ -69,7 +134,26 @@ def _retained_inputs(value):
 
 
 def _two_phase_warnings(value):
-    """Bound the known warning collection and normalize literal text before replay."""
+    """Return at most four retained warnings as normalized ``WarningMessage`` records.
+
+    The collection is read lazily up to five items so an oversized or unbounded
+    iterable is refused without being consumed in full.
+
+    Parameters
+    ----------
+    value : iterable
+        Ordered ``WarningMessage`` records or mappings of their fields.
+
+    Returns
+    -------
+    tuple of WarningMessage
+
+    Raises
+    ------
+    DomainError
+        If the collection is unordered, malformed, too long, or has an unknown
+        severity.
+    """
     if isinstance(value, (str, bytes, bytearray, memoryview, Mapping, AbstractSet)):
         raise DomainError('Warnings must be ordered records.', field='Two-phase warnings')
     try:
@@ -96,7 +180,64 @@ def _two_phase_warnings(value):
 
 @dataclass(frozen=True, slots=True)
 class TwoPhasePerformanceBand:
-    """Replayed conditional scenario endpoints, without qualification claims."""
+    """Conditional two-phase scenario endpoints, replayable from the retained inputs.
+
+    Each ``*_range`` pair holds the values at the minimum and maximum particle coupling
+    endpoints, in that order. On construction the record evaluates the endpoints again
+    from ``inputs`` and refuses any field that the evaluation does not reproduce. The
+    qualification flags must be False.
+
+    Attributes
+    ----------
+    condensed_mass_fraction : float
+        Condensed exhaust mass fraction chi.
+    particle_coupling_efficiency_range : tuple of float
+        The supplied coupling endpoints.
+    performance_efficiency_range : tuple of float
+        Alias of ``total_thrust_ratio_range`` retained for existing callers; signed.
+    thrust_range_n : tuple of float
+        Conditional total thrust, N; may be non-positive.
+    specific_impulse_range_s : tuple of float
+        Conditional specific impulse at fixed total mass flow, s.
+    warnings : tuple of WarningMessage
+        Scope warnings, including limit cases.
+    model : str
+        Model identifier.
+    inputs : TwoPhaseInputs
+        Retained typed inputs.
+    reference_pressure_thrust_n : float
+        Pressure-thrust part of the reference, N.
+    coupling_definition : str
+        Interpretation of the coupling endpoints.
+    particle_velocity_ratio_range : tuple of float
+        Particle/gas exit velocity ratio u_p / u_g.
+    momentum_efficiency_range : tuple of float
+        Momentum multiplier 1 - chi + chi * u_p / u_g.
+    total_thrust_ratio_range : tuple of float
+        Conditional thrust divided by reference thrust.
+    contains_nonpositive_thrust : bool
+        True if either endpoint has non-positive thrust.
+    physical_bound_qualified, statistical_coverage_qualified : bool
+        Always False; no qualification is established.
+    band_kind : str
+        Identifier of the range kind.
+    numerical_policy : str
+        Identifier of the arithmetic and rounding policy.
+    assumptions : tuple of str
+        Model assumptions.
+
+    Raises
+    ------
+    DomainError
+        If a policy or flag is invalid or a field does not replay from the inputs.
+
+    References
+    ----------
+    .. [1] DREWNIAK-TWO-PHASE-2022. Drewniak, Boyer and Yetter, 2022, Eq. (3): separate
+           gas and particle momentum terms and pressure thrust.
+    .. [2] KIBBEY-TWO-PHASE-2012. Kibbey, 2012, coupled gas/particle nozzle flow and the
+           two-phase momentum debit.
+    """
     condensed_mass_fraction: float
     particle_coupling_efficiency_range: tuple[float, float]
     performance_efficiency_range: tuple[float, float]
@@ -138,13 +279,55 @@ class TwoPhasePerformanceBand:
 
 
 def _nonpositive_algebraic(mean, radicand):
-    """Compare mean+sqrt(radicand) with zero using exact squared quantities."""
+    """Return whether ``mean + sqrt(radicand) <= 0`` using exact squared quantities.
+
+    Parameters
+    ----------
+    mean : Fraction
+        Affine term.
+    radicand : Fraction
+        Non-negative radicand.
+
+    Returns
+    -------
+    bool
+    """
     if mean > 0:
         return False
     return radicand <= mean*mean
 
 
 def _endpoint(source, coupling):
+    """Evaluate one coupling endpoint of the conditional two-phase ledger.
+
+    Parameters
+    ----------
+    source : TwoPhaseInputs
+        Validated inputs.
+    coupling : float
+        Coupling endpoint k.
+
+    Returns
+    -------
+    dict
+        Exported particle velocity ratio, momentum multiplier, thrust, thrust ratio
+        and Isp, plus the exact ``nonpositive`` thrust flag.
+
+    Notes
+    -----
+    With F_m = F_ref - F_p the reference momentum thrust and r = u_p / u_g, the total
+    mass flow is fixed and the exit momentum is (1 - chi) * u_g + chi * u_p per unit
+    flow, so F = F_m * (1 - chi + chi * r) + F_p [1]_ [2]_ and
+    Isp = Isp_ref * F / F_ref. For the energy-ratio definition r = sqrt(k); each
+    exported square-root expression is rounded once.
+
+    References
+    ----------
+    .. [1] DREWNIAK-TWO-PHASE-2022. Drewniak, Boyer and Yetter, 2022, Eq. (3): separate
+           gas and particle momentum terms and pressure thrust.
+    .. [2] KIBBEY-TWO-PHASE-2012. Kibbey, 2012, coupled gas/particle nozzle flow and the
+           two-phase momentum debit.
+    """
     force, isp = Fraction(source.ideal_thrust_n), Fraction(source.ideal_specific_impulse_s)
     pressure, chi = Fraction(source.reference_pressure_thrust_n), Fraction(source.condensed_mass_fraction)
     momentum, k = force-pressure, Fraction(coupling)
@@ -171,6 +354,30 @@ def _endpoint(source, coupling):
 
 
 def _band_values(source):
+    """Evaluate both coupling endpoints and return all band fields with warnings.
+
+    Parameters
+    ----------
+    source : TwoPhaseInputs
+        Validated inputs.
+
+    Returns
+    -------
+    dict
+        Field values for :class:`TwoPhasePerformanceBand`.
+
+    Notes
+    -----
+    Gas momentum and energy feedback, particle size distributions, thermal lag and
+    phase change are not solved [1]_ [2]_; the gas exit state is prescribed.
+
+    References
+    ----------
+    .. [1] KIBBEY-TWO-PHASE-2012. Kibbey, 2012, coupled gas/particle nozzle flow and the
+           two-phase momentum debit.
+    .. [2] DREWNIAK-TWO-PHASE-2022. Drewniak, Boyer and Yetter, 2022, Eq. (3): separate
+           gas and particle momentum terms and pressure thrust.
+    """
     lower, upper = source.minimum_particle_coupling_efficiency, source.maximum_particle_coupling_efficiency
     endpoints = (_endpoint(source, lower), _endpoint(source, upper))
     nonpositive = any(row['nonpositive'] for row in endpoints)
@@ -208,6 +415,47 @@ def calculate_two_phase_band(
     minimum_particle_coupling_efficiency: float, maximum_particle_coupling_efficiency: float,
     reference_pressure_thrust_n: float = 0., coupling_definition: str = _VELOCITY,
 ) -> TwoPhasePerformanceBand:
-    """Calculate a conditional exit-state range with separated pressure thrust."""
+    """Calculate a conditional two-phase thrust/Isp range with separated pressure thrust.
+
+    Parameters
+    ----------
+    ideal_thrust_n : float
+        Reference total thrust for the prescribed gas exit state, N.
+    ideal_specific_impulse_s : float
+        Reference specific impulse, s.
+    condensed_mass_fraction : float
+        Condensed fraction of exhaust mass flow, in [0, 1].
+    minimum_particle_coupling_efficiency, maximum_particle_coupling_efficiency : float
+        Ordered particle/gas coupling endpoints in [0, 1].
+    reference_pressure_thrust_n : float, default 0
+        Pressure-thrust part of the reference thrust, N. Zero is an input
+        assumption, not evidence of matched expansion.
+    coupling_definition : {'exit-velocity-ratio', 'specific-kinetic-energy-ratio'}
+        Interpretation of the coupling endpoints.
+
+    Returns
+    -------
+    TwoPhasePerformanceBand
+        Endpoint thrust, Isp, ratios and warnings.
+
+    Raises
+    ------
+    DomainError
+        If an input is out of domain or an output is not representable.
+
+    Notes
+    -----
+    F = (F_ref - F_p) * (1 - chi + chi * u_p / u_g) + F_p at fixed total mass flow
+    [1]_; the particle velocity lag is the two-phase momentum debit [2]_. The result
+    is a pair of user-supplied scenarios, not a validated bound; an all-condensed
+    exhaust (chi = 1) is a mathematical limit only.
+
+    References
+    ----------
+    .. [1] DREWNIAK-TWO-PHASE-2022. Drewniak, Boyer and Yetter, 2022, Eq. (3): separate
+           gas and particle momentum terms and pressure thrust.
+    .. [2] KIBBEY-TWO-PHASE-2012. Kibbey, 2012, coupled gas/particle nozzle flow and the
+           two-phase momentum debit.
+    """
     source = TwoPhaseInputs(**locals())
     return TwoPhasePerformanceBand(**_band_values(source))

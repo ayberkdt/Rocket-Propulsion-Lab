@@ -1,9 +1,23 @@
 """Staggered supersonic characteristic field between a smooth axis and one wall.
 
 This forward initial/boundary-value process needs a supersonic inlet and an
-owned axis history. It does not invent a sonic line or design an exit contour.
-Mass diagnostics integrate the represented polylines; they do not enclose
-discretization error or certify shock-free flow beyond the accepted mesh.
+owned axis history. It does not construct a sonic line or design an exit
+contour. Interior, axis, axis-departure and wall points use the unit processes
+built on [1]_, [2]_ and [3]_. Mass diagnostics integrate the isentropic mass
+flux [4]_ over the represented polylines; they do not enclose discretization
+error or certify shock-free flow beyond the accepted mesh.
+
+References
+----------
+.. [1] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+       compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+.. [2] NASA-TRR33-AXISYMMETRIC. Guentert and Neumann, 1959, radius source and
+       averaged characteristic coefficients.
+       https://ntrs.nasa.gov/citations/19980232191
+.. [3] NASA-TND4960-AXIS-CONTINUITY. Anderson, 1969, Appendix C equation C1 and
+       streamline definitions. https://ntrs.nasa.gov/citations/19690005234
+.. [4] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+       Compressible Flow", NACA Report 1135, 1953.
 """
 from collections.abc import Mapping
 from collections.abc import Set as AbstractSet
@@ -41,6 +55,14 @@ _MASS_POLICY = 'relative_isentropic_density_decimal80_linear_flux_ring_weight_v1
 
 
 def _bounded(value, limit, label):
+    """Return at most ``limit`` items of an ordered iterable as a tuple.
+
+    Raises
+    ------
+    DomainError
+        If ``value`` is text, bytes, a mapping or a set, cannot be iterated, or
+        has more than ``limit`` items.
+    """
     if isinstance(value, (str, bytes, bytearray, memoryview, Mapping, AbstractSet)):
         raise DomainError('Ordered field records required.', field=label)
     try:
@@ -54,6 +76,31 @@ def _bounded(value, limit, label):
 
 @dataclass(frozen=True, slots=True)
 class MocFieldInputs:
+    """Validated inputs of :func:`solve_moc_field`.
+
+    Attributes
+    ----------
+    axis_result : MocBoundaryResult
+        Axis result for the first inlet point; it fixes gamma and the
+        planar/cylindrical mode.
+    inlet_points : tuple of MocFlowPoint
+        Vertical inlet section of 3 to 65 points with strictly increasing
+        radius, starting at the axis point; the last point lies on the wall
+        and satisfies slip.
+    wall_segment : MocWallSegment
+        Straight wall starting at the last inlet point.
+    marching_steps : int
+        Number of complete fronts to march, between 1 and 128, with at most
+        4096 point solves in total.
+    max_iterations : int, default 128
+        Corrector budget per unit process, between 1 and 256.
+
+    Raises
+    ------
+    DomainError
+        If a field is malformed or violates the constraints above.
+    """
+
     axis_result: MocBoundaryResult
     inlet_points: tuple[MocFlowPoint, ...]
     wall_segment: MocWallSegment
@@ -90,19 +137,34 @@ class MocFieldInputs:
 
 
 def _cross(a, b, c):
+    """Return the exact z-component of ``(b - a) x (c - a)`` in the x-r plane."""
     return ((F(b.x_m) - F(a.x_m)) * (F(c.radius_m) - F(a.radius_m))
             - (F(b.radius_m) - F(a.radius_m)) * (F(c.x_m) - F(a.x_m)))
 
 
 def _check_cell(points):
-    """Exact represented orientation; no epsilon may excuse a folded cell."""
+    """Require every vertex turn of a cell polygon to be strictly counter-clockwise.
+
+    The orientation is evaluated exactly on the represented coordinates; no
+    tolerance is applied.
+
+    Raises
+    ------
+    ConvergenceError
+        If the cell is folded or collapsed.
+    """
     for index in range(len(points)):
         if _cross(points[index - 1], points[index], points[(index + 1) % len(points)]) <= 0:
             raise ConvergenceError('Characteristic cell folded or collapsed.', code='moc_field_folded_cell')
 
 
 def _cells(old, half, new):
-    """Tile the complete strip, including both Cauchy-front triangle fans."""
+    """Return the cells that tile the strip between two complete fronts.
+
+    The strip between ``old`` and ``new`` is covered by triangles on each side
+    of the half front, the axis and wall end triangles, and quadrilaterals
+    between them.
+    """
     return (*tuple((old[j], half[j], old[j + 1]) for j in range(len(half))),
             *tuple((half[j], new[j], new[j + 1]) for j in range(len(half))),
             (old[0], new[0], half[0]),
@@ -111,6 +173,17 @@ def _cells(old, half, new):
 
 
 def _check_front(points, inputs, *, complete):
+    """Check radial ordering and that a front stays between the axis and the wall.
+
+    On a complete front the first point may lie on the axis and the last on
+    the wall (within its coordinate rounding cell); every other point must be
+    strictly inside the domain.
+
+    Raises
+    ------
+    ConvergenceError
+        If the ordering is lost or a point crosses the axis or the wall.
+    """
     if any(b.radius_m <= a.radius_m for a, b in pairwise(points)):
         raise ConvergenceError('Field front lost radial ordering.', code='moc_field_front_order')
     wall = inputs.wall_segment
@@ -130,11 +203,25 @@ def _check_front(points, inputs, *, complete):
 
 @lru_cache(maxsize=4096)
 def _flux_state(point, gamma, reference_mach):
-    """rho/rho_ref times u/a*,v/a*; common factors cancel in the diagnostics.
+    """Return ``(rho/rho_ref) u/a*`` and ``(rho/rho_ref) v/a*`` at ``point``.
 
-    Eighty Decimal digits and a bounded logarithmic density range are numerical
-    policies, not interval enclosures. Normalization preserves uniform extreme
-    Mach states even when absolute density cannot be exported in binary64.
+    The density ratio is isentropic [1]_,
+    ``rho/rho_ref = ((2 + (gamma - 1) M_ref^2)/(2 + (gamma - 1) M^2))^(1/(gamma - 1))``;
+    common factors cancel in the diagnostics. Eighty decimal digits and a
+    bounded logarithmic density range are numerical policies, not interval
+    enclosures. Normalization preserves uniform extreme-Mach states even when
+    absolute density cannot be exported in binary64.
+
+    Raises
+    ------
+    ConvergenceError
+        If the density ratio exceeds the logarithmic resource bound or cannot
+        be evaluated.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
     """
     g, m, ref = F(gamma), F(point.mach), F(reference_mach)
     ratio = (2 + (g - 1) * ref * ref) / (2 + (g - 1) * m * m)
@@ -155,7 +242,18 @@ def _flux_state(point, gamma, reference_mach):
 
 
 def _edge_flux(a, b, inputs):
-    """Outward flux along a CCW polygon edge; omit common 2 or 2*pi."""
+    """Return the outward mass flux through edge ``a -> b`` of a CCW polygon.
+
+    The mass-flux vector varies linearly along the edge. In cylindrical flow
+    the integrand is weighted by the linearly varying radius, which gives the
+    end weights ``(2 r_a + r_b)/6`` and ``(r_a + 2 r_b)/6`` [1]_. The common
+    factor ``2`` (planar) or ``2 pi`` (cylindrical) is omitted.
+
+    References
+    ----------
+    .. [1] NASA-TND4960-AXIS-CONTINUITY. Anderson, 1969, Appendix C equation C1 and
+           streamline definitions. https://ntrs.nasa.gov/citations/19690005234
+    """
     mode = inputs.axis_result.inputs
     ua, va = _flux_state(a, mode.gamma, inputs.axis_result.point.mach)
     ub, vb = _flux_state(b, mode.gamma, inputs.axis_result.point.mach)
@@ -167,6 +265,22 @@ def _edge_flux(a, b, inputs):
 
 
 def _mass_metrics(inputs, fronts, half_fronts):
+    """Return the mass-flux diagnostics of the marched field.
+
+    Returns
+    -------
+    tuple
+        ``(relative, drift, imbalance, leakage)``: mass flux through each
+        complete front relative to the inlet; the largest relative drift; the
+        largest cell flux imbalance relative to the sum of absolute edge
+        fluxes; and the total absolute flux through wall edges relative to the
+        inlet flux.
+
+    Raises
+    ------
+    ConvergenceError
+        If a front carries non-positive mass flux or a cell carries none.
+    """
     fluxes = tuple(sum((_edge_flux(a, b, inputs) for a, b in pairwise(row)), F(0)) for row in fronts)
     if min(fluxes) <= 0:
         raise ConvergenceError('Field section has nonpositive mass flux.', code='moc_field_nonpositive_flux')
@@ -186,7 +300,13 @@ def _mass_metrics(inputs, fronts, half_fronts):
 
 @lru_cache(maxsize=4)
 def _solve(inputs):
-    """Adjacent-parent half front, then reflected/closed complete front."""
+    """March the field; return the fields of :class:`MocFieldResult` after ``inputs``.
+
+    Each step builds a half front from adjacent parents (axis departure plus
+    interior points), then a complete front closed by an axis reflection, new
+    interior points and a wall point. Fronts and cells are checked for
+    ordering, domain and folding, and residual diagnostics are accumulated.
+    """
     axis = inputs.axis_result
     mode = axis.inputs
     row = inputs.inlet_points
@@ -226,6 +346,61 @@ def _solve(inputs):
 
 @dataclass(frozen=True, slots=True)
 class MocFieldResult:
+    """Marched characteristic field with mass and equation diagnostics.
+
+    Construction re-marches the field from ``inputs`` and rejects any field
+    that does not match.
+
+    Attributes
+    ----------
+    inputs : MocFieldInputs
+        Owned inputs.
+    fronts : tuple of tuple of MocFlowPoint
+        ``marching_steps + 1`` complete fronts, the first being the inlet.
+    half_fronts : tuple of tuple of MocFlowPoint
+        ``marching_steps`` staggered half fronts.
+    relative_mass_flux : tuple of float
+        Mass flux through each complete front relative to the inlet.
+    max_relative_mass_drift : float
+        Largest ``|mdot_front / mdot_inlet - 1|``.
+    max_cell_relative_mass_imbalance : float
+        Largest cell net flux relative to its sum of absolute edge fluxes.
+    wall_mass_leakage_relative : float
+        Absolute flux through wall edges relative to the inlet flux.
+    max_equation_residual : float
+        Largest unit-process residual.
+    max_rounding_adjusted_equation_residual : float
+        Largest residual after coordinate rounding allowances.
+    max_coordinate_rounding_allowance : float
+        Largest coordinate rounding allowance.
+    max_axis_departure_plus_defect : float
+        Largest unenforced ``C+`` defect of the axis-departure points.
+    numerical_policy, mass_flux_policy : str
+        Identifiers of the marching and mass-flux policies.
+    physical_model_qualified, sonic_initialization_complete, full_nozzle_solution : bool
+        Always ``False``.
+    discretization_error_bound : None
+        Always ``None``.
+
+    Raises
+    ------
+    DomainError
+        If a field is malformed, a qualification claim is made, or the record
+        does not reproduce from ``inputs``.
+
+    Notes
+    -----
+    Mass fluxes use the isentropic density ratio [1]_ and, in cylindrical
+    flow, the radius-weighted flux of the continuity equation [2]_.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    .. [2] NASA-TND4960-AXIS-CONTINUITY. Anderson, 1969, Appendix C equation C1 and
+           streamline definitions. https://ntrs.nasa.gov/citations/19690005234
+    """
+
     inputs: MocFieldInputs
     fronts: tuple[tuple[MocFlowPoint, ...], ...]
     half_fronts: tuple[tuple[MocFlowPoint, ...], ...]
@@ -277,11 +452,53 @@ class MocFieldResult:
 def solve_moc_field(*, axis_result, inlet_points, wall_segment, marching_steps, max_iterations=128):
     """March a complete supersonic axis-to-wall strip, retaining every front.
 
+    Parameters
+    ----------
+    axis_result : MocBoundaryResult
+        Axis result for the first inlet point.
+    inlet_points : sequence of MocFlowPoint
+        Vertical, fully supersonic inlet section from the axis to the wall.
+    wall_segment : MocWallSegment or mapping
+        Straight slip wall starting at the last inlet point.
+    marching_steps : int
+        Number of complete fronts to march.
+    max_iterations : int, default 128
+        Corrector budget per unit process.
+
+    Returns
+    -------
+    MocFieldResult
+        All fronts and half fronts with mass and equation diagnostics.
+
+    Raises
+    ------
+    DomainError
+        If the inputs are invalid.
+    ConvergenceError
+        If a unit process fails, a cell folds, a front leaves the domain, or a
+        mass flux is non-positive.
+
+    Notes
+    -----
     Initial data are a vertical, fully supersonic section, its computed axis
-    state/history and a compatible finite straight slip wall. No wall corner,
-    sonic starting condition, nozzle optimization or shock continuation is
-    supplied. Cell folds and domain crossings fail; mass drift remains visible
-    instead of being corrected to match inlet mass by construction.
+    state and history, and a compatible finite straight slip wall. Points are
+    computed with the characteristic unit processes [1]_, [2]_, axis regularity
+    from continuity [3]_ and isentropic density [4]_. No wall corner, sonic
+    starting condition, nozzle optimization or shock continuation is supplied.
+    Cell folds and domain crossings fail; mass drift is reported rather than
+    corrected to match the inlet mass by construction.
+
+    References
+    ----------
+    .. [1] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+           compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+    .. [2] NASA-TRR33-AXISYMMETRIC. Guentert and Neumann, 1959, radius source and
+           averaged characteristic coefficients.
+           https://ntrs.nasa.gov/citations/19980232191
+    .. [3] NASA-TND4960-AXIS-CONTINUITY. Anderson, 1969, Appendix C equation C1 and
+           streamline definitions. https://ntrs.nasa.gov/citations/19690005234
+    .. [4] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
     """
     inputs = MocFieldInputs(axis_result, inlet_points, wall_segment, marching_steps, max_iterations)
     return MocFieldResult(inputs, *_solve(inputs))

@@ -1,9 +1,17 @@
 """Immutable public contracts for standalone propulsion-burn analysis.
 
-The records in this module intentionally contain no position, velocity, orbit,
-reference-frame, or guidance quantities.  They describe propulsion hardware,
-propellant inventory, a burn target, and the resulting one-dimensional
-propulsion bookkeeping only.
+The records in this module contain no position, velocity, orbit,
+reference-frame or guidance quantities.  They describe propulsion hardware,
+propellant inventory, a burn target and the resulting one-dimensional
+propulsion bookkeeping only: total impulse and specific impulse [1]_ and the
+ideal, external-force-free rocket equation [2]_.
+
+References
+----------
+.. [1] NASA-ISP. NASA Glenn Research Center, "Specific Impulse",
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/.
+.. [2] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation",
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/.
 """
 
 from __future__ import annotations
@@ -27,7 +35,16 @@ from .numeric_outputs import _finite_rational, _fraction
 
 
 class PropellantRole(str, Enum):
-    """Functional role of a tank-depleting propellant stream."""
+    """Functional role of a tank-depleting propellant stream.
+
+    Oxidizer and fuel roles define the mixture ratio ``mdot_ox / mdot_fuel``
+    of a bipropellant operating point [1]_.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
 
     FUEL = "fuel"
     OXIDIZER = "oxidizer"
@@ -36,7 +53,17 @@ class PropellantRole(str, Enum):
 
 
 class FlowDestination(str, Enum):
-    """Destination of a propellant stream after it leaves its tank."""
+    """Destination of a propellant stream after it leaves its tank.
+
+    Flows that bypass the chamber (gas-generator or coolant dumps, vents) still
+    deplete tanks and therefore lower the system specific impulse relative to
+    the chamber value [1]_.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
 
     CHAMBER = "chamber"
     GAS_GENERATOR_DUMP = "gas_generator_dump"
@@ -46,7 +73,19 @@ class FlowDestination(str, Enum):
 
 
 class BurnTargetKind(str, Enum):
-    """Supported primary termination targets for the constant-burn solver."""
+    """Supported primary termination targets for the constant-burn solver.
+
+    ``IDEAL_DELTA_V`` is the external-force-free velocity change of the ideal
+    rocket equation [1]_; ``TOTAL_IMPULSE`` is the time integral of
+    delivered thrust [2]_.
+
+    References
+    ----------
+    .. [1] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/.
+    .. [2] NASA-ISP. NASA Glenn Research Center, "Specific Impulse",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/.
+    """
 
     DURATION = "duration"
     PROPELLANT_MASS = "propellant_mass"
@@ -55,7 +94,7 @@ class BurnTargetKind(str, Enum):
 
 
 class CutoffReason(str, Enum):
-    """Why a burn simulation stopped."""
+    """Reason a burn simulation stopped."""
 
     TARGET_REACHED = "target_reached"
     TANK_RESERVE = "tank_reserve"
@@ -65,24 +104,26 @@ class CutoffReason(str, Enum):
 
 
 def _finite_nonnegative(value: float, label: str) -> None:
+    """Raise ``DomainError`` unless ``value`` is a finite, non-negative real number."""
     if real(value, label) < 0.0:
         raise DomainError(f"{label} must be finite and non-negative.", field=label)
 
 
 def _finite_positive(value: float, label: str) -> None:
+    """Raise ``DomainError`` unless ``value`` is a finite real number greater than zero."""
     if real(value, label) <= 0.0:
         raise DomainError(f"{label} must be finite and greater than zero.", field=label)
 
 
 def _boolean(value, label):
-    """Keep physical flags distinct from text and numeric truthiness."""
+    """Return ``value`` if it is a ``bool``; text and numbers are rejected."""
     if not isinstance(value, bool):
         raise DomainError(f"{label} must be boolean.", field=label)
     return value
 
 
 def _enum(value, kind, label):
-    """Normalize only recognized enum spellings, preserving dispatch semantics."""
+    """Return the ``kind`` member for a recognized string value, or raise ``DomainError``."""
     if not isinstance(value, str):
         raise DomainError(f"{label} must be a recognized {kind.__name__}.", field=label)
     try:
@@ -92,7 +133,7 @@ def _enum(value, kind, label):
 
 
 def _utf8(value, label):
-    """Require encodable Unicode for the canonical UTF-8 identity boundary."""
+    """Require text encodable as UTF-8, as needed for canonical content hashes."""
     try:
         value.encode('utf-8')
     except UnicodeError as error:
@@ -100,7 +141,7 @@ def _utf8(value, label):
 
 
 def _model_fields(record, label):
-    """Normalize scalar fields and check textual identity without restricting Unicode."""
+    """Coerce the scalar fields of ``record`` and require UTF-8-encodable text fields."""
     coerce_fields(record, label)
     for item in fields(record):
         value = getattr(record, item.name)
@@ -109,7 +150,7 @@ def _model_fields(record, label):
 
 
 def _model_strings(value, label):
-    """Snapshot textual sequences and reject unencodable identity content."""
+    """Return a tuple snapshot of strings, each encodable as UTF-8."""
     result = strings(value, label)
     for item in result:
         _utf8(item, label)
@@ -117,7 +158,7 @@ def _model_strings(value, label):
 
 
 def _inventory_pairs(value, label):
-    """Snapshot unique nonnegative named inventories without dropping content."""
+    """Return ``(name, mass)`` pairs with unique names and non-negative finite masses."""
     if isinstance(value, (str, bytes, Mapping)) or not hasattr(value, '__iter__'):
         raise DomainError(f"{label} must be a sequence of pairs.", field=label)
     items = tuple(value)
@@ -134,7 +175,12 @@ def _inventory_pairs(value, label):
 
 
 def _point_contract(point):
-    """Validate scalar sample fields and snapshot inventories, including idle samples."""
+    """Validate a profile sample, including zero-thrust (idle) samples.
+
+    Float fields are finite and non-negative, the vehicle mass is positive,
+    axial thrust does not exceed delivered thrust, and tank inventories are
+    snapshotted.
+    """
     _model_fields(point, type(point).__name__)
     for item in fields(point):
         if item.type == 'float':
@@ -147,7 +193,34 @@ def _point_contract(point):
 
 @dataclass(frozen=True, slots=True)
 class PropellantFlow:
-    """One explicit mass-flow path leaving a named tank."""
+    """One explicit mass-flow path leaving a named tank.
+
+    Parameters
+    ----------
+    stream_id : str
+        Non-empty stream identifier.
+    tank_id : str
+        Source tank; may be blank only for a stream that does not deplete a
+        tank.
+    propellant_key : str
+        Non-empty propellant identifier.
+    role : PropellantRole
+        Functional role of the stream.
+    destination : FlowDestination
+        Where the flow goes after leaving the tank.
+    mass_flow_kg_s : float
+        Finite, non-negative stream mass flow, in kg/s.
+    tank_depleting : bool, optional
+        Whether the stream draws from ``tank_id``.
+    contributes_to_delivered_thrust : bool, optional
+        Whether the stream is part of the delivered-thrust accounting.
+
+    Raises
+    ------
+    DomainError
+        If a field has the wrong type, an identifier is blank or not
+        UTF-8-encodable, or the flow is negative or non-finite.
+    """
 
     stream_id: str
     tank_id: str
@@ -177,8 +250,60 @@ class PropellantFlow:
 class EngineOperatingPoint:
     """Delivered steady performance with explicit tank-depleting streams.
 
-    Thrust and flows are totals for ``active_engine_count``.  Thus downstream
-    solvers never multiply them by the engine count a second time.
+    Parameters
+    ----------
+    name : str
+        Operating-point name.
+    commanded_throttle, realized_throttle : float
+        Throttle fractions in ``(0, 1]``.
+    active_engine_count : int
+        Number of firing engines, at least one.
+    ideal_thrust_n, delivered_thrust_n : float
+        Positive ideal and delivered thrust, in N; delivered thrust does not
+        exceed ideal thrust.
+    chamber_specific_impulse_s, system_specific_impulse_s : float
+        Positive chamber and system specific impulse, in s.
+    chamber_mass_flow_kg_s, total_tank_flow_kg_s : float
+        Positive flow into the chamber and total tank-depleting flow, in kg/s.
+    oxidizer_mass_flow_kg_s, fuel_mass_flow_kg_s : float
+        Non-negative tank-depleting oxidizer and fuel flows, in kg/s.
+    mixture_ratio : float or None
+        Oxidizer-to-fuel mass-flow ratio, or ``None``.
+    chamber_pressure_pa : float
+        Positive chamber pressure, in Pa.
+    ambient_pressure_pa : float
+        Non-negative ambient pressure, in Pa.
+    streams : tuple of PropellantFlow
+        At least one explicit stream.
+    model_id, source : str, optional
+        Model and provenance identifiers.
+    warnings : tuple of str, optional
+        Interpretation warnings.
+
+    Raises
+    ------
+    DomainError
+        If a scalar is out of range, there is no stream, a declared flow total
+        does not close against the streams, the system specific impulse is
+        inconsistent, or the mixture ratio does not close.
+
+    Notes
+    -----
+    Thrust and flows are totals for ``active_engine_count``; downstream
+    solvers never multiply them by the engine count a second time.  Declared
+    flow totals must match the stream sums within a relative tolerance of
+    ``1e-10`` (absolute floor ``1e-12``).  The system specific impulse is
+    ``Isp_sys = F_delivered / (g0 mdot_tank)`` [1]_ with ``g0`` the registered
+    ``STANDARD_GRAVITY_M_S2``, so flows that bypass the chamber lower it
+    below the chamber value [2]_.  The mixture ratio, when given, is
+    ``mdot_ox / mdot_fuel`` [2]_.
+
+    References
+    ----------
+    .. [1] NASA-ISP. NASA Glenn Research Center, "Specific Impulse",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/.
+    .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
     """
 
     name: str
@@ -278,7 +403,26 @@ class EngineOperatingPoint:
 
 @dataclass(frozen=True, slots=True)
 class TankDefinition:
-    """Initial and protected inventory for one propellant tank."""
+    """Initial and protected inventory for one propellant tank.
+
+    Parameters
+    ----------
+    tank_id : str
+        Tank identifier.
+    propellant_key : str
+        Propellant identifier.
+    role : PropellantRole
+        Functional role of the stored propellant.
+    loaded_mass_kg : float
+        Finite, non-negative loaded propellant mass, in kg.
+    reserve_mass_kg : float, optional
+        Protected reserve, in kg; between zero and ``loaded_mass_kg``.
+
+    Raises
+    ------
+    DomainError
+        If a mass is negative or non-finite, or the reserve exceeds the load.
+    """
 
     tank_id: str
     propellant_key: str
@@ -296,14 +440,28 @@ class TankDefinition:
 
     @property
     def expendable_mass_kg(self) -> float:
-        """Mass available to this burn after protecting the reserve."""
+        """Mass available to this burn after protecting the reserve, in kg."""
 
         return self.loaded_mass_kg - self.reserve_mass_kg
 
 
 @dataclass(frozen=True, slots=True)
 class BurnTarget:
-    """Exactly one primary target for a standalone burn."""
+    """Exactly one primary target for a standalone burn.
+
+    Parameters
+    ----------
+    kind : BurnTargetKind
+        Target quantity.
+    value : float
+        Finite, positive target value in the unit of ``kind`` (s, kg, N s or
+        m/s).
+
+    Raises
+    ------
+    DomainError
+        If ``kind`` is not recognized or ``value`` is not finite and positive.
+    """
 
     kind: BurnTargetKind
     value: float
@@ -316,7 +474,43 @@ class BurnTarget:
 
 @dataclass(frozen=True, slots=True)
 class BurnDefinition:
-    """Normalized propulsion-only request for a constant burn."""
+    """Normalized propulsion-only request for a constant burn.
+
+    Parameters
+    ----------
+    name : str
+        Burn name.
+    initial_mass_kg : float
+        Positive initial vehicle mass, in kg.
+    protected_dry_mass_kg : float
+        Non-negative mass floor the burn must not cross, in kg.
+    tanks : tuple of TankDefinition
+        At least one tank, with unique identifiers.
+    target : BurnTarget
+        Primary termination target.
+    maximum_duration_s : float
+        Positive upper bound on burn duration, in s.
+    cant_efficiency : float, optional
+        Ratio of axial to delivered thrust, in ``(0, 1]``.
+
+    Raises
+    ------
+    DomainError
+        If a field is out of range, tanks are missing or duplicated, or the
+        protected dry mass plus tank loads exceeds the initial mass by more
+        than a relative ``1e-12``.
+
+    Notes
+    -----
+    ``cant_efficiency`` is the cosine loss of canted thrusters: only the
+    thrust component along the vehicle axis contributes to axial impulse
+    [1]_.
+
+    References
+    ----------
+    .. [1] NASA SP-8059, "Spacecraft Attitude Control During Thrusting
+           Maneuvers", https://ntrs.nasa.gov/citations/19710016722.
+    """
 
     name: str
     initial_mass_kg: float
@@ -349,7 +543,22 @@ class BurnDefinition:
 
 @dataclass(frozen=True, slots=True)
 class PropulsionState:
-    """Propulsion inventory and vehicle mass at one instant."""
+    """Propulsion inventory and vehicle mass at one instant.
+
+    Parameters
+    ----------
+    time_s : float
+        Non-negative burn time, in s.
+    vehicle_mass_kg : float
+        Positive vehicle mass, in kg.
+    tank_masses_kg : tuple of (str, float)
+        Unique tank identifiers with non-negative masses, in kg.
+
+    Raises
+    ------
+    DomainError
+        If a field is out of range or tank identifiers repeat.
+    """
 
     time_s: float
     vehicle_mass_kg: float
@@ -364,7 +573,31 @@ class PropulsionState:
 
 @dataclass(frozen=True, slots=True)
 class BurnProfilePoint:
-    """One binary64 endpoint from a constant burn."""
+    """One binary64 sample of a constant burn.
+
+    Parameters
+    ----------
+    time_s : float
+        Burn time, in s.
+    delivered_thrust_n, axial_thrust_n : float
+        Delivered and axial thrust, in N; axial does not exceed delivered.
+    system_specific_impulse_s : float
+        System specific impulse, in s.
+    total_mass_flow_kg_s : float
+        Total tank-depleting flow, in kg/s.
+    vehicle_mass_kg : float
+        Positive vehicle mass, in kg.
+    tank_masses_kg : tuple of (str, float)
+        Tank inventories, in kg.
+    phase : str
+        Phase label.
+
+    Raises
+    ------
+    DomainError
+        If a float field is negative or non-finite, the vehicle mass is not
+        positive, or axial thrust exceeds delivered thrust.
+    """
 
     time_s: float
     delivered_thrust_n: float
@@ -383,9 +616,25 @@ class BurnProfilePoint:
 class ThrottleSegment:
     """One piecewise-linear throttle segment defined by supplied binary values.
 
+    Parameters
+    ----------
+    duration_s : float
+        Finite, positive segment duration, in s.
+    start_throttle, end_throttle : float
+        Throttle fractions in ``[0, 1]`` at the segment ends.
+    phase : str, optional
+        Non-empty phase label.
+
+    Raises
+    ------
+    DomainError
+        If the duration is not positive or a throttle is outside ``[0, 1]``.
+
+    Notes
+    -----
     Segments are ordered and contiguous by construction in
-    :class:`ThrottleSchedule`. A discontinuous command is represented by an
-    end throttle that differs from the next segment's start throttle.
+    :class:`ThrottleSchedule`.  A discontinuous command is an end throttle
+    that differs from the next segment's start throttle.
     """
 
     duration_s: float
@@ -406,7 +655,11 @@ class ThrottleSegment:
 
     @property
     def exposure_s(self) -> float:
-        """Return rounded full-throttle exposure from exact input arithmetic."""
+        """Full-throttle exposure ``(start + end) duration / 2``, in s.
+
+        The integral of the linear throttle is evaluated exactly from the
+        binary inputs and rounded once on export.
+        """
 
         return _finite_rational(
             (_fraction(self.start_throttle) + _fraction(self.end_throttle))
@@ -418,7 +671,20 @@ class ThrottleSegment:
 
 @dataclass(frozen=True, slots=True)
 class ThrottleSchedule:
-    """Ordered dependency-free L1 throttle/start/stop command history."""
+    """Ordered, self-contained piecewise-linear throttle command history.
+
+    Parameters
+    ----------
+    segments : tuple of ThrottleSegment
+        At least one segment; together they must command positive exposure.
+    name : str, optional
+        Schedule name.
+
+    Raises
+    ------
+    DomainError
+        If there is no segment or every throttle value is zero.
+    """
 
     segments: tuple[ThrottleSegment, ...]
     name: str = "piecewise-linear throttle schedule"
@@ -435,7 +701,7 @@ class ThrottleSchedule:
 
     @property
     def total_duration_s(self) -> float:
-        """Return command time from the first segment to schedule end."""
+        """Command time from the start of the first segment to the schedule end, in s."""
 
         return _finite_rational(
             sum((_fraction(segment.duration_s) for segment in self.segments), _fraction(0.0)),
@@ -444,7 +710,7 @@ class ThrottleSchedule:
 
     @property
     def total_exposure_s(self) -> float:
-        """Return ``integral(throttle dt)`` over the complete schedule."""
+        """Full-throttle exposure ``integral(throttle dt)`` over the schedule, in s."""
 
         return _finite_rational(
             sum(
@@ -462,7 +728,19 @@ class ThrottleSchedule:
 
 @dataclass(frozen=True, slots=True)
 class ProfiledBurnPoint:
-    """One L1 sample with rounded throttle, force, flow, and inventory fields."""
+    """One sample of a profiled burn with rounded throttle, force, flow and inventory.
+
+    Fields follow :class:`BurnProfilePoint`, plus commanded and realized
+    throttle in ``[0, 1]``, oxidizer and fuel flows in kg/s and chamber
+    pressure in Pa.
+
+    Raises
+    ------
+    DomainError
+        If a float field is negative or non-finite, the vehicle mass is not
+        positive, axial thrust exceeds delivered thrust, or a throttle exceeds
+        one.
+    """
 
     time_s: float
     commanded_throttle: float
@@ -487,7 +765,39 @@ class ProfiledBurnPoint:
 
 @dataclass(frozen=True, slots=True)
 class BurnSummary:
-    """Conservation-aware summary of a standalone burn."""
+    """Conservation-checked summary of a standalone burn.
+
+    Attributes include the requested target and whether it was achieved, the
+    cutoff reason and binding constraint, duration, initial and final mass,
+    consumed propellant (total and per tank), delivered and axial total
+    impulse, average delivered thrust, equivalent specific impulses, ideal
+    delta-v, thrust-centroid time, the mass, impulse and delta-v closure
+    errors, and whether an exact constant-thrust export to Sidera is
+    available.
+
+    Raises
+    ------
+    DomainError
+        If an enum or flag has the wrong type, a float field is negative or
+        non-finite, the target value or a mass is not positive, the final mass
+        exceeds the initial mass, or axial impulse exceeds delivered impulse.
+
+    Notes
+    -----
+    Total impulse is ``integral F dt`` and the system-equivalent specific
+    impulse is ``I / (g0 m_consumed)`` [1]_.  The ideal delta-v and the
+    rocket-equivalent specific impulse follow the external-force-free rocket
+    equation ``dv = g0 Isp ln(m0 / mf)`` [2]_, with ``g0`` the registered
+    ``STANDARD_GRAVITY_M_S2``.  The closure errors are numerical
+    consistency checks, not physical uncertainty.
+
+    References
+    ----------
+    .. [1] NASA-ISP. NASA Glenn Research Center, "Specific Impulse",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/.
+    .. [2] NASA-ROCKET. NASA Glenn Research Center, "Ideal Rocket Equation",
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/.
+    """
 
     requested_target_kind: BurnTargetKind
     requested_target_value: float
@@ -534,7 +844,32 @@ class BurnSummary:
 
 @dataclass(frozen=True, slots=True)
 class IntegrationEvidence:
-    """Numerical-method evidence carried with every result."""
+    """Numerical-method evidence carried with every result.
+
+    Parameters
+    ----------
+    method : str
+        Integration method name.
+    absolute_tolerance, relative_tolerance : float
+        Non-negative solver tolerances.
+    segment_count, accepted_steps, rejected_steps : int
+        Non-negative step accounting.
+
+    Raises
+    ------
+    DomainError
+        If a tolerance or count is negative.
+
+    Notes
+    -----
+    The record documents numerical verification evidence as required for
+    model reporting by [1]_; it is not validation evidence.
+
+    References
+    ----------
+    .. [1] NASA-STD-7009B, "Standard for Models and Simulations",
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009.
+    """
 
     method: str
     absolute_tolerance: float
@@ -554,7 +889,35 @@ class IntegrationEvidence:
 
 @dataclass(frozen=True, slots=True)
 class BurnResult:
-    """Top-level, Sidera-independent burn result contract."""
+    """Top-level result of a constant burn, independent of any trajectory tool.
+
+    Parameters
+    ----------
+    schema : str
+        Must equal ``"rocket_propulsion_burn_v1"``.
+    definition : BurnDefinition
+        The normalized request.
+    operating_point : EngineOperatingPoint
+        The engine operating point used.
+    initial_state, final_state : PropulsionState
+        Inventory at burn start and end.
+    profile : tuple of BurnProfilePoint
+        Sampled burn history.
+    summary : BurnSummary
+        Conservation-checked summary.
+    evidence : IntegrationEvidence
+        Numerical-method evidence.
+    warnings : tuple of str
+        Interpretation warnings.
+    input_hash, result_hash : str
+        Lower-case SHA-256 digests; ``result_hash`` may be empty while the
+        record is provisional.
+
+    Raises
+    ------
+    DomainError
+        If the schema or a component type is wrong or a digest is malformed.
+    """
 
     schema: str
     definition: BurnDefinition
@@ -574,7 +937,17 @@ class BurnResult:
 
 @dataclass(frozen=True, slots=True)
 class ProfiledBurnResult:
-    """Top-level result for a piecewise-linear L1 throttle schedule."""
+    """Top-level result of a burn under a piecewise-linear throttle schedule.
+
+    Fields follow :class:`BurnResult`, with ``schema`` equal to
+    ``"rocket_propulsion_burn_v2"``, an added ``schedule`` and
+    :class:`ProfiledBurnPoint` samples.
+
+    Raises
+    ------
+    DomainError
+        If the schema or a component type is wrong or a digest is malformed.
+    """
 
     schema: str
     definition: BurnDefinition
@@ -596,7 +969,11 @@ class ProfiledBurnResult:
 
 
 def _result_contract(result, schema, point_kind):
-    """Snapshot typed result structure; authoritative reproduction is checked on I/O."""
+    """Check a result's schema, component types and digests.
+
+    Reproduction of the hashes from content is verified when a document is
+    read, not here.
+    """
     if result.schema != schema:
         raise DomainError('Result schema does not match its record type.', field='schema')
     for name, kind in (('definition', BurnDefinition), ('operating_point', EngineOperatingPoint),

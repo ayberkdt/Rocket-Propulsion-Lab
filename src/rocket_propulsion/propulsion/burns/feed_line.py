@@ -1,9 +1,21 @@
-"""Distributed-effect surrogate for liquid feed-line transients.
+"""Lumped two-state surrogate for liquid feed-line transients.
 
-The two-state lumped line retains hydraulic inertance and compliance rather
-than collapsing every stage evaluation to a static pressure loss.  It is small
-enough for orbit propagation while exposing the conservation and Jacobian
-terms required by a numerical force-model implementation.
+The line retains hydraulic inertance and compliance instead of reducing every
+integrator-stage evaluation to a static pressure loss [1]_.  It is small enough
+for orbit propagation and exposes the mass-conservation and Jacobian terms a
+numerical force model requires.  The surrogate represents the first
+inertance/compliance mode only; it is not a water-hammer solver [2]_, and its
+coefficients are calibrated against the actual plumbing or a higher-order nodal
+network model [3]_.
+
+References
+----------
+.. [1] NASA, "Liquid Rocket Propellant Feedline Dynamics", 1973.
+       https://ntrs.nasa.gov/citations/19740028545
+.. [2] NASA NESC Technical Bulletin 22-03, "Treatment of Transient Pressure
+       Events", 2022. https://ntrs.nasa.gov/citations/20220006583
+.. [3] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+       System", 2024. https://ntrs.nasa.gov/citations/20240003493
 """
 
 from __future__ import annotations
@@ -32,11 +44,13 @@ DYNAMIC_FEED_LINE_REFERENCE_IDS = (
 
 
 def _positive(value: float, label: str) -> None:
+    """Raise `DomainError` unless ``value`` is finite and strictly positive."""
     if not isfinite(value) or value <= 0.0:
         raise DomainError(f"{label} must be finite and greater than zero.")
 
 
 def _nonnegative(value: float, label: str) -> None:
+    """Raise `DomainError` unless ``value`` is finite and non-negative."""
     if not isfinite(value) or value < 0.0:
         raise DomainError(f"{label} must be finite and non-negative.")
 
@@ -45,29 +59,58 @@ def _nonnegative(value: float, label: str) -> None:
 
 @dataclass(frozen=True, slots=True)
 class DynamicFeedLineConfiguration:
-    """Lumped hydraulic inertance, compliance, resistance, and limits.
+    """Lumped hydraulic inertance, compliance, resistance and operating limits.
 
-    The governing equations are
+    Parameters
+    ----------
+    inertance_pa_s2_kg : float
+        Positive hydraulic inertance ``L``, Pa s^2/kg.
+    compliance_kg_pa : float
+        Positive compliance ``C``, kg/Pa: incremental stored liquid mass per
+        unit manifold pressure.
+    resistance_pa_s2_kg2 : float
+        Non-negative quadratic resistance ``R``, Pa s^2/kg^2.
+    minimum_manifold_pressure_pa : float
+        Positive lower manifold-pressure limit, Pa.
+    maximum_manifold_pressure_pa : float
+        Upper manifold-pressure limit, Pa; must exceed the minimum.
+    maximum_absolute_flow_kg_s : float
+        Positive limit on ``abs(q)``, kg/s.
+    model_id : str, default "lumped-inertance-compliance-feed-line"
+        Non-blank model identifier.
+    schema : str, default DYNAMIC_FEED_LINE_SCHEMA
+        Configuration schema; only the current schema is accepted.
+
+    Raises
+    ------
+    DomainError
+        If the schema is unsupported, the identifier is blank, a value is
+        outside its domain, or the pressure limits are not ordered.
+
+    Notes
+    -----
+    The governing equations of the lumped line [1]_ are
 
     ``L dq/dt = p_up - p_m - R q abs(q)``
 
     and
 
-    ``C dp_m/dt = q - q_engine``.
+    ``C dp_m/dt = q - q_engine``,
 
-    ``C`` therefore has units kg/Pa and represents incremental stored liquid
-    mass per pressure.  The model is a low-order surrogate for distributed line
-    modes and must be calibrated against the actual plumbing or a higher-order
-    nodal model.
+    where ``q`` is line mass flow, ``p_up`` the upstream (tank) pressure and
+    ``p_m`` the engine-manifold pressure.  The model is a low-order surrogate
+    for distributed line modes and transient pressure events [2]_; its
+    coefficients are calibrated against the actual plumbing or a higher-order
+    nodal model [3]_.
 
     References
     ----------
-    NASA liquid-rocket feedline dynamics:
-    https://ntrs.nasa.gov/citations/19740028545
-    NASA NESC transient-pressure bulletin:
-    https://ntrs.nasa.gov/citations/20220006583
-    NASA nodal feed/pressurization modeling:
-    https://ntrs.nasa.gov/citations/20240003493
+    .. [1] NASA, "Liquid Rocket Propellant Feedline Dynamics", 1973.
+           https://ntrs.nasa.gov/citations/19740028545
+    .. [2] NASA NESC Technical Bulletin 22-03, "Treatment of Transient Pressure
+           Events", 2022. https://ntrs.nasa.gov/citations/20220006583
+    .. [3] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+           System", 2024. https://ntrs.nasa.gov/citations/20240003493
     """
 
     inertance_pa_s2_kg: float
@@ -100,18 +143,34 @@ class DynamicFeedLineConfiguration:
 
 @dataclass(frozen=True, slots=True)
 class DynamicFeedLineState:
-    """Propagated line flow and engine-manifold pressure.
+    """Propagated line mass flow and engine-manifold pressure.
 
-    Negative flow is retained so an event locator can resolve a flow reversal;
-    the configured reverse-flow event is positive-safe and stops the burn at
-    zero before sustained reverse operation.
+    Parameters
+    ----------
+    mass_flow_kg_s : float
+        Finite signed line mass flow ``q``, kg/s.
+    manifold_pressure_pa : float
+        Positive engine-manifold pressure ``p_m``, Pa.
+
+    Raises
+    ------
+    DomainError
+        If the flow is non-finite or the pressure is not finite and positive.
+
+    Notes
+    -----
+    Negative flow is representable so that an event locator can resolve a
+    flow reversal of the line [1]_.  The reverse-flow event is positive inside
+    the permitted domain and stops the burn at zero flow, before any sustained
+    reverse operation; the pressure limits screen transient pressure events
+    [2]_.
 
     References
     ----------
-    NASA liquid-rocket feedline dynamics:
-    https://ntrs.nasa.gov/citations/19740028545
-    NASA NESC transient-pressure bulletin:
-    https://ntrs.nasa.gov/citations/20220006583
+    .. [1] NASA, "Liquid Rocket Propellant Feedline Dynamics", 1973.
+           https://ntrs.nasa.gov/citations/19740028545
+    .. [2] NASA NESC Technical Bulletin 22-03, "Treatment of Transient Pressure
+           Events", 2022. https://ntrs.nasa.gov/citations/20220006583
     """
 
     mass_flow_kg_s: float
@@ -126,33 +185,35 @@ class DynamicFeedLineState:
 
 @dataclass(frozen=True, slots=True)
 class DynamicFeedLineDerivative:
-    """Two-state feed-line ODE right-hand side.
+    """Right-hand side of the two-state feed-line ODE.
+
+    Attributes
+    ----------
+    mass_flow_kg_s2 : float
+        ``dq/dt = (p_up - p_m - R q abs(q)) / L`` [1]_, kg/s^2.
+    manifold_pressure_pa_s : float
+        ``dp_m/dt = (q - q_engine) / C``, Pa/s.
 
     References
     ----------
-    NASA liquid-rocket feedline dynamics:
-    https://ntrs.nasa.gov/citations/19740028545
+    .. [1] NASA, "Liquid Rocket Propellant Feedline Dynamics", 1973.
+           https://ntrs.nasa.gov/citations/19740028545
     """
 
     mass_flow_kg_s2: float
     manifold_pressure_pa_s: float
 
     def __post_init__(self) -> None:
-        """Refuse non-finite stage rates before returning a line evaluation.
-
-        References
-        ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-        """
+        """Coerce both rates to finite reals; raise `DomainError` otherwise."""
         coerce_fields(self, "Feed-line derivative")
 
     def as_tuple(self) -> tuple[float, float]:
-        """Return derivatives in state-field order.
+        """Return ``(dq/dt, dp_m/dt)`` of the lumped line [1]_ in state order.
 
         References
         ----------
-        NASA liquid-rocket feedline dynamics:
-        https://ntrs.nasa.gov/citations/19740028545
+        .. [1] NASA, "Liquid Rocket Propellant Feedline Dynamics", 1973.
+               https://ntrs.nasa.gov/citations/19740028545
         """
 
         return (self.mass_flow_kg_s2, self.manifold_pressure_pa_s)
@@ -160,12 +221,31 @@ class DynamicFeedLineDerivative:
 
 @dataclass(frozen=True, slots=True)
 class DynamicFeedLinePartials:
-    """Analytic local line derivatives before engine-map composition.
+    """Analytic local derivatives of the line ODE before engine-map composition.
+
+    Attributes
+    ----------
+    derivative_wrt_state : tuple of (str, (float, float))
+        Named Jacobian columns: the derivative of ``(dq/dt, dp_m/dt)`` with
+        respect to each state; names are unique.
+    derivative_wrt_upstream_pressure : tuple of float
+        Derivative with respect to ``p_up``, ``(1 / L, 0)``.
+    derivative_wrt_engine_flow : tuple of float
+        Derivative with respect to ``q_engine``, ``(0, -1 / C)``.
+    nonsmooth_state_names : tuple of str, default ()
+        States at which the right-hand side is not twice differentiable; the
+        quadratic loss ``R q abs(q)`` [1]_ is non-smooth at ``q = 0``.
+
+    Raises
+    ------
+    DomainError
+        If a column is malformed, a component is non-finite, or column names
+        repeat.
 
     References
     ----------
-    NASA liquid-rocket feedline dynamics:
-    https://ntrs.nasa.gov/citations/19740028545
+    .. [1] NASA, "Liquid Rocket Propellant Feedline Dynamics", 1973.
+           https://ntrs.nasa.gov/citations/19740028545
     """
 
     derivative_wrt_state: tuple[tuple[str, tuple[float, float]], ...]
@@ -174,12 +254,7 @@ class DynamicFeedLinePartials:
     nonsmooth_state_names: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        """Require finite two-component Jacobian columns as well as a finite RHS.
-
-        References
-        ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-        """
+        """Normalize and validate named, finite, two-component Jacobian columns."""
         if not isinstance(self.derivative_wrt_state, (list, tuple)):
             raise DomainError("Line state partials must be named two-component columns.")
         columns = []
@@ -205,14 +280,40 @@ class DynamicFeedLinePartials:
 
 @dataclass(frozen=True, slots=True)
 class DynamicFeedLineEvaluation:
-    """Line ODE, conservation terms, and local modal diagnostics.
+    """Line ODE, mass-conservation terms and local modal diagnostics.
+
+    Attributes
+    ----------
+    upstream_pressure_pa : float
+        Upstream (tank) pressure ``p_up``, Pa.
+    engine_mass_flow_kg_s : float
+        Engine demand ``q_engine``, kg/s.
+    friction_pressure_drop_pa : float
+        Quadratic loss ``R q abs(q)``, Pa.
+    stored_liquid_mass_rate_kg_s : float
+        Rate of change of compliant line storage, ``q - q_engine``, kg/s.
+    external_mass_closure_error_kg_s : float
+        Absolute residual of the tank-plus-line mass balance, kg/s.
+    natural_angular_frequency_rad_s : float
+        Undamped first-mode frequency ``1 / sqrt(L C)`` [1]_, rad/s.
+    damping_ratio : float
+        Damping ratio of the linearized loss, ``R abs(q) sqrt(C / L)``.
+    derivative : DynamicFeedLineDerivative
+        ODE right-hand side.
+    partials : DynamicFeedLinePartials
+        Local analytic Jacobian.
+
+    Notes
+    -----
+    Modal values describe the first lumped mode only; faster pressure
+    transients such as water hammer are outside the surrogate [2]_.
 
     References
     ----------
-    NASA liquid-rocket feedline dynamics:
-    https://ntrs.nasa.gov/citations/19740028545
-    NASA NESC transient-pressure bulletin:
-    https://ntrs.nasa.gov/citations/20220006583
+    .. [1] NASA, "Liquid Rocket Propellant Feedline Dynamics", 1973.
+           https://ntrs.nasa.gov/citations/19740028545
+    .. [2] NASA NESC Technical Bulletin 22-03, "Treatment of Transient Pressure
+           Events", 2022. https://ntrs.nasa.gov/citations/20220006583
     """
 
     upstream_pressure_pa: float
@@ -226,23 +327,22 @@ class DynamicFeedLineEvaluation:
     partials: DynamicFeedLinePartials
 
     def __post_init__(self) -> None:
-        """Keep modal and mass-conservation diagnostics finite.
-
-        References
-        ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-        """
+        """Require finite diagnostics and a positive natural frequency."""
         coerce_fields(self, "Feed-line evaluation")
         _positive(self.natural_angular_frequency_rad_s, "Feed-line natural frequency")
 
 
 class DynamicFeedLineEventKind(str, Enum):
-    """Positive-safe cutoff events for the dynamic line.
+    """Cutoff events of the dynamic line, each positive inside the permitted domain.
+
+    Members are reverse flow, minimum and maximum manifold pressure, and
+    maximum absolute flow; the pressure limits screen transient pressure
+    excursions [1]_.
 
     References
     ----------
-    NASA NESC transient-pressure bulletin:
-    https://ntrs.nasa.gov/citations/20220006583
+    .. [1] NASA NESC Technical Bulletin 22-03, "Treatment of Transient Pressure
+           Events", 2022. https://ntrs.nasa.gov/citations/20220006583
     """
 
     REVERSE_FLOW = "reverse_flow"
@@ -253,14 +353,29 @@ class DynamicFeedLineEventKind(str, Enum):
 
 @dataclass(frozen=True, slots=True)
 class DynamicFeedLineEventSurface:
-    """One signed root that is positive inside the permitted line domain.
+    """One signed event function that is positive inside the permitted domain.
+
+    Attributes
+    ----------
+    event_id : str
+        Stable event identifier.
+    kind : DynamicFeedLineEventKind
+        Limit that the event function measures.
+    stops_burn : bool, default True
+        Whether a zero crossing terminates the burn.
+
+    Notes
+    -----
+    The sign convention suits the zero-crossing event detectors of a
+    propagator [2]_; the pressure limits screen transient pressure events
+    [1]_.
 
     References
     ----------
-    NASA NESC transient-pressure bulletin:
-    https://ntrs.nasa.gov/citations/20220006583
-    Orekit EventDetector 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+    .. [1] NASA NESC Technical Bulletin 22-03, "Treatment of Transient Pressure
+           Events", 2022. https://ntrs.nasa.gov/citations/20220006583
+    .. [2] Orekit Project, "PropulsionModel / EventDetector" API documentation,
+           Orekit 13.1.5.
     """
 
     event_id: str
@@ -270,14 +385,33 @@ class DynamicFeedLineEventSurface:
 
 @dataclass(frozen=True, slots=True)
 class DynamicFeedCoupledPartials:
-    """Engine-composed line Jacobian and feed-state coupling.
+    """Line Jacobian composed with the engine map, and feed-state coupling.
+
+    Attributes
+    ----------
+    line_state_jacobian : tuple of tuple of float
+        2 x 2 Jacobian of ``(dq/dt, dp_m/dt)`` with respect to ``(q, p_m)``;
+        the ``(1, 1)`` entry is the engine-demand term
+        ``-(d q_engine / d p_m) / C`` of the lumped line [2]_.
+    line_derivative_wrt_feed_state : tuple of (str, (float, float))
+        Derivative of the line ODE with respect to each regulated-feed state,
+        through the upstream pressure.
+    engine_flow_wrt_manifold_pressure : float
+        ``d q_engine / d p_m``, kg/(s Pa).
+    acceleration_wrt_line_state : tuple of (str, (float, float, float))
+        Thrust-acceleration derivative with respect to each line state.
+
+    Notes
+    -----
+    [1]_ gives the transient engine-system modelling context of the coupled
+    component equations.
 
     References
     ----------
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
-    NASA liquid-rocket feedline dynamics:
-    https://ntrs.nasa.gov/citations/19740028545
+    .. [1] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
+    .. [2] NASA, "Liquid Rocket Propellant Feedline Dynamics", 1973.
+           https://ntrs.nasa.gov/citations/19740028545
     """
 
     line_state_jacobian: tuple[tuple[float, float], tuple[float, float]]
@@ -288,14 +422,30 @@ class DynamicFeedCoupledPartials:
 
 @dataclass(frozen=True, slots=True)
 class DynamicFeedPropulsionEvaluation:
-    """Simultaneous pressurant, line, engine, and Jacobian evaluation.
+    """Simultaneous pressurant, line, engine and Jacobian evaluation.
+
+    Attributes
+    ----------
+    propulsion : PropulsionDynamicsEvaluation
+        Engine evaluation at the propagated manifold pressure.
+    regulated_feed : RegulatedFeedEvaluation
+        Tank and pressurant evaluation at the line flow.
+    feed_line : DynamicFeedLineEvaluation
+        Line ODE and diagnostics.
+    partials : DynamicFeedCoupledPartials
+        Composed Jacobian terms.
+
+    Notes
+    -----
+    The coupled tank, line and engine states form a small feed network in the
+    sense of [1]_; [2]_ gives the transient-modelling context.
 
     References
     ----------
-    NASA nodal feed/pressurization modeling:
-    https://ntrs.nasa.gov/citations/20240003493
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
+    .. [1] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+           System", 2024. https://ntrs.nasa.gov/citations/20240003493
+    .. [2] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
     """
 
     propulsion: PropulsionDynamicsEvaluation
@@ -305,7 +455,11 @@ class DynamicFeedPropulsionEvaluation:
 
     @property
     def reverse_flow_event_extension(self) -> bool:
-        """Whether the signed RHS is only a continuation for locating cutoff."""
+        """Whether the signed right-hand side is only a zero-flow continuation.
+
+        ``True`` when the line flow is negative; the values then serve event
+        location only and are not a reverse-flow operating model.
+        """
         return self.regulated_feed.reverse_flow_event_extension
 
 
@@ -313,30 +467,42 @@ class DynamicFeedPropulsionEvaluation:
 class DynamicFeedLine:
     """Two-state liquid-line model for a numerical orbit propagator.
 
-    The state captures the first inertance/compliance mode and nonlinear
-    quadratic damping.  It is appropriate for mission-level transient coupling
-    only after its effective coefficients have been correlated against the
-    actual line or a validated nodal model.  It is not a water-hammer solver.
+    Parameters
+    ----------
+    configuration : DynamicFeedLineConfiguration
+        Lumped coefficients and operating limits.
+
+    Notes
+    -----
+    The state ``(q, p_m)`` captures the first inertance/compliance mode of the
+    line with nonlinear quadratic damping [1]_.  The model is suitable for
+    mission-level transient coupling only after its effective coefficients are
+    correlated against the actual line or a validated nodal model [3]_.  It is
+    not a water-hammer solver [2]_.
 
     References
     ----------
-    NASA liquid-rocket feedline dynamics:
-    https://ntrs.nasa.gov/citations/19740028545
-    NASA NESC transient-pressure bulletin:
-    https://ntrs.nasa.gov/citations/20220006583
-    NASA nodal feed/pressurization modeling:
-    https://ntrs.nasa.gov/citations/20240003493
+    .. [1] NASA, "Liquid Rocket Propellant Feedline Dynamics", 1973.
+           https://ntrs.nasa.gov/citations/19740028545
+    .. [2] NASA NESC Technical Bulletin 22-03, "Treatment of Transient Pressure
+           Events", 2022. https://ntrs.nasa.gov/citations/20220006583
+    .. [3] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+           System", 2024. https://ntrs.nasa.gov/citations/20240003493
     """
 
     configuration: DynamicFeedLineConfiguration
 
     @property
     def model_hash(self) -> str:
-        """Return configuration and reference identity.
+        """SHA-256 of the canonical manifest without its hash field.
+
+        The hash identifies configuration and source identity for model
+        traceability [1]_.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations", 2024.
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
         return canonical_sha256(self.manifest(include_hash=False))
@@ -344,11 +510,28 @@ class DynamicFeedLine:
     def manifest(self, *, include_hash: bool = True) -> dict[str, object]:
         """Return a deterministic, unit-explicit model manifest.
 
+        Parameters
+        ----------
+        include_hash : bool, default True
+            Whether to append ``model_hash`` computed over the other fields.
+
+        Returns
+        -------
+        dict
+            Schema, model identifier, coefficients under unit-suffixed keys,
+            state order and source identifiers.
+
+        Notes
+        -----
+        The manifest records the lumped coefficients of [2]_ for model
+        traceability [1]_.
+
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-        NASA liquid-rocket feedline dynamics:
-        https://ntrs.nasa.gov/citations/19740028545
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations", 2024.
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [2] NASA, "Liquid Rocket Propellant Feedline Dynamics", 1973.
+               https://ntrs.nasa.gov/citations/19740028545
         """
 
         config = self.configuration
@@ -377,14 +560,45 @@ class DynamicFeedLine:
         upstream_pressure_pa: float,
         engine_mass_flow_kg_s: float,
     ) -> DynamicFeedLineEvaluation:
-        """Evaluate line dynamics, conservation, modes, and partials.
+        """Evaluate line dynamics, mass conservation, modal values and partials.
+
+        Parameters
+        ----------
+        state : DynamicFeedLineState
+            Current line flow and manifold pressure.
+        upstream_pressure_pa : float
+            Positive upstream (tank) pressure ``p_up``, Pa.
+        engine_mass_flow_kg_s : float
+            Non-negative engine demand ``q_engine``, kg/s.
+
+        Returns
+        -------
+        DynamicFeedLineEvaluation
+            Right-hand side, analytic Jacobian, closure residual and modal
+            diagnostics.
+
+        Raises
+        ------
+        DomainError
+            If ``state`` has the wrong type or an input is outside its domain.
+
+        Notes
+        -----
+        The right-hand side is ``dq/dt = (p_up - p_m - R q abs(q)) / L`` and
+        ``dp_m/dt = (q - q_engine) / C`` [1]_.  The Jacobian entry
+        ``d(dq/dt)/dq = -2 R abs(q) / L`` is continuous, but the right-hand side
+        is not twice differentiable at ``q = 0``, so ``q`` is reported as a
+        nonsmooth state there.  The modal diagnostics are
+        ``omega_n = 1 / sqrt(L C)`` and ``zeta = R abs(q) sqrt(C / L)``.  The
+        closure residual checks that tank liquid plus compliant line storage
+        changes exactly by engine outflow, the nodal mass balance of [2]_.
 
         References
         ----------
-        NASA liquid-rocket feedline dynamics:
-        https://ntrs.nasa.gov/citations/19740028545
-        NASA nodal feed/pressurization modeling:
-        https://ntrs.nasa.gov/citations/20240003493
+        .. [1] NASA, "Liquid Rocket Propellant Feedline Dynamics", 1973.
+               https://ntrs.nasa.gov/citations/19740028545
+        .. [2] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+               System", 2024. https://ntrs.nasa.gov/citations/20240003493
         """
 
         if not isinstance(state, DynamicFeedLineState):
@@ -428,7 +642,7 @@ class DynamicFeedLine:
             nonsmooth_state_names=("mass_flow_kg_s",) if flow == 0.0 else (),
         )
         # Tank liquid plus compliant line storage changes exactly by engine
-        # outflow.  This residual is explicit so an adapter can monitor it.
+        # outflow; the residual is exported so an adapter can monitor it.
         closure_error = abs((-flow) + stored_mass_rate + engine_mass_flow_kg_s)
         return DynamicFeedLineEvaluation(
             upstream_pressure_pa=upstream_pressure_pa,
@@ -443,12 +657,18 @@ class DynamicFeedLine:
         )
 
     def event_surfaces(self) -> tuple[DynamicFeedLineEventSurface, ...]:
-        """Return reverse-flow, pressure, and magnitude limit roots.
+        """Return the reverse-flow, pressure-limit and flow-magnitude events.
+
+        Returns
+        -------
+        tuple of DynamicFeedLineEventSurface
+            One burn-stopping surface per `DynamicFeedLineEventKind` member;
+            the pressure limits screen transient pressure events [1]_.
 
         References
         ----------
-        NASA NESC transient-pressure bulletin:
-        https://ntrs.nasa.gov/citations/20220006583
+        .. [1] NASA NESC Technical Bulletin 22-03, "Treatment of Transient Pressure
+               Events", 2022. https://ntrs.nasa.gov/citations/20220006583
         """
 
         return (
@@ -472,14 +692,34 @@ class DynamicFeedLine:
     def event_value(
         self, surface: DynamicFeedLineEventSurface, state: DynamicFeedLineState
     ) -> float:
-        """Evaluate one positive-safe line event function.
+        """Evaluate one line event function, positive inside the permitted domain.
+
+        Parameters
+        ----------
+        surface : DynamicFeedLineEventSurface
+            Event to evaluate.
+        state : DynamicFeedLineState
+            Current line state.
+
+        Returns
+        -------
+        float
+            ``q`` for reverse flow, ``p_m - p_min``, ``p_max - p_m`` or
+            ``q_max - abs(q)``; a sign change marks the event for a
+            zero-crossing detector [2]_.  The pressure limits screen transient
+            pressure events [1]_.
+
+        Raises
+        ------
+        DomainError
+            If the event kind is not supported.
 
         References
         ----------
-        NASA NESC transient-pressure bulletin:
-        https://ntrs.nasa.gov/citations/20220006583
-        Orekit EventDetector 13.1.5 API:
-        https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+        .. [1] NASA NESC Technical Bulletin 22-03, "Treatment of Transient Pressure
+               Events", 2022. https://ntrs.nasa.gov/citations/20220006583
+        .. [2] Orekit Project, "PropulsionModel / EventDetector" API documentation,
+               Orekit 13.1.5.
         """
 
         config = self.configuration
@@ -511,29 +751,79 @@ def evaluate_dynamic_feed_propulsion(
     apply_inventory_limits: bool = True,
     ambient_pressure_pa: float | None = None,
 ) -> DynamicFeedPropulsionEvaluation:
-    """Evaluate pressurant, inertial line, and engine without an algebraic loop.
+    """Evaluate pressurant, inertial line and engine without an algebraic loop.
 
-    Manifold pressure is a propagated line state and directly drives the engine
-    performance map.  Engine demand drives compliant storage; line flow drains
-    the tank and expands the ullage.  The returned composed Jacobian includes
-    the engine demand derivative inside the manifold-pressure ODE.
+    Parameters
+    ----------
+    bridge : PropagatorPropulsionBridge
+        Propagator bridge with a performance surface.
+    regulated_feed : RegulatedFeedSystem
+        Tank and pressurant model; its static line resistance must be zero.
+    regulated_state : RegulatedFeedState
+        Current tank and pressurant state.
+    feed_line : DynamicFeedLine
+        Dynamic line model.
+    line_state : DynamicFeedLineState
+        Current line flow and manifold pressure.
+    relative_time_s : float
+        Time from burn start, s.
+    vehicle_mass_kg : float
+        Current vehicle mass, kg.
+    direction : tuple of float
+        Thrust direction in the propagation frame.
+    pressure_condition_name : str
+        Performance-surface axis driven by the manifold pressure.
+    other_operating_conditions : Mapping[str, float] or None, default None
+        Remaining operating conditions; must not contain
+        ``pressure_condition_name``.
+    additional_states : Mapping[str, float] or None, default None
+        Additional propagated states passed to the bridge.
+    parameter_overrides : Mapping[str, float] or None, default None
+        Parameter values passed to the bridge.
+    apply_inventory_limits : bool, default True
+        Whether the bridge applies inventory cutoffs.
+    ambient_pressure_pa : float or None, default None
+        Ambient pressure passed to the bridge, Pa.
 
-    The regulated feed's static line resistance must be zero to prevent double
-    application; dynamic resistance belongs to `DynamicFeedLine`.
+    Returns
+    -------
+    DynamicFeedPropulsionEvaluation
+        Engine, feed and line evaluations with the composed Jacobian.
 
-    Signed negative trial flows are continued consistently through the tank
-    mass and ullage-work equations for zero-flow event location. Results then
-    carry ``reverse_flow_event_extension=True``; physical propagation must stop
-    at zero. This continuation is not a sustained reverse-operation model.
+    Raises
+    ------
+    DomainError
+        If the bridge has no performance surface, the pressure condition is not
+        one of its axes or also appears in ``other_operating_conditions``, the
+        regulated feed carries a static line resistance, or an active bridge
+        does not expose the pressure-condition partials.
+
+    Notes
+    -----
+    Manifold pressure is a propagated line state and drives the engine
+    performance map directly.  Engine demand drives compliant storage; line
+    flow drains the tank and expands the ullage [1]_, [2]_.  The composed
+    Jacobian includes the engine-demand derivative inside the
+    manifold-pressure ODE [3]_.  While the bridge is off or inhibited, engine
+    demand and its pressure derivative are zero, and the line and pressurant
+    states may continue to relax.
+
+    The regulated feed's static line resistance is zero so that the loss is not
+    applied twice; dynamic resistance belongs to `DynamicFeedLine`.
+
+    Negative trial flows are continued consistently through the tank-mass and
+    ullage-work equations for zero-flow event location.  Such results carry
+    ``reverse_flow_event_extension=True``; physical propagation stops at zero
+    flow, and the continuation is not a sustained reverse-operation model.
 
     References
     ----------
-    NASA liquid-rocket feedline dynamics:
-    https://ntrs.nasa.gov/citations/19740028545
-    NASA nodal feed/pressurization modeling:
-    https://ntrs.nasa.gov/citations/20240003493
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
+    .. [1] NASA, "Liquid Rocket Propellant Feedline Dynamics", 1973.
+           https://ntrs.nasa.gov/citations/19740028545
+    .. [2] NASA, "Nodal Modeling of Liquid Propellant Feed and Pressurization
+           System", 2024. https://ntrs.nasa.gov/citations/20240003493
+    .. [3] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
     """
 
     if bridge.performance_surface is None:
@@ -576,10 +866,9 @@ def evaluate_dynamic_feed_propulsion(
         acceleration_wrt_pressure = acceleration_by_condition[pressure_condition_name]
         engine_flow_wrt_pressure = -mass_rate_by_condition[pressure_condition_name]
     else:
-        # The bridge deliberately omits performance-map partials while it is
-        # off or inhibited.  The physical engine demand and its local pressure
-        # derivative are both exactly zero in that state; the line and
-        # pressurization states may nevertheless continue to relax.
+        # The bridge omits performance-map partials while it is off or
+        # inhibited.  Engine demand and its local pressure derivative are then
+        # exactly zero; the line and pressurization states may still relax.
         acceleration_wrt_pressure = (0.0, 0.0, 0.0)
         engine_flow_wrt_pressure = 0.0
     raw_state_partials = dict(line_evaluation.partials.derivative_wrt_state)

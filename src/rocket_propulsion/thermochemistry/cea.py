@@ -1,8 +1,18 @@
 """NASA CEA input, subprocess, parser, and deterministic cache adapter.
 
-NASA CEA itself is not distributed with this project.  Users point this
+NASA CEA itself is not distributed with this project. Callers point the
 adapter at their own installation; the ideal-gas and local experimental
-providers remain fully usable when CEA is absent.
+providers remain fully usable when CEA is absent. Input decks follow the CEA
+user's manual [1]_; the equilibrium model is described in [2]_.
+
+References
+----------
+.. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+       Equilibrium Compositions and Applications, Part II".
+       https://ntrs.nasa.gov/citations/19960044559
+.. [2] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+       Equilibrium Compositions and Applications, Part I: Analysis".
+       https://ntrs.nasa.gov/citations/19950013764
 """
 
 from __future__ import annotations
@@ -43,7 +53,27 @@ _FORTRAN_EXPONENT = re.compile(r"(?<![EeDd])([+-]\d+)$")
 
 @dataclass(frozen=True, slots=True)
 class CeaReactant:
-    """One fuel, oxidizer, or unclassified CEA reactant record."""
+    """One fuel, oxidizer, or unclassified CEA reactant record [1]_.
+
+    Attributes
+    ----------
+    name : str
+        CEA species name without spaces, for example ``"H2(L)"``.
+    role : {"fuel", "oxid", "name"}, default "name"
+        CEA reactant keyword.
+    amount : float, default 1.0
+        Positive amount on ``basis``.
+    basis : {"moles", "wt%"}, default "moles"
+        Amount basis.
+    temperature_k : float or None
+        Reactant temperature in K, if specified.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part II".
+           https://ntrs.nasa.gov/citations/19960044559
+    """
 
     name: str
     role: Literal["fuel", "oxid", "name"] = "name"
@@ -54,7 +84,31 @@ class CeaReactant:
 
 @dataclass(frozen=True, slots=True)
 class CeaRocketProblem:
-    """Rocket-mode CEA request with explicit chemistry and exit stations."""
+    """Rocket-mode CEA request with explicit chemistry and exit stations [1]_.
+
+    Attributes
+    ----------
+    fuel, oxidizer : CeaReactant
+        Reactants with roles ``"fuel"`` and ``"oxid"``.
+    oxidizer_fuel_ratio : float
+        Oxidizer-to-fuel mass ratio.
+    chamber_pressure_pa : float
+        Chamber pressure in Pa.
+    area_ratios : tuple of float, default (10.0, 25.0, 50.0, 75.0)
+        Supersonic exit area ratios, each greater than one.
+    chemistry : {"equilibrium", "frozen", "both"}, default "equilibrium"
+        Expansion chemistry.
+    freezing_station : {1, 2}, default 2
+        Freezing point (``nfz``) used when ``chemistry="both"``.
+    case_name : str, default "rplab"
+        CEA case label.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part II".
+           https://ntrs.nasa.gov/citations/19960044559
+    """
 
     fuel: CeaReactant
     oxidizer: CeaReactant
@@ -68,7 +122,21 @@ class CeaRocketProblem:
 
 @dataclass(frozen=True, slots=True)
 class CeaPlotTable:
-    """Numeric rows from a CEA ``.plt`` file with caller-known columns."""
+    """Numeric rows from a CEA ``.plt`` file with caller-known columns [1]_.
+
+    Attributes
+    ----------
+    columns : tuple of str
+        Column names in file order.
+    rows : tuple of dict
+        One ``{column: value}`` mapping per data row.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part II".
+           https://ntrs.nasa.gov/citations/19960044559
+    """
 
     columns: tuple[str, ...]
     rows: tuple[dict[str, float], ...]
@@ -76,7 +144,26 @@ class CeaPlotTable:
 
 @dataclass(frozen=True, slots=True)
 class CeaRunArtifact:
-    """Traceable raw and parsed result from one external CEA execution."""
+    """Traceable raw and parsed result from one external CEA execution.
+
+    Attributes
+    ----------
+    schema_version, provider, provider_version : str
+        Artifact schema and producing adapter.
+    cache_key : str
+        SHA-256 key of the adapter schema, provider version, input deck and
+        plot columns.
+    cached : bool
+        Whether the artifact was read from the cache.
+    input_text, output_text, plot_text : str
+        Raw input deck, CEA output and plot file.
+    plot : CeaPlotTable
+        Parsed plot rows.
+    warnings : tuple of str
+        CEA warning and error lines that do not indicate non-convergence.
+    source, source_url : str
+        CEA documentation reference.
+    """
 
     schema_version: str
     provider: str
@@ -93,7 +180,29 @@ class CeaRunArtifact:
 
 
 def parse_fortran_number(token: str) -> float:
-    """Parse CEA's E/D notation and compact exponents such as ``9.18-05``."""
+    """Parse CEA's E/D notation and compact exponents such as ``9.18-05`` [1]_.
+
+    Parameters
+    ----------
+    token : str
+        Fortran-formatted number.
+
+    Returns
+    -------
+    float
+        Parsed finite value.
+
+    Raises
+    ------
+    ValueError
+        If the token is empty, malformed or not finite.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part II".
+           https://ntrs.nasa.gov/citations/19960044559
+    """
 
     normalized = token.strip().replace("D", "E").replace("d", "e")
     if not normalized:
@@ -107,7 +216,34 @@ def parse_fortran_number(token: str) -> float:
 
 
 def parse_cea_plot(text: str, columns: Iterable[str]) -> CeaPlotTable:
-    """Parse the numeric plot file emitted for an explicitly ordered schema."""
+    """Parse the numeric plot file emitted for an explicitly ordered schema [1]_.
+
+    Parameters
+    ----------
+    text : str
+        Contents of the CEA ``.plt`` file; blank lines and lines starting with
+        ``#`` or ``!`` are skipped, and commas are treated as whitespace.
+    columns : iterable of str
+        Column names in the order requested from CEA.
+
+    Returns
+    -------
+    CeaPlotTable
+        Parsed rows.
+
+    Raises
+    ------
+    InputError
+        If the schema is empty, a row has the wrong number of values
+        (``cea_plot_shape``), a value is invalid (``cea_plot_number``) or the
+        file has no data rows (``cea_plot_empty``).
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part II".
+           https://ntrs.nasa.gov/citations/19960044559
+    """
 
     schema = tuple(str(column).strip() for column in columns)
     if not schema or any(not column for column in schema):
@@ -146,7 +282,30 @@ def parse_cea_plot(text: str, columns: Iterable[str]) -> CeaPlotTable:
 
 
 def cea_output_warnings(text: str) -> tuple[str, ...]:
-    """Extract CEA warnings while treating non-convergence as a hard error."""
+    """Extract CEA warnings while treating non-convergence as a hard error [1]_.
+
+    Parameters
+    ----------
+    text : str
+        CEA output listing.
+
+    Returns
+    -------
+    tuple of str
+        Stripped lines containing ``WARNING`` or ``ERROR``.
+
+    Raises
+    ------
+    ConvergenceError
+        If a warning line reports ``NO CONVERGENCE``, ``ANSWERS NOT RELIABLE``
+        or ``FATAL`` (code ``cea_non_convergence``).
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part II".
+           https://ntrs.nasa.gov/citations/19960044559
+    """
 
     warnings = tuple(
         line.strip()
@@ -173,6 +332,15 @@ def cea_output_warnings(text: str) -> tuple[str, ...]:
 
 
 def _reactant_line(reactant: CeaReactant) -> str:
+    """Return one validated CEA ``reactants`` line for ``reactant``.
+
+    Raises
+    ------
+    InputError
+        If the role, basis or name is invalid.
+    DomainError
+        If the amount or temperature is not finite and positive.
+    """
     role = reactant.role.strip().lower()
     if role not in {"fuel", "oxid", "name"}:
         raise InputError("CEA reactant role must be fuel, oxid, or name.", field="role")
@@ -198,7 +366,40 @@ def render_cea_equilibrium_input(
     *,
     plot_columns: tuple[str, ...] = ("t", "p", "mw", "gam", "cp", "h", "s"),
 ) -> str:
-    """Render a generic TP, HP, or UV input deck from the common model."""
+    """Render a generic TP, HP, or UV input deck from the common model.
+
+    Parameters
+    ----------
+    problem : EquilibriumProblem
+        Problem to render; reactants are written by molar amount.
+    plot_columns : tuple of str, optional
+        CEA plot variables to request.
+
+    Returns
+    -------
+    str
+        CEA input deck in SI output units with ``trace=1.e-12``.
+
+    Raises
+    ------
+    InputError
+        If the problem type is unsupported or a required state variable is
+        missing.
+    DomainError
+        If a reactant line is invalid.
+
+    Notes
+    -----
+    Pressure is written in bar. Explicit HP and UV energy targets are written
+    as ``h/r`` and ``u/r`` per unit mass in the units of the CEA manual [1]_,
+    and UV volume as mixture density.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part II".
+           https://ntrs.nasa.gov/citations/19960044559
+    """
 
     kind = problem.problem_type.strip().lower()
     if kind not in {"tp", "hp", "uv"}:
@@ -270,7 +471,34 @@ def render_cea_rocket_input(
         "mach",
     ),
 ) -> str:
-    """Render a NASA RP-1311 rocket input deck."""
+    """Render a NASA RP-1311 rocket input deck.
+
+    Parameters
+    ----------
+    problem : CeaRocketProblem
+        Rocket request.
+    plot_columns : tuple of str, optional
+        CEA plot variables to request.
+
+    Returns
+    -------
+    str
+        CEA ``problem rocket`` input deck [1]_ with SI output units.
+
+    Raises
+    ------
+    InputError
+        If the reactant roles or chemistry option are invalid.
+    DomainError
+        If the O/F ratio or chamber pressure is not positive, or an area
+        ratio does not exceed one.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part II".
+           https://ntrs.nasa.gov/citations/19960044559
+    """
 
     if problem.fuel.role != "fuel" or problem.oxidizer.role != "oxid":
         raise InputError("Rocket reactants must use fuel and oxid roles.")
@@ -306,7 +534,29 @@ def render_cea_rocket_input(
 
 
 class CeaSubprocessAdapter:
-    """Run a user-supplied NASA CEA executable in an isolated directory."""
+    """Run a user-supplied NASA CEA executable in an isolated directory [1]_.
+
+    Parameters
+    ----------
+    executable : str, Path or None
+        Executable path or name on ``PATH``; ``None`` leaves the adapter
+        unconfigured.
+    version : str, default "user-installation"
+        Version label recorded in artifacts and cache keys.
+    cache_directory : str, Path or None
+        Directory for JSON artifact caching; ``None`` disables caching.
+    timeout_seconds : float, default 60.0
+        Subprocess timeout.
+    invocation : {"stdin-prefix", "input-argument"}, default "stdin-prefix"
+        Pass the case prefix on standard input or the input file path as an
+        argument.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part II".
+           https://ntrs.nasa.gov/citations/19960044559
+    """
 
     name = "NASA CEA"
 
@@ -330,6 +580,13 @@ class CeaSubprocessAdapter:
         self.invocation = invocation
 
     def _resolved_executable(self) -> Path:
+        """Return the resolved executable path.
+
+        Raises
+        ------
+        FeatureUnavailableError
+            If no executable is configured or the path is not a file.
+        """
         if self.executable is None:
             raise FeatureUnavailableError(
                 "NASA CEA executable is not configured. Set an explicit CEA executable path.",
@@ -346,6 +603,7 @@ class CeaSubprocessAdapter:
         return path
 
     def _cache_key(self, input_text: str, columns: tuple[str, ...]) -> str:
+        """Return the SHA-256 hex digest of the canonical JSON run description."""
         document = json.dumps(
             {
                 "adapter_schema": "1.0",
@@ -359,11 +617,13 @@ class CeaSubprocessAdapter:
         return hashlib.sha256(document.encode("utf-8")).hexdigest()
 
     def _cache_path(self, key: str) -> Path | None:
+        """Return the cache file for ``key``, or ``None`` when caching is off."""
         if self.cache_directory is None:
             return None
         return self.cache_directory / f"{key}.json"
 
     def _from_cache(self, path: Path) -> CeaRunArtifact:
+        """Load a cached artifact and mark it as ``cached=True``."""
         payload = json.loads(path.read_text(encoding="utf-8"))
         plot = CeaPlotTable(
             columns=tuple(payload["plot"]["columns"]),
@@ -390,7 +650,43 @@ class CeaSubprocessAdapter:
         *,
         plot_columns: tuple[str, ...],
     ) -> CeaRunArtifact:
-        """Execute CEA, parse its plot file, and cache the complete trace."""
+        """Execute CEA, parse its plot file, and cache the complete trace.
+
+        Parameters
+        ----------
+        input_text : str
+            CEA input deck.
+        plot_columns : tuple of str
+            Column names matching the deck's ``plot`` request.
+
+        Returns
+        -------
+        CeaRunArtifact
+            Raw texts, parsed plot and warnings; from the cache when present.
+
+        Raises
+        ------
+        FeatureUnavailableError
+            If the executable is not configured or not found.
+        InputError
+            If the invocation mode is unknown or the plot file is malformed.
+        ConvergenceError
+            On timeout, a non-zero exit status, a missing plot file or a
+            non-converged CEA solution.
+
+        Notes
+        -----
+        The run uses a temporary directory containing the input deck and
+        copies of ``thermo.lib`` and ``trans.lib`` found next to the
+        executable, as described in the CEA user's manual [1]_. Successful
+        artifacts are written to the cache as JSON.
+
+        References
+        ----------
+        .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+               Equilibrium Compositions and Applications, Part II".
+               https://ntrs.nasa.gov/citations/19960044559
+        """
 
         executable = self._resolved_executable()
         if self.invocation not in {"stdin-prefix", "input-argument"}:
@@ -480,7 +776,25 @@ class CeaSubprocessAdapter:
 
 
 class CeaEquilibriumProvider:
-    """Adapt a CEA installation to the common equilibrium result contract."""
+    """Adapt a CEA installation to the common equilibrium result contract.
+
+    The equilibrium model is that of [1]_; the input and output formats are
+    those of [2]_.
+
+    Parameters
+    ----------
+    adapter : CeaSubprocessAdapter
+        Configured subprocess adapter.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part I: Analysis".
+           https://ntrs.nasa.gov/citations/19950013764
+    .. [2] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part II".
+           https://ntrs.nasa.gov/citations/19960044559
+    """
 
     name = "NASA CEA"
 
@@ -489,6 +803,7 @@ class CeaEquilibriumProvider:
         self.version = adapter.version
 
     def _candidate_keys(self, problem: EquilibriumProblem) -> tuple[str, ...]:
+        """Return requested candidates, or bundled species made of reactant elements."""
         elements = {
             element
             for reactant in problem.reactants
@@ -505,7 +820,42 @@ class CeaEquilibriumProvider:
         )
 
     def solve(self, problem: EquilibriumProblem) -> EquilibriumResult:
-        """Execute CEA and convert its numeric plot to versioned Python data."""
+        """Execute CEA and convert its numeric plot to versioned Python data.
+
+        Parameters
+        ----------
+        problem : EquilibriumProblem
+            TP, HP or UV problem.
+
+        Returns
+        -------
+        EquilibriumResult
+            Result built from the last plot row.
+
+        Raises
+        ------
+        ConvergenceError
+            If CEA fails or returns no retained product fractions.
+        DomainError
+            If the reported properties give a non-positive ``cv``.
+
+        Notes
+        -----
+        Product mole fractions are those of the candidate species, clipped at
+        zero and renormalized; species outside the candidate set are not
+        represented. Pressure is converted from bar and ``cp``, ``h`` and ``s``
+        from kJ-based units; ``cv = cp - R/M`` and ``U = H - n R T`` assume an
+        ideal-gas mixture [1]_, [2]_.
+
+        References
+        ----------
+        .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+               Equilibrium Compositions and Applications, Part I: Analysis".
+               https://ntrs.nasa.gov/citations/19950013764
+        .. [2] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+               Equilibrium Compositions and Applications, Part II".
+               https://ntrs.nasa.gov/citations/19960044559
+        """
 
         candidates = self._candidate_keys(problem)
         resolved_problem = replace(problem, candidate_species=candidates)

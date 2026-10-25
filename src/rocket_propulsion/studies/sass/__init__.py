@@ -1,9 +1,19 @@
 """Source-cited preliminary propulsion design tools for provisional UZM 508E projects.
 
+The package provides an evidence model in which every quantity carries its
+citations (:mod:`.evidence`), a dated thruster catalogue (:mod:`.catalog`),
+impulsive and low-thrust maneuver budgets (:mod:`.maneuvers`), mission mass and
+power sizing (:mod:`.sizing`), storage inventories (:mod:`.storage`), screened
+weighted trades (:mod:`.trade`) and a reproducible project study with JSON and
+HTML outputs (:mod:`.project`, :mod:`.report`). ``docs/SASS_PROJECT_PREPARATION.md``
+separates confirmed course facts from inferred scope.
+
 References
 ----------
-ITU-UZM508: course identity only. NASA-SE-APP: engineering study traceability.
-See docs/SASS_PROJECT_PREPARATION.md for confirmed facts versus inferred scope.
+.. [1] ITU-UZM508. Istanbul Technical University, "UZM 508E - Spacecraft
+       Architecture and Subsystems Design"; course identity only.
+.. [2] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; engineering
+       study traceability.
 """
 
 from .catalog import (

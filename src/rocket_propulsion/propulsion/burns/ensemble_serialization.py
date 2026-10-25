@@ -1,14 +1,25 @@
 """Persistence and integrity checks for hierarchical propulsion ensembles.
 
-The exchange document remains target-neutral: it carries propulsion histories,
-joint probabilities, evidence, and provenance, but no epoch, frame, attitude,
-or orbital state. A future Sidera adapter can therefore consume it without
-making Sidera a dependency of the propulsion core.
+The exchange document is target-neutral: it carries propulsion histories, joint
+probabilities, evidence and provenance, but no epoch, frame, attitude or orbital
+state, so a trajectory tool such as Sidera can consume it without becoming a
+dependency of the propulsion core. Documents are standard JSON [1]_ [2]_.
+
+Reading a document recomputes every derived quantity (probability closure,
+weighted statistics, variance decomposition, scenario contributions and seed
+links) and rejects any mismatch [3]_ [4]_. The content hash is a reproducible
+identity, not an authentication of the data.
 
 References
 ----------
-NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+.. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+       Format". https://www.rfc-editor.org/rfc/rfc8259
+.. [2] PYTHON-3.12-JSON. Python 3.12, ``json``: encoder/decoder hooks,
+       duplicate-member and nonstandard numeric token behavior.
+.. [3] NASA-STD-7009B, "Standard for Models and Simulations".
+       https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+.. [4] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+       NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
 """
 
 from __future__ import annotations
@@ -60,6 +71,7 @@ _METRIC_GETTERS = {
 
 
 def _parameter_to_dict(parameter: UncertainParameter) -> dict[str, Any]:
+    """Return the JSON-compatible record of an uncertain parameter."""
     return {
         "name": parameter.name,
         "nominal": parameter.nominal,
@@ -74,6 +86,7 @@ def _parameter_to_dict(parameter: UncertainParameter) -> dict[str, Any]:
 
 
 def _parameter_from_dict(payload: dict[str, Any]) -> UncertainParameter:
+    """Rebuild and validate an uncertain parameter from its record."""
     return UncertainParameter(
         name=str(payload["name"]),
         nominal=float(payload["nominal"]),
@@ -92,6 +105,7 @@ def _parameter_from_dict(payload: dict[str, Any]) -> UncertainParameter:
 
 
 def _correlation_to_dict(correlation: CorrelationModel | None) -> dict[str, Any] | None:
+    """Return the JSON-compatible record of a correlation model, or ``None``."""
     if correlation is None:
         return None
     return {
@@ -103,6 +117,13 @@ def _correlation_to_dict(correlation: CorrelationModel | None) -> dict[str, Any]
 
 
 def _correlation_from_dict(payload: Any) -> CorrelationModel | None:
+    """Rebuild and validate a correlation model from its record or ``None``.
+
+    Raises
+    ------
+    InputError
+        If the record is neither an object nor ``None``.
+    """
     if payload is None:
         return None
     if not isinstance(payload, dict):
@@ -120,6 +141,7 @@ def _correlation_from_dict(payload: Any) -> CorrelationModel | None:
 def _definition_to_dict(
     definition: ScenarioConditionalUncertainty,
 ) -> dict[str, Any]:
+    """Return the JSON-compatible record of a conditional definition."""
     return {
         "scenario_id": definition.scenario_id,
         "parameters": [
@@ -133,6 +155,7 @@ def _definition_to_dict(
 
 
 def _definition_from_dict(payload: dict[str, Any]) -> ScenarioConditionalUncertainty:
+    """Rebuild and validate a conditional definition from its record."""
     return ScenarioConditionalUncertainty(
         scenario_id=str(payload["scenario_id"]),
         parameters=tuple(
@@ -152,10 +175,27 @@ def hierarchical_ensemble_to_dict(
 ) -> dict[str, Any]:
     """Return a deterministic JSON-compatible ensemble document.
 
+    Parameters
+    ----------
+    ensemble : HierarchicalPropulsionEnsemble
+        Ensemble to export.
+    include_hash : bool, optional
+        Add ``ensemble_hash``, the SHA-256 of the canonical JSON of the
+        document without that field.
+
+    Returns
+    -------
+    dict
+        Document with schema, numerical-policy identifiers, definitions,
+        realizations (each with its nested artifact document), statistics,
+        evidence, references and warnings [1]_ [2]_.
+
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [2] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
     """
 
     payload: dict[str, Any] = {
@@ -201,11 +241,20 @@ def hierarchical_ensemble_to_dict(
 
 
 def hierarchical_ensemble_hash(ensemble: HierarchicalPropulsionEnsemble) -> str:
-    """Return the SHA-256 identity of the complete propulsion ensemble.
+    """Return the SHA-256 content identity of the complete propulsion ensemble.
+
+    The digest is taken over the canonical JSON [1]_ of the document without
+    its hash field. It is a reproducible identity, not an authentication.
+
+    Returns
+    -------
+    str
+        Lower-case hexadecimal digest.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+           Format". https://www.rfc-editor.org/rfc/rfc8259
     """
 
     return hashlib.sha256(
@@ -218,11 +267,29 @@ def hierarchical_ensemble_to_json(
     *,
     indent: int | None = 2,
 ) -> str:
-    """Serialize a hierarchical ensemble as deterministic UTF-8 JSON text.
+    """Serialize a hierarchical ensemble as JSON text with sorted keys.
+
+    Non-ASCII text is kept as Unicode and non-finite numbers are rejected, so
+    the output is standard JSON [1]_ [2]_.
+
+    Parameters
+    ----------
+    ensemble : HierarchicalPropulsionEnsemble
+        Ensemble to export.
+    indent : int or None, optional
+        Indentation passed to ``json.dumps``.
+
+    Returns
+    -------
+    str
+        JSON text of :func:`hierarchical_ensemble_to_dict` including the hash.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+           Format". https://www.rfc-editor.org/rfc/rfc8259
+    .. [2] PYTHON-3.12-JSON. Python 3.12, ``json``: encoder/decoder hooks,
+           duplicate-member and nonstandard numeric token behavior.
     """
 
     return json.dumps(
@@ -235,16 +302,46 @@ def hierarchical_ensemble_to_json(
 
 
 def _close(left: float, right: float) -> bool:
+    """Return whether two floats agree within ``1e-12`` relative or absolute."""
     return isclose(left, right, rel_tol=1e-12, abs_tol=1e-12)
 
 
 def _required_bool(value: Any, field: str) -> bool:
+    """Return ``value`` if it is a JSON boolean.
+
+    Raises
+    ------
+    InputError
+        If ``value`` is not a ``bool``.
+    """
     if not isinstance(value, bool):
         raise InputError(f"Hierarchical ensemble field {field!r} must be boolean.")
     return value
 
 
 def _validate_semantics(ensemble: HierarchicalPropulsionEnsemble) -> None:
+    """Check that every derived quantity of a reopened ensemble reproduces.
+
+    Verified are: method and counts; one definition per scenario and complete
+    conditional indices; probabilities in ``[0, 1]`` with equal conditional
+    weights ``1 / N_s`` and joint weights ``P_s / N_s``; exact closure of the
+    joint weights to one within ``1e-12``; zero-thrust probability; weighted
+    statistics [1]_ and the law-of-total-variance decomposition [2]_; scenario
+    contributions; derived seeds and the replicate convergence flags; and
+    unique reference identifiers.
+
+    Raises
+    ------
+    InputError
+        If any check fails.
+
+    References
+    ----------
+    .. [1] NIST-WEIGHTED-MEAN. NIST Dataplot, "Weighted Mean", equation 2-20,
+           normalized weighted mean.
+    .. [2] MIT-TOTAL-VARIANCE. MIT RES.6-012, lecture 13.7, conditional and
+           between-group variance identity (law of total variance).
+    """
     if ensemble.method not in {"latin-hypercube", "monte-carlo"}:
         raise InputError("Unsupported hierarchical ensemble sampling method.")
     if ensemble.scenario_count != len(ensemble.definitions):
@@ -442,12 +539,34 @@ def _validate_semantics(ensemble: HierarchicalPropulsionEnsemble) -> None:
 def hierarchical_ensemble_from_dict(
     payload: dict[str, Any],
 ) -> HierarchicalPropulsionEnsemble:
-    """Reopen an ensemble and verify nested hashes and derived quantities.
+    """Reopen an ensemble document and verify hashes and derived quantities.
+
+    The closed document schema and numerical-policy identifiers are checked
+    first, nested artifacts are reopened with their own integrity checks, every
+    derived quantity is recomputed, and the ensemble hash must match [1]_ [2]_.
+
+    Parameters
+    ----------
+    payload : dict
+        Document produced by :func:`hierarchical_ensemble_to_dict`.
+
+    Returns
+    -------
+    HierarchicalPropulsionEnsemble
+        The validated ensemble.
+
+    Raises
+    ------
+    InputError
+        If the document is malformed, uses another schema or numerical policy,
+        any derived quantity does not reproduce, or the hash does not match.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NASA-STD-7009B, "Standard for Models and Simulations".
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [2] NASA/SP-2011-3421, "Probabilistic Risk Assessment Procedures Guide for
+           NASA Managers and Practitioners". https://ntrs.nasa.gov/citations/20120001369
     """
 
     _ensemble_document(payload)
@@ -564,11 +683,30 @@ def hierarchical_ensemble_from_dict(
 
 
 def hierarchical_ensemble_from_json(text: str) -> HierarchicalPropulsionEnsemble:
-    """Parse and integrity-check a hierarchical propulsion ensemble document.
+    """Parse strict JSON text [1]_ [2]_ and verify the hierarchical ensemble.
+
+    Parameters
+    ----------
+    text : str
+        JSON document text.
+
+    Returns
+    -------
+    HierarchicalPropulsionEnsemble
+        The validated ensemble.
+
+    Raises
+    ------
+    InputError
+        If the text is not valid JSON or fails
+        :func:`hierarchical_ensemble_from_dict`.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+           Format". https://www.rfc-editor.org/rfc/rfc8259
+    .. [2] PYTHON-3.12-JSON. Python 3.12, ``json``: encoder/decoder hooks,
+           duplicate-member and nonstandard numeric token behavior.
     """
 
     return read_json_document(text, "Hierarchical ensemble", hierarchical_ensemble_from_dict)

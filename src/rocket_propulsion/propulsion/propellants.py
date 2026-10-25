@@ -1,4 +1,22 @@
-"""Curated study records for widely used chemical rocket propellant systems."""
+"""Curated screening records for widely used chemical rocket propellant systems.
+
+Notes
+-----
+Vacuum Isp entries are deliberately broad preliminary-design ranges for each
+propellant family [1]_ [2]_; categories follow the liquid/solid/hybrid
+classification of [3]_. They are not substitutes for equilibrium chemistry, engine
+test data or a validated cycle/nozzle model, and mixture-ratio notes describe
+screening regions, not operating instructions.
+
+References
+----------
+.. [1] NASA KSC Engineering, "Examples of Specific Impulse", NTRS 20100036816
+       (representative LOX/LH2, LOX/RP-1, storable and solid systems).
+.. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+       Elements", 9th ed., Wiley, 2017.
+.. [3] NASA, "2020 NASA Technology Taxonomy", TX01 Propulsion Systems (liquid,
+       solid, hybrid, cryogenic, storable and gelled categories).
+"""
 
 from dataclasses import dataclass
 
@@ -7,7 +25,46 @@ from rocket_propulsion.core.errors import DomainError
 
 @dataclass(frozen=True, slots=True)
 class PropellantRecord:
-    """High-level screening data for one propulsion-system family."""
+    """High-level screening data for one chemical propulsion-system family.
+
+    Attributes
+    ----------
+    key : str
+        Stable identifier, for example ``'lox-lh2'``.
+    name : str
+        Display name.
+    category : {'liquid', 'solid', 'hybrid'}
+        Propulsion-system category.
+    fuel, oxidizer : str
+        Fuel and oxidizer descriptions.
+    storage : str
+        Storage condition of fuel and oxidizer.
+    ignition : str
+        Ignition mode.
+    vacuum_isp_min_s, vacuum_isp_max_s : float
+        Bounds of the representative vacuum specific impulse range, s.
+    mixture_ratio_note : str
+        Descriptive oxidizer/fuel screening region.
+    strengths, limitations : tuple of str
+        Qualitative screening notes.
+
+    Notes
+    -----
+    Vacuum Isp entries are deliberately broad preliminary-design ranges for each
+    propellant family [1]_ [2]_; categories follow the liquid/solid/hybrid
+    classification of [3]_. They are not substitutes for equilibrium chemistry, engine
+    test data or a validated cycle/nozzle model, and mixture-ratio notes describe
+    screening regions, not operating instructions.
+
+    References
+    ----------
+    .. [1] NASA KSC Engineering, "Examples of Specific Impulse", NTRS 20100036816
+           (representative LOX/LH2, LOX/RP-1, storable and solid systems).
+    .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [3] NASA, "2020 NASA Technology Taxonomy", TX01 Propulsion Systems (liquid,
+           solid, hybrid, cryogenic, storable and gelled categories).
+    """
 
     key: str
     name: str
@@ -126,10 +183,27 @@ PROPELLANTS: tuple[PropellantRecord, ...] = (
 
 
 def list_propellants(category: str = "all") -> tuple[PropellantRecord, ...]:
-    """Return immutable propellant records filtered by system category.
+    """Return the immutable propellant records, optionally filtered by category.
 
-    Args:
-        category: One of ``all``, ``liquid``, ``solid``, or ``hybrid``.
+    Parameters
+    ----------
+    category : {'all', 'liquid', 'solid', 'hybrid'}, default 'all'
+        Category filter; case and surrounding whitespace are ignored.
+
+    Returns
+    -------
+    tuple of PropellantRecord
+        Matching records in catalogue order.
+
+    Raises
+    ------
+    DomainError
+        If the category is not recognized.
+
+    References
+    ----------
+    .. [1] NASA, "2020 NASA Technology Taxonomy", TX01 Propulsion Systems (liquid,
+           solid, hybrid, cryogenic, storable and gelled categories).
     """
 
     normalized = category.strip().lower()

@@ -1,4 +1,15 @@
-"""Parametric axisymmetric converging-diverging nozzle contours."""
+"""Parametric axisymmetric converging-diverging nozzle contours.
+
+Contours carry quasi-one-dimensional isentropic station solutions [2]_ and a
+conical divergence-factor estimate [1]_.
+
+References
+----------
+.. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+       Elements", 9th ed., Wiley, 2017.
+.. [2] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+       Compressible Flow", NACA Report 1135, 1953.
+"""
 
 from dataclasses import dataclass
 from itertools import pairwise
@@ -13,7 +24,27 @@ from rocket_propulsion.core.errors import DomainError
 
 @dataclass(frozen=True, slots=True)
 class NozzleStation:
-    """Geometry and ideal-flow properties at one axial location."""
+    """Geometry and ideal-flow properties at one axial location.
+
+    Attributes
+    ----------
+    x_m : float
+        Axial position in m; the throat is at ``x = 0`` for generated contours.
+    radius_m, area_m2 : float
+        Local wall radius and cross-sectional area.
+    area_ratio : float
+        Local area divided by the throat area.
+    mach : float
+        Quasi-one-dimensional isentropic Mach number for ``area_ratio`` on the
+        subsonic (converging) or supersonic (diverging) branch [1]_.
+    pressure_total_ratio, temperature_total_ratio : float
+        Static-to-stagnation ratios ``p/p0`` and ``T/T0`` at ``mach``.
+
+    References
+    ----------
+    .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
+    """
 
     x_m: float
     radius_m: float
@@ -26,7 +57,47 @@ class NozzleStation:
 
 @dataclass(frozen=True, slots=True)
 class NozzleContour:
-    """Dimensions and sampled stations for an axisymmetric C-D nozzle."""
+    """Dimensions and sampled stations for an axisymmetric C-D nozzle.
+
+    The divergence-efficiency estimate, when present, uses the conical
+    divergence factor ``(1 + cos(alpha))/2`` [1]_.
+
+    Attributes
+    ----------
+    contour : str
+        Contour family, for example ``"conical"``, ``"preliminary"``,
+        ``"rao"``, ``"moc-planar"`` or ``"moc-axisymmetric-corrected"``.
+    throat_radius_m, chamber_radius_m, exit_radius_m : float
+        Characteristic radii in m.
+    converging_length_m, diverging_length_m, total_length_m : float
+        Section lengths in m.
+    throat_area_m2, exit_area_m2 : float
+        Throat and exit areas in m^2.
+    area_ratio : float
+        Exit-to-throat area ratio.
+    half_angle_deg : float
+        Divergence half-angle (conical), or the representative angle reported
+        by the generator for other families.
+    stations : tuple of NozzleStation
+        Sampled stations ordered by increasing ``x_m``.
+    model_fidelity : str, default "preliminary"
+        Description of the construction fidelity.
+    wall_tangency_residual_deg, centerline_symmetry_residual_deg : float or None
+        Characteristic-mesh residuals, when the generator computes them.
+    convergence_delta_exit_mach : float or None
+        Exit-Mach discrepancy reported by the generator, if any.
+    estimated_divergence_efficiency : float or None
+        Divergence factor estimate, if available.
+    surface_area_m2 : float or None
+        Wetted wall area from the sampled stations, if available.
+    source : str or None
+        Short statement of the construction basis.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
 
     contour: str
     throat_radius_m: float
@@ -50,6 +121,7 @@ class NozzleContour:
 
 
 def _positive(value: float, label: str) -> None:
+    """Raise :class:`DomainError` unless ``value`` is finite and positive."""
     if not isfinite(value) or value <= 0.0:
         raise DomainError(f"{label} must be finite and greater than zero.")
 
@@ -60,7 +132,25 @@ def _hermite_radius(
     throat_radius: float,
     exit_radius: float,
 ) -> float:
-    """Return a smooth bell-like radius using endpoint slope constraints."""
+    """Return a smooth bell-like radius using endpoint slope constraints.
+
+    Parameters
+    ----------
+    fraction : float
+        Normalized position ``s`` in ``[0, 1]`` along the diverging section.
+    length : float
+        Diverging-section length ``L`` in m.
+    throat_radius, exit_radius : float
+        End radii in m.
+
+    Returns
+    -------
+    float
+        Radius from the cubic Hermite interpolant with end values
+        ``throat_radius`` and ``exit_radius`` and end slopes ``tan(30 deg)``
+        and ``tan(8 deg)``, scaled by ``L``. This is a geometric interpolant,
+        not an optimized or characteristic-based wall.
+    """
 
     h00 = 2.0 * fraction**3 - 3.0 * fraction**2 + 1.0
     h10 = fraction**3 - 2.0 * fraction**2 + fraction
@@ -89,10 +179,55 @@ def generate_nozzle_contour(
 ) -> NozzleContour:
     """Generate an axisymmetric nozzle contour and ideal station solution.
 
-    The converging side uses a cosine contraction. A conical diverging side uses
-    the selected half-angle; the preliminary option uses a cubic-Hermite curve
-    with fixed 30-degree throat and 8-degree exit slopes. Use
-    :func:`generate_rao_contour` when an explicit Rao/TOP construction is needed.
+    Parameters
+    ----------
+    throat_area_m2 : float
+        Throat area in m^2, finite and positive.
+    area_ratio : float
+        Exit-to-throat area ratio, at least one.
+    gamma : float, default 1.22
+        Ratio of specific heats for the station solution, greater than one.
+    contour : str, default "preliminary"
+        ``"conical"`` or ``"preliminary"`` (``"bell"`` is accepted as an alias
+        of ``"preliminary"``); case-insensitive.
+    half_angle_deg : float, default 15.0
+        Conical divergence half-angle in degrees, in ``[2, 45)``.
+    chamber_radius_ratio : float, default 2.5
+        Chamber-to-throat radius ratio, greater than one.
+    bell_length_fraction : float, default 0.8
+        Preliminary diverging length as a fraction of a 15 degree cone with the
+        same area ratio, in ``[0.5, 1.2]``.
+    station_count : int, default 121
+        Total number of stations, between 41 and 401.
+
+    Returns
+    -------
+    NozzleContour
+        Dimensions, sampled stations, surface area and divergence estimate.
+
+    Raises
+    ------
+    DomainError
+        If an input is outside its domain.
+
+    Notes
+    -----
+    The converging side is a cosine contraction of length ``1.5 r_t`` from the
+    chamber radius to the throat. A conical diverging side uses the selected
+    half-angle; the preliminary option uses a cubic-Hermite curve with fixed
+    30 degree throat and 8 degree exit slopes. Station Mach numbers follow the
+    isentropic area relation [2]_. The divergence efficiency is
+    ``(1 + cos(alpha))/2`` [1]_ with ``alpha`` the conical half-angle, or a
+    representative 19 degrees for the preliminary contour. The wall area sums
+    conical frusta between stations. Use :func:`generate_rao_contour` when an
+    explicit Rao/TOP construction is needed.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [2] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
+           Compressible Flow", NACA Report 1135, 1953.
     """
 
     for value, label in (

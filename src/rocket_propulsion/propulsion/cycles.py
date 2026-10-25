@@ -1,6 +1,18 @@
-"""Preliminary component pressure, routed mass and shaft-power balances.
+"""Preliminary engine-cycle pressure, routed mass-flow and shaft-power balances.
 
-These are sizing equations, not an integrated engine or hardware qualification.
+Pressure-fed cycles are sized for the injector feed-pressure requirement only.
+Gas-generator and staged-combustion cycles additionally close an ideal pump/turbine
+power balance for an explicitly declared pump routing. These are sizing
+equations, not an integrated engine model or a hardware qualification.
+
+References
+----------
+.. [1] NASA-TMX64749-CYCLE. R. H. Schmucker, 1973, equivalent cycle power balances
+       and whole pumped mass flows; theory source, not hardware validation.
+.. [2] NASA-ENGINESIM-THEORY. NASA Glenn Research Center, EngineSim theory notes:
+       ideal gas turbine temperature/pressure and shaft-work relations.
+.. [3] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+       Elements", 9th ed., Wiley, 2017.
 """
 from __future__ import annotations
 
@@ -21,6 +33,53 @@ _PUMP_FIELDS = ('propellant_density_kg_m3','pump_efficiency','turbine_efficiency
 
 @dataclass(frozen=True, slots=True)
 class EngineCycleInputs:
+    """Validated inputs for a preliminary engine-cycle balance.
+
+    Attributes
+    ----------
+    cycle : {'pressure-fed', 'gas-generator', 'staged-combustion'}
+        Cycle architecture; case and underscores are normalized on construction.
+    chamber_pressure_pa : float
+        Chamber pressure Pc, Pa; positive.
+    chamber_mass_flow_kg_s : float
+        Propellant mass flow delivered to the main chamber, kg/s; positive.
+    inlet_pressure_pa : float
+        Supply (tank or pump-inlet) pressure, Pa; non-negative.
+    injector_pressure_drop_fraction : float
+        Injector pressure drop as a fraction of Pc, in (0, 1].
+    propellant_density_kg_m3 : float or None
+        Single equivalent liquid density of the pumped propellant, kg/m^3.
+    pump_efficiency : float or None
+        Pump efficiency, in (0, 1].
+    turbine_efficiency : float or None
+        Turbine isentropic efficiency, in (0, 1].
+    turbine_inlet_temperature_k : float or None
+        Turbine total inlet temperature, K.
+    turbine_specific_heat_j_kg_k : float or None
+        Turbine-gas specific heat at constant pressure, J/(kg K).
+    turbine_gamma : float or None
+        Turbine-gas ratio of specific heats; greater than one.
+    turbine_pressure_ratio : float or None
+        Turbine total inlet/outlet pressure ratio; greater than one.
+    pump_feed_policy : {'shared-pump', 'external-gg-feed'}
+        ``'shared-pump'`` routes generator propellant through the main pump;
+        ``'external-gg-feed'`` (gas-generator cycle only) supplies it from a separate,
+        unmodelled source.
+
+    Raises
+    ------
+    DomainError
+        If the cycle or routing policy is unknown, a quantity is out of domain, or a
+        pumped cycle lacks a pump/turbine input. Pump and turbine inputs may be None
+        only for the pressure-fed cycle.
+
+    References
+    ----------
+    .. [1] NASA-TMX64749-CYCLE. R. H. Schmucker, 1973, equivalent cycle power balances
+           and whole pumped mass flows; theory source, not hardware validation.
+    .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    """
     cycle: str
     chamber_pressure_pa: float
     chamber_mass_flow_kg_s: float
@@ -63,6 +122,73 @@ class EngineCycleInputs:
 
 @dataclass(frozen=True, slots=True)
 class EngineCycleResult:
+    """Engine-cycle balance, replayable from its retained typed inputs.
+
+    On construction the record evaluates the balance again from ``inputs`` and refuses
+    any output that the evaluation does not reproduce. Mapping inputs and warnings are
+    converted to their typed records.
+
+    Attributes
+    ----------
+    cycle : str
+        Normalized cycle name.
+    chamber_pressure_pa : float
+        Chamber pressure, Pa.
+    required_feed_pressure_pa : float
+        Pc * (1 + injector_pressure_drop_fraction), Pa.
+    pump_pressure_rise_pa : float
+        max(0, required feed pressure - inlet pressure), Pa; zero when pressure-fed.
+    pump_power_w : float
+        Hydraulic pump shaft power, W.
+    turbine_specific_work_j_kg : float
+        Ideal turbine specific work with isentropic efficiency, J/kg.
+    turbine_mass_flow_kg_s : float
+        Turbine drive-gas mass flow, kg/s.
+    turbine_flow_fraction : float
+        Turbine flow divided by total propellant flow.
+    turbine_power_w : float
+        Turbine shaft power, W; equal to pump power by construction.
+    power_balance_residual_w : float
+        Zero; an algebraic identity of the model, not measured closure.
+    chamber_mass_flow_kg_s : float
+        Main-chamber propellant flow, kg/s.
+    total_propellant_flow_kg_s : float
+        Total propellant drawn from the tanks, kg/s.
+    delivered_mass_fraction : float
+        Chamber flow divided by total flow.
+    warnings : tuple of WarningMessage
+        Model-scope and advisory warnings.
+    assumptions : tuple of str
+        Model assumptions for the evaluated cycle.
+    inputs : EngineCycleInputs
+        Retained typed inputs.
+    pump_mass_flow_kg_s : float
+        Flow through the main pump, kg/s.
+    inlet_pressure_margin_pa : float or None
+        Inlet pressure minus required feed pressure, Pa; None if not representable.
+    inlet_pressure_margin_representable : bool
+        Whether the signed margin is a finite binary64 value.
+    pressure_fed_supply_sufficient : bool or None
+        For pressure-fed cycles, whether the declared inlet pressure meets the
+        requirement; None for pumped cycles.
+    energy_balance_scope : str
+        Identifier of what the power balance covers.
+    numerical_policy : str
+        Identifier of the arithmetic and rounding policy.
+
+    Raises
+    ------
+    DomainError
+        If inputs are missing or malformed, a flag has the wrong type, the numerical
+        policy is unknown, or an output does not replay from the inputs.
+
+    References
+    ----------
+    .. [1] NASA-TMX64749-CYCLE. R. H. Schmucker, 1973, equivalent cycle power balances
+           and whole pumped mass flows; theory source, not hardware validation.
+    .. [2] NASA-ENGINESIM-THEORY. NASA Glenn Research Center, EngineSim theory notes:
+           ideal gas turbine temperature/pressure and shaft-work relations.
+    """
     cycle: str
     chamber_pressure_pa: float
     required_feed_pressure_pa: float
@@ -110,6 +236,22 @@ class EngineCycleResult:
 
 
 def _cycle_warnings(value):
+    """Return retained cycle warnings as typed ``WarningMessage`` records.
+
+    Parameters
+    ----------
+    value : iterable
+        ``WarningMessage`` records or mappings of their fields.
+
+    Returns
+    -------
+    tuple of WarningMessage
+
+    Raises
+    ------
+    DomainError
+        If a warning record is malformed.
+    """
     owned = []
     for warning in records(value,(WarningMessage,Mapping),'Cycle warnings'):
         if isinstance(warning,Mapping):
@@ -121,6 +263,44 @@ def _cycle_warnings(value):
 
 
 def _cycle_values(inputs):
+    """Evaluate the cycle balance on exact rationals and return all result fields.
+
+    Parameters
+    ----------
+    inputs : EngineCycleInputs
+        Validated cycle inputs.
+
+    Returns
+    -------
+    dict
+        Field values for :class:`EngineCycleResult` (excluding ``inputs``).
+
+    Raises
+    ------
+    DomainError
+        If the routing cannot close the power balance or an output is not
+        representable.
+    ConvergenceError
+        If an enclosed turbine expression is unresolved within the precision budget.
+
+    Notes
+    -----
+    Required feed pressure p_req = Pc * (1 + f_inj); pump pressure rise
+    Delta_p = max(0, p_req - p_in); pump specific work s = Delta_p / (rho * eta_p)
+    [1]_ [2]_. Turbine specific work
+    w_t = eta_t * cp * T_in * (1 - PR**(-(gamma - 1) / gamma)) [3]_. Pressure-fed
+    cycles report requirement sizing only: feed-line loss, transient tank pressure,
+    cavitation and hardware capability are not modelled.
+
+    References
+    ----------
+    .. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [2] NASA-TMX64749-CYCLE. R. H. Schmucker, 1973, equivalent cycle power balances
+           and whole pumped mass flows; theory source, not hardware validation.
+    .. [3] NASA-ENGINESIM-THEORY. NASA Glenn Research Center, EngineSim theory notes:
+           ideal gas turbine temperature/pressure and shaft-work relations.
+    """
     pressure, flow, inlet, fraction = map(Fraction,(inputs.chamber_pressure_pa,
         inputs.chamber_mass_flow_kg_s,inputs.inlet_pressure_pa,inputs.injector_pressure_drop_fraction))
     required = pressure*(1+fraction)
@@ -182,11 +362,62 @@ def calculate_engine_cycle(
     turbine_specific_heat_j_kg_k: float | None = None, turbine_gamma: float | None = None,
     turbine_pressure_ratio: float | None = None, pump_feed_policy: str = 'shared-pump',
 ) -> EngineCycleResult:
-    """Size pressure-fed requirements or close an explicitly routed shaft balance.
+    """Size pressure-fed feed requirements or close an explicitly routed shaft balance.
 
-    Common-pump GG includes generator flow in pump duty; external-gg-feed keeps
-    that separate unmodelled energy source explicit. Neither proves an operable
-    integrated engine or closes hot-gas pressure, maps, cavitation or hardware.
+    Parameters
+    ----------
+    cycle : {'pressure-fed', 'gas-generator', 'staged-combustion'}
+        Cycle architecture.
+    chamber_pressure_pa : float
+        Chamber pressure, Pa; positive.
+    chamber_mass_flow_kg_s : float
+        Main-chamber propellant flow, kg/s; positive.
+    inlet_pressure_pa : float
+        Supply pressure, Pa; non-negative.
+    injector_pressure_drop_fraction : float
+        Injector pressure drop as a fraction of chamber pressure, in (0, 1].
+    propellant_density_kg_m3, pump_efficiency, turbine_efficiency : float, optional
+        Pump and turbine inputs; required for pumped cycles.
+    turbine_inlet_temperature_k, turbine_specific_heat_j_kg_k : float, optional
+        Turbine total inlet temperature (K) and specific heat (J/(kg K)).
+    turbine_gamma, turbine_pressure_ratio : float, optional
+        Turbine-gas gamma and total inlet/outlet pressure ratio; both above one.
+    pump_feed_policy : {'shared-pump', 'external-gg-feed'}, default 'shared-pump'
+        Generator propellant routing; ``'external-gg-feed'`` applies only to the
+        gas-generator cycle.
+
+    Returns
+    -------
+    EngineCycleResult
+        Feed-pressure requirement, pump/turbine powers, routed flows, warnings and
+        assumptions.
+
+    Raises
+    ------
+    DomainError
+        If an input is out of domain, the routing cannot close the power balance
+        (code ``infeasible_cycle_power_balance``), or an output is not representable.
+    ConvergenceError
+        If an enclosed turbine expression is unresolved within the precision budget.
+
+    Notes
+    -----
+    In the shared-pump gas-generator routing the generator flow is included in the
+    pump duty; ``'external-gg-feed'`` keeps the separate, unmodelled generator supply
+    and its energy duty explicit [1]_. Generator turbine flow is dumped; staged
+    turbine flow returns to the chamber. Efficiencies are constant and the turbine gas
+    is calorically perfect [2]_. Neither routing establishes an operable integrated
+    engine or closes hot-gas pressure compatibility, pump maps, cavitation or hardware
+    capability.
+
+    References
+    ----------
+    .. [1] NASA-TMX64749-CYCLE. R. H. Schmucker, 1973, equivalent cycle power balances
+           and whole pumped mass flows; theory source, not hardware validation.
+    .. [2] NASA-ENGINESIM-THEORY. NASA Glenn Research Center, EngineSim theory notes:
+           ideal gas turbine temperature/pressure and shaft-work relations.
+    .. [3] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
     """
     source = EngineCycleInputs(cycle,chamber_pressure_pa,chamber_mass_flow_kg_s,inlet_pressure_pa,
         injector_pressure_drop_fraction,propellant_density_kg_m3,pump_efficiency,turbine_efficiency,

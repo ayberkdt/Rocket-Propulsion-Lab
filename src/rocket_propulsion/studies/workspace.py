@@ -15,7 +15,20 @@ CURRENT_SCHEMA_VERSION = 2
 
 
 def _validate_json_tree(value: Any, path: str = "workspace") -> None:
-    """Reject non-JSON values, non-string keys, NaN, and infinities recursively."""
+    """Reject non-JSON values, non-string keys, NaN and infinities recursively.
+
+    Parameters
+    ----------
+    value : object
+        Candidate JSON tree.
+    path : str, default 'workspace'
+        Location prefix used in errors.
+
+    Raises
+    ------
+    InputError
+        At the first offending location.
+    """
 
     if value is None or isinstance(value, (str, bool, int)):
         return
@@ -38,7 +51,23 @@ def _validate_json_tree(value: Any, path: str = "workspace") -> None:
 
 @dataclass(frozen=True, slots=True)
 class StudyCase:
-    """One named input/result snapshot inside a workspace."""
+    """One named input/result snapshot inside a workspace.
+
+    Attributes
+    ----------
+    case_id : str
+        Stable identifier of letters, digits, hyphens and underscores.
+    name : str
+        Display name.
+    model : str
+        Name of the model that produced the results.
+    inputs, results : Mapping
+        JSON-compatible model inputs and results.
+    model_versions : Mapping of str to str
+        Versions of the models used.
+    warnings : tuple of str
+        Warnings attached to the results.
+    """
 
     case_id: str
     name: str
@@ -51,7 +80,21 @@ class StudyCase:
 
 @dataclass(frozen=True, slots=True)
 class Workspace:
-    """Portable workspace schema; large source tables are referenced, not embedded."""
+    """Portable workspace document; large source tables are referenced, not embedded.
+
+    Attributes
+    ----------
+    schema_version : int
+        Document schema version.
+    name : str
+        Workspace name.
+    cases : tuple of StudyCase
+        Cases with unique identifiers.
+    dataset_versions : Mapping of str to str
+        Versions of referenced datasets.
+    notes : str
+        Free-text notes.
+    """
 
     schema_version: int
     name: str
@@ -61,6 +104,16 @@ class Workspace:
 
 
 def _validate_case_id(case_id: str) -> None:
+    """Refuse an empty case id or one with characters outside ``[A-Za-z0-9_-]``.
+
+    Parameters
+    ----------
+    case_id : str
+
+    Raises
+    ------
+    InputError
+    """
     if not case_id or any(
         character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
         for character in case_id
@@ -72,7 +125,24 @@ def _validate_case_id(case_id: str) -> None:
 
 
 def create_workspace(name: str, cases: tuple[StudyCase, ...] = ()) -> Workspace:
-    """Create a current-version workspace after enforcing stable case identifiers."""
+    """Create a current-version workspace after enforcing stable case identifiers.
+
+    Parameters
+    ----------
+    name : str
+        Workspace name; surrounding whitespace is removed and it must not be empty.
+    cases : tuple of StudyCase, default ()
+        Cases with valid, unique identifiers.
+
+    Returns
+    -------
+    Workspace
+
+    Raises
+    ------
+    InputError
+        If the name is empty or a case id is invalid or duplicated.
+    """
 
     if not name.strip():
         raise InputError("Workspace name cannot be empty.", field="name")
@@ -86,7 +156,26 @@ def create_workspace(name: str, cases: tuple[StudyCase, ...] = ()) -> Workspace:
 
 
 def duplicate_case(case: StudyCase, *, case_id: str, name: str | None = None) -> StudyCase:
-    """Duplicate a case without sharing mutable input/result dictionaries."""
+    """Copy a case under a new identifier without sharing its mappings.
+
+    Parameters
+    ----------
+    case : StudyCase
+        Case to copy.
+    case_id : str
+        Identifier of the copy.
+    name : str, optional
+        Name of the copy; defaults to ``'<name> copy'``.
+
+    Returns
+    -------
+    StudyCase
+
+    Raises
+    ------
+    InputError
+        If ``case_id`` is invalid.
+    """
 
     _validate_case_id(case_id)
     return replace(
@@ -101,7 +190,31 @@ def duplicate_case(case: StudyCase, *, case_id: str, name: str | None = None) ->
 
 
 def workspace_to_json(workspace: Workspace, *, indent: int = 2) -> str:
-    """Serialize with sorted keys so equal workspaces produce byte-identical JSON."""
+    """Serialize a workspace with sorted keys so equal workspaces give identical JSON.
+
+    Parameters
+    ----------
+    workspace : Workspace
+        Current-version workspace.
+    indent : int, default 2
+        JSON indentation.
+
+    Returns
+    -------
+    str
+        UTF-8-ready JSON text ending with a newline; NaN and infinities are refused
+        [1]_.
+
+    Raises
+    ------
+    InputError
+        If the workspace is not current-version or contains non-JSON values.
+
+    References
+    ----------
+    .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+           Format", 2017.
+    """
 
     if workspace.schema_version != CURRENT_SCHEMA_VERSION:
         raise InputError("Only current-version workspaces can be serialized.")
@@ -120,6 +233,16 @@ def workspace_to_json(workspace: Workspace, *, indent: int = 2) -> str:
 
 
 def _migrate_v1(document: dict[str, Any]) -> dict[str, Any]:
+    """Convert a schema-1 document (single ``case``) to the schema-2 layout.
+
+    Parameters
+    ----------
+    document : dict
+
+    Returns
+    -------
+    dict
+    """
     raw_case = document.get("case")
     cases = [] if raw_case is None else [raw_case]
     return {
@@ -132,7 +255,23 @@ def _migrate_v1(document: dict[str, Any]) -> dict[str, Any]:
 
 
 def migrate_workspace_document(document: Mapping[str, Any]) -> dict[str, Any]:
-    """Migrate supported historical shapes to the current schema."""
+    """Migrate a supported earlier document shape to the current schema.
+
+    Parameters
+    ----------
+    document : Mapping
+        Parsed workspace document with ``schema_version`` or ``version``.
+
+    Returns
+    -------
+    dict
+        Document in the current schema layout.
+
+    Raises
+    ------
+    InputError
+        ``unsupported_workspace_version`` for any other version.
+    """
 
     migrated = dict(document)
     version = migrated.get("schema_version", migrated.get("version"))
@@ -149,16 +288,30 @@ def migrate_workspace_document(document: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def workspace_from_json(text: str) -> Workspace:
-    """Parse, migrate, and validate a workspace JSON document.
+    """Parse, migrate and validate a workspace JSON document.
 
-    A workspace is a user-editable study file without an integrity hash, so a
-    changed document yields a changed workspace; malformed content is refused
-    with :class:`InputError`.
+    A workspace is a user-editable study file without an integrity hash, so a changed
+    document yields a changed workspace; malformed content is refused.
+
+    Parameters
+    ----------
+    text : str
+        JSON document [1]_.
+
+    Returns
+    -------
+    Workspace
+
+    Raises
+    ------
+    InputError
+        If the text is not JSON, the root is not an object, a value is not JSON, the
+        schema version is unsupported, or the content is malformed.
 
     References
     ----------
-    RFC 8259, The JavaScript Object Notation (JSON) Data Interchange Format:
-    https://www.rfc-editor.org/rfc/rfc8259
+    .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+           Format", 2017.
     """
 
     if not isinstance(text, str):
@@ -179,6 +332,21 @@ def workspace_from_json(text: str) -> Workspace:
 
 
 def _workspace_from_document(raw: dict) -> Workspace:
+    """Build a :class:`Workspace` from a parsed, JSON-validated document.
+
+    Parameters
+    ----------
+    raw : dict
+
+    Returns
+    -------
+    Workspace
+
+    Raises
+    ------
+    InputError
+        If the document or a case is incomplete or malformed.
+    """
     document = migrate_workspace_document(raw)
     raw_cases = document.get("cases")
     if not isinstance(raw_cases, list):

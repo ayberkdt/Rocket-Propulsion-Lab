@@ -1,4 +1,18 @@
-"""Ideal-gas mixture properties with explicit composition bases."""
+"""Ideal-gas mixture properties with explicit composition bases.
+
+Mixture properties are mole-fraction averages of NASA Glenn species
+properties [2]_ plus the ideal entropy of mixing and the pressure correction
+to the 1 bar standard state [1]_.
+
+References
+----------
+.. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+       Equilibrium Compositions and Applications, Part I: Analysis".
+       https://ntrs.nasa.gov/citations/19950013764
+.. [2] NASA/TP-2002-211556. NASA Glenn, "NASA Glenn Coefficients for
+       Calculating Thermodynamic Properties of Individual Species".
+       https://ntrs.nasa.gov/citations/20020085330
+"""
 
 from __future__ import annotations
 
@@ -17,7 +31,15 @@ REFERENCE_PRESSURE_PA = 100_000.0
 
 @dataclass(frozen=True, slots=True)
 class MixtureComponent:
-    """A resolved species with consistent mole and mass fractions."""
+    """A resolved species with consistent mole and mass fractions.
+
+    Attributes
+    ----------
+    species : Species
+        Catalog species.
+    mole_fraction, mass_fraction : float
+        Fractions of the component in the mixture.
+    """
 
     species: Species
     mole_fraction: float
@@ -26,7 +48,31 @@ class MixtureComponent:
 
 @dataclass(frozen=True, slots=True)
 class MixtureProperties:
-    """Temperature-dependent properties of an ideal gas mixture."""
+    """Temperature-dependent properties of an ideal gas mixture.
+
+    Attributes
+    ----------
+    temperature_k, pressure_pa : float
+        State at which the properties are evaluated.
+    molecular_mass_kg_mol : float
+        Mixture molar mass.
+    gas_constant_j_kg_k : float
+        Specific gas constant ``R/M``.
+    cp_j_kg_k, cv_j_kg_k : float
+        Frozen-composition specific heats.
+    gamma : float
+        Frozen ratio of specific heats ``cp/cv``.
+    enthalpy_j_kg : float
+        Mass-specific enthalpy.
+    entropy_j_kg_k : float
+        Mass-specific entropy including mixing and pressure terms [1]_.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part I: Analysis".
+           https://ntrs.nasa.gov/citations/19950013764
+    """
 
     temperature_k: float
     pressure_pa: float
@@ -41,7 +87,19 @@ class MixtureProperties:
 
 @dataclass(frozen=True, slots=True)
 class Mixture:
-    """An immutable ideal-gas mixture defined by resolved components."""
+    """An immutable ideal-gas mixture defined by resolved components [1]_.
+
+    Attributes
+    ----------
+    components : tuple of MixtureComponent
+        Components with consistent mole and mass fractions.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part I: Analysis".
+           https://ntrs.nasa.gov/citations/19950013764
+    """
 
     components: tuple[MixtureComponent, ...]
 
@@ -49,7 +107,29 @@ class Mixture:
     def from_fractions(
         cls, fractions: Mapping[str, float], *, basis: str = "mole"
     ) -> Mixture:
-        """Build a mixture from fractions that must sum to one."""
+        """Build a mixture from fractions that must sum to one.
+
+        Parameters
+        ----------
+        fractions : mapping of str to float
+            Positive fraction per species key.
+        basis : str, default "mole"
+            ``"mole"`` or ``"mass"`` (case-insensitive).
+
+        Returns
+        -------
+        Mixture
+            Mixture with both mole and mass fractions resolved.
+
+        Raises
+        ------
+        InputError
+            If the basis is unknown, the composition is empty or a species is
+            unknown.
+        DomainError
+            If a fraction is not positive or the fractions do not sum to one
+            within 1e-9 (code ``composition_sum``).
+        """
 
         normalized_basis = basis.strip().lower()
         if normalized_basis not in {"mole", "mass"}:
@@ -105,6 +185,7 @@ class Mixture:
 
     @property
     def molecular_mass_kg_mol(self) -> float:
+        """Mole-fraction-weighted molar mass, kg/mol."""
         return sum(
             component.mole_fraction * component.species.molecular_mass_kg_mol
             for component in self.components
@@ -112,16 +193,53 @@ class Mixture:
 
     @property
     def minimum_temperature_k(self) -> float:
+        """Lowest temperature valid for every component, K."""
         return max(component.species.minimum_temperature_k for component in self.components)
 
     @property
     def maximum_temperature_k(self) -> float:
+        """Highest temperature valid for every component, K."""
         return min(component.species.maximum_temperature_k for component in self.components)
 
     def properties(
         self, temperature_k: float, *, pressure_pa: float = REFERENCE_PRESSURE_PA
     ) -> MixtureProperties:
-        """Evaluate ideal-mixture properties including entropy of mixing."""
+        """Evaluate ideal-mixture properties including entropy of mixing.
+
+        Parameters
+        ----------
+        temperature_k : float
+            Temperature in K, within every component's range.
+        pressure_pa : float, default REFERENCE_PRESSURE_PA
+            Mixture pressure in Pa, positive.
+
+        Returns
+        -------
+        MixtureProperties
+            Frozen-composition properties at the state.
+
+        Raises
+        ------
+        DomainError
+            If the pressure is not positive, a component is evaluated outside
+            its range, or the mixture ``cv`` is not positive.
+
+        Notes
+        -----
+        Molar ``cp``, ``H`` and standard-state ``S`` are mole-fraction
+        averages of the species values [2]_. The ideal-mixture entropy adds
+        ``-R sum(x_j ln x_j) - R ln(p/p_ref)`` with ``p_ref`` the 1 bar
+        standard state [1]_.
+
+        References
+        ----------
+        .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+               Equilibrium Compositions and Applications, Part I: Analysis".
+               https://ntrs.nasa.gov/citations/19950013764
+        .. [2] NASA/TP-2002-211556. NASA Glenn, "NASA Glenn Coefficients for
+               Calculating Thermodynamic Properties of Individual Species".
+               https://ntrs.nasa.gov/citations/20020085330
+        """
 
         if pressure_pa <= 0.0:
             raise DomainError("Mixture pressure must be greater than zero.", field="pressure_pa")
@@ -174,7 +292,32 @@ class Mixture:
     def temperature_from_enthalpy(
         self, enthalpy_j_kg: float, *, pressure_pa: float = REFERENCE_PRESSURE_PA
     ) -> float:
-        """Invert mixture enthalpy over the common species range."""
+        """Invert mixture enthalpy over the common species range.
+
+        Parameters
+        ----------
+        enthalpy_j_kg : float
+            Target mass-specific enthalpy in J/kg.
+        pressure_pa : float, default REFERENCE_PRESSURE_PA
+            Pressure in Pa (enthalpy of an ideal gas does not depend on it).
+
+        Returns
+        -------
+        float
+            Temperature in K by monotonic bisection (tolerance 1e-10) at fixed
+            composition, using :meth:`properties` [1]_.
+
+        Raises
+        ------
+        DomainError
+            If the target is not bracketed by the common range.
+
+        References
+        ----------
+        .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+               Equilibrium Compositions and Applications, Part I: Analysis".
+               https://ntrs.nasa.gov/citations/19950013764
+        """
 
         return solve_bisect_monotonic(
             lambda temperature: self.properties(
@@ -189,7 +332,32 @@ class Mixture:
     def temperature_from_entropy(
         self, entropy_j_kg_k: float, *, pressure_pa: float = REFERENCE_PRESSURE_PA
     ) -> float:
-        """Invert mixture entropy at constant pressure."""
+        """Invert mixture entropy at constant pressure.
+
+        Parameters
+        ----------
+        entropy_j_kg_k : float
+            Target mass-specific entropy in J/(kg K).
+        pressure_pa : float, default REFERENCE_PRESSURE_PA
+            Pressure in Pa.
+
+        Returns
+        -------
+        float
+            Temperature in K by monotonic bisection (tolerance 1e-10) at fixed
+            composition, using :meth:`properties` [1]_.
+
+        Raises
+        ------
+        DomainError
+            If the target is not bracketed by the common range.
+
+        References
+        ----------
+        .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+               Equilibrium Compositions and Applications, Part I: Analysis".
+               https://ntrs.nasa.gov/citations/19950013764
+        """
 
         return solve_bisect_monotonic(
             lambda temperature: self.properties(

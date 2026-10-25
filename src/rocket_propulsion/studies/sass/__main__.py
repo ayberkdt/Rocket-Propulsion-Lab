@@ -2,7 +2,8 @@
 
 References
 ----------
-NASA-SE-APP: Trade Study Report, repeatable inputs, results and data sources.
+.. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Trade Study
+       Report, repeatable inputs, results and data sources.
 """
 
 from __future__ import annotations
@@ -20,11 +21,24 @@ from .report import build_project_html
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Read strict input evidence and write JSON/HTML; return nonzero on invalid data.
+    """Run a study from a JSON request and write the JSON result and HTML report.
+
+    Parameters
+    ----------
+    argv : list of str, optional
+        Command-line arguments: ``request --output PATH --report PATH``. Defaults to
+        ``sys.argv[1:]``.
+
+    Returns
+    -------
+    int
+        0 on success; 2 if the input is invalid or a file operation fails, with the
+        message written to standard error.
 
     References
     ----------
-    NASA-SE-APP: reproducible Trade Study Report and complete data sources.
+    .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; reproducible
+           Trade Study Report and complete data sources.
     """
     parser = argparse.ArgumentParser(description="Cited preliminary UZM 508E propulsion study")
     parser.add_argument("request", type=Path)

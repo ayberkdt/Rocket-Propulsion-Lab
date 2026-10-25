@@ -1,8 +1,9 @@
 """Primary-source registry for propulsion-burn equations and model claims.
 
 The registry keeps citation identity stable across Python docstrings, JSON
-artifacts, reports, and the future Sidera adapter.  URLs point to the issuing
-organization rather than a secondary summary.
+artifacts, reports and downstream adapters such as Sidera. URLs point to the
+issuing organization rather than a secondary summary. Every registered URL is
+also listed in the project reference index ``docs/REFERENCES.md``.
 """
 
 from __future__ import annotations
@@ -16,10 +17,26 @@ from rocket_propulsion.core.errors import InputError
 class EngineeringReference:
     """One immutable primary engineering reference.
 
+    Parameters
+    ----------
+    reference_id : str
+        Stable identifier stored in artifacts and reports.
+    title : str
+        Document title.
+    organization : str
+        Issuing organization.
+    year : int
+        Publication year.
+    url : str
+        Issuing organization's URL for the document; it is also listed in the
+        project reference index [1]_.
+    scope : str
+        What the source supports in this library.
+
     References
     ----------
-    NASA Scientific and Technical Information program, NTRS metadata and
-    public technical-report records: https://ntrs.nasa.gov/
+    .. [1] Project reference index, ``docs/REFERENCES.md``, which lists every
+           registered URL with its scope.
     """
 
     reference_id: str
@@ -376,17 +393,28 @@ BURN_REFERENCES: tuple[EngineeringReference, ...] = (
 
 
 def burn_reference(reference_id: str) -> EngineeringReference:
-    """Return one registered source by stable identifier.
+    """Return one registered source by its stable identifier.
+
+    Parameters
+    ----------
+    reference_id : str
+        Identifier as stored in ``BURN_REFERENCES``.
+
+    Returns
+    -------
+    EngineeringReference
+        The registered record.
 
     Raises
     ------
     InputError
-        If the identifier is not in the reviewed burn reference set.
+        If the identifier is not in ``BURN_REFERENCES`` (the registry mirrored
+        by the project reference index [1]_).
 
     References
     ----------
-    NASA STI/NTRS catalog: https://ntrs.nasa.gov/
-    CCSDS publication catalog: https://ccsds.org/publications/
+    .. [1] Project reference index, ``docs/REFERENCES.md``, which lists every
+           registered URL with its scope.
     """
 
     for reference in BURN_REFERENCES:

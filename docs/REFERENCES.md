@@ -63,8 +63,15 @@ relations. These primary NASA resources anchor terminology and screening values:
   <https://ntrs.nasa.gov/citations/19960044559>
 - NASA RP-1311, **Part I: Analysis** — equilibrium formulation and
   thermodynamic methods: <https://ntrs.nasa.gov/citations/19950013764>
-- NASA SP-8041, **Liquid Rocket Engine Nozzles** — nozzle design and empirical
-  separation context: <https://ntrs.nasa.gov/citations/19710021390>
+- **NASA-SP8120-SEPARATION**: NASA SP-8120, **Liquid Rocket Engine Nozzles**, 1976 —
+  printed p.17, §2.1.2.1.3: the early rule that separation is a danger when the
+  exit-to-ambient pressure ratio equals 0.4, and the later wall-pressure fit;
+  printed p.18, Figure 7: divergence efficiency against area ratio and half-angle.
+  PDF pp.31-32 inspected 2026-10-25. <https://ntrs.nasa.gov/citations/19770009165>
+- Correction (2026-10-25): NASA SP-8041 is **Captive-Fired Testing of Solid Rocket
+  Motors** (1971), <https://ntrs.nasa.gov/citations/19710021390>. Earlier versions
+  of this library cited it, under a wrong title, for the nozzle separation rule;
+  that rule is now cited to **NASA-SP8120-SEPARATION**.
 - NASA Glenn, **Inlets and Nozzles Design and Analysis Software** — method of
   characteristics design-tool context:
   <https://www.nasa.gov/glenn/research/inlets-and-nozzles/design-analysis-software/>
@@ -335,3 +342,16 @@ Sources below support the provisional study package; ITU course identity is not 
 - **NASA-TRR33-AXISYMMETRIC**: Guentert and Neumann, 1959, radius source and averaged characteristic coefficients, printed pp.3-4/PDF pp.5-6; full variable-composition results not reproduced here. Accessed 2026-10-24. <https://ntrs.nasa.gov/citations/19980232191>
 - **NASA-TMX1502-PLANAR**: Vanco and Goldman, 1968, planar sharp-throat nozzle, finite-grid sensitivity and printed Table II. Screened future full-nozzle reference; not validation of the current mapped field. Accessed 2026-10-24. <https://ntrs.nasa.gov/citations/19680005278>
 - **NASA-TND4960-AXIS-CONTINUITY**: Anderson, 1969, Appendix C equation C1 and streamline definitions, printed p.30/PDF p.33; cylindrical continuity source only. Accessed 2026-10-24. <https://ntrs.nasa.gov/citations/19690005234>
+
+## Foundational textbooks and reports (bibliographic details verified 2026-10-25)
+
+- **NACA-TR-1135**: Ames Research Staff, *Equations, Tables, and Charts for Compressible Flow*, NACA Report 1135, 1953 — one-dimensional isentropic flow, normal and oblique shocks, Prandtl–Meyer expansion. <https://ntrs.nasa.gov/citations/19930091059>
+- **NACA-TN-1336**: B. L. Hicks, D. J. Montgomery and R. H. Wasserman, *On the One-Dimensional Theory of Steady Compressible Fluid Flow in Ducts with Friction and Heat Addition*, NACA TN 1336, 1947 — constant-area duct flow with friction (Fanno) and heat addition (Rayleigh). <https://ntrs.nasa.gov/citations/19930081963>
+- **RAO-1958**: G. V. R. Rao, *Exhaust Nozzle Contour for Optimum Thrust*, Jet Propulsion 28(6), 377–382, 1958. doi:10.2514/8.7324
+- **SUTTON-BIBLARZ-2017**: G. P. Sutton and O. Biblarz, *Rocket Propulsion Elements*, 9th ed., Wiley, 2017, ISBN 978-1-118-75365-1 — ideal rocket, nozzle, thrust-coefficient, staging and feed-system relations (bibliographic citation).
+- **MCKAY-1979**: M. D. McKay, R. J. Beckman and W. J. Conover, *A Comparison of Three Methods for Selecting Values of Input Variables in the Analysis of Output from a Computer Code*, Technometrics 21(2), 239–245, 1979 — Latin hypercube sampling. doi:10.2307/1268522
+- **PAULE-MANDEL-1982**: R. C. Paule and J. Mandel, *Consensus Values and Weighting Factors*, J. Res. Natl. Bur. Stand. 87(5), 377–385, 1982 — Mandel–Paule between-group variance. doi:10.6028/jres.087.022
+
+Not cited because the bibliographic record could not be verified in this
+repository's review: D. R. Bartz (1957) original article (use **NASA-SP125-BARTZ-PAGES**)
+and I. M. Hall (1962) journal article (use **HALL-MCCABE-RM3440** and **KLIEGEL-QUAN-1966**).

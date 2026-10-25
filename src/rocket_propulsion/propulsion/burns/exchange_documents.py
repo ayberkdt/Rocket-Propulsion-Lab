@@ -1,8 +1,18 @@
-"""Closed JSON schemas and redundant metadata consistency for exchange models.
+"""Closed JSON schemas and redundant-metadata consistency for exchange models.
 
-These checks bind declared metadata to the reconstructed model. Content hashes
-remain reproducible identities, not source authentication or physical validation.
-Programmatic constructors retain their separate iterable and numeric contracts.
+The checks run on raw decoded JSON: objects must have exactly their declared
+members with text keys, and each member must have the declared JSON type [1]_
+[2]_. Redundant metadata declared in a document must equal the value of the
+reconstructed model. Content hashes are reproducible identities, not source
+authentication or physical validation. Programmatic constructors keep their
+separate iterable and numeric contracts.
+
+References
+----------
+.. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+       Format". https://www.rfc-editor.org/rfc/rfc8259
+.. [2] PYTHON-3.12-JSON. Python 3.12, ``json``: encoder/decoder hooks,
+       duplicate-member and nonstandard numeric token behavior.
 """
 
 from rocket_propulsion.core.errors import DomainError, InputError
@@ -12,6 +22,14 @@ from .tabulated_documents import _validate_document as _tabulated_document
 
 
 def _object(value, required, label, optional=()):
+    """Require a JSON object with text keys and exactly the allowed members.
+
+    Raises
+    ------
+    InputError
+        If ``value`` is not a ``dict`` with ``str`` keys, a required member is
+        missing, or an unsupported member is present.
+    """
     if type(value) is not dict or any(type(key) is not str for key in value):
         raise InputError(f"{label} must be a JSON object with text keys.", field=label)
     if set(value) - set(required) - set(optional) or set(required) - set(value):
@@ -21,12 +39,26 @@ def _object(value, required, label, optional=()):
 
 
 def _array(value, label):
+    """Return ``value`` if it is a JSON array (a Python ``list``).
+
+    Raises
+    ------
+    InputError
+        If ``value`` is not a ``list``.
+    """
     if type(value) is not list:
         raise InputError(f"{label} must be a JSON array.", field=label)
     return value
 
 
 def _string(value, label, *, nullable=False):
+    """Require UTF-8 encodable JSON text, or ``null`` when ``nullable``.
+
+    Raises
+    ------
+    InputError
+        If ``value`` is not a ``str`` or contains unpaired surrogates.
+    """
     if value is None and nullable:
         return
     if type(value) is not str:
@@ -38,6 +70,17 @@ def _string(value, label, *, nullable=False):
 
 
 def _number(value, label, *, nullable=False):
+    """Require a finite JSON number (``int`` or ``float``, not ``bool``).
+
+    ``null`` is accepted when ``nullable``. The value must also pass the
+    library's real-number validation.
+
+    Raises
+    ------
+    InputError
+        If ``value`` is not a number, is not finite, or is a nonzero value that
+        converts to ``0.0``.
+    """
     if value is None and nullable:
         return
     if type(value) not in (int, float):
@@ -49,17 +92,30 @@ def _number(value, label, *, nullable=False):
 
 
 def _strings(value, label):
+    """Require a JSON array whose items are all JSON text."""
     for item in _array(value, label):
         _string(item, label)
 
 
 def _boolean(value, label):
+    """Require a JSON boolean.
+
+    Raises
+    ------
+    InputError
+        If ``value`` is not a ``bool``.
+    """
     if type(value) is not bool:
         raise InputError(f"{label} must be a JSON boolean.", field=label)
 
 
 def _same(left, right):
-    """JSON equality with distinct boolean/number kinds and numeric normalization."""
+    """Return JSON equality of two decoded values.
+
+    Integers and floats compare by numeric value (``1 == 1.0``), but booleans
+    are never equal to numbers; objects compare by key set and member values,
+    arrays element by element.
+    """
     if type(left) in (int, float) and type(right) in (int, float):
         return left == right
     if type(left) is not type(right):
@@ -72,12 +128,30 @@ def _same(left, right):
 
 
 def _metadata(payload, manifest, keys):
+    """Require each declared metadata key to equal the reconstructed manifest.
+
+    Raises
+    ------
+    InputError
+        If a declared value differs from the manifest value; an absent key
+        reads as ``null``.
+    """
     for key in keys:
         if not _same(payload.get(key), manifest[key]):
             raise InputError(f"Declared {key} does not match the reconstructed model.", field=key)
 
 
 def _surface_document(payload, *, streams=False):
+    """Check the closed raw schema of a performance-surface document.
+
+    With ``streams`` the points carry per-stream flow scales instead of one
+    mass-flow scale.
+
+    Raises
+    ------
+    InputError
+        If the document or a nested axis or point is malformed.
+    """
     root = {
         "schema",
         "source_id",
@@ -157,6 +231,16 @@ _BRIDGE_METADATA = (
 
 
 def _bridge_document(payload):
+    """Check the closed raw schema of a propagator-bridge document.
+
+    The nested tabulated artifact and performance surfaces are checked with
+    their own schemas.
+
+    Raises
+    ------
+    InputError
+        If the document or a nested record is malformed.
+    """
     _object(
         payload,
         _BRIDGE_FIELDS,
@@ -208,6 +292,15 @@ def _bridge_document(payload):
 
 
 def _timeline_document(payload):
+    """Check the closed raw schema of a propulsion-timeline document.
+
+    The ``bridges`` object must have exactly one member per declared burn.
+
+    Raises
+    ------
+    InputError
+        If the document or a nested record is malformed.
+    """
     _object(
         payload,
         {

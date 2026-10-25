@@ -1,15 +1,22 @@
-"""Future-facing weighted tabulated-burn hand-off for Sidera.
+"""Weighted tabulated-burn hand-off for a Sidera ensemble consumer.
 
-This module binds propulsion artifacts to execution time, direction, and frame
+This module binds propulsion artifacts to execution time, direction and frame
 without importing or modifying Sidera. It is an adapter contract, not an orbit
-propagator. Net axial thrust is the force channel; total tank flow is the mass
-channel, so canted clusters and open-cycle engines remain physically closed.
+propagator. Net axial thrust is the force channel and total tank flow is the
+mass channel, so canted clusters and open-cycle engines remain physically
+closed. Weighted realizations carry scenario, conditional and joint
+probabilities in the sense of a probabilistic ensemble [3]_; the document is
+versioned and unit-explicit [1]_ and hash-bound for traceability [2]_.
 
 References
 ----------
-CCSDS-502.0-B-3: https://ccsds.org/Pubs/502x0b3e1.pdf
-NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+.. [1] CCSDS 502.0-B-3. CCSDS, "Orbit Data Messages", Recommended Standard
+       502.0-B-3, https://ccsds.org/Pubs/502x0b3e1.pdf
+.. [2] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+       https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+.. [3] NASA/SP-2011-3421. NASA, "Probabilistic Risk Assessment Procedures Guide
+       for NASA Managers and Practitioners",
+       https://ntrs.nasa.gov/citations/20120001369
 """
 
 from __future__ import annotations
@@ -55,6 +62,7 @@ _FRAMES = {"inertial", "ric", "vnb"}
 
 
 def _sha256_hex(value: str, field: str) -> str:
+    """Return a lower-case 64-digit hexadecimal SHA-256 digest or raise :class:`DomainError`."""
     normalized = text(value, field).lower()
     if len(normalized) != 64 or any(
         character not in "0123456789abcdef" for character in normalized
@@ -64,6 +72,7 @@ def _sha256_hex(value: str, field: str) -> str:
 
 
 def _unit_direction(values: tuple[float, float, float]) -> tuple[float, float, float]:
+    """Return the unit vector of ``values`` rounded once per component."""
     return _directed_vector(values, 1., label="Sidera ensemble unit direction")
 
 
@@ -71,10 +80,42 @@ def _unit_direction(values: tuple[float, float, float]) -> tuple[float, float, f
 class SideraEnsembleBurnJob:
     """One weighted Sidera propagation request backed by a full burn artifact.
 
+    Attributes
+    ----------
+    scenario_id : str
+        Scenario identifier.
+    conditional_index : int
+        Nonnegative index of the realization within its scenario.
+    scenario_probability, conditional_probability, joint_probability : float
+        Probabilities in [0, 1]; ``joint = scenario * conditional`` within an
+        absolute and relative tolerance of 1e-12.
+    t_start_s : float
+        Absolute solver time at which the propulsion history starts, s.
+    direction : tuple of float
+        Unit thrust direction in ``frame``; normalized on construction.
+    frame : {"inertial", "ric", "vnb"}
+        Direction frame.
+    artifact : TabulatedBurnArtifact
+        Complete tabulated burn history.
+
+    Raises
+    ------
+    DomainError
+        If a field is malformed, a probability is outside [0, 1], the joint
+        probability does not factor, or the frame is unsupported.
+
+    Notes
+    -----
+    The probability decomposition follows the conditional-probability
+    treatment of [2]_; time and frame metadata follow [1]_.
+
     References
     ----------
-    CCSDS-502.0-B-3: https://ccsds.org/Pubs/502x0b3e1.pdf
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] CCSDS 502.0-B-3. CCSDS, "Orbit Data Messages", Recommended Standard
+           502.0-B-3, https://ccsds.org/Pubs/502x0b3e1.pdf
+    .. [2] NASA/SP-2011-3421. NASA, "Probabilistic Risk Assessment Procedures Guide
+           for NASA Managers and Practitioners",
+           https://ntrs.nasa.gov/citations/20120001369
     """
 
     scenario_id: str
@@ -126,11 +167,14 @@ class SideraEnsembleBurnJob:
 
     @property
     def t_end_s(self) -> float:
-        """Absolute solver time at the end of the propulsion history.
+        """float: Absolute solver time at the end of the propulsion history, s.
+
+        ``t_start_s + artifact.duration_s``, summed exactly and rounded once.
 
         References
         ----------
-        CCSDS-502.0-B-3: https://ccsds.org/Pubs/502x0b3e1.pdf
+        .. [1] CCSDS 502.0-B-3. CCSDS, "Orbit Data Messages", Recommended Standard
+               502.0-B-3, https://ccsds.org/Pubs/502x0b3e1.pdf
         """
 
         return _finite_rational(_fraction(self.t_start_s) + _fraction(self.artifact.duration_s), "Sidera job end time")
@@ -138,12 +182,46 @@ class SideraEnsembleBurnJob:
 
 @dataclass(frozen=True, slots=True)
 class SideraEnsembleHandoff:
-    """Integrity-checked weighted transient jobs for a future Sidera consumer.
+    """Integrity-checked weighted transient jobs for a Sidera ensemble consumer.
+
+    Attributes
+    ----------
+    source_ensemble_hash : str
+        SHA-256 of the source hierarchical ensemble (lower-case hex).
+    jobs : tuple of SideraEnsembleBurnJob
+        At least one job; ``(scenario_id, conditional_index)`` pairs are
+        unique.
+    joint_probability_sum : float
+        Declared sum of joint probabilities; must reproduce and equal one
+        within 1e-12.
+    warnings : tuple of str
+        Non-blank consumer obligations.
+    required_capabilities : tuple of str
+        Must equal ``SIDERA_ENSEMBLE_REQUIRED_CAPABILITIES``.
+    schema : str
+        Must equal ``SIDERA_ENSEMBLE_HANDOFF_SCHEMA``.
+
+    Raises
+    ------
+    DomainError
+        If the schema or capability contract differs, the hash is malformed,
+        identities repeat, conditional indices are incomplete, conditional
+        probabilities of a scenario do not sum to one, a scenario
+        probability varies within its scenario, or the probability sums do
+        not close.
+
+    Notes
+    -----
+    Probability closure checks follow the ensemble treatment of [2]_; the
+    hand-off is hash-bound for traceability of model inputs and outputs [1]_.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [2] NASA/SP-2011-3421. NASA, "Probabilistic Risk Assessment Procedures Guide
+           for NASA Managers and Practitioners",
+           https://ntrs.nasa.gov/citations/20120001369
     """
 
     source_ensemble_hash: str
@@ -203,11 +281,14 @@ class SideraEnsembleHandoff:
 
     @property
     def handoff_hash(self) -> str:
-        """SHA-256 identity covering all jobs, weights, and nested artifacts.
+        """str: SHA-256 of the canonical JSON document without ``handoff_hash``.
+
+        The digest covers all jobs, weights, semantics and nested artifacts.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
         return hashlib.sha256(
@@ -215,11 +296,24 @@ class SideraEnsembleHandoff:
         ).hexdigest()
 
     def to_dict(self, *, include_hash: bool = True) -> dict[str, Any]:
-        """Return the canonical future-Sidera hand-off document.
+        """Return the canonical hand-off document.
+
+        Parameters
+        ----------
+        include_hash : bool, optional
+            Add ``handoff_hash`` to the document.
+
+        Returns
+        -------
+        dict
+            Schema, source hash, force/mass/direction semantics, required
+            capabilities, probability sum, jobs (each with its end time,
+            artifact hash and full artifact) and warnings.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
         payload: dict[str, Any] = {
@@ -257,9 +351,27 @@ class SideraEnsembleHandoff:
     def to_json(self, *, indent: int | None = 2) -> str:
         """Serialize this hand-off as deterministic JSON.
 
+        Parameters
+        ----------
+        indent : int or None, optional
+            Indentation passed to :func:`json.dumps`.
+
+        Returns
+        -------
+        str
+            JSON text with sorted keys and no non-finite numbers [1]_.
+
+        Raises
+        ------
+        ValueError
+            If a value is not finite (``allow_nan=False``).
+
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+               Format", https://www.rfc-editor.org/rfc/rfc8259
+        .. [2] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
         return json.dumps(
@@ -272,11 +384,34 @@ class SideraEnsembleHandoff:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> SideraEnsembleHandoff:
-        """Reopen a hand-off and verify nested artifact and outer hashes.
+        """Rebuild a hand-off from a decoded document and verify every hash.
+
+        Parameters
+        ----------
+        payload : dict
+            Decoded hand-off document.
+
+        Returns
+        -------
+        SideraEnsembleHandoff
+            The verified hand-off.
+
+        Raises
+        ------
+        InputError
+            If the document shape, schema or physical semantics differ, a
+            value is malformed, or a nested artifact hash, job end time or
+            the outer hand-off hash does not reproduce.
+
+        Notes
+        -----
+        Stored directions must already be numerical unit vectors and are
+        kept bit-for-bit, because they are covered by the hash.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
         _handoff_document(payload)
@@ -337,11 +472,33 @@ class SideraEnsembleHandoff:
 
     @classmethod
     def from_json(cls, text: str) -> SideraEnsembleHandoff:
-        """Parse and integrity-check a future-Sidera hand-off document.
+        """Parse JSON text and integrity-check the hand-off document.
+
+        Parameters
+        ----------
+        text : str
+            JSON document text.
+
+        Returns
+        -------
+        SideraEnsembleHandoff
+            The verified hand-off.
+
+        Raises
+        ------
+        InputError
+            If the text violates the strict JSON reading rules of
+            :func:`~rocket_propulsion.core.validation.read_json_document`
+            [1]_, [2]_ or fails :meth:`from_dict`.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data Interchange
+               Format", https://www.rfc-editor.org/rfc/rfc8259
+        .. [2] PYTHON-3.12-JSON. Python 3.12, "json - JSON encoder and decoder",
+               https://docs.python.org/3.12/library/json.html
+        .. [3] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
         return read_json_document(text, "Sidera ensemble hand-off", cls.from_dict)
@@ -356,14 +513,45 @@ def export_sidera_ensemble_handoff(
 ) -> SideraEnsembleHandoff:
     """Bind an integrity-checked propulsion ensemble to Sidera execution inputs.
 
-    The function deliberately does not construct native Sidera objects. Current
-    Sidera lacks the required public weighted tabulated-burn contract; this
-    artifact is the isolated, reviewed producer side of that future boundary.
+    Parameters
+    ----------
+    ensemble : HierarchicalPropulsionEnsemble
+        Source ensemble; it is round-tripped through its serialization and
+        verified before use.
+    t_start_s : float
+        Absolute solver time at which every realization starts, s.
+    direction : tuple of float
+        Thrust direction in ``frame``; normalized per job.
+    frame : {"inertial", "ric", "vnb"}, optional
+        Direction frame.
+
+    Returns
+    -------
+    SideraEnsembleHandoff
+        One job per realization, with the source ensemble hash and the
+        consumer obligations as warnings.
+
+    Raises
+    ------
+    DomainError
+        If the ensemble fails verification or a job is invalid.
+
+    Notes
+    -----
+    The function does not construct native Sidera objects. Native
+    consumption requires the public capabilities listed in
+    ``SIDERA_ENSEMBLE_REQUIRED_CAPABILITIES`` (see
+    :func:`require_sidera_ensemble_capabilities`); this artifact is the
+    producer side of that boundary. Joint probabilities are applied exactly
+    once per realization [2]_.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA-SP-2011-3421: https://ntrs.nasa.gov/citations/20120001369
+    .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [2] NASA/SP-2011-3421. NASA, "Probabilistic Risk Assessment Procedures Guide
+           for NASA Managers and Practitioners",
+           https://ntrs.nasa.gov/citations/20120001369
     """
 
     verified = hierarchical_ensemble_from_dict(
@@ -399,11 +587,25 @@ def export_sidera_ensemble_handoff(
 def missing_sidera_ensemble_capabilities(
     capabilities: SideraCapabilities,
 ) -> tuple[str, ...]:
-    """Return public capabilities still missing for exact native consumption.
+    """Return the public Sidera capabilities still missing for exact consumption.
+
+    Parameters
+    ----------
+    capabilities : SideraCapabilities
+        Observed capabilities, e.g. from
+        :func:`~rocket_propulsion.integrations.sidera.inspect_sidera_capabilities`.
+
+    Returns
+    -------
+    tuple of str
+        Missing entries of ``SIDERA_ENSEMBLE_REQUIRED_CAPABILITIES`` among
+        tabulated burns, independent mass flow and weighted ensembles; empty
+        when none is missing.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
     """
 
     missing: list[str] = []
@@ -421,9 +623,21 @@ def require_sidera_ensemble_capabilities(
 ) -> None:
     """Fail closed unless Sidera can consume the complete hand-off exactly.
 
+    Parameters
+    ----------
+    capabilities : SideraCapabilities
+        Observed capabilities.
+
+    Raises
+    ------
+    FeatureUnavailableError
+        If any required capability is missing; ``details`` lists the missing
+        and observed capabilities.
+
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
     """
 
     missing = missing_sidera_ensemble_capabilities(capabilities)

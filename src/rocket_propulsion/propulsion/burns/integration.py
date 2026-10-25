@@ -1,4 +1,21 @@
-"""Closed-form standalone solver for constant propulsion burns."""
+"""Closed-form solver for constant-performance propulsion burns.
+
+With constant delivered thrust ``F`` and total tank flow ``mdot`` the vehicle
+mass is ``m(t) = m0 - mdot t``, the delivered impulse ``I = F t`` and the
+ideal velocity increment ``dv = (F_ax / mdot) ln(m0 / m(t))`` [1]_, [2]_.
+Inventory ledgers use exact rational arithmetic; the exponential and
+logarithm are evaluated in a local 1100-digit decimal context [3]_ before the
+single rounding to binary64.
+
+References
+----------
+.. [1] NASA Glenn Research Center, "Ideal Rocket Equation".
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
+.. [2] NASA Glenn Research Center, "Specific Impulse".
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+.. [3] PYTHON-3.12-DECIMAL. Python 3.12, "decimal" module.
+       https://docs.python.org/3.12/library/decimal.html
+"""
 
 from __future__ import annotations
 
@@ -26,12 +43,32 @@ from .serialization import burn_input_hash, burn_result_hash
 
 
 def _negative_exponential(argument: Fraction) -> Fraction:
-    """Resolve the target exponential without losing a tiny positive exponent.
+    """Return ``exp(-argument)`` as an exact fraction of a 1100-digit value.
 
-    1100 digits cover the binary64 input exponent spread, including the
-    three-factor inverse. Beyond 4096 the surviving fraction cannot produce a
-    nonzero binary64 final mass, even from the largest initial mass. Such an
-    unreachable target can still be clipped by an earlier finite safety limit.
+    Parameters
+    ----------
+    argument : Fraction
+        Non-negative exponent ``x``.
+
+    Returns
+    -------
+    Fraction
+        ``exp(-x)`` evaluated in a local 1100-digit decimal context [1]_, or
+        exactly zero for ``x > 4096``.
+
+    Notes
+    -----
+    1100 digits cover the exponent range of binary64 inputs, including the
+    three-factor product formed when the rocket equation is inverted, so a
+    tiny positive exponent is not lost.  Above 4096 the surviving mass
+    fraction cannot produce a non-zero binary64 final mass even from the
+    largest initial mass; such a target is unreachable, and the burn ends at
+    whichever finite cutoff limit binds first.
+
+    References
+    ----------
+    .. [1] PYTHON-3.12-DECIMAL. Python 3.12, "decimal" module.
+           https://docs.python.org/3.12/library/decimal.html
     """
     if argument > 4096:
         return Fraction(0)
@@ -41,7 +78,19 @@ def _negative_exponential(argument: Fraction) -> Fraction:
 
 
 def _mass_log(initial: Fraction, final: Fraction) -> Fraction:
-    """Evaluate the forward logarithm before the mass ratio is rounded to float."""
+    """Return ``ln(initial / final)`` from the exact mass ratio.
+
+    The logarithm of the rocket-equation mass ratio [1]_ is evaluated in a
+    local 1100-digit decimal context [2]_ before any rounding, so the ratio is
+    never rounded to binary64 first.
+
+    References
+    ----------
+    .. [1] NASA Glenn Research Center, "Ideal Rocket Equation".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
+    .. [2] PYTHON-3.12-DECIMAL. Python 3.12, "decimal" module.
+           https://docs.python.org/3.12/library/decimal.html
+    """
     with localcontext(Context(prec=1100)):
         ratio = initial / final
         return Fraction((Decimal(ratio.numerator) / Decimal(ratio.denominator)).ln())
@@ -50,6 +99,26 @@ def _mass_log(initial: Fraction, final: Fraction) -> Fraction:
 def _target_duration(
     definition: BurnDefinition, operating_point: EngineOperatingPoint
 ) -> Fraction:
+    """Return the exact burn duration that meets the requested target.
+
+    ``DURATION`` gives the value itself; ``PROPELLANT_MASS`` gives
+    ``m_p / mdot``; ``TOTAL_IMPULSE`` gives ``I / F`` with the delivered
+    thrust [2]_; ``IDEAL_DELTA_V`` inverts the rocket equation [1]_ with the
+    axial thrust ``F_ax = F * cant_efficiency``,
+    ``t = m0 (1 - exp(-dv mdot / F_ax)) / mdot``.
+
+    Raises
+    ------
+    DomainError
+        If the target kind is not supported.
+
+    References
+    ----------
+    .. [1] NASA Glenn Research Center, "Ideal Rocket Equation".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
+    .. [2] NASA Glenn Research Center, "Specific Impulse".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+    """
     target = definition.target
     mass_flow = _fraction(operating_point.total_tank_flow_kg_s)
     axial_thrust = _fraction(operating_point.delivered_thrust_n) * _fraction(definition.cant_efficiency)
@@ -70,11 +139,51 @@ def simulate_constant_burn(
     definition: BurnDefinition,
     operating_point: EngineOperatingPoint,
 ) -> BurnResult:
-    """Evaluate an L0 constant burn with bounded-precision target inversion.
+    """Evaluate an L0 constant-performance burn in closed form.
 
-    The method integrates only propulsion inventory, total impulse, and the
-    ideal one-dimensional velocity increment ``integral(F_axial / m dt)``.
-    It does not model gravity, drag, steering, attitude, or orbital motion.
+    Parameters
+    ----------
+    definition : BurnDefinition
+        Initial mass, tanks, target, cant efficiency and cutoff limits.
+    operating_point : EngineOperatingPoint
+        Constant delivered thrust, tank streams and specific impulse.
+
+    Returns
+    -------
+    BurnResult
+        Initial and final states, a two-point profile, summary, integration
+        evidence, warnings and input/result hashes.
+
+    Raises
+    ------
+    DomainError
+        If the tank coverage is invalid, the protected dry mass exceeds the
+        initial mass, the target kind is unsupported, the burn would leave a
+        non-positive vehicle mass, or an exported value is not representable
+        as a finite binary64 value.
+
+    Notes
+    -----
+    The burn ends at the earliest of the target duration, each tank's reserve
+    limit, the protected dry-mass floor and the maximum duration; ties resolve
+    in that order.  The method integrates only propulsion inventory, total
+    impulse ``I = F t`` [2]_ and the ideal one-dimensional velocity increment
+    ``integral(F_ax / m dt) = (F_ax / mdot) ln(m0 / m1)`` [1]_.  It does not
+    model gravity, drag, steering, attitude or orbital motion.  Equivalent
+    specific impulses are ``F / (g0 mdot)`` and ``F_ax / (g0 mdot)`` with
+    ``g0`` the registered ``STANDARD_GRAVITY_M_S2``.  Durations are inverted
+    with a bounded-precision (1100-digit) exponential [3]_; the reported
+    delta-v closure error compares the velocity increment with
+    ``Isp g0 cant_efficiency ln(m0 / m1)``.
+
+    References
+    ----------
+    .. [1] NASA Glenn Research Center, "Ideal Rocket Equation".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
+    .. [2] NASA Glenn Research Center, "Specific Impulse".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+    .. [3] PYTHON-3.12-DECIMAL. Python 3.12, "decimal" module.
+           https://docs.python.org/3.12/library/decimal.html
     """
 
     validate_tank_coverage(definition.tanks, operating_point)

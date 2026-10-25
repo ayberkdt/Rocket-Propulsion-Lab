@@ -1,4 +1,18 @@
-"""Propulsion-only L1 integration with unrounded exposure and event ledgers."""
+"""Propulsion-only L1 integration of piecewise-linear throttle schedules.
+
+Thrust and every tank stream scale with the throttle command, so consumed
+propellant is ``mdot_rated E(t)`` and delivered impulse ``F_rated E(t)``,
+where ``E`` is the exact throttle exposure [2]_.  The ideal velocity increment
+follows the rocket equation [1]_.  Exposure and cutoff-event ledgers are kept
+in exact rational arithmetic and rounded once on export.
+
+References
+----------
+.. [1] NASA Glenn Research Center, "Ideal Rocket Equation".
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
+.. [2] NASA Glenn Research Center, "Specific Impulse".
+       https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+"""
 
 from __future__ import annotations
 
@@ -29,6 +43,13 @@ from .serialization import burn_input_hash, burn_result_hash
 
 
 def _required_exposure(definition, operating_point):
+    """Return the exposure that meets a non-duration target, or ``None``.
+
+    The constant-burn duration at full command equals the required exposure,
+    because consumption, impulse and the rocket-equation mass all depend on
+    the command only through ``E``.  Duration targets return ``None``; they
+    are handled as time limits.
+    """
     return (
         None
         if definition.target.kind is BurnTargetKind.DURATION
@@ -37,6 +58,7 @@ def _required_exposure(definition, operating_point):
 
 
 def _tank_rates(operating_point):
+    """Return the exact rated tank-depleting flow per tank identifier."""
     rates = {}
     for stream in operating_point.streams:
         if stream.tank_depleting:
@@ -47,6 +69,7 @@ def _tank_rates(operating_point):
 
 
 def _tank_masses_at_exposure(definition, operating_point, exposure_s):
+    """Return ``(tank_id, loaded - rate * exposure)`` for every tank, rounded once."""
     rates = _tank_rates(operating_point)
     exposure = _fraction(exposure_s)
     return tuple(
@@ -62,7 +85,23 @@ def _tank_masses_at_exposure(definition, operating_point, exposure_s):
 
 
 def _residual_upper(value, label):
-    """Outward-round a nonnegative numerical residual, including subnormal bounds."""
+    """Round the magnitude of a residual upward to a binary64 bound.
+
+    The exact magnitude is converted to binary64; when the conversion rounds
+    down, the next representable value toward infinity [1]_ is returned, so
+    the exported value bounds the exact residual, including in the subnormal
+    range.
+
+    Raises
+    ------
+    DomainError
+        If the bound is not representable as a finite binary64 value.
+
+    References
+    ----------
+    .. [1] PYTHON-3.12-NEXTAFTER. Python 3.12, "math.nextafter".
+           https://docs.python.org/3.12/library/math.html#math.nextafter
+    """
     value = abs(value)
     try:
         result = float(value)
@@ -78,6 +117,17 @@ def _residual_upper(value, label):
 
 
 def _point(*, time_s, throttle, phase, exposure_s, definition, operating_point):
+    """Build one profile point at a command level and accumulated exposure.
+
+    Thrust, axial thrust, total and per-propellant flows and chamber pressure
+    scale linearly with the command; system specific impulse is constant
+    [1]_.  Vehicle and tank masses follow from the exact exposure.
+
+    References
+    ----------
+    .. [1] NASA Glenn Research Center, "Specific Impulse".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+    """
     throttle, exposure = _fraction(throttle), _fraction(exposure_s)
     force = _fraction(operating_point.delivered_thrust_n)
     return ProfiledBurnPoint(
@@ -114,6 +164,12 @@ def _point(*, time_s, throttle, phase, exposure_s, definition, operating_point):
 def _build_profile(
     definition, operating_point, schedule, duration_s, cutoff_reason, final_exposure
 ):
+    """Build the profile points from the schedule slices up to cutoff.
+
+    A point is emitted at each slice end, plus at a slice start where the
+    command is discontinuous.  The last point carries the cutoff phase label
+    and the exact cutoff exposure.  A zero-duration burn yields one point.
+    """
     slices = _schedule_slices(schedule, duration_s)
     if not slices:
         return (
@@ -158,7 +214,23 @@ def _build_profile(
 
 
 def _profile_cutoff(definition, operating_point, schedule, rates):
-    """Compare exact exposures before inverting a root; preserve time-limit ties."""
+    """Return ``(time, exposure, reason, binding_constraint)`` of the cutoff.
+
+    Limits carry a priority rank: target 0, tank reserve 1, protected
+    dry-mass floor 2, maximum duration 3, schedule end 4.  Time limits
+    (duration target, maximum duration, schedule end) and exposure limits
+    (non-duration target, tank reserves, dry-mass floor) are each reduced to
+    their earliest member, ties going to the lower rank.  Exposures are
+    compared exactly before any root is inverted; the earliest exposure limit
+    is inverted to a time only if it is reached no later than the earliest
+    time limit.  On an exact tie in both exposure and time the lower rank
+    wins.
+
+    Raises
+    ------
+    DomainError
+        If the protected dry mass exceeds the initial mass.
+    """
     total_time, _ = _schedule_totals(schedule)
     requested = _required_exposure(definition, operating_point)
     times = [
@@ -211,10 +283,48 @@ def _profile_cutoff(definition, operating_point, schedule, rates):
 def simulate_profiled_burn(
     definition: BurnDefinition, operating_point: EngineOperatingPoint, schedule: ThrottleSchedule
 ) -> ProfiledBurnResult:
-    """Integrate L1 command polynomials; nonlinear inverse/log roots use Decimal1100.
+    """Integrate an L1 burn under a piecewise-linear throttle schedule.
 
-    Thrust and all streams scale proportionally with the command. Numerical
-    accounting is separate from validation of that physical assumption.
+    Parameters
+    ----------
+    definition : BurnDefinition
+        Initial mass, tanks, target, cant efficiency and cutoff limits.
+    operating_point : EngineOperatingPoint
+        Rated operating point at full command.
+    schedule : ThrottleSchedule
+        Piecewise-linear throttle command.
+
+    Returns
+    -------
+    ProfiledBurnResult
+        Initial and final states, profile points, summary, integration
+        evidence, warnings and input/result hashes.
+
+    Raises
+    ------
+    DomainError
+        If the tank coverage is invalid, the protected dry mass exceeds the
+        initial mass, the burn would leave a non-positive vehicle mass, or an
+        exported value is not representable as a finite binary64 value.
+
+    Notes
+    -----
+    Thrust and all streams scale in proportion to the command and system
+    specific impulse is constant [2]_; this is a declared modelling
+    assumption, and the exact numerical accounting does not validate it.  The
+    command polynomials are integrated exactly; the inverse of the exposure
+    and the rocket-equation logarithm [1]_ are evaluated in a local
+    1100-digit decimal context [3]_.  Reported closure errors are upward
+    rounded bounds on the exact residuals.
+
+    References
+    ----------
+    .. [1] NASA Glenn Research Center, "Ideal Rocket Equation".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
+    .. [2] NASA Glenn Research Center, "Specific Impulse".
+           https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
+    .. [3] PYTHON-3.12-DECIMAL. Python 3.12, "decimal" module.
+           https://docs.python.org/3.12/library/decimal.html
     """
     validate_tank_coverage(definition.tanks, operating_point)
     rates = _tank_rates(operating_point)

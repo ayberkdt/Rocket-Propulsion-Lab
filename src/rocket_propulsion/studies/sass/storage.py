@@ -2,8 +2,10 @@
 
 References
 ----------
-NASA-GAS: density=m/V and ideal-gas equation.
-NASA-SP8112: preliminary blowdown/regulated pressurization context.
+.. [1] NASA-GAS. NASA Glenn Research Center, "Equation of State (Ideal Gas)";
+       density=m/V and ideal-gas equation.
+.. [2] NASA-SP8112. NASA, "Pressurization Systems for Liquid Rockets"; preliminary
+       blowdown/regulated pressurization context.
 """
 
 from __future__ import annotations
@@ -18,15 +20,41 @@ from .rational_numerics import binary_ledger
 
 def liquid_tank_volume(propellant_mass: CitedScalar, density: CitedScalar,
                        ullage_fraction: CitedScalar) -> AnalysisResult:
-    """Use V_liquid=m/rho and V_tank=V_liquid/(1-ullage_fraction).
+    """Size a liquid propellant tank from mass, density and ullage fraction.
 
-    Density must carry its own temperature/pressure/source. Ullage is a
-    fraction of TOTAL tank volume, not a percentage added to liquid volume.
+    Parameters
+    ----------
+    propellant_mass : CitedScalar
+        Stored liquid mass, kg; non-negative.
+    density : CitedScalar
+        Liquid density at the design storage condition, kg/m^3; positive. The value
+        must carry its own temperature, pressure and source.
+    ullage_fraction : CitedScalar
+        Ullage as a fraction of TOTAL tank volume, in [0, 1); not a percentage added
+        to the liquid volume.
+
+    Returns
+    -------
+    AnalysisResult
+        ``liquid_volume``, ``tank_volume`` and ``ullage_volume``, m^3.
+
+    Raises
+    ------
+    DomainError
+        If a quantity is out of domain or an output is not representable.
+
+    Notes
+    -----
+    V_liquid = m / rho [1]_ and V_tank = V_liquid / (1 - ullage_fraction); the
+    geometric ullage rearrangement is stated in this module [2]_. Wall, liner, insulation,
+    propellant management device and structural mass are not estimated.
 
     References
     ----------
-    NASA-GAS: density is mass divided by volume.
-    NASA-SP8112: ullage and stored-liquid tank pressurization.
+    .. [1] NASA-GAS. NASA Glenn Research Center, "Equation of State (Ideal Gas)";
+           density is mass divided by volume.
+    .. [2] NASA-SP8112. NASA, "Pressurization Systems for Liquid Rockets"; ullage and
+           stored-liquid tank pressurization.
     """
     m = quantity(propellant_mass, "kg", minimum=0)
     rho = quantity(density, "kg/m^3", strictly_positive=True)
@@ -51,15 +79,46 @@ def liquid_tank_volume(propellant_mass: CitedScalar, density: CitedScalar,
 def ideal_cold_gas_storage(usable_mass: CitedScalar, initial_pressure: CitedScalar,
                            cutoff_pressure: CitedScalar, temperature: CitedScalar,
                            specific_gas_constant: CitedScalar) -> AnalysisResult:
-    """Size a rigid isothermal IDEAL-gas tank from its usable pressure interval.
+    """Size a rigid isothermal ideal-gas tank from its usable pressure interval.
 
-    V=m_usable*R*T/(p0-pf); m_loaded=p0*V/(R*T). This is an analytical
-    ideal-gas model, not extrapolation of a measured gas density or thruster map.
+    Parameters
+    ----------
+    usable_mass : CitedScalar
+        Gas mass expelled between the initial and cutoff pressures, kg.
+    initial_pressure : CitedScalar
+        Initial absolute tank pressure p0, Pa; positive.
+    cutoff_pressure : CitedScalar
+        Absolute pressure at which blowdown ends, pf, Pa; positive and below p0.
+    temperature : CitedScalar
+        Absolute gas temperature, K; positive.
+    specific_gas_constant : CitedScalar
+        Specific gas constant R of the gas, J/(kg*K); positive.
+
+    Returns
+    -------
+    AnalysisResult
+        ``tank_volume`` (m^3), ``loaded_gas`` and ``remaining_gas`` (kg).
+
+    Raises
+    ------
+    DomainError
+        If a quantity is out of domain, p0 <= pf, or an output is not representable.
+
+    Notes
+    -----
+    V = m_usable * R * T / (p0 - pf), m_loaded = p0 * V / (R * T) and
+    m_remaining = pf * V / (R * T), from p * V = m * R * T at fixed V and T [1]_ and
+    the blowdown cutoff inventory [2]_. This is an analytical ideal-gas model, not an
+    extrapolation of a measured density or thruster map. Real-gas and thermal effects
+    at high pressure are not validated, and unregulated thrust and Isp generally vary
+    with pressure.
 
     References
     ----------
-    NASA-GAS: p=rho R T, absolute pressure/temperature, ideal-gas domain.
-    NASA-SP8112: blowdown inventory and cutoff boundary.
+    .. [1] NASA-GAS. NASA Glenn Research Center, "Equation of State (Ideal Gas)"; p=rho
+           R T, absolute pressure/temperature, ideal-gas domain.
+    .. [2] NASA-SP8112. NASA, "Pressurization Systems for Liquid Rockets"; blowdown
+           inventory and cutoff boundary.
     """
     m = quantity(usable_mass, "kg", minimum=0)
     p0 = quantity(initial_pressure, "Pa", strictly_positive=True)
@@ -91,16 +150,48 @@ def ideal_regulated_pressurant(displaced_volume: CitedScalar, tank_pressure: Cit
                                bottle_final_pressure: CitedScalar,
                                temperature: CitedScalar,
                                specific_gas_constant: CitedScalar) -> AnalysisResult:
-    """Size an ideal isothermal bottle for displaced liquid volume.
+    """Size an ideal isothermal pressurant bottle for a displaced liquid volume.
 
-    V_b=p_t*V_displaced/(p_b0-p_bf). Bottle and receiving ullage have the same
-    supplied temperature; initial tank pressurant, lines and regulator losses
-    are excluded. Bottle final pressure must stay above regulated tank pressure.
+    Parameters
+    ----------
+    displaced_volume : CitedScalar
+        Liquid volume to be displaced at regulated pressure, m^3; non-negative.
+    tank_pressure : CitedScalar
+        Regulated absolute propellant-tank pressure p_t, Pa; positive.
+    bottle_initial_pressure : CitedScalar
+        Initial absolute bottle pressure p_b0, Pa.
+    bottle_final_pressure : CitedScalar
+        Final absolute bottle pressure p_bf, Pa; must satisfy p_b0 > p_bf > p_t.
+    temperature : CitedScalar
+        Absolute gas temperature, K; positive.
+    specific_gas_constant : CitedScalar
+        Specific gas constant R of the gas, J/(kg*K); positive.
+
+    Returns
+    -------
+    AnalysisResult
+        ``bottle_volume`` (m^3), ``loaded_pressurant``, ``delivered_pressurant`` and
+        ``remaining_pressurant`` (kg).
+
+    Raises
+    ------
+    DomainError
+        If a quantity is out of domain, the pressures are not ordered, or an output
+        is not representable.
+
+    Notes
+    -----
+    V_b = p_t * V_displaced / (p_b0 - p_bf) from the ideal-gas law and conservation of
+    the transferred gas [1]_ in a regulated bottle-to-ullage architecture [2]_. Bottle
+    and receiving ullage share the supplied temperature; initial tank gas, lines and
+    regulator losses are excluded, and transient dynamics need a separate model.
 
     References
     ----------
-    NASA-GAS: pV=mRT and conservation of transferred gas.
-    NASA-SP8112: regulated bottle-to-ullage pressurization architecture.
+    .. [1] NASA-GAS. NASA Glenn Research Center, "Equation of State (Ideal Gas)"; pV=mRT
+           and conservation of transferred gas.
+    .. [2] NASA-SP8112. NASA, "Pressurization Systems for Liquid Rockets"; regulated
+           bottle-to-ullage pressurization architecture.
     """
     displaced = quantity(displaced_volume, "m^3", minimum=0)
     pt = quantity(tank_pressure, "Pa", strictly_positive=True)

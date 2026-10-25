@@ -1,7 +1,18 @@
-"""Exact binary-input weighted distributions and checked statistical exports.
+"""Exact weighted distributions of binary64 inputs with checked exports.
 
-Weights are normalized for moments/quantiles; supplied closure diagnostics stay
-separate. This is numerical consistency, not calibrated probability evidence.
+Values and probability weights are held as exact rationals. Weights are
+normalized by their total for the mean [1]_, variance and quantiles; the closure
+of the supplied weights to one is reported separately and is not hidden by the
+normalization. Square roots are correctly rounded with integer primitives
+[2]_. The results are numerically consistent summaries of the declared
+weights, not calibrated probability evidence.
+
+References
+----------
+.. [1] NIST-WEIGHTED-MEAN. NIST Dataplot, *Weighted Mean*, equation 2-20,
+       normalized weighted mean.
+.. [2] PYTHON-3.12-MATH. Python 3.12, ``math``: ``isqrt`` and ``ldexp``
+       primitives for binary64 statistical exports.
 """
 
 from dataclasses import dataclass
@@ -16,10 +27,35 @@ _PROBABILITY_POLICY = "exact_binary_normalized_joint_weights_and_rational_percen
 
 
 def _sqrt_output(value, label):
-    """Round a nonnegative rational square root to binary64, including subnormals.
+    """Return ``sqrt(value)`` correctly rounded to binary64, including subnormals.
 
-    An integer floor brackets the root on the destination grid. Squared exact
-    midpoint comparisons implement nearest/even without exporting the variance.
+    The exact rational is scaled to the binary64 grid of its square root, the
+    integer square root brackets the result, and an exact squared comparison
+    with the midpoint applies round-half-to-even [1]_. The variance itself is
+    never rounded or exported.
+
+    Parameters
+    ----------
+    value : Fraction
+        Nonnegative exact value, typically a variance.
+    label : str
+        Output name used in error messages and the error ``field``.
+
+    Returns
+    -------
+    float
+        Correctly rounded square root; ``0.0`` for a zero input.
+
+    Raises
+    ------
+    DomainError
+        If ``value`` is negative or the result is outside the nonzero finite
+        binary64 range.
+
+    References
+    ----------
+    .. [1] PYTHON-3.12-MATH. Python 3.12, ``math``: ``isqrt`` and ``ldexp``
+           primitives for binary64 statistical exports.
     """
     if value < 0:
         raise DomainError(f"{label} requires nonnegative variance.", field=label)
@@ -53,12 +89,43 @@ def _sqrt_output(value, label):
 
 @dataclass(frozen=True, slots=True)
 class _WeightedLedger:
+    """Sorted exact ``(value, weight)`` rows with normalized moments.
+
+    With ``W = sum(w_i)``, ``mean = sum(w_i x_i) / W`` [1]_ and
+    ``variance = sum(w_i (x_i - mean)**2) / W``.
+
+    References
+    ----------
+    .. [1] NIST-WEIGHTED-MEAN. NIST Dataplot, *Weighted Mean*, equation 2-20,
+           normalized weighted mean.
+    """
+
     rows: tuple
     total: Fraction
     mean: Fraction
     variance: Fraction
 
     def quantile(self, probability):
+        """Return the smallest value whose cumulative weight reaches ``p W``.
+
+        This is the lower inverse of the weighted empirical distribution
+        function; no interpolation between support points is applied.
+
+        Parameters
+        ----------
+        probability : real or Fraction
+            Probability ``p`` in ``[0, 1]``.
+
+        Returns
+        -------
+        float
+            Support value rounded once to binary64.
+
+        Raises
+        ------
+        DomainError
+            If ``p`` lies outside ``[0, 1]``.
+        """
         probability = _fraction(probability, "Quantile probability")
         if not 0 <= probability <= 1:
             raise DomainError("Quantile probability must lie in [0, 1].")
@@ -71,6 +138,30 @@ class _WeightedLedger:
 
 
 def _weight_ledger(values):
+    """Build an exact weighted ledger from ``(value, weight)`` pairs.
+
+    Zero-weight rows are dropped; the remaining rows are sorted by value.
+
+    Parameters
+    ----------
+    values : iterable of (real, real)
+        Values and nonnegative probability weights.
+
+    Returns
+    -------
+    _WeightedLedger
+        Rows, total weight ``W``, normalized mean [1]_ and normalized variance.
+
+    Raises
+    ------
+    DomainError
+        If a weight is negative or no row carries positive weight.
+
+    References
+    ----------
+    .. [1] NIST-WEIGHTED-MEAN. NIST Dataplot, *Weighted Mean*, equation 2-20,
+           normalized weighted mean.
+    """
     rows = []
     for value, weight in values:
         value, weight = _fraction(value), _fraction(weight, "Probability weight")
@@ -92,10 +183,37 @@ def _weight_ledger(values):
 
 
 def _quantiles(ledger):
+    """Return the weighted 5th, 50th and 95th percentiles of ``ledger``."""
     return tuple(ledger.quantile(p) for p in (Fraction(1, 20), Fraction(1, 2), Fraction(19, 20)))
 
 
 def _sample_moments(values):
+    """Return the sample mean and ``n - 1`` sample standard deviation.
+
+    ``m = sum(x_i) / n`` and ``s = sqrt(sum((x_i - m)**2) / (n - 1))`` [1]_;
+    a single value has ``s = 0``.
+
+    Parameters
+    ----------
+    values : iterable of real
+        At least one finite value.
+
+    Returns
+    -------
+    tuple of float
+        ``(m, s)``, each rounded once to binary64.
+
+    Raises
+    ------
+    DomainError
+        If no value is supplied.
+
+    References
+    ----------
+    .. [1] NIST TN 1297, "Guidelines for Evaluating and Expressing the
+           Uncertainty of NIST Measurement Results", 1994 (Type A evaluation).
+           https://www.nist.gov/pml/nist-technical-note-1297
+    """
     values = tuple(_fraction(x) for x in values)
     if not values:
         raise DomainError("Sample moments require at least one value.")
@@ -111,6 +229,7 @@ def _sample_moments(values):
 
 
 def _relative_change(left, right):
+    """Return ``|left - right| / max(|left|, |right|)``, or zero if both are zero."""
     left, right = _fraction(left), _fraction(right)
     scale = max(abs(left), abs(right))
     ratio = abs(left - right) / scale if scale else Fraction(0)
@@ -118,6 +237,13 @@ def _relative_change(left, right):
 
 
 def _joint_weight(scenario, conditional):
+    """Return ``P(scenario) * P(draw | scenario)`` rounded once to binary64.
+
+    Raises
+    ------
+    DomainError
+        If the product is outside the nonzero finite binary64 range.
+    """
     return _finite_rational(
         _fraction(scenario) * _fraction(conditional), "Joint realization probability"
     )

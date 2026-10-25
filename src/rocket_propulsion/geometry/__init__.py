@@ -1,4 +1,22 @@
-"""Parametric propulsion-component geometry models."""
+"""Parametric propulsion-component geometry models.
+
+The package provides axisymmetric converging-diverging nozzle contours
+(conical, cubic-Hermite preliminary bell [1]_ and Rao-style thrust-optimized
+parabola [2]_), a planar minimum-length method-of-characteristics nozzle [3]_, local
+characteristic unit processes (interior, axis, wall and axis departure) and a
+marched supersonic characteristic field, Hall's transonic throat expansion,
+contour comparison metrics and text exports (CSV, SVG, DXF, ASCII STL). Each
+public callable documents its own assumptions, validity limits and sources.
+
+References
+----------
+.. [1] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+       Elements", 9th ed., Wiley, 2017.
+.. [2] RAO-1958. G. V. R. Rao, "Exhaust Nozzle Contour for Optimum Thrust",
+       Jet Propulsion 28(6), 377-382, 1958. doi:10.2514/8.7324
+.. [3] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+       compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+"""
 
 from .comparison import ContourComparison, compare_nozzle_contours
 from .export import ContourExportBundle, ContourExportInputs, export_nozzle_contour

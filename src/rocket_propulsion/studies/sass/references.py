@@ -2,8 +2,11 @@
 
 References
 ----------
-NASA-SE-APP: requirement/source traceability, Appendix D.
-ITU-UZM508: official course identity; it does not publish an assignment brief.
+.. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix";
+       requirement/source traceability, Appendix D.
+.. [2] ITU-UZM508. Istanbul Technical University, "UZM 508E - Spacecraft
+       Architecture and Subsystems Design"; official course identity; it does not
+       publish an assignment brief.
 """
 
 from __future__ import annotations
@@ -17,9 +20,23 @@ from rocket_propulsion.core.errors import DomainError
 class Reference:
     """A source and the location actually used, rather than a generic bibliography.
 
+    Attributes
+    ----------
+    key : str
+        Stable identifier, matching ``docs/REFERENCES.md``.
+    title, publisher : str
+        Bibliographic title and publisher.
+    url : str
+        Source address.
+    locator : str
+        Sections, tables or equations used.
+    accessed : str
+        ISO access date.
+
     References
     ----------
-    NASA-SE-APP: Appendix D, identify the definitive requirement source.
+    .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Appendix D,
+           identify the definitive requirement source.
     """
 
     key: str
@@ -154,11 +171,26 @@ REFERENCES = (
 
 
 def reference(key: str) -> Reference:
-    """Resolve a reviewed source; unknown identifiers are errors.
+    """Resolve a registered source by key.
+
+    Parameters
+    ----------
+    key : str
+        Registry key.
+
+    Returns
+    -------
+    Reference
+
+    Raises
+    ------
+    DomainError
+        If the key is not registered.
 
     References
     ----------
-    NASA-SE-APP: Appendix D, definitive source identification.
+    .. [1] NASA-SE-APP. NASA, "Systems Engineering Handbook: Appendix"; Appendix D,
+           definitive source identification.
     """
     for item in REFERENCES:
         if item.key == key:

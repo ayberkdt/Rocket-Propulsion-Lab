@@ -1,6 +1,26 @@
-"""Ideal rocket and steady thrust models with checked retained arithmetic.
+"""Ideal rocket-equation and steady thrust-equation models with replayable results.
 
-Numerical consistency does not validate either model against hardware.
+Both models are evaluated on an exact rational ledger of the binary inputs and every
+exported quantity is rounded to binary64 once and independently. Result records
+re-derive their fields from the retained inputs on construction. Numerical
+consistency does not validate either model against hardware.
+
+Notes
+-----
+Standard gravity is ``rocket_propulsion.core.constants.STANDARD_GRAVITY_M_S2``.
+
+References
+----------
+.. [1] NASA Glenn Research Center, "Ideal Rocket Equation", Beginner's Guide to
+       Aeronautics (Tsiolkovsky equation, mass ratio, effective exhaust velocity).
+.. [2] NASA Glenn Research Center, "Rocket Thrust Equation", Beginner's Guide to
+       Aeronautics (momentum thrust, pressure thrust, exit-area effects).
+.. [3] NASA Glenn Research Center, "Specific Impulse", Beginner's Guide to
+       Aeronautics (equivalent velocity, total impulse and Isp).
+.. [4] NASA-STEADY-ROCKET-THRUST. NASA Glenn Research Center, momentum and pressure
+       thrust equation for steady rocket flow.
+.. [5] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+       Elements", 9th ed., Wiley, 2017.
 """
 from dataclasses import dataclass
 from fractions import Fraction
@@ -15,7 +35,59 @@ from .performance_numerics import _PERFORMANCE_POLICY, _inverse_mass_outputs, _s
 
 @dataclass(frozen=True, slots=True)
 class RocketEquationResult:
-    """Independent exports of an ideal solve, retaining its source mode and input."""
+    """Result of an ideal rocket-equation solve, replayable from its retained inputs.
+
+    Every numeric field is an independent export of the exact solve. On construction
+    the record solves the equation again from ``initial_mass_kg``, the retained
+    performance input and either ``final_mass_kg`` (forward mode) or ``delta_v_m_s``
+    (inverse mode), and refuses any field that the solve does not reproduce.
+
+    Attributes
+    ----------
+    initial_mass_kg : float
+        Initial vehicle mass m0, kg.
+    final_mass_kg : float
+        Final vehicle mass mf, kg.
+    propellant_mass_kg : float
+        Consumed propellant mass m0 - mf, kg.
+    mass_ratio : float
+        Mass ratio m0 / mf.
+    propellant_mass_fraction : float
+        Consumed fraction (m0 - mf) / m0.
+    specific_impulse_s : float
+        Specific impulse, s.
+    effective_exhaust_velocity_m_s : float
+        Effective exhaust velocity c = g0 * Isp, m/s.
+    delta_v_m_s : float
+        Ideal velocity change, m/s.
+    solve_mode : {'forward', 'inverse'}
+        ``'forward'`` solves delta-v from the final mass; ``'inverse'`` solves the
+        masses from delta-v.
+    performance_input : {'specific_impulse_s', 'effective_exhaust_velocity_m_s'}
+        Field supplied by the caller; the other performance field is derived.
+    numerical_policy : str
+        Identifier of the arithmetic and rounding policy.
+
+    Raises
+    ------
+    DomainError
+        If the policy, solve mode or performance input is unknown, or if a field does
+        not reproduce the retained inputs.
+
+    Notes
+    -----
+    The governing relation is the ideal rocket equation delta_v = c * ln(m0 / mf)
+    [1]_ [2]_ with c = g0 * Isp [3]_.
+
+    References
+    ----------
+    .. [1] NASA Glenn Research Center, "Ideal Rocket Equation", Beginner's Guide to
+           Aeronautics (Tsiolkovsky equation, mass ratio, effective exhaust velocity).
+    .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
+    .. [3] NASA Glenn Research Center, "Specific Impulse", Beginner's Guide to
+           Aeronautics (equivalent velocity, total impulse and Isp).
+    """
     initial_mass_kg: float
     final_mass_kg: float
     propellant_mass_kg: float
@@ -45,7 +117,59 @@ class RocketEquationResult:
 
 @dataclass(frozen=True, slots=True)
 class ThrustResult:
-    """Steady pressure/momentum ledger and duration for replaying impulse."""
+    """Steady momentum/pressure thrust ledger, replayable from its retained inputs.
+
+    On construction the record evaluates the thrust equation again from the retained
+    flow, exit state, ambient pressure and optional burn time, and refuses any field
+    that the evaluation does not reproduce.
+
+    Attributes
+    ----------
+    mass_flow_kg_s : float
+        Nozzle mass flow, kg/s.
+    exit_velocity_m_s : float
+        Exit-plane velocity, m/s.
+    exit_area_m2 : float
+        Nozzle exit area, m^2.
+    exit_pressure_pa : float
+        Exit-plane static pressure, Pa.
+    ambient_pressure_pa : float
+        Ambient pressure, Pa.
+    momentum_thrust_n : float
+        Momentum thrust mdot * Ve, N.
+    pressure_thrust_n : float
+        Signed pressure thrust Ae * (pe - pa), N.
+    total_thrust_n : float
+        Net thrust, N; always positive.
+    effective_exhaust_velocity_m_s : float
+        Effective exhaust velocity F / mdot, m/s.
+    specific_impulse_s : float
+        Specific impulse F / (mdot * g0), s.
+    total_impulse_n_s : float or None
+        Constant-thrust impulse F * t when a burn time is retained, N*s.
+    burn_time_s : float or None
+        Retained burn duration, s.
+    numerical_policy : str
+        Identifier of the arithmetic and rounding policy.
+
+    Raises
+    ------
+    DomainError
+        If the policy is unknown or a field does not reproduce the retained inputs.
+
+    Notes
+    -----
+    F = mdot * Ve + Ae * (pe - pa) [1]_ [2]_; Isp = F / (mdot * g0) [3]_.
+
+    References
+    ----------
+    .. [1] NASA-STEADY-ROCKET-THRUST. NASA Glenn Research Center, momentum and pressure
+           thrust equation for steady rocket flow.
+    .. [2] NASA Glenn Research Center, "Rocket Thrust Equation", Beginner's Guide to
+           Aeronautics (momentum thrust, pressure thrust, exit-area effects).
+    .. [3] NASA Glenn Research Center, "Specific Impulse", Beginner's Guide to
+           Aeronautics (equivalent velocity, total impulse and Isp).
+    """
     mass_flow_kg_s: float
     exit_velocity_m_s: float
     exit_area_m2: float
@@ -71,6 +195,25 @@ class ThrustResult:
 
 
 def _positive(value, label):
+    """Return ``value`` as a finite real, refusing zero and negative values.
+
+    Parameters
+    ----------
+    value : object
+        Candidate real number.
+    label : str
+        Field label used in the error.
+
+    Returns
+    -------
+    float
+        The validated value.
+
+    Raises
+    ------
+    DomainError
+        If ``value`` is not a finite real or is not greater than zero.
+    """
     value = real(value, label)
     if value <= 0:
         raise DomainError(f'{label} must be greater than zero.', field=label)
@@ -78,6 +221,30 @@ def _positive(value, label):
 
 
 def _performance_values(value, kind):
+    """Convert the supplied Isp or exhaust velocity into the full performance triple.
+
+    Parameters
+    ----------
+    value : float
+        Specific impulse in s or effective exhaust velocity in m/s.
+    kind : {'specific_impulse_s', 'effective_exhaust_velocity_m_s'}
+        Which quantity ``value`` is.
+
+    Returns
+    -------
+    tuple
+        ``(isp_s, velocity_m_s, exact_velocity)``: the exported Isp and velocity
+        and the exact rational velocity used by the solve.
+
+    Notes
+    -----
+    c = g0 * Isp [1]_, with g0 the registered conventional standard gravity.
+
+    References
+    ----------
+    .. [1] NASA Glenn Research Center, "Specific Impulse", Beginner's Guide to
+           Aeronautics (equivalent velocity, total impulse and Isp).
+    """
     gravity = Fraction(STANDARD_GRAVITY_M_S2)
     if kind == 'specific_impulse_s':
         isp = _positive(value, 'Specific impulse')
@@ -88,6 +255,41 @@ def _performance_values(value, kind):
 
 
 def _rocket_values(initial, final, delta, performance, performance_input, mode):
+    """Solve the ideal rocket equation forward or inverse and export every field once.
+
+    Parameters
+    ----------
+    initial, final, delta : float or None
+        Initial mass (kg), final mass (kg, forward mode) and delta-v (m/s, inverse
+        mode).
+    performance : float
+        Specific impulse (s) or effective exhaust velocity (m/s).
+    performance_input : str
+        Which performance quantity was supplied.
+    mode : {'forward', 'inverse'}
+        Solve direction.
+
+    Returns
+    -------
+    dict
+        Field values for :class:`RocketEquationResult`.
+
+    Raises
+    ------
+    DomainError
+        If an input is out of domain or an output is not representable.
+    ConvergenceError
+        If an enclosed log/exp output cannot be rounded within the precision budget.
+
+    Notes
+    -----
+    Forward: delta_v = c * ln(m0 / mf). Inverse: mf = m0 * exp(-delta_v / c) [1]_.
+
+    References
+    ----------
+    .. [1] NASA Glenn Research Center, "Ideal Rocket Equation", Beginner's Guide to
+           Aeronautics (Tsiolkovsky equation, mass ratio, effective exhaust velocity).
+    """
     initial = _positive(initial, 'Initial mass')
     isp, velocity, exact_velocity = _performance_values(performance, performance_input)
     initial_exact = Fraction(initial)
@@ -116,13 +318,54 @@ def calculate_rocket_equation(
     delta_v_m_s: float | None = None, specific_impulse_s: float | None = None,
     effective_exhaust_velocity_m_s: float | None = None,
 ) -> RocketEquationResult:
-    """Solve ideal delta-v or final mass, with constant exhaust velocity.
+    """Solve the ideal rocket equation for delta-v or for the final mass.
 
-    Give exactly one of Isp/exhaust velocity, initial mass, and exactly one of
-    final mass/delta-v. Gravity, drag, steering and finite-burn losses are omitted.
-    Mandatory unrepresentable outputs fail typed; unresolved enclosures are
-    distinct convergence failures. Inverse rounded masses may coincide while
-    their independently exported positive propellant consumption remains nonzero.
+    Supply ``initial_mass_kg``, exactly one of ``specific_impulse_s`` and
+    ``effective_exhaust_velocity_m_s``, and exactly one of ``final_mass_kg`` (forward
+    solve) and ``delta_v_m_s`` (inverse solve).
+
+    Parameters
+    ----------
+    initial_mass_kg : float
+        Initial vehicle mass, kg; positive.
+    final_mass_kg : float, optional
+        Final vehicle mass, kg; positive and smaller than the initial mass.
+    delta_v_m_s : float, optional
+        Required velocity change, m/s; positive.
+    specific_impulse_s : float, optional
+        Specific impulse, s; positive.
+    effective_exhaust_velocity_m_s : float, optional
+        Effective exhaust velocity, m/s; positive.
+
+    Returns
+    -------
+    RocketEquationResult
+        Masses, mass ratio, propellant fraction, performance and delta-v.
+
+    Raises
+    ------
+    DomainError
+        If the input combination is ambiguous, an input is out of domain, or a
+        mandatory output is not representable as a finite binary64 value.
+    ConvergenceError
+        If an enclosed logarithm or exponential cannot be rounded within the
+        precision budget.
+
+    Notes
+    -----
+    delta_v = c * ln(m0 / mf) with constant effective exhaust velocity c = g0 * Isp
+    [1]_ [2]_ [3]_. Gravity, drag, steering and finite-burn losses are omitted. In
+    inverse mode the rounded initial and final masses may coincide while the
+    independently exported propellant consumption remains positive.
+
+    References
+    ----------
+    .. [1] NASA Glenn Research Center, "Ideal Rocket Equation", Beginner's Guide to
+           Aeronautics (Tsiolkovsky equation, mass ratio, effective exhaust velocity).
+    .. [2] NASA Glenn Research Center, "Specific Impulse", Beginner's Guide to
+           Aeronautics (equivalent velocity, total impulse and Isp).
+    .. [3] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
+           Elements", 9th ed., Wiley, 2017.
     """
     if (specific_impulse_s is None) == (effective_exhaust_velocity_m_s is None):
         raise DomainError('Provide exactly one of specific impulse or effective exhaust velocity.',
@@ -139,6 +382,40 @@ def calculate_rocket_equation(
 
 
 def _thrust_values(flow, velocity, area, exit_pressure, ambient_pressure, duration):
+    """Evaluate the steady thrust equation on exact rationals and export each field once.
+
+    Parameters
+    ----------
+    flow, velocity, area, exit_pressure : float
+        Mass flow (kg/s), exit velocity (m/s), exit area (m^2) and exit pressure (Pa);
+        all positive.
+    ambient_pressure : float
+        Ambient pressure, Pa; non-negative.
+    duration : float or None
+        Optional positive burn time, s.
+
+    Returns
+    -------
+    dict
+        Field values for :class:`ThrustResult`.
+
+    Raises
+    ------
+    DomainError
+        If an input is out of domain, the net thrust is not positive, or an output is
+        not representable.
+
+    Notes
+    -----
+    F = mdot * Ve + Ae * (pe - pa) [1]_; Isp = F / (mdot * g0) [2]_.
+
+    References
+    ----------
+    .. [1] NASA-STEADY-ROCKET-THRUST. NASA Glenn Research Center, momentum and pressure
+           thrust equation for steady rocket flow.
+    .. [2] NASA Glenn Research Center, "Specific Impulse", Beginner's Guide to
+           Aeronautics (equivalent velocity, total impulse and Isp).
+    """
     flow = _positive(flow, 'Mass flow')
     velocity = _positive(velocity, 'Exit velocity')
     area = _positive(area, 'Exit area')
@@ -168,10 +445,51 @@ def calculate_thrust(
     *, mass_flow_kg_s: float, exit_velocity_m_s: float, exit_area_m2: float,
     exit_pressure_pa: float, ambient_pressure_pa: float, burn_time_s: float | None = None,
 ) -> ThrustResult:
-    """F=mdot*V+A*(Pe-Pa), with signed pressure and strictly positive net thrust.
+    """Evaluate steady rocket thrust from the exit-plane state.
 
-    Every derived output is rounded independently from the exact binary-input
-    ledger. A provided duration is retained to verify constant-thrust impulse.
+    Parameters
+    ----------
+    mass_flow_kg_s : float
+        Nozzle mass flow, kg/s; positive.
+    exit_velocity_m_s : float
+        Exit-plane velocity, m/s; positive.
+    exit_area_m2 : float
+        Nozzle exit area, m^2; positive.
+    exit_pressure_pa : float
+        Exit-plane static pressure, Pa; positive.
+    ambient_pressure_pa : float
+        Ambient pressure, Pa; non-negative.
+    burn_time_s : float, optional
+        Burn duration, s. When given, the constant-thrust total impulse is exported
+        and the duration is retained so the impulse can be replayed.
+
+    Returns
+    -------
+    ThrustResult
+        Momentum, pressure and total thrust with effective exhaust velocity, Isp and
+        optional total impulse.
+
+    Raises
+    ------
+    DomainError
+        If an input is out of domain, the net thrust is not strictly positive, or an
+        output is not representable.
+
+    Notes
+    -----
+    F = mdot * Ve + Ae * (pe - pa) [1]_ [2]_. The pressure term is signed, so an
+    over-expanded nozzle reduces thrust; only a strictly positive net thrust is
+    accepted. Isp = F / (mdot * g0) [3]_. Every derived output is rounded independently
+    from the exact binary-input ledger.
+
+    References
+    ----------
+    .. [1] NASA-STEADY-ROCKET-THRUST. NASA Glenn Research Center, momentum and pressure
+           thrust equation for steady rocket flow.
+    .. [2] NASA Glenn Research Center, "Rocket Thrust Equation", Beginner's Guide to
+           Aeronautics (momentum thrust, pressure thrust, exit-area effects).
+    .. [3] NASA Glenn Research Center, "Specific Impulse", Beginner's Guide to
+           Aeronautics (equivalent velocity, total impulse and Isp).
     """
     return ThrustResult(**_thrust_values(mass_flow_kg_s, exit_velocity_m_s, exit_area_m2,
                                         exit_pressure_pa, ambient_pressure_pa, burn_time_s))

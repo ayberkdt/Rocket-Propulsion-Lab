@@ -1,10 +1,24 @@
 """Bounded multidimensional propulsion performance surfaces.
 
-The surface maps explicit operating conditions (for example supply pressure,
-ambient pressure, throttle, mixture ratio, or available electrical power) to
-force and tank-flow multipliers.  It uses a complete rectilinear grid,
-multilinear interpolation, and analytic cell gradients.  Extrapolation is
-never performed.
+A surface maps explicit operating conditions (for example supply pressure,
+ambient pressure, throttle, mixture ratio or available electrical power) to
+force and tank-flow multipliers, in the manner of trajectory-facing engine
+performance tables [1]_.  It uses a complete rectilinear grid with
+multilinear interpolation [2]_ or a tensor-product monotone cubic Hermite
+(PCHIP) interpolant [3]_, [4]_, together with analytic gradients.
+Extrapolation is never performed.
+
+References
+----------
+.. [1] NASA, "Parametric Model of an Aerospike Rocket Engine".
+       https://ntrs.nasa.gov/citations/20000031654
+.. [2] SCIPY-1.14.1-REGULAR-GRID. SciPy 1.14.1 documentation,
+       ``scipy.interpolate.RegularGridInterpolator``: rectilinear grids and
+       linear interpolation.
+.. [3] F. N. Fritsch and R. E. Carlson, "Monotone Piecewise Cubic
+       Interpolation", SIAM J. Numer. Anal. 17(2), 1980.
+.. [4] SCIPY-1.14.1-PCHIP. SciPy 1.14.1 documentation,
+       ``scipy.interpolate.PchipInterpolator``: algorithm and implementation.
 """
 
 from __future__ import annotations
@@ -46,11 +60,33 @@ PERFORMANCE_SURFACE_REFERENCE_IDS = (
 class PerformanceAxis:
     """One strictly increasing operating-condition coordinate axis.
 
+    Parameters
+    ----------
+    name : str
+        Non-blank condition name; unique within a surface.
+    unit : str
+        Non-blank unit label of the coordinate values.
+    values : tuple of float
+        At least two finite, strictly increasing grid coordinates.
+
+    Raises
+    ------
+    DomainError
+        If a label is blank or the coordinates are too few, non-finite or not
+        strictly increasing.
+
+    Notes
+    -----
+    The axis range is the declared validation domain of the surface along
+    this condition [2]_; performance tables of [1]_ are parameterized by such
+    operating conditions.
+
     References
     ----------
-    NASA aerospike parametric engine model:
-    https://ntrs.nasa.gov/citations/20000031654
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [1] NASA, "Parametric Model of an Aerospike Rocket Engine".
+           https://ntrs.nasa.gov/citations/20000031654
+    .. [2] NASA-STD-7009B. NASA, "Standard for Models and Simulations", 2024.
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
     """
 
     name: str
@@ -70,22 +106,24 @@ class PerformanceAxis:
 
     @property
     def minimum(self) -> float:
-        """Return the inclusive lower validation-domain coordinate.
+        """Inclusive lower validation-domain coordinate, in axis units [1]_.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               2024. https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
         return self.values[0]
 
     @property
     def maximum(self) -> float:
-        """Return the inclusive upper validation-domain coordinate.
+        """Inclusive upper validation-domain coordinate, in axis units [1]_.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               2024. https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
         return self.values[-1]
@@ -95,16 +133,35 @@ class PerformanceAxis:
 class PerformanceScalePoint:
     """One measured or validated grid node of force and flow multipliers.
 
-    Coordinates follow the surface axis order.  Force and total tank-flow
-    multipliers are independent because a measured operating map can contain
-    changing effective specific impulse.
+    Parameters
+    ----------
+    coordinates : tuple of float
+        Non-empty node coordinates in the surface axis order.
+    force_scale : float
+        Positive finite thrust multiplier.
+    mass_flow_scale : float
+        Positive finite total tank-flow multiplier.
+
+    Raises
+    ------
+    DomainError
+        If the coordinates are empty or a multiplier is not positive and
+        finite.
+
+    Notes
+    -----
+    Force and flow multipliers are independent, so a measured operating map
+    can carry a varying effective specific impulse ``F / (g0 * mdot)``, with
+    ``g0`` the registered ``STANDARD_GRAVITY_M_S2``.  The
+    nodes come from test data or a separately verified model such as the
+    parametric tables of [1]_; [2]_ gives the transient-modelling context.
 
     References
     ----------
-    NASA aerospike parametric engine model:
-    https://ntrs.nasa.gov/citations/20000031654
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
+    .. [1] NASA, "Parametric Model of an Aerospike Rocket Engine".
+           https://ntrs.nasa.gov/citations/20000031654
+    .. [2] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
     """
 
     coordinates: tuple[float, ...]
@@ -131,13 +188,33 @@ class PerformanceScalePoint:
 
 @dataclass(frozen=True, slots=True)
 class PerformanceSurfaceEvaluation:
-    """Interpolated scales, analytic gradients, and active grid cell.
+    """Interpolated scales, analytic gradients and active grid cell.
+
+    The multipliers come from a trajectory-facing performance table of the
+    kind described in [1]_; the active cell and boundary axes record where in
+    the declared domain the evaluation lies, for the model-use reporting of
+    [2]_.
+
+    Attributes
+    ----------
+    conditions : tuple of (str, float)
+        Evaluated conditions in axis order, after endpoint snapping.
+    force_scale, mass_flow_scale : float
+        Interpolated thrust and total tank-flow multipliers.
+    force_scale_gradient, mass_flow_scale_gradient : tuple of (str, float)
+        Partial derivatives of each multiplier per axis, per axis unit.
+    cell_lower_coordinates, cell_upper_coordinates : tuple of float
+        Corners of the active grid cell.
+    boundary_axes : tuple of str
+        Axes on which the condition lies on a grid coordinate within the
+        snapping tolerance.
 
     References
     ----------
-    NASA aerospike parametric engine model:
-    https://ntrs.nasa.gov/citations/20000031654
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [1] NASA, "Parametric Model of an Aerospike Rocket Engine".
+           https://ntrs.nasa.gov/citations/20000031654
+    .. [2] NASA-STD-7009B. NASA, "Standard for Models and Simulations", 2024.
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
     """
 
     conditions: tuple[tuple[str, float], ...]
@@ -154,15 +231,40 @@ class PerformanceSurfaceEvaluation:
 class PerformanceValiditySurface:
     """Signed lower or upper validity-domain event for one condition.
 
-    A positive value is inside the declared domain, zero is the boundary, and
-    a negative value is outside.  A propagator can register both surfaces for
-    each state-dependent condition and stop the burn before extrapolation.
+    Parameters
+    ----------
+    event_id : str
+        Non-blank event identifier.
+    condition_name : str
+        Non-blank name of the operating condition.
+    bound : {"lower", "upper"}
+        Which end of the domain the event guards.
+    boundary_value : float
+        Finite domain limit, in axis units.
+    unit : str
+        Non-blank unit label.
+    stops_burn : bool, default True
+        Whether crossing the event stops the burn.
+
+    Raises
+    ------
+    DomainError
+        If a label is blank, ``bound`` is invalid or the limit is non-finite.
+
+    Notes
+    -----
+    The event value is positive inside the declared validation domain [1]_,
+    zero on its boundary and negative outside.  A propagator registers both
+    events for each state-dependent condition as event detectors [2]_ and
+    stops the burn before the surface would have to extrapolate.
 
     References
     ----------
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    Orekit EventDetector 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+    .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations", 2024.
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [2] Orekit 13.1.5, "PropulsionModel / EventDetector" API
+           documentation, ``org.orekit.forces.maneuvers.propulsion``
+           (URL listed in docs/REFERENCES.md).
     """
 
     event_id: str
@@ -181,7 +283,25 @@ class PerformanceValiditySurface:
             raise DomainError("Performance validity boundary must be finite.")
 
     def value(self, conditions: Mapping[str, float]) -> float:
-        """Evaluate positive-inside signed distance in axis units."""
+        """Return the positive-inside signed distance to the bound.
+
+        Parameters
+        ----------
+        conditions : Mapping of str to float
+            Operating conditions; must contain ``condition_name``.
+
+        Returns
+        -------
+        float
+            ``condition - boundary_value`` for a lower bound and
+            ``boundary_value - condition`` for an upper bound, in axis units.
+
+        Raises
+        ------
+        DomainError
+            If ``conditions`` is not a mapping, lacks the condition, or holds
+            a non-real value for it.
+        """
 
         if not isinstance(conditions, Mapping):
             raise DomainError("Operating conditions must be a mapping.")
@@ -197,13 +317,34 @@ class PerformanceValiditySurface:
 class PerformanceGridLineSurface:
     """Signed non-stopping event on one interior grid coordinate.
 
+    Parameters
+    ----------
+    event_id : str
+        Non-blank event identifier.
+    condition_name : str
+        Non-blank name of the operating condition.
+    coordinate : float
+        Finite interior grid coordinate, in axis units.
+    unit : str
+        Non-blank unit label.
+    stops_burn : bool, default False
+        Must be ``False``; grid-line events never stop the burn.
+
+    Raises
+    ------
+    DomainError
+        If a label is blank, the coordinate is non-finite, or ``stops_burn``
+        is ``True``.
+
+    Notes
+    -----
     Multilinear interpolation is continuous, but the derivative along an axis
-    jumps when that condition crosses an interior grid coordinate.  A
-    variable-step integrator that steps across such a kink without restarting
-    loses its error estimate, and gradient-based optimizers see a
-    discontinuous Jacobian.  Registering these surfaces lets the consumer
-    land on each kink and restart, exactly as it does for profile boundaries.
-    The value is ``condition - coordinate``; it never inhibits the burn.
+    jumps where that condition crosses an interior grid coordinate.  A
+    variable-step integrator that steps across such a kink without
+    restarting degrades its error estimate, and gradient-based optimizers see
+    a discontinuous Jacobian.  Registering these events as event detectors
+    [1]_ lets the consumer land on each kink and restart, as it does at
+    profile boundaries.  The event value is ``condition - coordinate``.
 
     Exactly on the coordinate, :meth:`RectilinearPerformanceSurface.evaluate`
     returns the gradient of the upper cell (the right-hand limit along that
@@ -211,10 +352,9 @@ class PerformanceGridLineSurface:
 
     References
     ----------
-    Hairer, Norsett and Wanner, Solving Ordinary Differential Equations I,
-    section II.6 (discontinuities and dense-output event location).
-    Orekit EventDetector 13.1.5 API:
-    https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetector.html
+    .. [1] Orekit 13.1.5, "PropulsionModel / EventDetector" API
+           documentation, ``org.orekit.forces.maneuvers.propulsion``
+           (URL listed in docs/REFERENCES.md).
     """
 
     event_id: str
@@ -232,7 +372,24 @@ class PerformanceGridLineSurface:
             raise DomainError("Performance grid-line events never stop the burn.")
 
     def value(self, conditions: Mapping[str, float]) -> float:
-        """Evaluate the signed distance ``condition - coordinate`` in axis units."""
+        """Return the signed distance ``condition - coordinate``, in axis units.
+
+        Parameters
+        ----------
+        conditions : Mapping of str to float
+            Operating conditions; must contain ``condition_name``.
+
+        Returns
+        -------
+        float
+            Signed distance from the grid line.
+
+        Raises
+        ------
+        DomainError
+            If ``conditions`` is not a mapping, lacks the condition, or holds
+            a non-real value for it.
+        """
 
         if not isinstance(conditions, Mapping):
             raise DomainError("Operating conditions must be a mapping.")
@@ -244,29 +401,71 @@ class PerformanceGridLineSurface:
 
 @dataclass(frozen=True, slots=True)
 class RectilinearPerformanceSurface:
-    """Complete non-extrapolating N-D force and tank-flow scale map.
+    """Complete, non-extrapolating N-dimensional force and tank-flow scale map.
 
-    Every Cartesian grid node must be supplied exactly once.  Evaluation uses
-    tensor-product multilinear interpolation by default; analytic gradients are constant
-    with respect to each coordinate only in the one-dimensional case and vary
-    multilinearly with the other coordinates in higher dimensions.  The
-    surface records a source hash and stable reference identifiers.
+    Parameters
+    ----------
+    axes : tuple of PerformanceAxis
+        At least one axis, with unique names.
+    points : tuple of PerformanceScalePoint
+        Every node of the Cartesian product of the axis coordinates, each
+        exactly once.
+    source_id : str
+        Non-blank identifier of the data or model source.
+    source_sha256 : str
+        SHA-256 hex digest of the source content.
+    reference_ids : tuple of str, default PERFORMANCE_SURFACE_REFERENCE_IDS
+        Non-empty, unique, non-blank source identifiers.
+    schema : str, default PERFORMANCE_SURFACE_SCHEMA
+        Document schema; no other value is accepted.
+    interpolation : {"multilinear", "cubic_hermite"}, default "multilinear"
+        Interpolation mode.
 
-    The optional cubic_hermite mode retains rational PCHIP nodal/mixed
-    derivatives and tensor sums until checked value/gradient export. It is C1;
-    one-dimensional monotonicity does not establish N-D interior positivity.
+    Raises
+    ------
+    DomainError
+        If the schema or mode is unsupported, a label or hash is invalid, the
+        reference list is empty or repeats an entry, axis names repeat, or the
+        nodes do not form the complete Cartesian grid.
 
-    This is a declared-domain interpolation mechanism, not a fitted physical
-    law.  The input nodes must come from applicable test data or a separately
-    verified model.
+    Notes
+    -----
+    The default mode is tensor-product multilinear interpolation on the
+    rectilinear grid [2]_.  Its analytic gradient is constant within a cell
+    only in one dimension; in higher dimensions each partial derivative
+    varies multilinearly with the other coordinates.
+
+    The ``cubic_hermite`` mode builds nodal values and mixed partial
+    derivatives from the Fritsch-Carlson PCHIP slope operator [3]_, [4]_,
+    applied axis by axis, and keeps them and the tensor sums in exact
+    rational arithmetic until the checked value and gradient are exported.
+    The interpolant is C1.  One-dimensional monotonicity does not establish
+    positivity in the N-dimensional interior, so evaluation refuses a
+    non-positive interpolated scale.
+
+    The surface is a declared-domain interpolation mechanism, not a fitted
+    physical law.  Its nodes come from applicable test data or a separately
+    verified model, such as the parametric engine tables of [1]_, and its axis
+    ranges are the declared validation domain [5]_.  The surface records a
+    source hash and stable reference identifiers; [6]_ gives the
+    transient-modelling context.
 
     References
     ----------
-    NASA aerospike parametric engine model:
-    https://ntrs.nasa.gov/citations/20000031654
-    NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-    NASA transient-modeling overview:
-    https://ntrs.nasa.gov/citations/20040000363
+    .. [1] NASA, "Parametric Model of an Aerospike Rocket Engine".
+           https://ntrs.nasa.gov/citations/20000031654
+    .. [2] SCIPY-1.14.1-REGULAR-GRID. SciPy 1.14.1 documentation,
+           ``scipy.interpolate.RegularGridInterpolator``: rectilinear grids
+           and linear interpolation.
+    .. [3] F. N. Fritsch and R. E. Carlson, "Monotone Piecewise Cubic
+           Interpolation", SIAM J. Numer. Anal. 17(2), 1980.
+    .. [4] SCIPY-1.14.1-PCHIP. SciPy 1.14.1 documentation,
+           ``scipy.interpolate.PchipInterpolator``: algorithm and
+           implementation.
+    .. [5] NASA-STD-7009B. NASA, "Standard for Models and Simulations", 2024.
+           https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+    .. [6] NASA, "Transient Mathematical Modeling for Liquid Rocket Engine
+           Systems". https://ntrs.nasa.gov/citations/20040000363
     """
 
     axes: tuple[PerformanceAxis, ...]
@@ -345,11 +544,21 @@ class RectilinearPerformanceSurface:
     def _hermite_derivatives(
         self,
     ) -> Mapping[tuple[int, ...], Mapping[tuple[int, ...], tuple[Fraction, Fraction]]]:
-        """Nodal values and mixed partials for tensor-product cubic Hermite.
+        """Return nodal values and mixed partials for tensor-product cubic Hermite.
 
-        ``D[S]`` is the mixed partial over the axes in ``S`` (a sorted tuple).
-        It is built by applying the PCHIP slope operator along the largest
-        axis of ``S`` to ``D[S minus that axis]``, one grid line at a time.
+        ``D[S]`` is the mixed partial over the axes in ``S`` (a sorted tuple);
+        ``D[()]`` holds the nodal values.  It is built by applying the PCHIP
+        slope operator [1]_, [2]_ along the largest axis of ``S`` to
+        ``D[S minus that axis]``, one grid line at a time.  All entries are
+        exact rationals ``(force, flow)`` keyed by node index.
+
+        References
+        ----------
+        .. [1] F. N. Fritsch and R. E. Carlson, "Monotone Piecewise Cubic
+               Interpolation", SIAM J. Numer. Anal. 17(2), 1980.
+        .. [2] F. N. Fritsch and J. Butland, "A Method for Constructing Local
+               Monotone Piecewise Cubic Interpolants", SIAM J. Sci. Stat.
+               Comput. 5(2), 1984.
         """
 
         dimension = len(self.axes)
@@ -387,22 +596,47 @@ class RectilinearPerformanceSurface:
 
     @property
     def surface_hash(self) -> str:
-        """Return content identity for nodes, units, domain, and provenance.
+        """SHA-256 content identity of nodes, units, domain and provenance.
+
+        The digest of the canonical document without its hash field
+        identifies content; it is not authentication.  [1]_ gives the
+        model-credibility context.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               2024. https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
         return canonical_sha256(self.to_dict(include_hash=False))
 
     def to_dict(self, *, include_hash: bool = True) -> dict[str, object]:
-        """Return deterministic JSON-compatible surface content.
+        """Return the deterministic JSON-compatible surface document.
+
+        Parameters
+        ----------
+        include_hash : bool, default True
+            Whether to add ``surface_hash``.
+
+        Returns
+        -------
+        dict
+            Schema, source, axes, nodes sorted by coordinates, reference
+            identifiers and the numerical-policy identifier; ``interpolation``
+            is written only for a non-default mode.
+
+        Notes
+        -----
+        The document is versioned, unit-explicit and records its source
+        provenance.  [1]_ gives the model-credibility context and [2]_ the
+        context for versioned, unit-explicit exchange documents.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-        CCSDS-502.0-B-3: https://ccsds.org/Pubs/502x0b3e1.pdf
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               2024. https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [2] CCSDS 502.0-B-3. CCSDS, "Orbit Data Messages", 2023.
+               https://ccsds.org/Pubs/502x0b3e1.pdf
         """
 
         payload: dict[str, object] = {
@@ -433,12 +667,31 @@ class RectilinearPerformanceSurface:
         return payload
 
     def to_json(self, *, indent: int | None = 2) -> str:
-        """Serialize the complete hash-bound surface.
+        """Serialize the complete hash-bound surface as JSON.
+
+        Parameters
+        ----------
+        indent : int or None, default 2
+            Indentation passed to `json.dumps`.
+
+        Returns
+        -------
+        str
+            Sorted JSON without NaN or Infinity tokens [3]_.
+
+        Notes
+        -----
+        See `to_dict` for the document content and its model-credibility [1]_
+        and exchange-document [2]_ context.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-        CCSDS-502.0-B-3: https://ccsds.org/Pubs/502x0b3e1.pdf
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               2024. https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [2] CCSDS 502.0-B-3. CCSDS, "Orbit Data Messages", 2023.
+               https://ccsds.org/Pubs/502x0b3e1.pdf
+        .. [3] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data
+               Interchange Format". https://www.rfc-editor.org/rfc/rfc8259
         """
 
         return json.dumps(
@@ -451,12 +704,37 @@ class RectilinearPerformanceSurface:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, object]) -> RectilinearPerformanceSurface:
-        """Reopen a surface and reject malformed or hash-altered content.
+        """Reconstruct a surface and reject malformed or hash-altered content.
+
+        Parameters
+        ----------
+        payload : Mapping
+            Document produced by `to_dict`.
+
+        Returns
+        -------
+        RectilinearPerformanceSurface
+            The reconstructed surface.
+
+        Raises
+        ------
+        InputError
+            If the document is malformed, a field violates the surface
+            contract, the hash does not match, or a numerical-policy
+            identifier is missing or differs.
+
+        Notes
+        -----
+        Every read verifies the content hash, so a reopened surface is the
+        recorded one.  [1]_ gives the model-credibility context and [2]_ the
+        context for versioned, unit-explicit exchange documents.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-        CCSDS-502.0-B-3: https://ccsds.org/Pubs/502x0b3e1.pdf
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               2024. https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [2] CCSDS 502.0-B-3. CCSDS, "Orbit Data Messages", 2023.
+               https://ccsds.org/Pubs/502x0b3e1.pdf
         """
 
         _surface_document(payload)
@@ -497,24 +775,62 @@ class RectilinearPerformanceSurface:
 
     @classmethod
     def from_json(cls, text: str) -> RectilinearPerformanceSurface:
-        """Deserialize and integrity-check a JSON surface artifact.
+        """Parse a strict JSON surface document [3]_ and check it with `from_dict`.
+
+        Parameters
+        ----------
+        text : str
+            JSON text produced by `to_json`.
+
+        Returns
+        -------
+        RectilinearPerformanceSurface
+            The reconstructed surface.
+
+        Raises
+        ------
+        InputError
+            If the text is not a valid JSON object or `from_dict` rejects it.
+
+        Notes
+        -----
+        See `from_dict` for the integrity checks and their model-credibility
+        [1]_ and exchange-document [2]_ context.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-        CCSDS-502.0-B-3: https://ccsds.org/Pubs/502x0b3e1.pdf
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               2024. https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [2] CCSDS 502.0-B-3. CCSDS, "Orbit Data Messages", 2023.
+               https://ccsds.org/Pubs/502x0b3e1.pdf
+        .. [3] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data
+               Interchange Format". https://www.rfc-editor.org/rfc/rfc8259
         """
 
         return read_json_document(text, "Performance-surface artifact", cls.from_dict)
 
     def validity_surfaces(self) -> tuple[PerformanceValiditySurface, ...]:
-        """Return lower and upper event surfaces for every input coordinate.
+        """Return stopping lower and upper validity events for every axis.
+
+        Returns
+        -------
+        tuple of PerformanceValiditySurface
+            For each axis in order, the ``"lower"`` event at its minimum and
+            the ``"upper"`` event at its maximum, with identifiers
+            ``performance:<axis>:minimum`` and ``performance:<axis>:maximum``.
+
+        Notes
+        -----
+        The events bound the declared validation domain [1]_ and are meant to
+        be registered as propagator event detectors [2]_.
 
         References
         ----------
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
-        Orekit EventDetectorsProvider 13.1.5 API:
-        https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetectorsProvider.html
+        .. [1] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               2024. https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [2] Orekit 13.1.5, "PropulsionModel / EventDetector" API
+               documentation, ``org.orekit.forces.maneuvers.propulsion``
+               (URL listed in docs/REFERENCES.md).
         """
 
         return tuple(
@@ -541,14 +857,24 @@ class RectilinearPerformanceSurface:
     def grid_line_surfaces(self) -> tuple[PerformanceGridLineSurface, ...]:
         """Return one non-stopping kink event per interior axis coordinate.
 
-        Domain endpoints are excluded; they are covered by the stopping
-        :meth:`validity_surfaces`.  A ``cubic_hermite`` surface is C1, so it
-        has no derivative kinks and returns no surfaces.
+        Returns
+        -------
+        tuple of PerformanceGridLineSurface
+            Events with identifiers ``performance:<axis>:grid:<index>``; empty
+            for a ``cubic_hermite`` surface.
+
+        Notes
+        -----
+        Domain endpoints are excluded; the stopping :meth:`validity_surfaces`
+        cover them.  A ``cubic_hermite`` surface is C1, so it has no
+        derivative kinks.  The events are meant to be registered as
+        propagator event detectors [1]_.
 
         References
         ----------
-        Orekit EventDetectorsProvider 13.1.5 API:
-        https://www.orekit.org/static/apidocs/org/orekit/propagation/events/EventDetectorsProvider.html
+        .. [1] Orekit 13.1.5, "PropulsionModel / EventDetector" API
+               documentation, ``org.orekit.forces.maneuvers.propulsion``
+               (URL listed in docs/REFERENCES.md).
         """
 
         if self.interpolation == "cubic_hermite":
@@ -567,15 +893,45 @@ class RectilinearPerformanceSurface:
     def evaluate(self, conditions: Mapping[str, float]) -> PerformanceSurfaceEvaluation:
         """Interpolate scales and analytic gradients without extrapolation.
 
-        Conditions must match the axis names exactly.  A floating-point value
-        within ``1e-12`` of a domain endpoint (relative to the axis magnitude)
-        is snapped to that endpoint; values farther outside fail closed.
+        Parameters
+        ----------
+        conditions : Mapping of str to float
+            One value per axis, keyed exactly by the axis names.
+
+        Returns
+        -------
+        PerformanceSurfaceEvaluation
+            Interpolated multipliers, their gradients and the active cell.
+
+        Raises
+        ------
+        DomainError
+            If ``conditions`` is not a mapping, its keys differ from the axis
+            names, a value is not real, a value lies outside an axis range
+            beyond the snapping tolerance, or the ``cubic_hermite`` interpolant
+            is non-positive at the query.
+
+        Notes
+        -----
+        A value within ``max(1e-12, 1e-12 * max(|min|, |max|))`` of a domain
+        endpoint is snapped to that endpoint; values farther outside are
+        refused, keeping evaluation inside the declared validation domain
+        [2]_.  Multilinear weights [3]_ and cubic Hermite bases built on PCHIP
+        derivatives [4]_ are evaluated in exact rational arithmetic and
+        rounded once on export.  [1]_ gives an example of trajectory-facing
+        engine performance tables parameterized by operating conditions.
 
         References
         ----------
-        NASA aerospike parametric engine model:
-        https://ntrs.nasa.gov/citations/20000031654
-        NASA-STD-7009B: https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [1] NASA, "Parametric Model of an Aerospike Rocket Engine".
+               https://ntrs.nasa.gov/citations/20000031654
+        .. [2] NASA-STD-7009B. NASA, "Standard for Models and Simulations",
+               2024. https://standards.nasa.gov/standard/NASA/NASA-STD-7009
+        .. [3] SCIPY-1.14.1-REGULAR-GRID. SciPy 1.14.1 documentation,
+               ``scipy.interpolate.RegularGridInterpolator``: rectilinear grids
+               and linear interpolation.
+        .. [4] F. N. Fritsch and R. E. Carlson, "Monotone Piecewise Cubic
+               Interpolation", SIAM J. Numer. Anal. 17(2), 1980.
         """
 
         if not isinstance(conditions, Mapping):
@@ -659,6 +1015,26 @@ class RectilinearPerformanceSurface:
     def _evaluate_hermite(
         self, brackets: list[tuple[int, int, float | Fraction, float | Fraction]]
     ) -> tuple[float, float, list[float], list[float]]:
+        """Evaluate the tensor-product cubic Hermite interpolant and its gradient.
+
+        On a cell with local coordinate ``t`` in ``[0, 1]`` and width ``h``,
+        the one-dimensional cubic Hermite bases are ``2t^3 - 3t^2 + 1`` and
+        ``-2t^3 + 3t^2`` for the corner values and ``h (t^3 - 2t^2 + t)`` and
+        ``h (t^3 - t^2)`` for the corner slopes.  Each stored mixed partial
+        ``D[S]`` is weighted by the slope bases on the axes in ``S`` and the
+        value bases elsewhere, using PCHIP derivatives [1]_.
+
+        Returns
+        -------
+        tuple
+            ``(force_scale, flow_scale, force_gradient, flow_gradient)``,
+            each rounded once from its exact value.
+
+        References
+        ----------
+        .. [1] F. N. Fritsch and R. E. Carlson, "Monotone Piecewise Cubic
+               Interpolation", SIAM J. Numer. Anal. 17(2), 1980.
+        """
         dimension = len(self.axes)
         force = Fraction(0)
         flow = Fraction(0)
@@ -715,6 +1091,7 @@ class RectilinearPerformanceSurface:
         force_gradient: list[float],
         flow_gradient: list[float],
     ) -> PerformanceSurfaceEvaluation:
+        """Assemble the evaluation record in axis order."""
         return PerformanceSurfaceEvaluation(
             conditions=tuple((axis.name, normalized[axis.name]) for axis in self.axes),
             force_scale=force_scale,

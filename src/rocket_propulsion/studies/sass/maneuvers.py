@@ -2,8 +2,11 @@
 
 References
 ----------
-MIT-522-L5: orbital energy and thrust acceleration.
-MIT-522-L6: equations (6)-(8), circular transfers and their applicability.
+.. [1] MIT-522-L5. MIT OCW, "16.522 Session 5: Review of Classical Astrodynamics";
+       orbital energy and thrust acceleration.
+.. [2] MIT-522-L6. MIT OCW, "16.522 Session 6: Analytical Approximations for Low
+       Thrust Maneuvers"; equations (6)-(8), circular transfers and their
+       applicability.
 """
 
 from __future__ import annotations
@@ -17,17 +20,45 @@ from .evidence import AnalysisResult, Citation, CitedScalar, derived, quantity
 
 def hohmann_transfer(initial_radius: CitedScalar, final_radius: CitedScalar,
                      gravitational_parameter: CitedScalar) -> AnalysisResult:
-    """Return signed tangential impulses between coplanar circular orbits.
+    """Return signed tangential impulses of a coplanar circular-to-circular transfer.
 
-    Radii are measured from the central-body centre, not altitudes. No body
-    constants, atmosphere, combined plane change or optimality claim is assumed.
-    Equal radii require no transfer; reported coast time is then zero.
+    Parameters
+    ----------
+    initial_radius, final_radius : CitedScalar
+        Circular-orbit radii measured from the central-body centre (not altitudes), m.
+    gravitational_parameter : CitedScalar
+        Central-body gravitational parameter mu, m^3/s^2.
+
+    Returns
+    -------
+    AnalysisResult
+        ``departure_delta_v`` and ``arrival_delta_v`` (signed, m/s; negative for a
+        descending transfer), ``total_delta_v`` (sum of magnitudes, m/s),
+        ``transfer_coast_time`` (s) and ``initial_orbital_period`` (s).
+
+    Raises
+    ------
+    DomainError
+        If a quantity has the wrong unit, is not positive, or the orbital speed is
+        outside the positive finite numerical domain.
+
+    Notes
+    -----
+    With a = (r0 + r1) / 2, the impulses are v0 * (sqrt(r1 / a) - 1) and
+    v1 * (1 - sqrt(r0 / a)) with v = sqrt(mu / r) [1]_ [2]_; they are evaluated in a
+    rationalized form that avoids cancellation for adjacent radii. The coast time is
+    half the transfer-ellipse period, pi * sqrt(a**3 / mu) [3]_. Equal radii require
+    no transfer and give zero coast time. No body constants, atmosphere, combined
+    plane change or optimality claim is assumed.
 
     References
     ----------
-    MIT-522-L6: equation (7), Hohmann impulses.
-    MIT-522-L5: equation (11), specific orbital energy.
-    MIT-512-L35: page 5, equation (2), half the elliptical orbital period.
+    .. [1] MIT-522-L6. MIT OCW, "16.522 Session 6: Analytical Approximations for Low
+           Thrust Maneuvers"; equation (7), Hohmann impulses.
+    .. [2] MIT-522-L5. MIT OCW, "16.522 Session 5: Review of Classical Astrodynamics";
+           equation (11), specific orbital energy.
+    .. [3] MIT-512-L35. MIT OCW, "16.512 Rocket Propulsion, Lectures 35-36"; page 5,
+           equation (2), half the elliptical orbital period.
     """
     r0 = quantity(initial_radius, "m", strictly_positive=True)
     r1 = quantity(final_radius, "m", strictly_positive=True)
@@ -60,14 +91,38 @@ def hohmann_transfer(initial_radius: CitedScalar, final_radius: CitedScalar,
 
 def circular_spiral_delta_v(initial_radius: CitedScalar, final_radius: CitedScalar,
                            gravitational_parameter: CitedScalar) -> AnalysisResult:
-    """Estimate near-circular continuous tangential-thrust velocity expenditure.
+    """Estimate the delta-v of a near-circular continuous tangential-thrust spiral.
 
-    This is a separate low-thrust budget: abs(sqrt(mu/r0)-sqrt(mu/r1)).
-    It is not a finite-burn correction factor applied to a Hohmann result.
+    Parameters
+    ----------
+    initial_radius, final_radius : CitedScalar
+        Circular-orbit radii measured from the central-body centre (not altitudes), m.
+    gravitational_parameter : CitedScalar
+        Central-body gravitational parameter mu, m^3/s^2.
+
+    Returns
+    -------
+    AnalysisResult
+        ``total_delta_v`` = abs(sqrt(mu / r0) - sqrt(mu / r1)), m/s.
+
+    Raises
+    ------
+    DomainError
+        If a quantity has the wrong unit or is not positive.
+
+    Notes
+    -----
+    Small tangential acceleration and quasi-circular orbits [1]_. This is a separate
+    low-thrust budget, not a finite-burn correction factor applied to a Hohmann
+    result. The speed difference is evaluated in a rationalized form that avoids
+    cancellation. Eclipse, steering, power history, escape and transfer time are not
+    modelled.
 
     References
     ----------
-    MIT-522-L6: equations (4)-(8), small tangential acceleration and near-circular orbits.
+    .. [1] MIT-522-L6. MIT OCW, "16.522 Session 6: Analytical Approximations for Low
+           Thrust Maneuvers"; equations (4)-(8), small tangential acceleration and
+           near-circular orbits.
     """
     r0 = quantity(initial_radius, "m", strictly_positive=True)
     r1 = quantity(final_radius, "m", strictly_positive=True)
@@ -87,12 +142,43 @@ def circular_spiral_delta_v(initial_radius: CitedScalar, final_radius: CitedScal
 
 def perigee_lowering_delta_v(circular_radius: CitedScalar, target_perigee_radius: CitedScalar,
                            gravitational_parameter: CitedScalar) -> AnalysisResult:
-    """Size one retrograde impulse; do not confuse it with a two-burn circularization.
+    """Size one retrograde impulse that lowers perigee from a circular orbit.
+
+    This is a single departure impulse; it is not a two-burn circularization.
+
+    Parameters
+    ----------
+    circular_radius : CitedScalar
+        Starting circular-orbit radius, which becomes apogee, m.
+    target_perigee_radius : CitedScalar
+        Target osculating perigee radius, m; not above ``circular_radius``.
+    gravitational_parameter : CitedScalar
+        Central-body gravitational parameter mu, m^3/s^2.
+
+    Returns
+    -------
+    AnalysisResult
+        ``total_delta_v``, the impulse magnitude, m/s.
+
+    Raises
+    ------
+    DomainError
+        If a quantity has the wrong unit or is not positive, or the target perigee
+        exceeds the starting radius.
+
+    Notes
+    -----
+    From vis-viva with a = (r_a + r_p) / 2 [1]_, the apogee speed after the burn is
+    sqrt(mu / r_a) * sqrt(r_p / a); the impulse is the first tangential impulse of a
+    descending transfer [2]_. Re-entry time and disposal compliance are not assessed.
 
     References
     ----------
-    MIT-522-L5: equation (11), vis-viva, with a=(ra+rp)/2.
-    MIT-522-L6: equation (7), first tangential impulse, descending transfer.
+    .. [1] MIT-522-L5. MIT OCW, "16.522 Session 5: Review of Classical Astrodynamics";
+           equation (11), vis-viva, with a=(ra+rp)/2.
+    .. [2] MIT-522-L6. MIT OCW, "16.522 Session 6: Analytical Approximations for Low
+           Thrust Maneuvers"; equation (7), first tangential impulse, descending
+           transfer.
     """
     ra = quantity(circular_radius, "m", strictly_positive=True)
     rp = quantity(target_perigee_radius, "m", strictly_positive=True)
@@ -114,14 +200,42 @@ def perigee_lowering_delta_v(circular_radius: CitedScalar, target_perigee_radius
 
 def burn_duration_screen(on_time: CitedScalar, orbital_period: CitedScalar,
                          maximum_period_fraction: CitedScalar) -> AnalysisResult:
-    """Compare burn/period to an explicitly chosen impulsive-screen threshold.
+    """Compare burn duration to orbital period against an analyst-chosen threshold.
 
-    No universal threshold is invented: the analyst supplies and cites it.
+    No universal threshold is assumed: the analyst supplies and cites it.
+
+    Parameters
+    ----------
+    on_time : CitedScalar
+        Burn on-time, s; non-negative.
+    orbital_period : CitedScalar
+        Orbital period, s; positive.
+    maximum_period_fraction : CitedScalar
+        Accepted burn/period ratio for the impulsive approximation, in (0, 1).
+
+    Returns
+    -------
+    AnalysisResult
+        ``burn_to_period_ratio`` and ``fraction_margin`` (threshold minus ratio).
+
+    Raises
+    ------
+    DomainError
+        If a quantity is out of domain or the threshold is not below one.
+
+    Notes
+    -----
+    The impulsive approximation assumes a burn short compared with the orbit [1]_; the
+    threshold is a declared decision criterion [2]_. A positive margin passes this
+    screen only and does not verify trajectory accuracy.
 
     References
     ----------
-    MIT-522-L6: page 2, impulsive transfer versus continuous thrust assumptions.
-    NASA-SE-6: section 6.8, declare decision criteria and assumptions.
+    .. [1] MIT-522-L6. MIT OCW, "16.522 Session 6: Analytical Approximations for Low
+           Thrust Maneuvers"; page 2, impulsive transfer versus continuous thrust
+           assumptions.
+    .. [2] NASA-SE-6. NASA, "Systems Engineering Handbook: Crosscutting Technical
+           Management"; section 6.8, declare decision criteria and assumptions.
     """
     t = quantity(on_time, "s", minimum=0)
     period = quantity(orbital_period, "s", strictly_positive=True)

@@ -1,0 +1,175 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <!-- Sunumatik duotone v2 icons (science-icons + domain-icons), generated subset. -->
+  <symbol id="i-rocket" viewBox="0 0 24 24">
+    <path d="M12 2.6 C14.9 5 16 8.3 16 11.4 V14.6 H8 V11.4 C8 8.3 9.1 5 12 2.6 Z" fill="currentColor" opacity=".16"/>
+    <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2.6 C14.9 5 16 8.3 16 11.4 V14.6 H8 V11.4 C8 8.3 9.1 5 12 2.6 Z"/>
+      <circle cx="12" cy="9.4" r="1.9"/>
+      <path d="M8 12.4 5.6 15.6 8 15.2 M16 12.4 18.4 15.6 16 15.2"/>
+      <path d="M10.4 17 C10.7 19.4 13.3 19.4 13.6 17"/>
+      <path d="M12 17.6 V20.6"/>
+    </g>
+  </symbol>
+  <symbol id="i-fluid-flow" viewBox="0 0 24 24">
+  <path d="M7 18 A3.4 3.4 0 0 1 13.8 18 Z" fill="currentColor" opacity=".16"/>
+  <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2.4 18 H21.6"/>
+    <path d="M7 18 A3.4 3.4 0 0 1 13.8 18"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2.4 15.4 C6.4 15.4 7.4 12.4 10.4 12.4 S14.4 15.4 21.6 15.4"/>
+    <path d="M20.4 14.3 21.6 15.4 20.4 16.5"/>
+    <path d="M2.4 11 C6.4 11 7.4 9 10.4 9 S14.4 11 21.6 11"/>
+    <path d="M20.4 9.9 21.6 11 20.4 12.1"/>
+  </g>
+  <path d="M2.4 6.8 C6.4 6.8 7.4 5.6 10.4 5.6 S14.4 6.8 21.6 6.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".5"/>
+  <circle cx="10.4" cy="14.6" r="1.3" fill="currentColor"/>
+</symbol>
+  <symbol id="i-shock-diamonds" viewBox="0 0 24 24">
+  <path d="M6.6 8.4 L21.4 10.2 V13.8 L6.6 15.6 Z" fill="currentColor" opacity=".16"/>
+  <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2.6 5.6 L6.6 8.4 M2.6 18.4 L6.6 15.6"/>
+    <path d="M7.4 8.6 L11 15.3 M11 8.7 L7.4 15.3"/>
+    <path d="M11.8 9.3 L14.6 14.6 M14.6 9.4 L11.8 14.6" opacity=".7" stroke-width="1.6"/>
+    <path d="M15.4 10 L17.6 14 M17.6 10 L15.4 14" opacity=".5" stroke-width="1.6"/>
+  </g>
+  <circle cx="9.2" cy="12" r="1.3" fill="currentColor"/>
+</symbol>
+  <symbol id="i-friction" viewBox="0 0 24 24">
+  <rect x="9.4" y="8.4" width="8.4" height="8.2" rx="1.2" fill="currentColor" opacity=".16"/>
+  <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="9.4" y="8.4" width="8.4" height="8.2" rx="1.2"/>
+    <path d="M2.6 16.6 H21.4"/>
+    <path d="M10.6 14.6 H4.6 M6.4 12.8 4.6 14.6 6.4 16.4"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".5">
+    <path d="M5 16.6 3.4 19.2 M9 16.6 7.4 19.2 M13 16.6 11.4 19.2 M17 16.6 15.4 19.2 M21 16.6 19.4 19.2"/>
+  </g>
+  <circle cx="11.4" cy="16.6" r="1.2" fill="currentColor"/>
+</symbol>
+  <symbol id="i-pressure" viewBox="0 0 24 24">
+  <rect x="6.4" y="6.4" width="11.2" height="11.2" rx="1.6" fill="currentColor" opacity=".16"/>
+  <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="6.4" y="6.4" width="11.2" height="11.2" rx="1.6"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" opacity=".8">
+    <path d="M12 2.6 V6 M10.3 4.2 12 6 13.7 4.2"/>
+    <path d="M12 21.4 V18 M10.3 19.8 12 18 13.7 19.8"/>
+    <path d="M2.6 12 H6 M4.2 10.3 6 12 4.2 13.7"/>
+    <path d="M21.4 12 H18 M19.8 10.3 18 12 19.8 13.7"/>
+  </g>
+  <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+</symbol>
+  <symbol id="i-work-energy" viewBox="0 0 24 24">
+  <rect x="3.4" y="5.6" width="6.6" height="6.6" rx="1.2" fill="currentColor" opacity=".16"/>
+  <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3.4" y="5.6" width="6.6" height="6.6" rx="1.2"/>
+    <path d="M11.6 8.9 H16.8"/>
+    <path d="M14.8 7.1 16.8 8.9 14.8 10.7"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".7">
+    <path d="M3.6 17.6 H20.4 M3.6 15.4 V19.8 M20.4 15.4 V19.8"/>
+  </g>
+  <circle cx="10" cy="8.9" r="1.2" fill="currentColor"/>
+</symbol>
+  <symbol id="i-entropy" viewBox="0 0 24 24">
+  <rect x="3.2" y="8.4" width="3" height="3" rx=".6" fill="currentColor" opacity=".16"/>
+  <rect x="6.8" y="8.4" width="3" height="3" rx=".6" fill="currentColor" opacity=".16"/>
+  <rect x="3.2" y="12" width="3" height="3" rx=".6" fill="currentColor" opacity=".16"/>
+  <rect x="6.8" y="12" width="3" height="3" rx=".6" fill="currentColor" opacity=".16"/>
+  <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+    <rect x="3.2" y="8.4" width="3" height="3" rx=".6"/>
+    <rect x="6.8" y="8.4" width="3" height="3" rx=".6"/>
+    <rect x="3.2" y="12" width="3" height="3" rx=".6"/>
+    <rect x="6.8" y="12" width="3" height="3" rx=".6"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".55">
+    <path d="M11 11.7 H13.6 M12.5 10.6 13.6 11.7 12.5 12.8"/>
+  </g>
+  <circle cx="15.6" cy="7.4" r="1.1" fill="currentColor" opacity=".55"/>
+  <circle cx="19.6" cy="9.6" r="1.1" fill="currentColor" opacity=".55"/>
+  <circle cx="16.4" cy="16.2" r="1.1" fill="currentColor" opacity=".55"/>
+  <circle cx="20.2" cy="14.8" r="1.1" fill="currentColor" opacity=".55"/>
+  <circle cx="17.6" cy="11.8" r="1.4" fill="currentColor"/>
+</symbol>
+  <symbol id="i-mixture-ratio" viewBox="0 0 24 24">
+  <path d="M6 3.4 C6 7.6 7.8 10.2 11.4 12.4" fill="none" stroke="currentColor" stroke-width="4.6" stroke-linecap="round" opacity=".16"/>
+  <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 3.4 C6 7.6 7.8 10.2 11.4 12.4"/>
+    <path d="M18 3.4 C18 7.6 16.2 10.2 12.6 12.4" stroke-width="1.6" opacity=".7"/>
+    <path d="M12 13.4 V16"/>
+    <path d="M9.4 16.2 V18.2 C9.4 20.1 14.6 20.1 14.6 18.2 V16.2"/>
+    <path d="M4 6.2 H8.2 M4.3 8.8 H8.8 M15.8 6.2 H20" opacity=".5" stroke-width="1.6"/>
+  </g>
+  <circle cx="12" cy="12.9" r="1.4" fill="currentColor"/>
+</symbol>
+  <symbol id="i-propellant-tank" viewBox="0 0 24 24">
+  <path d="M6.6 12.6 H17.4 V15.2 A5.4 5.4 0 0 1 6.6 15.2 Z" fill="currentColor" opacity=".16"/>
+  <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="6.6" y="4.4" width="10.8" height="16.2" rx="5.4"/>
+    <path d="M6.6 12.6 H17.4"/>
+    <path d="M12 4.4 V3.6"/>
+  </g>
+  <path d="M6.6 9.8 A8 8 0 0 1 17.4 9.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".55"/>
+  <circle cx="12" cy="2.8" r="1.05" fill="currentColor"/>
+</symbol>
+  <symbol id="i-nozzle-expansion" viewBox="0 0 24 24">
+  <path d="M9 3.6 L10.2 7.6 L5.6 15 H18.4 L13.8 7.6 L15 3.6 Z" fill="currentColor" opacity=".16"/>
+  <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 3.6 L10.2 7.6 L5.6 15 M15 3.6 L13.8 7.6 L18.4 15"/>
+    <path d="M10.2 7.6 H13.8" opacity=".7" stroke-width="1.6"/>
+    <path d="M5.6 18 H18.4 M5.6 16.8 V19.2 M18.4 16.8 V19.2" opacity=".7" stroke-width="1.6"/>
+  </g>
+  <circle cx="12" cy="7.6" r="1.3" fill="currentColor"/>
+</symbol>
+  <symbol id="i-nozzle-throat" viewBox="0 0 24 24">
+  <path d="M2.4 4.6 C8 6.8 10.4 9.3 12 9.3 C13.6 9.3 16 6.8 21.6 4.6 L21.6 19.4 C16 17.2 13.6 14.7 12 14.7 C10.4 14.7 8 17.2 2.4 19.4 Z" fill="currentColor" opacity=".16"/>
+  <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2.4 4.6 C8 6.8 10.4 9.3 12 9.3 C13.6 9.3 16 6.8 21.6 4.6"/>
+    <path d="M2.4 19.4 C8 17.2 10.4 14.7 12 14.7 C13.6 14.7 16 17.2 21.6 19.4"/>
+    <path d="M12 9.9 V14.1" stroke-dasharray="1.7 1.9" stroke-width="1.6" opacity=".7"/>
+  </g>
+  <circle cx="12" cy="9.3" r="1.3" fill="currentColor"/>
+</symbol>
+  <symbol id="i-regenerative-cooling" viewBox="0 0 24 24">
+  <path d="M9.6 3.8 C9.6 7.4 7.6 11 5.8 14.6" fill="none" stroke="currentColor" stroke-width="4.4" stroke-linecap="round" opacity=".16"/>
+  <path d="M14.4 3.8 C14.4 7.4 16.4 11 18.2 14.6" fill="none" stroke="currentColor" stroke-width="4.4" stroke-linecap="round" opacity=".16"/>
+  <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9.6 3.8 H14.4"/>
+    <path d="M9.6 3.8 C9.6 7.4 7.6 11 5.8 14.6"/>
+    <path d="M14.4 3.8 C14.4 7.4 16.4 11 18.2 14.6"/>
+    <path d="M20.7 18.2 C19.1 15 17.7 10.6 17.4 6.6"/>
+    <path d="M16.3 8 L17.4 6.2 L18.6 7.9"/>
+  </g>
+  <circle cx="20.8" cy="19.6" r="1.2" fill="currentColor"/>
+</symbol>
+  <symbol id="i-delta-v-burn" viewBox="0 0 24 24">
+  <path d="M3.8 17.6 10.6 13.6" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" opacity=".16"/>
+  <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.6 17.2 11.4 12.6"/>
+    <path d="M10.17 14.84 11.4 12.6 8.85 12.6"/>
+    <path d="M12.6 11.4 17.6 8.4"/>
+    <path d="M16.56 10.37 17.6 8.4 15.38 8.39"/>
+  </g>
+  <circle cx="12" cy="12" r="1.15" fill="currentColor"/>
+</symbol>
+  <symbol id="i-thrust-curve" viewBox="0 0 24 24">
+  <path d="M4.6 18.6 C5.4 11.4 6.2 8.6 8.4 8.6 H16.4 V18.6 Z" fill="currentColor" opacity=".16"/>
+  <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.6 4.8 V19 H21.4"/>
+    <path d="M4.6 18.6 C5.4 11.4 6.2 8.6 8.4 8.6 H16.4 V18.6"/>
+  </g>
+  <circle cx="16.4" cy="8.6" r="1.4" fill="currentColor"/>
+</symbol>
+  <symbol id="i-rocket-stages" viewBox="0 0 24 24">
+  <path d="M9.6 8.4 C9.6 5.6 10.7 3.6 12 2.4 C13.3 3.6 14.4 5.6 14.4 8.4 Z" fill="currentColor" opacity=".16"/>
+  <rect x="9.6" y="12.8" width="4.8" height="3.6" rx=".8" fill="currentColor" opacity=".16"/>
+  <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9.6 8.4 C9.6 5.6 10.7 3.6 12 2.4 C13.3 3.6 14.4 5.6 14.4 8.4 Z"/>
+    <rect x="9.6" y="8.9" width="4.8" height="3.4" rx=".8"/>
+    <rect x="9.6" y="12.8" width="4.8" height="3.6" rx=".8"/>
+    <path d="M9.6 18.2 H14.4 V19.8 L15.8 21.2 H8.2 L9.6 19.8 Z"/>
+  </g>
+  <circle cx="12" cy="17.3" r="1.1" fill="currentColor"/>
+</symbol>
+</svg>

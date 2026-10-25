@@ -1,15 +1,26 @@
 """First off-axis intersection with an owned second-order axis expansion.
 
-The C+ parent is a replayed axis-boundary result, including the quadratic
-history that determines its finite cylindrical source. No epsilon radius or
-free derivative is substituted for axis regularity. The radial velocity uses
-the regular Taylor expansion, while C- compatibility and both characteristic
-geometries are iterated. C+ endpoint-averaged compatibility is exposed as an
-unenforced defect, not hidden inside a claimed two-family algebraic solve.
-Planar flow retains the regular two-family interior process. This is a
-constant-gamma local process, not a sonic starting solution or a complete field.
-The governing equations and regularity derivation are documented in
-MOC_UNIT_PROCESS_REVIEW.md and MOC_BOUNDARY_REVIEW.md.
+The ``C+`` parent is an axis-boundary result that reproduces from its inputs,
+including the quadratic history that determines its finite cylindrical
+source. No small artificial radius or free derivative is substituted for axis
+regularity. In cylindrical flow the radial velocity uses the regular Taylor
+expansion about the axis implied by continuity [1]_, while ``C-``
+compatibility [2]_ and both characteristic geometries are iterated with
+averaged coefficients [3]_. The endpoint-averaged ``C+`` compatibility
+residual is reported as an unenforced defect rather than folded into a
+two-family algebraic solve. Planar flow uses the regular two-family interior
+process. This is a constant-gamma local process, not a sonic starting
+solution or a complete field.
+
+References
+----------
+.. [1] NASA-TND4960-AXIS-CONTINUITY. Anderson, 1969, Appendix C equation C1 and
+       streamline definitions. https://ntrs.nasa.gov/citations/19690005234
+.. [2] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+       compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+.. [3] NASA-TRR33-AXISYMMETRIC. Guentert and Neumann, 1959, radius source and
+       averaged characteristic coefficients.
+       https://ntrs.nasa.gov/citations/19980232191
 """
 from dataclasses import dataclass
 from fractions import Fraction as F
@@ -37,6 +48,25 @@ _POLICY='axis_departure_second_order_regularity_and_averaged_minus_v1'
 
 @dataclass(frozen=True,slots=True)
 class MocAxisDepartureInputs:
+    """Validated inputs of :func:`solve_moc_axis_departure`.
+
+    Attributes
+    ----------
+    axis_result : MocBoundaryResult
+        Axis result whose point is the ``C+`` parent; it also fixes gamma and
+        the planar/cylindrical mode.
+    minus_parent : MocFlowPoint
+        Off-axis ``C-`` parent, above the axis.
+    max_iterations : int, default 128
+        Corrector budget, between 1 and 256.
+
+    Raises
+    ------
+    DomainError
+        If ``axis_result`` is not an axis result, the ``C-`` parent is not
+        above the axis, or the budget is out of range.
+    """
+
     axis_result:MocBoundaryResult
     minus_parent:MocFlowPoint
     max_iterations:int=128
@@ -54,6 +84,11 @@ class MocAxisDepartureInputs:
 
 
 def _parents(inputs):
+    """Return ``C+`` coefficients at the axis parent and ``C-`` at the off-axis parent.
+
+    The axis parent's source term is replaced by its regular axis limit from
+    the recorded history.
+    """
     axis=inputs.axis_result;g=axis.inputs.gamma
     base=_coefficients(axis.point,g,1,False)
     source=_axis_rows(axis.inputs,axis.point)[-1]
@@ -63,11 +98,20 @@ def _parents(inputs):
 
 
 def _axis_expansion(inputs):
-    """v=r*(w+w_x*dx)+O(r*dx**2+r**3), from continuity and u_r=v_x.
+    """Return ``(w, w_x)`` of the regular radial-velocity expansion near the axis.
 
-    In cylindrical flow, w=(M**2-1)*u_x/2.
-    Its derivative is w_x=c*u_xx+c_u*u_x**2. Both u derivatives
+    Notes
+    -----
+    ``v = r (w + w_x dx) + O(r dx^2 + r^3)``, from continuity and
+    ``u_r = v_x`` [1]_. In cylindrical flow ``w = c u_x`` with
+    ``c = (M^2 - 1)/2``, and its derivative is ``w_x = c u_xx + c_u u_x^2``
+    with ``c_u = dc/du = (gamma + 1) u / (2 (a/a*)^4)``. Both ``u`` derivatives
     come from the same recorded quadratic axis polynomial.
+
+    References
+    ----------
+    .. [1] NASA-TND4960-AXIS-CONTINUITY. Anderson, 1969, Appendix C equation C1 and
+           streamline definitions. https://ntrs.nasa.gov/citations/19690005234
     """
     axis=inputs.axis_result;p=axis.point;g=F(axis.inputs.gamma);m=F(p.mach)
     u=_coefficients(p,axis.inputs.gamma,1,False)[4]
@@ -80,6 +124,7 @@ def _axis_expansion(inputs):
 
 
 def _rows(inputs,point):
+    """Return parent coefficients, ``C+`` at ``point`` and family-wise averages."""
     plus,minus=_parents(inputs);g=inputs.axis_result.inputs.gamma;mode=inputs.axis_result.inputs.axisymmetric
     at_plus=_coefficients(point,g,1,mode);at_minus=_coefficients(point,g,-1,mode)
     averaged=tuple(tuple((a+b)/2 for a,b in zip(parent[:4],candidate[:4]))
@@ -88,6 +133,13 @@ def _rows(inputs,point):
 
 
 def _metrics(inputs,point):
+    """Return ``(raw, adjusted, allowance, plus_defect)`` residual data.
+
+    In cylindrical flow the regularity residual of the radial velocity and
+    the ``C-`` compatibility residual enter the acceptance test; the ``C+``
+    compatibility residual is returned separately as ``plus_defect``. In
+    planar flow both compatibility residuals enter the test.
+    """
     plus,minus,at,averaged=_rows(inputs,point)
     a,b=inputs.axis_result.point,inputs.minus_parent
     scale=max(abs(F(a.x_m)-F(b.x_m)),F(b.radius_m))
@@ -110,17 +162,20 @@ def _metrics(inputs,point):
 
 
 def _private_topology(inputs,x,y):
+    """Raise :class:`ConvergenceError` unless ``(x, y)`` is downstream and off-axis."""
     if x<=max(F(inputs.axis_result.point.x_m),F(inputs.minus_parent.x_m)):
         raise ConvergenceError('Axis-departure parents do not intersect downstream.',code='moc_departure_noncausal')
     if y<=0:raise ConvergenceError('Axis departure must enter the upper half-plane.',code='moc_departure_axis_boundary')
 
 
 def _stored_topology(inputs,point):
+    """Raise :class:`ConvergenceError` if the exported point loses marching order."""
     if point.x_m<=max(inputs.axis_result.point.x_m,inputs.minus_parent.x_m) or point.radius_m<=0:
         raise ConvergenceError('Stored axis departure cannot resolve marching topology.',code='moc_departure_unresolved_topology')
 
 
 def _pack(point,count,metrics,kind,source):
+    """Return the solver fields of :class:`MocAxisDepartureResult` as a dictionary."""
     raw,adjusted,cell,plus_defect=metrics;value,status=_optional_source(source)
     return {'point': point,'iterations': count,'equation_residual_max': _upper_residual(raw),
         'rounding_adjusted_residual_max': _upper_residual(adjusted),'coordinate_rounding_allowance_max': _upper_residual(cell),
@@ -130,6 +185,30 @@ def _pack(point,count,metrics,kind,source):
 
 @lru_cache(maxsize=16)
 def _solve(inputs):
+    """Solve the axis-departure point; return the solver fields.
+
+    A uniform state is returned directly. Planar flow uses
+    :func:`~.moc_unit_process.solve_moc_interior_point`. In cylindrical flow
+    each corrector step intersects the averaged characteristics, sets
+    ``v = y (w + w_x (x - x_axis))`` from the axis expansion [1]_ and solves
+    the averaged ``C-`` compatibility relation [2]_, [3]_ for ``u``.
+
+    Raises
+    ------
+    ConvergenceError
+        If the intersection is not downstream or off-axis, the system is
+        singular, or the budget is exhausted.
+
+    References
+    ----------
+    .. [1] NASA-TND4960-AXIS-CONTINUITY. Anderson, 1969, Appendix C equation C1 and
+           streamline definitions. https://ntrs.nasa.gov/citations/19690005234
+    .. [2] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+           compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+    .. [3] NASA-TRR33-AXISYMMETRIC. Guentert and Neumann, 1959, radius source and
+           averaged characteristic coefficients.
+           https://ntrs.nasa.gov/citations/19980232191
+    """
     a,b=inputs.axis_result.point,inputs.minus_parent;g=inputs.axis_result.inputs.gamma
     plus,minus=_parents(inputs);x,y=_intersection(a,b,plus[0],minus[0]);_private_topology(inputs,x,y)
     if a.mach==b.mach and b.flow_angle_deg==0 and all(p.mach==a.mach for p in inputs.axis_result.inputs.axis_history):
@@ -158,6 +237,62 @@ def _solve(inputs):
 
 @dataclass(frozen=True,slots=True)
 class MocAxisDepartureResult:
+    """First off-axis point and its discrete-equation diagnostics.
+
+    Construction re-solves the point from ``inputs`` and rejects any field
+    that does not match.
+
+    Attributes
+    ----------
+    point : MocFlowPoint
+        Solved off-axis point.
+    iterations : int
+        Corrector iterations used.
+    equation_residual_max : float
+        Upper bound of the largest enforced normalized residual.
+    rounding_adjusted_residual_max : float
+        Residual after subtracting coordinate rounding allowances.
+    coordinate_rounding_allowance_max : float
+        Largest coordinate rounding allowance.
+    representation_limited : bool
+        ``True`` when the raw residual exceeds the acceptance tolerance.
+    solution_kind : str
+        Solver branch that produced the point.
+    axis_source_term_per_m : float or None
+        Regular axis source term of the ``C+`` parent; ``None`` when
+        unrepresentable.
+    axis_source_term_status : str
+        ``"finite"`` or ``"unrepresentable"``.
+    averaged_plus_compatibility_defect : float
+        Upper bound of the unenforced ``C+`` compatibility residual.
+    inputs : MocAxisDepartureInputs
+        Owned inputs.
+    numerical_policy : str
+        Identifier of the numerical policy.
+    physical_model_qualified, full_nozzle_solution : bool
+        Always ``False``.
+    discretization_error_bound : None
+        Always ``None``.
+
+    Raises
+    ------
+    DomainError
+        If a field is malformed, a qualification claim is made, or the record
+        does not reproduce from ``inputs``.
+
+    Notes
+    -----
+    The regularity residual refers to the axis expansion implied by
+    continuity [1]_; the compatibility residuals to [2]_.
+
+    References
+    ----------
+    .. [1] NASA-TND4960-AXIS-CONTINUITY. Anderson, 1969, Appendix C equation C1 and
+           streamline definitions. https://ntrs.nasa.gov/citations/19690005234
+    .. [2] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+           compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+    """
+
     point:MocFlowPoint
     iterations:int
     equation_residual_max:float
@@ -191,15 +326,49 @@ class MocAxisDepartureResult:
 
 
 def solve_moc_axis_departure(*,axis_result,minus_parent,max_iterations=128):
-    """March from a replayed axis using second-order radial regularity and C-.
+    """March off a solved axis point using second-order radial regularity and C-.
 
-    Gamma and planar/cylindrical mode come from the owned axis result. Its
-    finite source and Taylor coefficients are recomputed privately from history,
-    including when that source cannot be exported as a finite diagnostic.
-    In cylindrical flow, the averaged C+ defect is visible and not an
-    iteration condition; the radial Taylor relation replaces that equation.
-    Planar flow retains both compatibility equations.
-    This process supplies neither sonic initialization nor a global error bound.
+    Parameters
+    ----------
+    axis_result : MocBoundaryResult
+        Axis result whose point is the ``C+`` parent.
+    minus_parent : MocFlowPoint or mapping
+        Off-axis ``C-`` parent above the axis.
+    max_iterations : int, default 128
+        Corrector budget, between 1 and 256.
+
+    Returns
+    -------
+    MocAxisDepartureResult
+        Off-axis point, its residuals and the unenforced ``C+`` defect.
+
+    Raises
+    ------
+    DomainError
+        If the inputs are invalid.
+    ConvergenceError
+        If no downstream off-axis point is found within the budget.
+
+    Notes
+    -----
+    Gamma and the planar/cylindrical mode come from the owned axis result. Its
+    finite source and Taylor coefficients [1]_ are recomputed from the axis
+    history, including when that source cannot be exported as a finite
+    diagnostic. In cylindrical flow the averaged ``C+`` defect is reported and
+    is not an iteration condition; the radial Taylor relation replaces that
+    equation. Planar flow retains both compatibility equations [2]_, [3]_.
+    This process supplies neither sonic initialization nor a global error
+    bound.
+
+    References
+    ----------
+    .. [1] NASA-TND4960-AXIS-CONTINUITY. Anderson, 1969, Appendix C equation C1 and
+           streamline definitions. https://ntrs.nasa.gov/citations/19690005234
+    .. [2] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
+           compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
+    .. [3] NASA-TRR33-AXISYMMETRIC. Guentert and Neumann, 1959, radius source and
+           averaged characteristic coefficients.
+           https://ntrs.nasa.gov/citations/19980232191
     """
     inputs=MocAxisDepartureInputs(axis_result,minus_parent,max_iterations)
     return MocAxisDepartureResult(**_solve(inputs),inputs=inputs)

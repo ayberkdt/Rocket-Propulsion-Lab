@@ -1,4 +1,4 @@
-"""Dependency-free report packages for portable study review."""
+"""Dependency-free report packages for portable review of a study workspace."""
 
 from __future__ import annotations
 
@@ -13,7 +13,19 @@ from .workspace import Workspace, workspace_to_json
 
 @dataclass(frozen=True, slots=True)
 class ReportBundle:
-    """Machine-readable and printable representations of one workspace."""
+    """Machine-readable and printable representations of one workspace.
+
+    Attributes
+    ----------
+    json : str
+        Canonical workspace JSON (see :func:`workspace_to_json`).
+    csv : str
+        Tidy CSV with one row per finite numeric case result.
+    svg : str
+        Bar chart of the first numeric metric across cases.
+    html : str
+        Self-contained printable HTML summary embedding the SVG.
+    """
 
     json: str
     csv: str
@@ -22,6 +34,18 @@ class ReportBundle:
 
 
 def _numeric_rows(workspace: Workspace) -> list[tuple[str, str, float]]:
+    """Return ``(case_id, metric, value)`` for every finite numeric case result.
+
+    Booleans and values that do not convert to a finite float are skipped.
+
+    Parameters
+    ----------
+    workspace : Workspace
+
+    Returns
+    -------
+    list of tuple
+    """
     rows: list[tuple[str, str, float]] = []
     for case in workspace.cases:
         for metric, raw_value in sorted(case.results.items()):
@@ -37,6 +61,17 @@ def _numeric_rows(workspace: Workspace) -> list[tuple[str, str, float]]:
 
 
 def _csv_report(workspace: Workspace) -> str:
+    r"""Return a tidy CSV of finite numeric results with case name and model columns.
+
+    Parameters
+    ----------
+    workspace : Workspace
+
+    Returns
+    -------
+    str
+        CSV text with ``\n`` line endings; values use 12 significant digits.
+    """
     output = io.StringIO(newline="")
     writer = csv.writer(output, lineterminator="\n")
     writer.writerow(("case_id", "case_name", "model", "metric", "value"))
@@ -48,6 +83,19 @@ def _csv_report(workspace: Workspace) -> str:
 
 
 def _svg_report(workspace: Workspace) -> str:
+    """Return an SVG bar chart of the first numeric metric across cases.
+
+    Bars are scaled by absolute value relative to the largest magnitude. A workspace
+    without scalar results yields a placeholder SVG.
+
+    Parameters
+    ----------
+    workspace : Workspace
+
+    Returns
+    -------
+    str
+    """
     rows = _numeric_rows(workspace)
     if not rows:
         return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300"><text x="20" y="40">No scalar results</text></svg>\n'
@@ -74,6 +122,20 @@ def _svg_report(workspace: Workspace) -> str:
 
 
 def _html_report(workspace: Workspace, svg: str) -> str:
+    """Return a printable HTML summary with inputs, results, versions and warnings.
+
+    All workspace text is HTML-escaped.
+
+    Parameters
+    ----------
+    workspace : Workspace
+    svg : str
+        Chart to embed.
+
+    Returns
+    -------
+    str
+    """
     cases = []
     for case in workspace.cases:
         input_rows = "".join(
@@ -109,7 +171,22 @@ def _html_report(workspace: Workspace, svg: str) -> str:
 
 
 def build_report_bundle(workspace: Workspace) -> ReportBundle:
-    """Build JSON, tidy CSV, comparison SVG, and a printable HTML summary."""
+    """Build JSON, tidy CSV, comparison SVG and a printable HTML summary.
+
+    Parameters
+    ----------
+    workspace : Workspace
+        Current-version workspace.
+
+    Returns
+    -------
+    ReportBundle
+
+    Raises
+    ------
+    InputError
+        If the workspace is not current-version or contains non-JSON values.
+    """
 
     svg = _svg_report(workspace)
     return ReportBundle(
