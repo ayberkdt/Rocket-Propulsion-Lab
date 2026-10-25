@@ -75,6 +75,25 @@ check('subnormal data and all-zero data stay finite',()=>{
   chart([{x:0,y:0},{x:Number.MIN_VALUE,y:Number.MIN_VALUE}]);
   chart([{x:0,y:0},{x:0,y:0}]);
 });
+check('a calculation writes only its own module fields, never a nested workbench',()=>{
+  // Regression: re-solving the normal shock overwrote the oblique-shock panel (shared keys).
+  const parent={}, nested={};
+  const field=(key,owner)=>({dataset:{key},textContent:'kept',closest:()=>owner});
+  const own=field('downstream_mach',parent), sibling=field('downstream_mach',nested);
+  const missing=field('process',nested);
+  parent.querySelectorAll=()=>[own,sibling,missing];
+  context.renderResults(parent,{downstream_mach:0.5});
+  assert.equal(own.textContent,'0,5');
+  assert.equal(sibling.textContent,'kept');assert.equal(missing.textContent,'kept');
+});
+check('axis ticks are round, Turkish and never fractional on discrete axes',()=>{
+  // Labels come from the VM realm; compare joined strings, not cross-realm arrays.
+  const labels=(values,options)=>[...context.axisTicks(context.chartAxis(values,0.03),options).map(t=>t.label)];
+  assert.equal(labels([0.05,5]).join('|'),'0|1|2|3|4|5');
+  assert.equal(labels([1,2],{integer:true}).join('|'),'1|2');
+  assert.ok(labels([2e6,1.4e7]).every(label=>/×10⁶$/.test(label)));
+  assert.ok(labels([0,1]).includes('0,2'));
+});
 check('invalid points break the line without malformed SVG',()=>{
   const {paths}=chart([{x:0,y:0},{x:1,y:NaN},{x:2,y:2}]);
   assert.equal((paths[0].attributes.d.match(/M/g)||[]).length,2);
