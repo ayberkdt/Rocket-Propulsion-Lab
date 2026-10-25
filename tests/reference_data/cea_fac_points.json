@@ -1,0 +1,307 @@
+{
+ "schema_version": 1,
+ "generated": "2026-10-25",
+ "generator": "scripts/generate_cea_fac_points.py",
+ "reference": {
+  "program": "NASA CEA (cea Python package)",
+  "version": "3.3.4",
+  "url": "https://pypi.org/project/cea/",
+  "repository": "https://github.com/nasa/cea",
+  "thermo_lib_sha256": "8e5df1cca92d4a48663d1ee5a1372e6508c59cddc2247ceeca32f041a03ec52a",
+  "station_order": [
+   "injector",
+   "infinite_area",
+   "combustor_end",
+   "throat",
+   "exits..."
+  ]
+ },
+ "conditions": {
+  "combustor": "finite area (FAC), RP-1311 Part I section 6.4",
+  "expansion": "shifting equilibrium",
+  "reactant_temperature_k": {
+   "H2(L)": 20.27,
+   "O2(L)": 90.17,
+   "CH4(L)": 111.643,
+   "RP-1": 298.15
+  }
+ },
+ "declared_relative_tolerance": {
+  "stagnation_pressure_ratio": 0.0002,
+  "combustor_end_pressure_pa": 0.0005,
+  "combustor_end_temperature_k": 0.001,
+  "combustor_end_mach_number": 0.002,
+  "throat_pressure_pa": 0.0005,
+  "characteristic_velocity_m_s": 0.001,
+  "vacuum_effective_exhaust_velocity_m_s": 0.001,
+  "contraction_ratio": 0.0002
+ },
+ "declared_on": "2026-10-25",
+ "points": [
+  {
+   "id": "rp1311-ex9",
+   "pair": "LOX_LH2",
+   "fuel": "H2(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 5.55157,
+   "injector_pressure_pa": 5331720.0,
+   "option": "ac_at",
+   "option_value": 1.58,
+   "expected": {
+    "injector_temperature_k": 3383.844614137875,
+    "infinite_area_pressure_pa": 4915158.6796284355,
+    "stagnation_pressure_ratio": 0.9218711184436609,
+    "infinite_area_entropy_j_kg_k": 18711.781752605377,
+    "injector_entropy_j_kg_k": 18658.567900327955,
+    "contraction_ratio": 1.5801482492309615,
+    "combustor_end_pressure_pa": 4460496.607707985,
+    "combustor_end_temperature_k": 3341.079322760909,
+    "combustor_end_mach_number": 0.41314879822529726,
+    "throat_pressure_pa": 2826733.155659185,
+    "throat_temperature_k": 3179.568683128475,
+    "characteristic_velocity_m_s": 2330.9959295851686,
+    "exits": [
+     {
+      "area_ratio": 25.0,
+      "pressure_pa": 18924.73085570113,
+      "temperature_k": 1469.5862598996853,
+      "effective_exhaust_velocity_m_s": 4123.29418339262,
+      "vacuum_effective_exhaust_velocity_m_s": 4347.672517753447
+     },
+     {
+      "area_ratio": 50.0,
+      "pressure_pa": 7523.708989190832,
+      "temperature_k": 1220.8774801876236,
+      "effective_exhaust_velocity_m_s": 4308.229140718128,
+      "vacuum_effective_exhaust_velocity_m_s": 4486.631264554395
+     },
+     {
+      "area_ratio": 75.0,
+      "pressure_pa": 4385.520650283209,
+      "temperature_k": 1089.8048654180527,
+      "effective_exhaust_velocity_m_s": 4398.341575149866,
+      "vacuum_effective_exhaust_velocity_m_s": 4554.327855809074
+     }
+    ]
+   }
+  },
+  {
+   "id": "rp1311-ex10",
+   "pair": "LOX_LH2",
+   "fuel": "H2(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 5.55157,
+   "injector_pressure_pa": 5331720.0,
+   "option": "mdot",
+   "option_value": 1333.9,
+   "expected": {
+    "injector_temperature_k": 3383.844614137875,
+    "infinite_area_pressure_pa": 4915622.242758853,
+    "stagnation_pressure_ratio": 0.9219580628312914,
+    "infinite_area_entropy_j_kg_k": 18711.720037903993,
+    "injector_entropy_j_kg_k": 18658.567900327955,
+    "contraction_ratio": 1.581081695503151,
+    "combustor_end_pressure_pa": 4461537.04913771,
+    "combustor_end_temperature_k": 3341.137914436847,
+    "combustor_end_mach_number": 0.412851158296014,
+    "throat_pressure_pa": 2826998.9466438047,
+    "throat_temperature_k": 3179.5758022110554,
+    "characteristic_velocity_m_s": 2330.99749566657,
+    "exits": [
+     {
+      "area_ratio": 25.0,
+      "pressure_pa": 18926.475392878154,
+      "temperature_k": 1469.5845851621386,
+      "effective_exhaust_velocity_m_s": 4123.295496273625,
+      "vacuum_effective_exhaust_velocity_m_s": 4347.673503366219
+     },
+     {
+      "area_ratio": 50.0,
+      "pressure_pa": 7524.4025966163,
+      "temperature_k": 1220.876003929711,
+      "effective_exhaust_velocity_m_s": 4308.230183538967,
+      "vacuum_effective_exhaust_velocity_m_s": 4486.632048468744
+     },
+     {
+      "area_ratio": 75.0,
+      "pressure_pa": 4385.924911238088,
+      "temperature_k": 1089.8035004896458,
+      "effective_exhaust_velocity_m_s": 4398.342488307622,
+      "vacuum_effective_exhaust_velocity_m_s": 4554.328541216256
+     }
+    ]
+   }
+  },
+  {
+   "id": "lox_lh2-cr1.3",
+   "pair": "LOX_LH2",
+   "fuel": "H2(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 6.0,
+   "injector_pressure_pa": 6894759.999999999,
+   "option": "ac_at",
+   "option_value": 1.3,
+   "expected": {
+    "injector_temperature_k": 3483.3521357612126,
+    "infinite_area_pressure_pa": 6113801.737926223,
+    "stagnation_pressure_ratio": 0.8867316248754451,
+    "infinite_area_entropy_j_kg_k": 17916.773636590566,
+    "injector_entropy_j_kg_k": 17842.45617808807,
+    "contraction_ratio": 1.3000534865576463,
+    "combustor_end_pressure_pa": 5207947.981684606,
+    "combustor_end_temperature_k": 3414.038890990202,
+    "combustor_end_mach_number": 0.533222694468988,
+    "throat_pressure_pa": 3524658.402493977,
+    "throat_temperature_k": 3280.304676145865,
+    "characteristic_velocity_m_s": 2302.03793301729,
+    "exits": [
+     {
+      "area_ratio": 40.0,
+      "pressure_pa": 13360.094218693586,
+      "temperature_k": 1443.469389868589,
+      "effective_exhaust_velocity_m_s": 4226.747888444919,
+      "vacuum_effective_exhaust_velocity_m_s": 4427.971042372028
+     }
+    ]
+   }
+  },
+  {
+   "id": "lox_lh2-cr3",
+   "pair": "LOX_LH2",
+   "fuel": "H2(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 6.0,
+   "injector_pressure_pa": 6894759.999999999,
+   "option": "ac_at",
+   "option_value": 3.0,
+   "expected": {
+    "injector_temperature_k": 3483.3521357612126,
+    "infinite_area_pressure_pa": 6741459.003055695,
+    "stagnation_pressure_ratio": 0.9777655789404847,
+    "infinite_area_entropy_j_kg_k": 17856.349466867137,
+    "injector_entropy_j_kg_k": 17842.45617808807,
+    "contraction_ratio": 3.0000987536666135,
+    "combustor_end_pressure_pa": 6584918.915761231,
+    "combustor_end_temperature_k": 3472.5349241979707,
+    "combustor_end_mach_number": 0.20317734284235567,
+    "throat_pressure_pa": 3885494.8216393287,
+    "throat_temperature_k": 3289.036948477628,
+    "characteristic_velocity_m_s": 2303.8776390862577,
+    "exits": [
+     {
+      "area_ratio": 40.0,
+      "pressure_pa": 14693.82315950695,
+      "temperature_k": 1441.4177999468209,
+      "effective_exhaust_velocity_m_s": 4228.234540459174,
+      "vacuum_effective_exhaust_velocity_m_s": 4429.100955583697
+     }
+    ]
+   }
+  },
+  {
+   "id": "lox_ch4-cr2",
+   "pair": "LOX_CH4",
+   "fuel": "CH4(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 3.4,
+   "injector_pressure_pa": 6894759.999999999,
+   "option": "ac_at",
+   "option_value": 2.0,
+   "expected": {
+    "injector_temperature_k": 3549.196144498271,
+    "infinite_area_pressure_pa": 6557098.9509531455,
+    "stagnation_pressure_ratio": 0.9510264245533052,
+    "infinite_area_entropy_j_kg_k": 12201.7303892254,
+    "injector_entropy_j_kg_k": 12182.45406919335,
+    "contraction_ratio": 2.000211546816703,
+    "combustor_end_pressure_pa": 6202062.8944059415,
+    "combustor_end_temperature_k": 3524.6635935445906,
+    "combustor_end_mach_number": 0.31436254379348716,
+    "throat_pressure_pa": 3797002.38114503,
+    "throat_temperature_k": 3372.164975029002,
+    "characteristic_velocity_m_s": 1838.7762195219188,
+    "exits": [
+     {
+      "area_ratio": 40.0,
+      "pressure_pa": 16776.960129835235,
+      "temperature_k": 1823.6065821122804,
+      "effective_exhaust_velocity_m_s": 3425.1486355277316,
+      "vacuum_effective_exhaust_velocity_m_s": 3613.3359835431793
+     }
+    ]
+   }
+  },
+  {
+   "id": "lox_rp1-cr2",
+   "pair": "LOX_RP1",
+   "fuel": "RP-1",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 2.7,
+   "injector_pressure_pa": 6894759.999999999,
+   "option": "ac_at",
+   "option_value": 2.0,
+   "expected": {
+    "injector_temperature_k": 3684.8120157171275,
+    "infinite_area_pressure_pa": 6556313.968465844,
+    "stagnation_pressure_ratio": 0.9509125725138865,
+    "infinite_area_entropy_j_kg_k": 11184.501095972248,
+    "injector_entropy_j_kg_k": 11166.927474974484,
+    "contraction_ratio": 2.000212487959802,
+    "combustor_end_pressure_pa": 6200470.516858227,
+    "combustor_end_temperature_k": 3658.465335871917,
+    "combustor_end_mach_number": 0.31417836285386536,
+    "throat_pressure_pa": 3791963.3026336003,
+    "throat_temperature_k": 3498.2821231820662,
+    "characteristic_velocity_m_s": 1784.4517304938292,
+    "exits": [
+     {
+      "area_ratio": 40.0,
+      "pressure_pa": 16829.51351374901,
+      "temperature_k": 1916.244832402842,
+      "effective_exhaust_velocity_m_s": 3322.7028183390485,
+      "vacuum_effective_exhaust_velocity_m_s": 3505.9244168072555
+     }
+    ]
+   }
+  }
+ ],
+ "nasa_reference_outputs": {
+  "example9": {
+   "source": "https://github.com/nasa/cea/blob/2f79a647e85737742fb08a127da00d1ea1d069da/test/main_interface/reference_output/example9.out",
+   "sha256": "0fabc39640cadb5edead23275dcd269ea4f8fa9cc9971521f50a9ef784157c27",
+   "locator": "lines 126-160 (first table)",
+   "conditions": {
+    "oxidizer_fuel_ratio": 5.55157,
+    "injector_pressure_pa": 5331720.0,
+    "contraction_ratio": 1.58
+   },
+   "expected": {
+    "injector_to_infinite_pressure_ratio": 1.084767,
+    "combustor_end_pressure_pa": 4460329.72915175,
+    "combustor_end_temperature_k": 3341.0699914147,
+    "combustor_end_mach_number": 0.413196100264602,
+    "throat_pressure_pa": 2826691.22299647,
+    "characteristic_velocity_m_s": 2330.99548251667,
+    "area_ratio_25_vacuum_effective_exhaust_velocity_m_s": 4347.67250611254,
+    "area_ratio_50_vacuum_effective_exhaust_velocity_m_s": 4486.63302519288
+   }
+  },
+  "example10": {
+   "source": "https://github.com/nasa/cea/blob/2f79a647e85737742fb08a127da00d1ea1d069da/test/main_interface/reference_output/example10.out",
+   "sha256": "9d3a2274529f01cee33cf2f88419173efb66496a3f265296b653a85d04fe2663",
+   "locator": "lines 160-194 (first table)",
+   "conditions": {
+    "oxidizer_fuel_ratio": 5.55157,
+    "injector_pressure_pa": 5331720.0,
+    "mass_flux_per_chamber_area_kg_m2_s": 1333.9
+   },
+   "expected": {
+    "injector_to_infinite_pressure_ratio": 1.084668,
+    "contraction_ratio": 1.58090453944294,
+    "combustor_end_pressure_pa": 4461338.02307749,
+    "combustor_end_mach_number": 0.41290760253196,
+    "characteristic_velocity_m_s": 2330.99699394121
+   }
+  }
+ }
+}

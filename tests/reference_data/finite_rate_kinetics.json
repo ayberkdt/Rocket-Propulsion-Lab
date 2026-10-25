@@ -1,0 +1,246 @@
+{
+ "schema_version": 1,
+ "generated": "2026-10-25",
+ "stiff_benchmarks": {
+  "source": "E. Hairer, testset of stiff ODEs (equation.f, driver_rodas.f, res_exact_pic)",
+  "url": "https://www.unige.ch/~hairer/testset/testset.html",
+  "robertson": {
+   "files": [
+    "stiff/rober/equation.f",
+    "stiff/rober/driver_rodas.f",
+    "stiff/rober/res_exact_pic"
+   ],
+   "initial_state": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "output_times": [
+    1.0,
+    10.0,
+    100.0,
+    1000.0,
+    10000.0,
+    100000.0,
+    1000000.0,
+    10000000.0,
+    100000000.0,
+    1000000000.0,
+    10000000000.0,
+    100000000000.0
+   ],
+   "reference": [
+    [
+     0.9664597373330035,
+     3.074626578578675e-05,
+     0.03350951640121071
+    ],
+    [
+     0.8413699238414729,
+     1.623390937990473e-05,
+     0.1586138422491472
+    ],
+    [
+     0.6172348823960878,
+     6.153591274639123e-06,
+     0.3827589640126376
+    ],
+    [
+     0.3368745306607069,
+     2.013702318261393e-06,
+     0.6631234556369748
+    ],
+    [
+     0.107300428537804,
+     4.80016697257166e-07,
+     0.8926990914454987
+    ],
+    [
+     0.01786592114209946,
+     7.274751468436319e-08,
+     0.9821340061103859
+    ],
+    [
+     0.002031483924973415,
+     8.142277783356159e-09,
+     0.9979685079327488
+    ],
+    [
+     0.0002076093439016395,
+     8.30607748506761e-10,
+     0.9997923898254906
+    ],
+    [
+     2.08241751217946e-05,
+     8.329841429908955e-11,
+     0.9999791757415798
+    ],
+    [
+     2.083229471647004e-06,
+     8.332935037760724e-12,
+     0.9999979167621954
+    ],
+    [
+     2.083328471883087e-07,
+     8.333315602809495e-13,
+     0.9999997916663195
+    ],
+    [
+     2.083340149701284e-08,
+     8.333360770334743e-14,
+     0.9999999791665152
+    ]
+   ],
+   "solver": {
+    "rtol": 1e-08,
+    "atol_over_rtol": 1e-06,
+    "analytic_jacobian": true
+   },
+   "declared_relative_tolerance": 1e-06
+  },
+  "hires": {
+   "files": [
+    "stiff/hires/equation.f",
+    "stiff/hires/driver_rodas.f",
+    "stiff/hires/res_exact_pic"
+   ],
+   "initial_state": [
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0057
+   ],
+   "output_times": [
+    321.8122,
+    421.8122
+   ],
+   "reference": [
+    [
+     0.000737131257332567,
+     0.000144248572631618,
+     5.8887297409676e-05,
+     0.001175651343283149,
+     0.00238635619883133,
+     0.006238968252742796,
+     0.002849998395185769,
+     0.002850001604814231
+    ],
+    [
+     0.000670305503581864,
+     0.000130996846986347,
+     4.6862231597733e-05,
+     0.001044668020551705,
+     0.000594883830951485,
+     0.001399628833942774,
+     0.00101449275771848,
+     0.00468550724228152
+    ]
+   ],
+   "solver": {
+    "rtol": 1e-08,
+    "atol_over_rtol": 0.0001,
+    "analytic_jacobian": false
+   },
+   "declared_relative_tolerance": 1e-05
+  }
+ },
+ "mechanism": {
+  "name": "GRI-Mech 3.0 H2-O2 subset",
+  "file": "grimech30.dat",
+  "url": "http://combustion.berkeley.edu/gri-mech/version30/files30/grimech30.dat",
+  "sha256": "a7726208619d27b50e43b9fb6b27dc0a737003c049cc79e0a849bc75301cd763",
+  "reaction_count": 27,
+  "spot_check": {
+   "line": 26,
+   "equation": "O+H2<=>H+OH",
+   "chemkin": {
+    "A_cm3_mol_s": 38700.0,
+    "b": 2.7,
+    "E_cal_mol": 6260.0
+   },
+   "si": {
+    "A_m3_mol_s": 0.0387,
+    "b": 2.7,
+    "E_J_mol": 26191.84
+   }
+  }
+ },
+ "nozzle_case": {
+  "propellant_pair": "LOX_LH2",
+  "oxidizer_fuel_ratio": 6.0,
+  "chamber_pressure_pa": 6894760.0,
+  "nozzle": {
+   "throat_radius_m": 0.05,
+   "contraction_area_ratio": 3.0,
+   "exit_area_ratio": 40.0,
+   "convergent_half_angle_deg": 30.0,
+   "divergent_half_angle_deg": 15.0
+  },
+  "note": "Model case chosen for the limit and convergence tests; no published ODK/TDK kinetic efficiency for this case was read, so none is asserted."
+ },
+ "cea_bounds": {
+  "program": "NASA CEA (cea Python package)",
+  "version": "3.3.4",
+  "thermo_lib_sha256": "8e5df1cca92d4a48663d1ee5a1372e6508c59cddc2247ceeca32f041a03ec52a",
+  "generator": "scripts/generate_finite_rate_cea_bounds.py",
+  "products": [
+   "H2",
+   "H",
+   "O",
+   "O2",
+   "OH",
+   "H2O",
+   "HO2",
+   "H2O2"
+  ],
+  "reactant_temperature_k": {
+   "H2(L)": 20.27,
+   "O2(L)": 90.17
+  },
+  "chamber_pressure_pa": 6894759.999999999,
+  "oxidizer_fuel_ratio": 6.0,
+  "area_ratio": 40.0,
+  "results": {
+   "shifting_equilibrium": {
+    "vacuum_specific_impulse_s": 451.6687246777736,
+    "characteristic_velocity_m_s": 2304.2960884788954,
+    "exit_temperature_k": 1440.952382050059,
+    "chamber_temperature_k": 3483.352135764424
+   },
+   "frozen_at_chamber": {
+    "vacuum_specific_impulse_s": 430.44256846335844,
+    "characteristic_velocity_m_s": 2263.758930600071,
+    "exit_temperature_k": 1081.3970798439532,
+    "chamber_temperature_k": 3483.352135764424
+   },
+   "frozen_at_throat": {
+    "vacuum_specific_impulse_s": 436.6738261885294,
+    "characteristic_velocity_m_s": 2304.2960884788954,
+    "exit_temperature_k": 1149.387497784959,
+    "chamber_temperature_k": 3483.352135764424
+   }
+  }
+ },
+ "declared_tolerances": {
+  "zero_rate_vs_repository_frozen_isp_relative": 1e-06,
+  "zero_rate_vs_cea_frozen_isp_relative": 0.0001,
+  "fast_rate_1e4_vs_repository_shifting_isp_s": 0.01,
+  "rtol_1e-5_vs_1e-6_isp_s": 0.001,
+  "start_area_ratio_1.05_vs_1.1_isp_s": 0.001,
+  "detailed_balance_relative": 1e-09,
+  "element_conservation_relative": 1e-12,
+  "rate_jacobian_vs_central_difference": 1e-06,
+  "nozzle_jacobian_vs_central_difference": 0.0001,
+  "bray_K1_vs_finite_rate_isp_s": 1.0,
+  "bray_note": "Declared first for K in {0.42, 1.25} too; K = 0.42 differs by 1.02 s, so the 1 s bound is stated for the default K = 1 only and the K range is checked for ordering.",
+  "declared_on": "2026-10-25"
+ },
+ "published_odk_tdk_kinetic_efficiency": {
+  "status": "not verified",
+  "note": "No open document with an ODK/TDK kinetic efficiency for a fully specified case (propellants, O/F, chamber pressure, geometry, rate set) was read in this work package; nothing is compared."
+ }
+}
