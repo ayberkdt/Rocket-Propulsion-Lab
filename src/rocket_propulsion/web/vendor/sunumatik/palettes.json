@@ -1,0 +1,397 @@
+{
+ "source": "presets/color_themes/palette-library.json",
+ "palettes": [
+  {
+   "id": "midnight-tangerine",
+   "ad": "Gece Laciverti / Yanık Mandalina",
+   "dark": true,
+   "canvas": "#1E223D",
+   "accent": "#F54F1F"
+  },
+  {
+   "id": "graphite-ember",
+   "ad": "Grafit / Kor Bakırı",
+   "dark": true,
+   "canvas": "#141519",
+   "accent": "#E8804A"
+  },
+  {
+   "id": "obsidian-champagne",
+   "ad": "Obsidyen / Şampanya Altını",
+   "dark": true,
+   "canvas": "#0F1013",
+   "accent": "#D3B26A"
+  },
+  {
+   "id": "verdigris-slate",
+   "ad": "Arduvaz Çamı / Bakır Pası",
+   "dark": true,
+   "canvas": "#152020",
+   "accent": "#5FBFAE"
+  },
+  {
+   "id": "ultraviolet-chartreuse",
+   "ad": "Morötesi / Şartrös Sinyali",
+   "dark": true,
+   "canvas": "#14101E",
+   "accent": "#C9DE4C"
+  },
+  {
+   "id": "cerulean-vermilion",
+   "ad": "Gök Mavisi / Zincifre Alanı",
+   "dark": false,
+   "canvas": "#F4F1EA",
+   "accent": "#C4401F"
+  },
+  {
+   "id": "prussian-amber",
+   "ad": "Prusya Derinliği / Kehribar İşaret",
+   "dark": true,
+   "canvas": "#0E1B26",
+   "accent": "#E8A33D"
+  },
+  {
+   "id": "magma-basalt",
+   "ad": "Magma / Bazalt Alanı",
+   "dark": true,
+   "canvas": "#131013",
+   "accent": "#E85D3A"
+  },
+  {
+   "id": "aurora-polar",
+   "ad": "Kutup Gecesi / Kutup Işığı Yeşili",
+   "dark": true,
+   "canvas": "#0C1418",
+   "accent": "#55E0A8"
+  },
+  {
+   "id": "heliograph",
+   "ad": "Heliograf Kömürü / Üçlü",
+   "dark": true,
+   "canvas": "#17181C",
+   "accent": "#E8B84A"
+  },
+  {
+   "id": "royal-saffron",
+   "ad": "Kraliyet Çividi / Safran",
+   "dark": false,
+   "canvas": "#F5F1E8",
+   "accent": "#D98A1F"
+  },
+  {
+   "id": "ionosphere",
+   "ad": "İyonosfer Camgöbeği / Derin Alan",
+   "dark": true,
+   "canvas": "#0A1418",
+   "accent": "#3FC6E8"
+  },
+  {
+   "id": "butter-green",
+   "ad": "Tereyağı / Koyu Yeşil — açık",
+   "dark": false,
+   "canvas": "#FFEFB3",
+   "accent": "#013E37"
+  },
+  {
+   "id": "butter-green-dark",
+   "ad": "Tereyağı / Koyu Yeşil — koyu",
+   "dark": true,
+   "canvas": "#013E37",
+   "accent": "#FFEFB3"
+  },
+  {
+   "id": "vanilla-cherry",
+   "ad": "Krem Vanilya / Vişneli Kola — açık",
+   "dark": false,
+   "canvas": "#EFE6DD",
+   "accent": "#9A0002"
+  },
+  {
+   "id": "vanilla-cherry-dark",
+   "ad": "Krem Vanilya / Vişneli Kola — koyu",
+   "dark": true,
+   "canvas": "#9A0002",
+   "accent": "#EFE6DD"
+  },
+  {
+   "id": "aureolin-bistre",
+   "ad": "Oryolin Sarısı / Bister — açık",
+   "dark": false,
+   "canvas": "#FBE311",
+   "accent": "#261606"
+  },
+  {
+   "id": "aureolin-bistre-dark",
+   "ad": "Oryolin Sarısı / Bister — koyu",
+   "dark": true,
+   "canvas": "#261606",
+   "accent": "#FBE311"
+  },
+  {
+   "id": "lime-vermilion",
+   "ad": "Misket Yeşili / Canlı Kırmızı — açık",
+   "dark": false,
+   "canvas": "#D3F00A",
+   "accent": "#F9100C"
+  },
+  {
+   "id": "lime-vermilion-dark",
+   "ad": "Misket Yeşili / Canlı Kırmızı — koyu",
+   "dark": false,
+   "canvas": "#F9100C",
+   "accent": "#D3F00A"
+  },
+  {
+   "id": "violet-imperial",
+   "ad": "Menekşe / İmparatorluk Kırmızısı — açık",
+   "dark": false,
+   "canvas": "#F15153",
+   "accent": "#321847"
+  },
+  {
+   "id": "violet-imperial-dark",
+   "ad": "Menekşe / İmparatorluk Kırmızısı — koyu",
+   "dark": true,
+   "canvas": "#321847",
+   "accent": "#F15153"
+  },
+  {
+   "id": "aurora-boreal",
+   "ad": "Kutup Işığı / Kutup Gecesi — açık",
+   "dark": false,
+   "canvas": "#3FD98A",
+   "accent": "#06202B"
+  },
+  {
+   "id": "aurora-boreal-dark",
+   "ad": "Kutup Işığı / Kutup Gecesi — koyu",
+   "dark": true,
+   "canvas": "#06202B",
+   "accent": "#3FD98A"
+  },
+  {
+   "id": "neptune-methane",
+   "ad": "Neptün Metanı / Derin Mavi — açık",
+   "dark": false,
+   "canvas": "#8FD9E8",
+   "accent": "#0D2C4E"
+  },
+  {
+   "id": "neptune-methane-dark",
+   "ad": "Neptün Metanı / Derin Mavi — koyu",
+   "dark": true,
+   "canvas": "#0D2C4E",
+   "accent": "#8FD9E8"
+  },
+  {
+   "id": "eclipse-corona",
+   "ad": "Tutulma / Korona İncisi — açık",
+   "dark": false,
+   "canvas": "#F2E8DC",
+   "accent": "#171226"
+  },
+  {
+   "id": "eclipse-corona-dark",
+   "ad": "Tutulma / Korona İncisi — koyu",
+   "dark": true,
+   "canvas": "#171226",
+   "accent": "#F2E8DC"
+  },
+  {
+   "id": "geoid-anomaly",
+   "ad": "Jeoit Anomalisi / Harita Kâğıdı — açık",
+   "dark": false,
+   "canvas": "#EDF1F2",
+   "accent": "#0B2E3B"
+  },
+  {
+   "id": "geoid-anomaly-dark",
+   "ad": "Jeoit Anomalisi / Harita Kâğıdı — koyu",
+   "dark": true,
+   "canvas": "#0B2E3B",
+   "accent": "#EDF1F2"
+  },
+  {
+   "id": "graticule-slate",
+   "ad": "Izgara Arduvazı / Elipsoit Kehribarı — açık",
+   "dark": false,
+   "canvas": "#9FC4D4",
+   "accent": "#16222E"
+  },
+  {
+   "id": "graticule-slate-dark",
+   "ad": "Izgara Arduvazı / Elipsoit Kehribarı — koyu",
+   "dark": true,
+   "canvas": "#16222E",
+   "accent": "#9FC4D4"
+  },
+  {
+   "id": "wada-isabella-cinnamon",
+   "ad": "İsabella Kumu / Tarçın",
+   "dark": false,
+   "canvas": "#F7EEDC",
+   "accent": "#A65A2E"
+  },
+  {
+   "id": "wada-isabella-cinnamon-dark",
+   "ad": "İsabella Kumu / Tarçın — koyu",
+   "dark": true,
+   "canvas": "#231A14",
+   "accent": "#EEB480"
+  },
+  {
+   "id": "wada-ivory-glaucous",
+   "ad": "Fildişi / Yeşil Mavi",
+   "dark": false,
+   "canvas": "#F4ECDA",
+   "accent": "#0A7A80"
+  },
+  {
+   "id": "wada-ivory-glaucous-dark",
+   "ad": "Fildişi / Yeşil Mavi — koyu",
+   "dark": true,
+   "canvas": "#0E2629",
+   "accent": "#5FC3C6"
+  },
+  {
+   "id": "wada-salvia-indigo",
+   "ad": "Adaçayı Mavisi / Derin Çivit",
+   "dark": false,
+   "canvas": "#EEF1F6",
+   "accent": "#34508A"
+  },
+  {
+   "id": "wada-salvia-indigo-dark",
+   "ad": "Adaçayı Mavisi / Derin Çivit — koyu",
+   "dark": true,
+   "canvas": "#0B1530",
+   "accent": "#A9BEDA"
+  },
+  {
+   "id": "wada-hermosa-cerulean",
+   "ad": "Hermosa Pembesi / Gök Mavisi",
+   "dark": false,
+   "canvas": "#FAEEF0",
+   "accent": "#00717F"
+  },
+  {
+   "id": "wada-hermosa-cerulean-dark",
+   "ad": "Hermosa Pembesi / Gök Mavisi — koyu",
+   "dark": true,
+   "canvas": "#1E161B",
+   "accent": "#F9C1CE"
+  },
+  {
+   "id": "art-deco",
+   "ad": "Art Deco — Varak Altın / Siyah Lake",
+   "dark": true,
+   "canvas": "#0E0D0B",
+   "accent": "#D4AF37"
+  },
+  {
+   "id": "dark-deco",
+   "ad": "Dark Deco — Gece Kırmızısı / Siyah Kâğıt",
+   "dark": true,
+   "canvas": "#0B0807",
+   "accent": "#D9452B"
+  },
+  {
+   "id": "van-gogh",
+   "ad": "Van Gogh — Gece Mavisi / Krom Işığı",
+   "dark": true,
+   "canvas": "#0F1D3A",
+   "accent": "#F2C230"
+  },
+  {
+   "id": "monet",
+   "ad": "Monet — Nilüfer Leylağı / Viridiyen",
+   "dark": false,
+   "canvas": "#F1EEF4",
+   "accent": "#2F7563"
+  },
+  {
+   "id": "street-art",
+   "ad": "Street Art — Sprey Pembesi / Beton",
+   "dark": false,
+   "canvas": "#E9E7E2",
+   "accent": "#C2186F"
+  },
+  {
+   "id": "bauhaus",
+   "ad": "Bauhaus — Ana Renkler / Krem Kâğıt",
+   "dark": false,
+   "canvas": "#F2EBDD",
+   "accent": "#C8102E"
+  },
+  {
+   "id": "ukiyo-e",
+   "ad": "Ukiyo-e — Prusya Mavisi / Washi",
+   "dark": false,
+   "canvas": "#EFE6D2",
+   "accent": "#1D3F73"
+  },
+  {
+   "id": "art-nouveau",
+   "ad": "Art Nouveau — Adaçayı / Terrakota",
+   "dark": false,
+   "canvas": "#F3ECDC",
+   "accent": "#A3554A"
+  },
+  {
+   "id": "pop-art",
+   "ad": "Pop Art — Baskı Kırmızısı / Kâğıt",
+   "dark": false,
+   "canvas": "#FFFDF4",
+   "accent": "#D90500"
+  },
+  {
+   "id": "klimt-gold",
+   "ad": "Klimt — Altın Varak / Kömür",
+   "dark": true,
+   "canvas": "#14110B",
+   "accent": "#C9A23A"
+  },
+  {
+   "id": "klasik",
+   "ad": "Klasik — Pentelikon Mermeri / Pompei Kırmızısı",
+   "dark": false,
+   "canvas": "#F4F1EA",
+   "accent": "#A33B2B"
+  },
+  {
+   "id": "gotik",
+   "ad": "Gotik — Vitray / Alacakaranlık Taşı",
+   "dark": true,
+   "canvas": "#16141F",
+   "accent": "#E8B83A"
+  },
+  {
+   "id": "ronesans",
+   "ad": "Rönesans — Prato Yeşili / Kiremit",
+   "dark": false,
+   "canvas": "#F3EADA",
+   "accent": "#3E6B4F"
+  },
+  {
+   "id": "modern",
+   "ad": "Modern — Beyaz Sıva / Sinyal Kırmızısı",
+   "dark": false,
+   "canvas": "#F4F3EE",
+   "accent": "#B83A2E"
+  },
+  {
+   "id": "cagdas",
+   "ad": "Çağdaş — Parametrik Camgöbeği / Titanyum",
+   "dark": false,
+   "canvas": "#EEF2F5",
+   "accent": "#007A7A"
+  },
+  {
+   "id": "synthwave",
+   "ad": "Synthwave — Neon Pembe / Gece Moru",
+   "dark": true,
+   "canvas": "#140A26",
+   "accent": "#FF3EA5"
+  }
+ ]
+}

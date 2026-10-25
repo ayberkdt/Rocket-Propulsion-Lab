@@ -43,7 +43,11 @@ rocket-propulsion = "rocket_propulsion.api.server:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-rocket_propulsion = ["web/*.html", "web/*.css", "web/*.js", "thermochemistry/data/*.json"]
+rocket_propulsion = [
+    "web/*.html", "web/*.css", "web/*.js", "web/*.mjs",
+    "web/vendor/sunumatik/*", "web/vendor/sunumatik/typefaces/*",
+    "thermochemistry/data/*.json",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

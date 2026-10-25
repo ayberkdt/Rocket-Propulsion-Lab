@@ -1,0 +1,55 @@
+/* Sunumatik presets/charts_icons/chart-theme.css — subset vendored by scripts/sync_sunumatik_presets.py.
+   11 rules kept, 49 unused rules dropped; source hash in PROVENANCE.json. */
+:root, .sci-chart, .sci-chart-legend {
+  --chart-series-1: var(--color-data-1, #617552);
+  --chart-series-2: var(--color-data-2, #4f7488);
+  --chart-series-3: #b0791f;
+  --chart-series-4: #7d5185;
+  --chart-series-5: #4a8577;
+  --chart-series-6: #9a5b44;
+  --chart-font: ui-sans-serif, system-ui, sans-serif;
+  --chart-mono: ui-monospace, "IBM Plex Mono", monospace;
+  --chart-label-size: 22px;
+  --chart-tick-size: 20px;
+  --chart-annotation-size: 21px;
+}
+.sci-chart {
+  font-family: var(--chart-font);
+}
+.sci-chart [data-series-slot="1"] {
+  --series-color: var(--chart-series-1);
+}
+.sci-chart [data-series-slot="2"] {
+  --series-color: var(--chart-series-2);
+}
+.sci-chart [data-series-slot="3"] {
+  --series-color: var(--chart-series-3);
+}
+.sci-chart [data-series-slot="4"] {
+  --series-color: var(--chart-series-4);
+}
+.sci-chart [data-series-slot="5"] {
+  --series-color: var(--chart-series-5);
+}
+.sci-chart [data-series-slot="6"] {
+  --series-color: var(--chart-series-6);
+}
+.sci-chart .series-line {
+  stroke: var(--series-color, var(--chart-series-1));
+  stroke-width: 3.5;
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.sci-chart .series-marker {
+  fill: var(--series-color, var(--chart-series-1));
+  stroke: var(--color-surface, var(--color-canvas, #fff));
+  stroke-width: 2;
+}
+.sci-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  font: 600 var(--chart-annotation-size) / 1.2 var(--chart-font);
+  color: var(--color-ink, #2d2624);
+}

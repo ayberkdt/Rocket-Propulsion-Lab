@@ -1,0 +1,105 @@
+{
+  "repository": "https://github.com/ayberkdt/sunumatik",
+  "commit": "43936b69eb2980fedeaa028eb15a62d01120f03b",
+  "modified_source_paths": [],
+  "licenses": {
+    "typefaces": "SIL OFL 1.1 (license text beside each font)",
+    "presets": "Sunumatik, same author as this project"
+  },
+  "files": [
+    {
+      "path": "pano-odak.mjs",
+      "source": "presets/core/pano-odak.mjs",
+      "source_sha256": "174c7fef7cbb1202ba720309da63ae981732722694ab4f4ba542c987b6fa354c",
+      "sha256": "174c7fef7cbb1202ba720309da63ae981732722694ab4f4ba542c987b6fa354c",
+      "transform": "copy"
+    },
+    {
+      "path": "tr-bicim.mjs",
+      "source": "presets/core/tr-bicim.mjs",
+      "source_sha256": "ce2b6c9a28baaf1d142b8b2b654a20509ecaabbc9d655fb4e06e71a56bd9c716",
+      "sha256": "ce2b6c9a28baaf1d142b8b2b654a20509ecaabbc9d655fb4e06e71a56bd9c716",
+      "transform": "copy"
+    },
+    {
+      "path": "typefaces/source-sans-3.woff2",
+      "source": "presets/color_themes/typefaces/source-sans-3/source-sans-3.woff2",
+      "source_sha256": "2b9b1fe3b3cc74fad246ed913bdd6fd0a41b83850e355324f3fa47dcc0731d74",
+      "sha256": "2b9b1fe3b3cc74fad246ed913bdd6fd0a41b83850e355324f3fa47dcc0731d74",
+      "transform": "copy"
+    },
+    {
+      "path": "typefaces/source-sans-3.LICENSE",
+      "source": "presets/color_themes/typefaces/source-sans-3/LICENSE",
+      "source_sha256": "09746787287a289323b0ec3cff4d1a4a801331b82b7207c1e186f5d26619a392",
+      "sha256": "09746787287a289323b0ec3cff4d1a4a801331b82b7207c1e186f5d26619a392",
+      "transform": "copy"
+    },
+    {
+      "path": "typefaces/jetbrains-mono.woff2",
+      "source": "presets/color_themes/typefaces/jetbrains-mono/jetbrains-mono.woff2",
+      "source_sha256": "afb0a612f5add83bcf8b6b5256b3efe634529def1bfc304b0442581393cb8f3c",
+      "sha256": "afb0a612f5add83bcf8b6b5256b3efe634529def1bfc304b0442581393cb8f3c",
+      "transform": "copy"
+    },
+    {
+      "path": "typefaces/jetbrains-mono.LICENSE",
+      "source": "presets/color_themes/typefaces/jetbrains-mono/LICENSE",
+      "source_sha256": "b2fe5e8987594e9ffd1d2ca52a2f5d73eb8335243893c5d6254b5ad69269591d",
+      "sha256": "b2fe5e8987594e9ffd1d2ca52a2f5d73eb8335243893c5d6254b5ad69269591d",
+      "transform": "copy"
+    },
+    {
+      "path": "palette-library.css",
+      "source": "presets/color_themes/palette-library.css",
+      "source_sha256": "61639de3b8e1f03887fde874d569002f320ff8a4bc953fef015a618024f902d9",
+      "sha256": "b119400eda797d6a5611db6f727016648dcb158cfe0907a05a850402581fc0cd",
+      "transform": "rule subset: 61 kept, 8 dropped"
+    },
+    {
+      "path": "chart-theme.css",
+      "source": "presets/charts_icons/chart-theme.css",
+      "source_sha256": "8c29d7dc52b84f95613403be58227968bcfc2c4bc7e218bce48928a6e2c11710",
+      "sha256": "74bdaee643e8556c5d10c39e5e2244c932ca82a130459b5aca368c8ae80d037c",
+      "transform": "rule subset: 11 kept, 49 dropped"
+    },
+    {
+      "path": "table-presets.css",
+      "source": "presets/color_themes/components/table-presets.css",
+      "source_sha256": "e17b23e91b9aa2a44c9d7acfb0bf77a68ac14d8dbec2b406d39b3b17f6b5fb11",
+      "sha256": "45c36b847c8eba11237a0abc4dd56c4792b422fb67c3c7db44707f7efc3dd806",
+      "transform": "rule subset: 6 kept, 18 dropped"
+    },
+    {
+      "path": "pano-odak.css",
+      "source": "presets/core/pano-odak.css",
+      "source_sha256": "110560381d8cd420e6fe8aff18851dac68d1c5677052a727d55d337fec536c17",
+      "sha256": "9d64ce1c82e26c2a02564163e347d7ee79abbdb16661aaf47492697c8ed6a950",
+      "transform": "rule subset: 7 kept, 73 dropped"
+    },
+    {
+      "path": "palettes.json",
+      "source": [
+        "presets/color_themes/palette-library.json"
+      ],
+      "source_sha256": [
+        "66bcb5f23e534c4df06bf8216d1fa275a1fdb0036e8d89a288cfca4889bba99c"
+      ],
+      "sha256": "50c8778666e06e5e03cb56acad7db55bbc051f9ae70ac13a9c1ca565de9218bf",
+      "transform": "palettes with six data series: id, Turkish name, mode, canvas and accent"
+    },
+    {
+      "path": "icons.svg",
+      "source": [
+        "presets/charts_icons/icons/science-icons.svg",
+        "presets/charts_icons/domain-icons/domain-icons.svg"
+      ],
+      "source_sha256": [
+        "a8cf240a597f317f2a7e26764942b1f65fbed5a69a454a9b3620d3503f2d365d",
+        "c7d807017768443e28f5a29cb3c04e04ba0173e3f2bd9e6e72d9e55306ab65fa"
+      ],
+      "sha256": "b55ebce65560444e2650022b9a842e72a9fd3438c72e984a4784266a21e1790e",
+      "transform": "symbol subset: i-rocket, i-fluid-flow, i-shock-diamonds, i-friction, i-pressure, i-work-energy, i-entropy, i-mixture-ratio, i-propellant-tank, i-nozzle-expansion, i-nozzle-throat, i-regenerative-cooling, i-delta-v-burn, i-thrust-curve, i-rocket-stages"
+    }
+  ]
+}

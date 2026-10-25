@@ -1,0 +1,26 @@
+/* Sunumatik presets/core/pano-odak.css — subset vendored by scripts/sync_sunumatik_presets.py.
+   7 rules kept, 73 unused rules dropped; source hash in PROVENANCE.json. */
+.po-sekmeler {
+  flex: 0 0 auto; display: flex; gap: 4px; padding: 0 12px; border-bottom: 1px solid var(--color-rule, #3a3c42); overflow-x: auto;
+}
+.po-sekmeler [role="tab"] {
+  appearance: none; min-height: 44px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none;
+  color: var(--color-muted, #9a938a); font: 500 13px/1 var(--font-body, system-ui, sans-serif); cursor: pointer; white-space: nowrap;
+}
+.po-sekmeler [role="tab"][aria-selected="true"] {
+  color: var(--color-ink, #e9e4d8); border-bottom-color: var(--color-accent, #d9b877); background: none;
+}
+.po-sekmeler [role="tab"]:focus-visible {
+  outline: 2px solid var(--color-accent, #d9b877); outline-offset: -2px;
+}
+.po-panel {
+  position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden;
+}
+.po-panel[hidden] {
+  display: none;
+}
+@media (max-width: 860px) {
+.po-panel {
+  min-height: 300px;
+}
+}

@@ -2,3 +2,7 @@
 scripts/native_lunaris_candidate/plans.py -text whitespace=cr-at-eol
 # A unified diff uses a single space to represent an empty context line.
 docs/assurance/lunaris_impulse.patch -text whitespace=-blank-at-eol
+# Windows batch files must keep CRLF line endings for cmd.exe.
+*.cmd text eol=crlf
+# Vendored presets are pinned by SHA-256 in PROVENANCE.json: keep their bytes exactly.
+src/rocket_propulsion/web/vendor/** -text
