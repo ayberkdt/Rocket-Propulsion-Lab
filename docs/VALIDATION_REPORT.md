@@ -17,6 +17,8 @@ scope labels must be read within these limits. See
 
 | Capability | Listed software evidence | Verification scope / open work |
 |---|---|---|
+| Near-throat Hall approximation | primary Cartesian/speed-angle comparisons, independent PDE differentiation, bracketed sonic roots and explicit approximation defects; see [Hall review](HALL_THROAT_REVIEW.md) | retained polynomial and numerical root only; complete nonlinear sonic initialization, wall matching and physical validation remain open |
+| Supersonic MOC field | connected axis/interior/finite-wall marching, complete cell area/edge coverage, independent signed radial refinement and mass quadrature; see [field review](MOC_FIELD_REVIEW.md) | prescribed straight-wall supersonic strip only; sonic initialization, curved/optimized wall, shocks, full nozzle/exit and physical validation remain open |
 | Bounded measurement/model comparisons | exact interval corners, outward endpoint containment, guarded decision checks and archived-file integrity | numerical protocol checks only; physical holdout/calibration and model-source authentication unestablished |
 | Ideal gas, isentropic, shocks | source-labelled reference fixtures and inverse/limit tests | listed software checks |
 | NASA Glenn species and mixtures | published coefficients, 298 K checks, range and inverse tests | software checks cover bundled species |
