@@ -31,16 +31,18 @@ BASE = {"pitch_m": 4e-3, "channel_width_m": 1.5e-3, "channel_height_m": 5e-3, "h
 
 
 def independent_heat(p: dict, cell: float) -> float:
-    """Uniform square cells of size ``cell``; geometry must be a multiple of it."""
+    """Uniform square cells of size ``cell``; geometry must be a multiple of it (closeout in the same k)."""
     k, hg, hc = p["thermal_conductivity_w_m_k"], p["gas_coefficient_w_m2_k"], p["coolant_coefficient_w_m2_k"]
     taw, tb, qr = p["recovery_temperature_k"], p["coolant_temperature_k"], p.get("radiative_heat_flux_w_m2", 0.0)
     ny = round(p["pitch_m"] / 2 / cell)
     nch = round(p["channel_width_m"] / 2 / cell)
     nw = round(p["hot_wall_thickness_m"] / cell)
     nh = round(p["channel_height_m"] / cell)
-    solid = np.zeros((nw + nh, ny), dtype=bool)
+    nc = round(p.get("closeout_thickness_m", 0.0) / cell)
+    solid = np.zeros((nw + nh + nc, ny), dtype=bool)
     solid[:nw, :] = True
-    solid[nw:, nch:] = True
+    solid[nw:nw + nh, nch:] = True
+    solid[nw + nh:, :] = True
     ids = -np.ones(solid.shape, dtype=int)
     ids[solid] = np.arange(solid.sum())
     a = lil_matrix((solid.sum(), solid.sum()))
@@ -60,7 +62,10 @@ def independent_heat(p: dict, cell: float) -> float:
         if j == nw - 1 and i < nch:
             a[n, n] += g_cool
             b[n] += g_cool * tb
-        if j >= nw and i == nch:
+        if nw <= j < nw + nh and i == nch:
+            a[n, n] += g_cool
+            b[n] += g_cool * tb
+        if nc and j == nw + nh and i < nch:  # channel ceiling
             a[n, n] += g_cool
             b[n] += g_cool * tb
     temps = spsolve(a.tocsr(), b)
@@ -96,6 +101,44 @@ class LimitsAndOracles(unittest.TestCase):
         steps = [abs(b - a) for a, b in itertools.pairwise(heats)]
         self.assertTrue(steps[0] > steps[1] > steps[2])
         self.assertLess(steps[-1] / heats[-1], 1e-3)
+
+
+class Closeout(unittest.TestCase):
+    def test_independent_assembly_with_a_closeout(self) -> None:
+        p = {**BASE, "pitch_m": 4.0e-3, "channel_width_m": 1.6e-3, "channel_height_m": 4.0e-3,
+             "hot_wall_thickness_m": 0.8e-3, "closeout_thickness_m": 1.0e-3}
+        reference = independent_heat(p, 0.1e-3)
+        same = solve_channel_wall_section(**p, cells_channel=8, cells_land=12, cells_wall=8, cells_height=40,
+                                          cells_closeout=10)
+        self.assertLess(abs(same.heat_per_length_w_m - reference), 1e-9 * reference)
+        self.assertLess(abs(same.energy_residual_w_m), 1e-11 * reference)
+
+    def test_thin_closeout_limit_and_trends(self) -> None:
+        bare = solve_channel_wall_section(**BASE)
+        thin = solve_channel_wall_section(**BASE, closeout_thickness_m=1e-8)
+        self.assertLess(abs(thin.heat_per_length_w_m / bare.heat_per_length_w_m - 1), 1e-4)
+        self.assertLess(abs(thin.peak_hot_wall_temperature_k - bare.peak_hot_wall_temperature_k), 0.05)
+        peaks = [solve_channel_wall_section(**BASE, closeout_thickness_m=1e-3, closeout_conductivity_w_m_k=kc)
+                 .peak_hot_wall_temperature_k for kc in (10.0, 100.0, 1000.0)]
+        self.assertEqual(peaks, sorted(peaks, reverse=True))  # a better closeout path cools more
+        self.assertLess(peaks[0], bare.peak_hot_wall_temperature_k + 1e-9)
+
+    def test_outer_film_closes_the_energy_balance(self) -> None:
+        r = solve_channel_wall_section(**BASE, closeout_thickness_m=1e-3, outer_coefficient_w_m2_k=50.0,
+                                       outer_temperature_k=300.0)
+        self.assertLess(abs(r.energy_residual_w_m), 1e-11 * r.heat_per_length_w_m)
+        for change in ({"closeout_thickness_m": -1e-3}, {"closeout_thickness_m": math.nan},
+                       {"closeout_thickness_m": 1e-3, "closeout_conductivity_w_m_k": 0.0},
+                       {"outer_coefficient_w_m2_k": 10.0},
+                       {"closeout_thickness_m": 1e-3, "outer_coefficient_w_m2_k": 10.0, "outer_temperature_k": -5.0},
+                       {"imposed_heat_flux_w_m2": math.inf}):
+            with self.subTest(change=change), self.assertRaises(DomainError):
+                solve_channel_wall_section(**{**BASE, **change})
+        # an imposed flux of either sign enters the balance
+        for imposed in (-2.0e6, 3.0e6):
+            q = solve_channel_wall_section(**BASE, imposed_heat_flux_w_m2=imposed)
+            with self.subTest(imposed=imposed):
+                self.assertLess(abs(q.energy_residual_w_m), 1e-11 * abs(q.heat_per_length_w_m))
 
 
 class ConservationAndTrends(unittest.TestCase):

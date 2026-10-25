@@ -41,9 +41,10 @@ References
 
 from __future__ import annotations
 
+import itertools
 from bisect import bisect_right
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from math import cos, isfinite, pi, radians, sqrt
 from typing import Literal
 
@@ -337,6 +338,7 @@ class ThermalStation:
     channel_height_m: float = 0.0
     hot_wall_thickness_m: float = 0.0
     hot_wall_mean_temperature_k: float = 0.0
+    axial_conduction_flux_w_m2: float = 0.0
 
 
 #: Coolant Mach number above which the march warns that the flow nears choking (library choice).
@@ -414,6 +416,127 @@ def bartz_coefficient(gas: HotGas, *, throat_radius_m: float, area_ratio: float,
     return coefficient, recovery
 
 
+def _axial_network(result: RegenChamberResult, channels: CoolingChannels | ChannelProfile, conductivity: float,
+                   closeout: float, counterflow: bool, closeout_conductivity: float | None
+                   ) -> tuple[list[int], list[float], list[float]]:
+    """Return the stations that carry march area (in axial order), their areas and the conductances between them.
+
+    The last station in coolant order deposits no heat of its own, so it is
+    left out of the axial network (an adiabatic end one segment early).
+    """
+    stations = result.stations
+    _, _, cos_helix = _channel_scalars(
+        channels.count_at(stations[0].x_m) if isinstance(channels, ChannelProfile) else channels.count,
+        channels.roughness_m, channels.helix_angle_deg)
+    k_close = conductivity if closeout_conductivity is None else closeout_conductivity
+
+    def section(i: int) -> float:
+        """Metal section per unit circumference times k: hot wall, land share, closeout."""
+        item = stations[i]
+        count = channels.count_at(item.x_m) if isinstance(channels, ChannelProfile) else channels.count
+        pitch = 2.0 * pi * (item.radius_m + item.hot_wall_thickness_m) * cos_helix / count
+        land_share = max(0.0, 1.0 - item.channel_width_m / pitch)
+        return conductivity * (item.hot_wall_thickness_m + land_share * item.channel_height_m) + k_close * closeout
+
+    order = list(reversed(range(len(stations)))) if counterflow else list(range(len(stations)))
+    area = {}
+    for step, i in enumerate(order[:-1]):
+        nxt = stations[order[step + 1]]
+        area[i] = 2.0 * pi * stations[i].radius_m * sqrt((nxt.x_m - stations[i].x_m) ** 2
+                                                          + (nxt.radius_m - stations[i].radius_m) ** 2)
+    nodes = sorted(area)
+    conductances = []
+    for a_index, b_index in itertools.pairwise(nodes):
+        a, b = stations[a_index], stations[b_index]
+        length = sqrt((b.x_m - a.x_m) ** 2 + (b.radius_m - a.radius_m) ** 2)
+        conductances.append(0.5 * (section(a_index) + section(b_index)) * pi * (a.radius_m + b.radius_m) / length)
+    return nodes, [area[i] for i in nodes], conductances
+
+
+def _mid_wall(item: ThermalStation) -> float:
+    return 0.5 * (item.hot_wall_mean_temperature_k + item.cold_wall_temperature_k)
+
+
+def _implicit_axial_sources(result: RegenChamberResult, nodes: list[int], areas: list[float],
+                            conductances: list[float], conductivity: float) -> dict[int, float]:
+    """Solve the station network implicitly for the axial fluxes.
+
+    Each station's mid-wall temperature responds to an imposed flux ``S`` as
+    ``T = T0 + R S`` with ``R = 1/(1/r_g + 1/r_c)``: ``r_g = 1/h_g + t/(2k)``
+    toward the gas and ``r_c = (T - T_b)/(q + S)`` toward the coolant, both
+    read from the last march. With ``A S_i = sum G_ij (T_j - T_i)`` this is a
+    tridiagonal system in ``T``, solved by the Thomas algorithm.
+    """
+    stations = result.stations
+    n = len(nodes)
+    response, base = [], []
+    for i in nodes:
+        item = stations[i]
+        r_gas = 1.0 / item.gas_side_coefficient_w_m2_k + 0.5 * item.hot_wall_thickness_m / conductivity
+        to_coolant = item.heat_flux_w_m2 + item.axial_conduction_flux_w_m2
+        r_cool = max(_mid_wall(item) - item.coolant_temperature_k, 1.0e-9) / max(to_coolant, 1.0e-9)
+        r = 1.0 / (1.0 / r_gas + 1.0 / r_cool)
+        response.append(r)
+        base.append(_mid_wall(item) - r * item.axial_conduction_flux_w_m2)
+    # rows: T_i - (R_i/A_i) sum_j G_ij (T_j - T_i) = base_i
+    lower, diagonal, upper, rhs = [0.0] * n, [1.0] * n, [0.0] * n, list(base)
+    for k, g in enumerate(conductances):
+        for row, other in ((k, k + 1), (k + 1, k)):
+            weight = response[row] / areas[row] * g
+            diagonal[row] += weight
+            if other > row:
+                upper[row] -= weight
+            else:
+                lower[row] -= weight
+    for row in range(1, n):
+        factor = lower[row] / diagonal[row - 1]
+        diagonal[row] -= factor * upper[row - 1]
+        rhs[row] -= factor * rhs[row - 1]
+    temperature = [0.0] * n
+    temperature[-1] = rhs[-1] / diagonal[-1]
+    for row in range(n - 2, -1, -1):
+        temperature[row] = (rhs[row] - upper[row] * temperature[row + 1]) / diagonal[row]
+    net = [0.0] * n
+    for k, g in enumerate(conductances):
+        flow = g * (temperature[k + 1] - temperature[k])
+        net[k] += flow
+        net[k + 1] -= flow
+    return {i: net[k] / areas[k] for k, i in enumerate(nodes)}
+
+
+def _with_axial_conduction(**arguments) -> RegenChamberResult:
+    """Iterate the march with implicitly solved axial wall conduction until the fluxes settle."""
+    channels = arguments["channels"]
+    material = arguments["wall_material"]
+    conductivity = arguments["wall_thermal_conductivity_w_m_k"]
+    if conductivity is None:
+        catalog = get_wall_material(material).thermal_conductivity if material is not None else None
+        if catalog is None:
+            raise InputError("Axial conduction needs a wall conductivity.", field="wall_thermal_conductivity_w_m_k")
+        conductivity = catalog.value
+    sources: dict[int, float] = {}
+    nodes: list[int] = []
+    for _ in range(40):
+        result = solve_regen_chamber(**arguments, _axial_sources=sources)
+        nodes, areas, conductances = _axial_network(result, channels, conductivity, arguments["closeout_thickness_m"],
+                                                    arguments["coolant"].counterflow,
+                                                    arguments["closeout_conductivity_w_m_k"])
+        updated = _implicit_axial_sources(result, nodes, areas, conductances, conductivity)
+        scale = max(abs(item.heat_flux_w_m2) for item in result.stations)
+        change = max(abs(updated[i] - sources.get(i, 0.0)) for i in updated)
+        if change <= 1.0e-6 * scale:
+            break
+        sources = updated
+    else:
+        raise ConvergenceError("Axial wall conduction did not settle.", code="axial_conduction_not_converged")
+    largest = max(abs(item.axial_conduction_flux_w_m2) for item in result.stations)
+    note = WarningMessage(
+        "axial_wall_conduction",
+        f"Axial wall conduction included; the largest axial flux is {largest:.3g} W/m^2 "
+        f"({largest / scale:.2%} of the peak gas flux).", severity="info")
+    return replace(result, warnings=(*result.warnings, note))
+
+
 def _temperature_from_enthalpy(fluid: str, enthalpy: float, pressure: float, guess: float) -> float:
     """Invert ``h(T, p) = enthalpy``: Newton on ``dh/dT = cp``, bisection as fallback."""
     model = reference_fluid(fluid)
@@ -469,6 +592,10 @@ def solve_regen_chamber(
     coolant_correlation: CoolantCorrelation = "auto",
     gas_radiation: GasRadiation = "none",
     wall_model: str = "fin",
+    closeout_thickness_m: float = 0.0,
+    closeout_conductivity_w_m_k: float | None = None,
+    axial_conduction: bool = False,
+    _axial_sources: Mapping[int, float] | None = None,
 ) -> RegenChamberResult:
     """March the coupled gas-wall-coolant problem along the cooling channels [1]_, [2]_.
 
@@ -503,6 +630,20 @@ def solve_regen_chamber(
         temperatures; ``hot_wall_temperature_k`` is then the peak over the
         pitch (above the channel centre) and ``hot_wall_mean_temperature_k``
         the mean. About 10 ms per station.
+    closeout_thickness_m : float, default 0
+        Closeout over the channels (``"2d"`` only): bonded to the lands, its
+        underside cooled by the coolant, its outer face adiabatic.
+    closeout_conductivity_w_m_k : float, optional
+        Closeout conductivity; defaults to the wall conductivity.
+    axial_conduction : bool, default False
+        Couple the stations through conduction along the wall: each station
+        receives ``sum G_ij (T_j - T_i)`` from its neighbours, with
+        ``G = k A' 2 pi r / ds``, ``A'`` the metal section per unit
+        circumference (hot wall, the land share of the channel height and
+        the closeout) and ``T`` the mid-wall temperature; the march is
+        repeated until these fluxes change by less than 1e-6 of the peak gas
+        flux. The fluxes sum to zero, so the heat load is redistributed, not
+        created.
 
     Returns
     -------
@@ -562,6 +703,20 @@ def solve_regen_chamber(
         raise InputError("Taylor's correlation applies to hydrogen coolant only.", field="coolant_correlation")
     if wall_model not in ("fin", "2d"):
         raise InputError("Wall model must be fin or 2d.", field="wall_model")
+    closeout = float(closeout_thickness_m)
+    if not isfinite(closeout) or closeout < 0.0:
+        raise DomainError("Closeout thickness must be finite and non-negative.", field="closeout_thickness_m")
+    if closeout > 0.0 and wall_model != "2d":
+        raise InputError("A closeout needs wall_model='2d'.", field="closeout_thickness_m")
+    if not isinstance(axial_conduction, bool):
+        raise InputError("axial_conduction must be a boolean.", field="axial_conduction")
+    if axial_conduction:
+        return _with_axial_conduction(
+            contour=contour, gas=gas, channels=channels, coolant=coolant, wall_material=wall_material,
+            wall_thermal_conductivity_w_m_k=wall_thermal_conductivity_w_m_k,
+            coolant_correlation=coolant_correlation, gas_radiation=gas_radiation, wall_model=wall_model,
+            closeout_thickness_m=closeout, closeout_conductivity_w_m_k=closeout_conductivity_w_m_k)
+    sources = dict(_axial_sources or {})
     if gas_radiation not in ("none", "wsgg"):
         raise InputError("Gas radiation must be none or wsgg.", field="gas_radiation")
     if isinstance(channels, ChannelProfile):
@@ -694,11 +849,14 @@ def solve_regen_chamber(
                 gas_emissivity=emission.value, gas_absorptivity=absorption.value,
                 gas_temperature_k=gas_temperature, wall_temperature_k=wall_temperature)
 
+        station_source = sources.get(index, 0.0)
+
         def balance(wall_temperature: float, *, station=station, temperature=temperature,
                     land=land, circumference_per_channel=circumference_per_channel,
                     coolant_coefficient=coolant_coefficient, radiative=radiative,
                     width=width, height=height,
-                    thickness=thickness) -> tuple[float, float, float, float, float, float]:
+                    thickness=thickness,
+                    source=station_source) -> tuple[float, float, float, float, float, float]:
             h_gas, recovery = bartz_coefficient(gas, throat_radius_m=contour.throat_radius_m,
                                                 area_ratio=station.area_ratio, mach=station.mach,
                                                 wall_temperature_k=wall_temperature)
@@ -706,7 +864,8 @@ def solve_regen_chamber(
             q_gas = h_gas * (recovery - wall_temperature) + q_rad
             # Taylor's T_w is the coolant-side wall, one conduction drop below the hot wall;
             # bisection probes far below the root are floored at the bulk temperature.
-            h_cool = coolant_coefficient(max(wall_temperature - q_gas * thickness / conductivity, temperature))
+            h_cool = coolant_coefficient(max(wall_temperature - (q_gas + source) * thickness / conductivity,
+                                             temperature))
             fin = conduction.straight_fin(
                 thermal_conductivity_w_m_k=conductivity, heat_transfer_coefficient_w_m2_k=h_cool,
                 perimeter_m=2.0, cross_section_area_m2=land, length_m=height,
@@ -714,13 +873,25 @@ def solve_regen_chamber(
             wetted = width + 2.0 * fin.efficiency * height
             resistance = thickness / conductivity + circumference_per_channel / (h_cool * wetted)
             conducted = (wall_temperature - temperature) / resistance
-            return q_gas - conducted, q_gas, h_gas, recovery, h_cool, fin.efficiency
+            return q_gas + source - conducted, q_gas, h_gas, recovery, h_cool, fin.efficiency
 
         recovery_guess = bartz_coefficient(gas, throat_radius_m=contour.throat_radius_m,
                                            area_ratio=station.area_ratio, mach=station.mach,
                                            wall_temperature_k=temperature)[1]
         low, high = temperature, recovery_guess
         f_low, f_high = balance(low)[0], balance(high)[0]
+        # heat conducted in axially can lift the wall above the recovery temperature, and heat
+        # conducted away can pull it toward the coolant: widen the bracket in those cases
+        for _ in range(40):
+            if f_high <= 0.0:
+                break
+            high += 0.25 * (high - temperature) + 1.0
+            f_high = balance(high)[0]
+        for _ in range(40):
+            if f_low >= 0.0 or low <= 0.5 * temperature:
+                break
+            low = max(0.5 * temperature, low - 0.05 * temperature)
+            f_low = balance(low)[0]
         if f_low < 0.0 or f_high > 0.0:
             raise ConvergenceError("Hot-wall temperature is not bracketed.", code="wall_temperature_bracket",
                                    details={"x_m": station.x_m})
@@ -737,7 +908,8 @@ def solve_regen_chamber(
         coolant_velocity = mass_flux / local_state.density_kg_m3
         recording = True
         _, q_gas, h_gas, recovery, h_cool, efficiency = balance(hot_wall)
-        cold_wall = hot_wall - q_gas * thickness / conductivity
+        source = station_source
+        cold_wall = hot_wall - (q_gas + source) * thickness / conductivity
         hot_wall_mean = hot_wall
         if wall_model == "2d":
             # fixed point on the mean wall temperatures; the fin solution is the start
@@ -753,7 +925,8 @@ def solve_regen_chamber(
                     hot_wall_thickness_m=thickness, thermal_conductivity_w_m_k=conductivity,
                     gas_coefficient_w_m2_k=h_gas, recovery_temperature_k=recovery,
                     coolant_coefficient_w_m2_k=h_cool, coolant_temperature_k=temperature,
-                    radiative_heat_flux_w_m2=q_rad)
+                    radiative_heat_flux_w_m2=q_rad, imposed_heat_flux_w_m2=source,
+                    closeout_thickness_m=closeout, closeout_conductivity_w_m_k=closeout_conductivity_w_m_k)
                 settled = (abs(section.mean_hot_wall_temperature_k - mean_hot) <= 1.0e-9 * mean_hot
                            and abs(section.mean_coolant_wall_temperature_k - mean_cold) <= 1.0e-9 * mean_cold)
                 mean_hot = section.mean_hot_wall_temperature_k
@@ -763,7 +936,7 @@ def solve_regen_chamber(
             else:
                 raise ConvergenceError("2-D wall temperatures did not settle.", code="wall_2d_not_converged",
                                        details={"x_m": station.x_m})
-            q_gas = section.mean_heat_flux_w_m2
+            q_gas = section.mean_heat_flux_w_m2 - source
             hot_wall, hot_wall_mean, cold_wall = section.peak_hot_wall_temperature_k, mean_hot, mean_cold
         recording = False
         solved[index] = ThermalStation(
@@ -776,14 +949,14 @@ def solve_regen_chamber(
             land_fin_efficiency=efficiency, wall_limit_margin_k=None if limit is None else limit - hot_wall,
             coolant_velocity_m_s=coolant_velocity, coolant_mach=coolant_velocity / local_state.speed_of_sound_m_s,
             channel_width_m=width, channel_height_m=height, hot_wall_thickness_m=thickness,
-            hot_wall_mean_temperature_k=hot_wall_mean)
+            hot_wall_mean_temperature_k=hot_wall_mean, axial_conduction_flux_w_m2=source)
         if step == len(order) - 1:
             break
         following_index = order[step + 1]
         following = stations[following_index]
         segment = sqrt((following.x_m - station.x_m) ** 2 + (following.radius_m - station.radius_m) ** 2)
         path = segment / cos_helix
-        heat = q_gas * 2.0 * pi * station.radius_m * segment
+        heat = (q_gas + source) * 2.0 * pi * station.radius_m * segment
         total_heat += heat
         distance += path
         enthalpy += heat / mass_flow

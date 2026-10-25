@@ -1,5 +1,12 @@
 # Release notes
 
+The 2-D channel wall gains a closeout layer bonded to the lands (cooled
+underside, adiabatic or convective outer face), and the march can couple
+its stations through axial wall conduction, solved implicitly from each
+station's linearised response (a plain fixed-point iteration diverged).
+Both are verified against independent recomputations and mutation-checked;
+the regen route exposes `closeout_thickness_m` and `axial_conduction`.
+
 Closed the remaining simplifications named in the previous entry. The
 regenerative solver gains an optional two-dimensional wall cross-section at
 every station (`wall_model="2d"`, peak hot-wall temperature above the

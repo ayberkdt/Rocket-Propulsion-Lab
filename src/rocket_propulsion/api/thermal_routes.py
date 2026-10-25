@@ -143,6 +143,18 @@ def heat_convection_route(payload: dict[str, Any]) -> dict[str, Any]:
     return _clean({"transport": properties, "sweep": sweep})
 
 
+def _flag(payload: dict[str, Any], key: str) -> bool:
+    """Read an optional boolean: JSON true/false or the text true/false; anything else is refused."""
+    raw = payload.get(key, False)
+    if raw in (None, ""):
+        return False
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, str) and raw.strip().lower() in {"true", "false"}:
+        return raw.strip().lower() == "true"
+    raise InputError(f"Field {key} must be true or false.", field=key)
+
+
 def heat_radiation_route(payload: dict[str, Any]) -> dict[str, Any]:
     """Radiative-equilibrium temperature of a radiation-cooled conical nozzle extension [1]_.
 
@@ -200,6 +212,8 @@ def regen_chamber_route(payload: dict[str, Any]) -> dict[str, Any]:
             100, 1.5 mm, 5 mm, 1 mm; channel_helix_angle_deg : float, default 0
         wall_material : str, default "grcop-84"
         wall_model : {"fin", "2d"}, default "fin"
+        closeout_thickness_m : float, default 0 (``"2d"`` only)
+        axial_conduction : bool, default false
 
     Returns
     -------
@@ -237,7 +251,9 @@ def regen_chamber_route(payload: dict[str, Any]) -> dict[str, Any]:
                         inlet_pressure_pa=_number(payload, "coolant_inlet_pressure_pa", 1.5e7),
                         mass_flow_kg_s=flow),
         wall_material=_text(payload, "wall_material", "grcop-84"),
-        wall_model=_text(payload, "wall_model", "fin"))
+        wall_model=_text(payload, "wall_model", "fin"),
+        closeout_thickness_m=_number(payload, "closeout_thickness_m", 0.0),
+        axial_conduction=_flag(payload, "axial_conduction"))
     return _clean({"gas": gas, "fuel_flow_kg_s": fuel_flow, "coolant_flow_kg_s": flow, **asdict(result)})
 
 

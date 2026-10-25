@@ -37,6 +37,19 @@ from rocket_propulsion.heat_transfer.regen_chamber import (
   temperatures. Stations then report the peak hot-wall temperature (above
   the channel centre) and its mean. For the methane example the peak is
   912.6 K against 894.2 K from the fin model, and the heat load 1 % lower.
+  `closeout_thickness_m` (and `closeout_conductivity_w_m_k`) adds the
+  closeout bonded to the lands: its underside is cooled by the coolant and
+  its outer face is adiabatic, so heat reaching the land top returns to the
+  channel ceiling.
+- `axial_conduction=True` couples the stations through conduction along the
+  wall (metal section `k (t + land share · h) + k_c c` per unit
+  circumference, mid-wall temperatures). Each station's response to an
+  imposed flux is linearised from its gas- and coolant-side resistances and
+  the network is solved implicitly (tridiagonal) between marches, until the
+  axial fluxes change by less than 1e-6 of the peak gas flux; a plain
+  fixed-point iteration diverged on the methane example. The fluxes sum to
+  zero. In the example the throat peak falls from 894.2 to 890.5 K and the
+  largest axial flux is 1.2 % of the peak gas flux (4 outer iterations).
 
 - `hot_gas_from_propellant(propellant_pair, chamber_pressure_pa,
   oxidizer_fuel_ratio=None, throat_radius_of_curvature_m)` builds the frozen
@@ -194,9 +207,11 @@ still developing, which Bartz does not model.
 - Quasi-one-dimensional: no axial conduction in the wall, no circumferential
   variation between land and channel centre, no curvature or entrance
   enhancement and frozen chamber gas properties.
-- At a bifurcation only the sudden-area-change loss is modelled; flow
-  splitting and manifold effects are not. The wall model (fin or 2-D) has no
-  axial conduction and no closeout heat path.
+- At a bifurcation the sudden-area-change loss is modelled; the splitter's
+  own loss is not, because no verified loss data for milled-channel
+  splitters was found (a pipe-tee coefficient would be an unsupported
+  substitute). The last station in coolant order is left out of the axial
+  network (an adiabatic end one segment early).
 - Coolant boiling is refused (`coolant_boiling`); two-phase flow is not
   modelled. A coolant state outside a transport correlation's range stops the
   march with `DomainError`.

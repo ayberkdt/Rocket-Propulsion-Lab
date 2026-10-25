@@ -303,7 +303,7 @@ verification, and the regenerative-cooling solver couples them:
 | Conduction | Steady multilayer slab, cylinder and sphere walls with k(T) by the Kirchhoff transform, contact resistance and heat generation; lumped capacitance; semi-infinite and one-term/series transient solutions; a finite-volume θ-method transient solver with convective and radiative boundaries and an energy audit; straight and annular fins with exact Bessel functions | `heat_transfer.conduction` |
 | Convection | Gnielinski, Dittus–Boelter and Colburn pipe flow, laminar entry (Graetz), Chen, Haaland and Filonenko friction; Taylor's hydrogen correlation for heated supercritical H₂ (TN D-4332); Hess–Kunz; the NASA RTE coolant Nusselt form with curvature factor; SP-125 supercritical film coefficient; flat-plate, Churchill–Bernstein and Churchill–Chu external and natural convection; Rohsenow boiling, peak heat flux, film condensation; subcooled flow-boiling burnout for ethanol (NASA/TM-1998-206612) and MMH (NASA CR-134282) with the SP-8087 margin screen; Hatch–Papell film cooling | `heat_transfer.convection` |
 | Radiation | Planck spectrum and band fractions, thirteen view-factor closed forms (Lienhard Tables 10.2–10.3, Howell catalogue), frustum enclosures, gray N-surface enclosures, radiation-cooled nozzle-extension equilibrium temperature, and H₂O–CO₂ and soot emissivity and absorptivity by WSGG models (Bordbar 2020, Sadeghi 2021) | `heat_transfer.radiation` |
-| Regenerative cooling | At every station: Bartz gas-side coefficient at the local wall temperature, conduction through the hot wall, channel fin efficiency, coolant h from Taylor (hydrogen) or Gnielinski, real-fluid coolant properties, an enthalpy march with friction, momentum and bifurcation pressure losses over constant, axially varying, helical or bifurcated channels, a fin or two-dimensional wall cross-section, optional WSGG gas radiation and a material-limit margin. The gas side is compared with a NASA hot firing (TN D-6396) | `heat_transfer.regen_chamber` |
+| Regenerative cooling | At every station: Bartz gas-side coefficient at the local wall temperature, conduction through the hot wall, channel fin efficiency, coolant h from Taylor (hydrogen) or Gnielinski, real-fluid coolant properties, an enthalpy march with friction, momentum and bifurcation pressure losses over constant, axially varying, helical or bifurcated channels, a fin or two-dimensional wall cross-section with closeout, optional conjugate axial wall conduction, optional WSGG gas radiation and a material-limit margin. The gas side is compared with a NASA hot firing (TN D-6396) | `heat_transfer.regen_chamber` |
 | Transpiration cooling | Film-theory blowing correction (Mickley, NACA TN 3208), the coolant flux for a target wall temperature and its inverse with wall efficiency and radiation, Eckert–Livingood turbulent ratios, Rannie's porous-pipe relation, and the two-temperature solution through the porous wall (NASA CR-107268) | `heat_transfer.transpiration` |
 
 The coolant properties come from reference equations of state (Leachman H₂,
@@ -417,8 +417,8 @@ python scripts/sync_sunumatik_presets.py --check
 python scripts/package_smoke_test.py      # build, install in a clean venv, import
 ```
 
-2330 tests in 166 files, with 14 091 subtests; the last full run (pytest,
-2026-10-26, Python 3.12) passed 2318 with 12 skipped and no failures. CI runs
+2337 tests in 167 files, with 14 259 subtests; the last full run (pytest,
+2026-10-26, Python 3.12) passed 2325 with 12 skipped and no failures. CI runs
 ruff, mypy, the full suite (with `RPL_SLOW_TESTS=1`) and a package build on
 Python 3.11 and 3.12. The tests for the newest areas:
 
@@ -427,7 +427,7 @@ Python 3.11 and 3.12. The tests for the newest areas:
 | Conduction | `test_heat_conduction.py` | 46 | Textbook tables and worked examples, Bessel identities, observed convergence orders, energy audits |
 | Convection | `test_heat_convection.py` | 35 | Worked examples to printed digits, correlation overlaps, Taylor exponent read-off |
 | Radiation | `test_heat_radiation.py` | 28 | NIST constants, quadrature of Planck's law, worked examples, enclosure identities |
-| Regenerative cooling | `test_regen_chamber.py`, `test_regen_channel_geometry.py`, `test_channel_wall_2d.py` | 10 + 17 + 7 | Conservation, resistance network, trends, refinement, hydrogen with Taylor; every segment's pressure drop recomputed (friction, Euler momentum, GFSSP bifurcation loss), Borda-Carnot limit; 2-D wall against an independent `scipy.sparse` solve, lumped limit and fin limit |
+| Regenerative cooling | `test_regen_chamber.py`, `test_regen_channel_geometry.py`, `test_channel_wall_2d.py`, `test_regen_conjugate.py` | 10 + 17 + 10 + 4 | Conservation, resistance network, trends, refinement, hydrogen with Taylor; every segment's pressure drop recomputed (friction, Euler momentum, GFSSP bifurcation loss), Borda-Carnot limit; 2-D wall against an independent `scipy.sparse` solve, lumped limit and fin limit |
 | Hot-fire comparison | `test_hotfire_validation.py`, `test_hotfire_heat_load.py` | 5 + 6 | Measured coefficients of NASA TN D-6396 against Bartz; TN D-3532 coolant heat load against integrated Bartz |
 | Burnout | `test_burnout.py` | 7 | Ethanol Table III within the stated band, MMH constants, SP-8087 screen |
 | Feed-coupled chugging | `test_feed_coupled_instability.py` | 11 | Closed form against the component chain, resonances, Example 5.5.1.1 by Nyquist count |

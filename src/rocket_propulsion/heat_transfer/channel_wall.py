@@ -14,7 +14,13 @@ finite-volume method:
 * hot face ``z = 0``: ``q = h_g (T_aw - T) + q_rad`` (Robin plus an imposed flux);
 * channel floor ``z = t, y < w/2`` and side ``y = w/2, t < z < t + h``:
   ``q = h_c (T - T_b)``;
-* symmetry planes and the land top (bonded to the closeout) are adiabatic.
+* optional closeout ``t + h <= z <= t + h + c`` over the whole half pitch,
+  with its own conductivity: the land top is bonded to it, the channel
+  ceiling ``z = t + h, y < w/2`` exchanges ``h_c (T - T_b)`` and its outer
+  face is adiabatic or convective to an environment; without a closeout the
+  land top is adiabatic;
+* symmetry planes are adiabatic; an extra imposed flux of either sign may
+  enter the hot face (used for axial conduction from neighbouring stations).
 
 Fourier conduction with constant ``k`` and the convective (Robin) boundary
 condition are those of [1]_. Boundary conductances combine the half-cell
@@ -130,8 +136,11 @@ def solve_channel_wall_section(*, pitch_m: float, channel_width_m: float, channe
                                hot_wall_thickness_m: float, thermal_conductivity_w_m_k: float,
                                gas_coefficient_w_m2_k: float, recovery_temperature_k: float,
                                coolant_coefficient_w_m2_k: float, coolant_temperature_k: float,
-                               radiative_heat_flux_w_m2: float = 0.0, cells_channel: int = 12,
-                               cells_land: int = 8, cells_wall: int = 8, cells_height: int = 16) -> WallSection:
+                               radiative_heat_flux_w_m2: float = 0.0, imposed_heat_flux_w_m2: float = 0.0,
+                               closeout_thickness_m: float = 0.0, closeout_conductivity_w_m_k: float | None = None,
+                               outer_coefficient_w_m2_k: float = 0.0, outer_temperature_k: float = 0.0,
+                               cells_channel: int = 12, cells_land: int = 8, cells_wall: int = 8,
+                               cells_height: int = 16, cells_closeout: int = 4) -> WallSection:
     """Solve steady 2-D conduction in a half pitch of a channel wall [1]_.
 
     Parameters
@@ -150,9 +159,18 @@ def solve_channel_wall_section(*, pitch_m: float, channel_width_m: float, channe
         Coolant film coefficient and bulk temperature.
     radiative_heat_flux_w_m2 : float, default 0
         Gas radiation absorbed by the hot face (imposed, non-negative).
-    cells_channel, cells_land, cells_wall, cells_height : int
-        Cells across the half channel, the half land, the hot wall and the
-        land height.
+    imposed_heat_flux_w_m2 : float, default 0
+        Further flux into the hot face, either sign (axial conduction).
+    closeout_thickness_m : float, default 0
+        Closeout thickness ``c``; 0 leaves the land top adiabatic.
+    closeout_conductivity_w_m_k : float, optional
+        Closeout conductivity; defaults to ``k``.
+    outer_coefficient_w_m2_k, outer_temperature_k : float, default 0
+        Film coefficient and temperature outside the closeout; a zero
+        coefficient makes the outer face adiabatic.
+    cells_channel, cells_land, cells_wall, cells_height, cells_closeout : int
+        Cells across the half channel, the half land, the hot wall, the
+        land height and the closeout.
 
     Returns
     -------
@@ -185,6 +203,22 @@ def solve_channel_wall_section(*, pitch_m: float, channel_width_m: float, channe
     q_rad = float(radiative_heat_flux_w_m2)
     if not isfinite(q_rad) or q_rad < 0.0:
         raise DomainError("Radiative heat flux must be finite and non-negative.", field="radiative_heat_flux_w_m2")
+    q_imposed = float(imposed_heat_flux_w_m2)
+    if not isfinite(q_imposed):
+        raise DomainError("Imposed heat flux must be finite.", field="imposed_heat_flux_w_m2")
+    closeout = float(closeout_thickness_m)
+    if not isfinite(closeout) or closeout < 0.0:
+        raise DomainError("Closeout thickness must be finite and non-negative.", field="closeout_thickness_m")
+    k_close = k if closeout_conductivity_w_m_k is None else _positive(closeout_conductivity_w_m_k,
+                                                                      "closeout_conductivity_w_m_k")
+    h_out = float(outer_coefficient_w_m2_k)
+    if not isfinite(h_out) or h_out < 0.0:
+        raise DomainError("Outer film coefficient must be finite and non-negative.", field="outer_coefficient_w_m2_k")
+    t_out = float(outer_temperature_k)
+    if h_out > 0.0 and closeout == 0.0:
+        raise DomainError("An outer film needs a closeout.", field="outer_coefficient_w_m2_k")
+    if h_out > 0.0 and not (isfinite(t_out) and t_out > 0.0):
+        raise DomainError("Outer temperature must be finite and positive.", field="outer_temperature_k")
     if width >= pitch:
         raise DomainError("The channel must be narrower than the pitch (a land is required).",
                           field="channel_width_m")
@@ -192,8 +226,9 @@ def solve_channel_wall_section(*, pitch_m: float, channel_width_m: float, channe
         raise DomainError("Coolant temperature exceeds the recovery temperature.", field="coolant_temperature_k")
     n_ch, n_land = _cells(cells_channel, "cells_channel"), _cells(cells_land, "cells_land")
     n_wall, n_height = _cells(cells_wall, "cells_wall"), _cells(cells_height, "cells_height")
+    n_close = _cells(cells_closeout, "cells_closeout") if closeout > 0.0 else 0
     n_y = n_ch + n_land
-    if n_y * (n_wall + n_height) > MAXIMUM_CELLS:
+    if n_y * (n_wall + n_height + n_close) > MAXIMUM_CELLS:
         raise InputError(f"The wall grid exceeds {MAXIMUM_CELLS} cells.", field="cells_height")
 
     half_channel, half_land = 0.5 * width, 0.5 * (pitch - width)
@@ -203,13 +238,17 @@ def solve_channel_wall_section(*, pitch_m: float, channel_width_m: float, channe
     for size in dy:
         y_centre.append(position + 0.5 * size)
         position += size
-    dz = [thickness / n_wall] * n_wall + [height / n_height] * n_height
+    dz = ([thickness / n_wall] * n_wall + [height / n_height] * n_height
+          + ([closeout / n_close] * n_close if n_close else []))
+    top = n_wall + n_height  # first closeout row
+    conductivity = [k] * top + [k_close] * n_close
 
-    # cell (row j in z, column i in y) exists in the wall layers, and in the land columns above
+    # cell (row j in z, column i in y) exists in the wall layers, in the land columns above
+    # them and across the whole pitch in the closeout
     index: dict[tuple[int, int], int] = {}
-    for j in range(n_wall + n_height):
+    for j in range(top + n_close):
         for i in range(n_y):
-            if j < n_wall or i >= n_ch:
+            if j < n_wall or j >= top or i >= n_ch:
                 index[j, i] = len(index)
     size = len(index)
     diagonal = [0.0] * size
@@ -224,32 +263,45 @@ def solve_channel_wall_section(*, pitch_m: float, channel_width_m: float, channe
 
     hot_faces: list[tuple[int, float, float]] = []  # (cell, conductance to T_aw, dy)
     coolant_faces: list[tuple[int, float, float]] = []  # (cell, conductance to T_b, area)
+    outer_faces: list[tuple[int, float]] = []
     for (j, i), cell in index.items():
+        kj = conductivity[j]
         if (j, i + 1) in index:
-            couple(cell, index[j, i + 1], k * dz[j] / (0.5 * (dy[i] + dy[i + 1])))
-        if (j + 1, i) in index:
-            couple(cell, index[j + 1, i], k * dy[i] / (0.5 * (dz[j] + dz[j + 1])))
+            couple(cell, index[j, i + 1], kj * dz[j] / (0.5 * (dy[i] + dy[i + 1])))
+        if (j + 1, i) in index:  # series half cells (different materials across the bond)
+            couple(cell, index[j + 1, i], dy[i] / (0.5 * dz[j] / kj + 0.5 * dz[j + 1] / conductivity[j + 1]))
         if j == 0:
             conductance = dy[i] / (0.5 * dz[j] / k + 1.0 / h_gas)
             diagonal[cell] += conductance
-            rhs[cell] += conductance * t_aw + q_rad * dy[i]
+            rhs[cell] += conductance * t_aw + (q_rad + q_imposed) * dy[i]
             hot_faces.append((cell, conductance, dy[i]))
+        if n_close and j == top and i < n_ch:  # channel ceiling
+            conductance = dy[i] / (0.5 * dz[j] / k_close + 1.0 / h_cool)
+            diagonal[cell] += conductance
+            rhs[cell] += conductance * t_b
+            coolant_faces.append((cell, conductance, dy[i]))
+        if n_close and j == top + n_close - 1 and h_out > 0.0:  # outer face
+            conductance = dy[i] / (0.5 * dz[j] / k_close + 1.0 / h_out)
+            diagonal[cell] += conductance
+            rhs[cell] += conductance * t_out
+            outer_faces.append((cell, conductance))
         if j == n_wall - 1 and i < n_ch:  # channel floor
             conductance = dy[i] / (0.5 * dz[j] / k + 1.0 / h_cool)
             diagonal[cell] += conductance
             rhs[cell] += conductance * t_b
             coolant_faces.append((cell, conductance, dy[i]))
-        if j >= n_wall and i == n_ch:  # channel side wall
+        if n_wall <= j < top and i == n_ch:  # channel side wall
             conductance = dz[j] / (0.5 * dy[i] / k + 1.0 / h_cool)
             diagonal[cell] += conductance
             rhs[cell] += conductance * t_b
             coolant_faces.append((cell, conductance, dz[j]))
 
     temperatures = _banded_cholesky_solve(diagonal, bands, rhs)
-    gained = [conductance * (t_aw - temperatures[cell]) + q_rad * width_y
+    gained = [conductance * (t_aw - temperatures[cell]) + (q_rad + q_imposed) * width_y
               for cell, conductance, width_y in hot_faces]
     heat_in = fsum(gained)
-    heat_out = fsum(conductance * (temperatures[cell] - t_b) for cell, conductance, _ in coolant_faces)
+    heat_out = (fsum(conductance * (temperatures[cell] - t_b) for cell, conductance, _ in coolant_faces)
+                + fsum(conductance * (temperatures[cell] - t_out) for cell, conductance in outer_faces))
     surface = []
     for (cell, conductance, width_y), y in zip(hot_faces, y_centre, strict=True):
         convective = conductance * (t_aw - temperatures[cell]) / width_y
