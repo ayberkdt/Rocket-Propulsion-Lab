@@ -48,11 +48,15 @@ acceptance gates, and the first three sprints are specified in
 - Rao/MOC geometry, Bartz thermal loads, regenerative bulk cooling balance
 - Pressure-fed, gas-generator, and staged-combustion component energy balances
 
-## Milestone 7 — 1.0 release gate
+## Milestone 7 — 1.0 release gate (solver gate closed 2026-10-25)
 
-- Close nine external CEA reference points across LOX/LH2, LOX/RP-1, and LOX/CH4
-- Publish the final tolerance/result matrix from the same CEA version
-- Tag 1.0 only after the external gate and clean-machine package smoke test pass
+- Closed: nine NASA CEA 3.3.4 reference points across LOX/LH2, LOX/RP-1 and
+  LOX/CH4, recorded with the CEA version and database hash; the local solver
+  agrees within 2e-5 against a declared 1 % tolerance
+  (`tests/reference_data/cea_gate_points.json`)
+- Closed: tolerance/result matrix from the same CEA version
+  ([`TOLERANCES.md`](TOLERANCES.md), [`VALIDATION_REPORT.md`](VALIDATION_REPORT.md))
+- Remaining before the 1.0 tag: clean-machine package smoke test
 
 ## Milestone 8 — standalone burn analysis and optional Sidera hand-off (in progress)
 
@@ -145,18 +149,53 @@ acceptance gates, and the first three sprints are specified in
   in Lunaris' propagator, segmentation markers) verified end-to-end, C1 cubic
   Hermite performance surfaces, minimum-effort balanced thrust allocation, and
   fail-closed validation of the feed models and Sidera adapters
-- Remaining: native Sidera wrapper for the propagation bridge, public HTTP
-  API/UI surfaces for the isolated transient core,
-  higher-order distributed water-hammer/priming models, regulator hysteresis,
-  ullage stratification,
-  calibrated uncertainty and
-  discrepancy fields over the operating-condition surface, Sidera-side
-  trajectory/pointing/epoch dispersion and broader
-  validation grids
+- Implemented (2026-10-25): native Sidera wrapper flying the propagation
+  bridge through Sidera's public `propagate` (`integrations/sidera_native.py`),
+  HTTP routes and browser modules for the transient core and SASS sizing,
+  distributed single-pipe water hammer, regulator hysteresis with lockup,
+  layered ullage stratification, and hot-fire calibration fields over the
+  operating-condition surface
+- Remaining: line priming (no primary model source read yet), named-tank
+  states and operating-condition inputs in the Sidera wrapper (Sidera exposes
+  only a 7-state mass model), Sidera-side trajectory/pointing/epoch dispersion
+  (owned by Sidera) and broader validation grids
 - Keep trajectory integration, maneuver frames, guidance and orbital results in
   Sidera
 - Add transient-profile coupling only through a versioned thrust/mass-flow
   provider contract, with no silent constant-burn approximation
+
+## Milestone 9 — thermodynamics and aerodynamics depth (implemented 2026-10-25)
+
+- Real-fluid reference equations of state for H2, O2, N2, CH4 and He
+  (NIST-verified) with cubic fallbacks
+- NASA CEA transport properties and equilibrium thermodynamic derivatives
+- Thermally perfect gas flow, Taylor–Maccoll cones, shock-expansion and
+  linearized supersonic airfoils, compressibility corrections, hypersonic
+  Newtonian methods
+- Potential flow, NACA sections, thin airfoil, lifting panels and lifting line
+- Boundary layers, Couette flow, stagnation and flat-plate heating, entry
+- Launch-vehicle normal force, crossflow, drag build-up, loads and an
+  SLS-style aerodynamic database with uncertainty structure
+- Remaining: transition prediction, Fay–Riddell and radiative heating (sources
+  not yet read), CFD-level fields (external), and the hardware evidence that
+  TRL 5 requires ([`TRL_ASSESSMENT.md`](TRL_ASSESSMENT.md))
+
+## Milestone 10 — heat transfer and combustion depth (implemented 2026-10-25)
+
+- Conduction: steady and transient multilayer walls, fins, analytic transient
+  solutions, an energy-audited finite-volume solver
+- Convection: internal, external, natural, boiling and condensation
+  correlations; Taylor and Hess–Kunz hydrogen; Hatch–Papell film cooling
+- Radiation: Planck and band fractions, view factors, gray enclosures,
+  radiation-cooled extensions, H₂O–CO₂–soot WSGG
+- Coupled regenerative-cooling solver with real-fluid coolant transport
+- Combustion: finite-area combustor, products and radicals, dissociation
+  energy, efficiency models, Isp loss chain, O/F optimisation, condensed-phase
+  equilibrium, finite-rate H₂–O₂ nozzle kinetics
+- Six HTTP routes and three browser views; cross-model consistency tests
+- Remaining: hot-fire validation data, propellant burnout and transpiration
+  cooling, Priem–Heidmann vaporisation, hydrocarbon kinetics, combustion
+  instability
 
 The reviewed interface, ownership boundary, phases and acceptance gates are in
 [`SIDERA_BURN_INTEGRATION_PLAN.md`](SIDERA_BURN_INTEGRATION_PLAN.md).

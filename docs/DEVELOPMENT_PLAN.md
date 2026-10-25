@@ -117,10 +117,14 @@ eklendi. Kimyasal denge bilerek Faz 2 sınırında tutuldu.
 
 ### Faz 2 — `0.5.0`: yanma dengesi ve CEA uyumluluğu (12–18 gün)
 
-**Durum:** Çekirdek uygulandı; dış CEA kabul kapısı açık. TP/HP/UV sağlayıcı
-sözleşmesi, deneysel yerel Gibbs çözücüsü, CEA subprocess adaptörü, O/F taraması
-ve UI tamamlandı. Depoya CEA ikili dosyası gömülmediği için dokuz noktalı harici
-CEA karşılaştırması kurulum sahibi ortamda çalıştırılmayı bekliyor.
+**Durum:** Uygulandı; dış CEA kabul kapısı 2026-10-25'te kapandı. NASA'nın
+Apache-2.0 lisanslı CEA 3.3.4 Python paketi isteğe bağlı sağlayıcı oldu
+(`pip install ".[cea]"`). Dokuz nokta (LOX/LH2, LOX/CH4, LOX/RP-1 × üç O/F;
+6,895 MPa; Aₑ/A* = 40) CEA ile üretildi ve sürüm/veritabanı özetiyle kaydedildi.
+Yerel çözücü, önceden ilan edilen %1 toleransa karşı 2×10⁻⁵ içinde uyuşuyor;
+dört çiftte 0,5 ve 25 MPa uçlarında da aynı uyum ölçüldü. Yerel çözücü artık
+sıvı reaktanları CEA'nın depolama durumu entalpileriyle alıyor ve 36 ürün türü
+taşıyor; NTO/MMH çifti eklendi.
 
 **Teslimatlar**
 
@@ -148,10 +152,12 @@ CEA karşılaştırması kurulum sahibi ortamda çalıştırılmayı bekliyor.
 
 ### Faz 3 — `0.6.0`: tasarım dışı sıkıştırılabilir nozül akışı (10–15 gün)
 
-**Durum:** Sabit özellikli çekirdek uygulandı. Rejim eşikleri, iç normal şok,
-irtifa taraması, Summerfield ayrılma ekranı, artıklar, API ve grafikler
-tamamlandı. Değişken özellik/denge sağlayıcısının aynı rejim çözücüsüne doğrudan
-bağlanması sonraki entegrasyon kapısında tutuluyor.
+**Durum:** Uygulandı. Rejim eşikleri, iç normal şok, irtifa taraması,
+Summerfield ayrılma ekranı, artıklar, API ve grafikler tamamlandı. Denge
+sağlayıcısı rejim çözücüsüne `thermochemistry.chemistry_nozzle` ile bağlandı:
+tasarım alan oranındaki kayan denge çözümüne kalibre edilen eşdeğer mükemmel
+gaz, denge debisini ve tasarım çıkış basıncını 10⁻⁹ içinde yeniden üretir; kalan
+vakum Isp farkı (yaklaşık %0,4–1,3) sonuçta raporlanır.
 
 **Teslimatlar**
 
@@ -266,11 +272,10 @@ paketi API ve tarayıcı iş akışına bağlandı.
 
 ### Faz 7 — `1.0.0`: doğrulama ve kararlı yayın (8–12 gün)
 
-**Durum:** Yerel yayın kapıları uygulandı; kararlı sürüm kapısı açık. Tolerans
+**Durum:** Yerel yayın kapıları ve dokuz noktalı CEA kapısı kapandı. Tolerans
 matrisi, kullanıcı/API kılavuzu, örnek çalışma, klavye/print/küçük ekran CSS'i,
-Windows paket betiği ve 3.11/3.12 CI hazırdır. `1.0.0` etiketi, harici CEA
-kurulumunda dokuz referans noktasının kapatılmasına kadar bilinçli olarak
-verilmemiştir; mevcut paket sürümü `0.9.0`'dır.
+Windows paket betiği ve 3.11/3.12 CI hazırdır. `1.0.0` etiketi için kalan tek
+kapı temiz makinede paket kurulum denemesidir; mevcut paket sürümü `0.9.0`'dır.
 
 **Teslimatlar**
 
@@ -350,7 +355,10 @@ tohum sabitlenecek, başarısız örnek yeniden üretilebilir olacaktır.
 - CEA karşılaştırma dosyaları girdi, ham çıktı, ayrıştırılmış sonuç ve kullanılan
   CEA sürümünü birlikte saklar.
 - Ön tanımlı itici çiftleri yalnızca ad değil; varsayılan O/F aralığı, faz,
-  basınç aralığı ve kaynak izi taşır.
+  basınç aralığı ve kaynak izi taşır. (2026-10-25: çiftler reaktanların
+  depolama durumunu, CEA'ya karşı doğrulanmış 0,5–25 MPa aralığını ve kaynağı
+  taşır; katalog kayıtları hesaplanabilirlik notu ve sayfa düzeyinde kaynaklı
+  yayın değeri taşır.)
 - Kaynak değiştirilirse referans sonuç farkı otomatik üretilmeden veri güncellemesi
   kabul edilmez.
 - Kullanıcının kaydettiği çalışma dosyasına büyük ham tablolar gömülmez; veri

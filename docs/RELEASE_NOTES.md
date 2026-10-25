@@ -1,5 +1,66 @@
 # Release notes
 
+Added heat-transfer and combustion depth. A new `heat_transfer` package covers
+conduction (multilayer k(T) walls, fins, analytic and energy-audited
+finite-volume transients), convection (pipe, entry, external, natural,
+boiling and condensation correlations, Taylor and Hess–Kunz hydrogen,
+Hatch–Papell film cooling) and radiation (Planck, view factors, gray
+enclosures, radiation-cooled extensions, H₂O–CO₂–soot WSGG), each checked
+against the worked examples of Lienhard's *A Heat Transfer Textbook* v6.00. A
+coupled regenerative-cooling solver marches the Bartz gas side, wall
+conduction with fin lands and the real-fluid coolant (new NIST-verified
+viscosity and conductivity for H₂, O₂, N₂, CH₄ and He) with an energy residual
+below 1e-9 of the load. Thermochemistry gained a finite-area combustor,
+product composition with radicals and dissociation energy, combustion
+efficiency models and the TP-1999-208522 Isp loss chain (all against NASA CEA
+3.3.4), condensed-phase equilibrium (graphite, water, alumina) and finite-rate
+H₂–O₂ nozzle kinetics with a RODAS integrator. The Stefan–Boltzmann, Planck,
+Boltzmann and light-speed constants are registered. Six HTTP routes and three
+browser views expose the new models; `tests/test_cross_validation.py` checks
+that independent models agree where their physics overlap. The README was
+rewritten around a capability map and the verification evidence.
+
+Added a literature-verified thermodynamics and aerodynamics layer. Real-fluid
+reference equations of state for hydrogen, oxygen, nitrogen, methane and
+helium match NIST WebBook within 11 ppm; NASA CEA transport properties and
+equilibrium derivatives reproduce CEA 3.3.4. New compressible modules cover
+thermally perfect gas flow, Taylor–Maccoll cones (NASA SP-3004), shock-expansion
+and Busemann airfoils, compressibility corrections and Newtonian hypersonics. A
+new `aerodynamics` package adds potential flow, NACA sections, thin airfoil,
+lifting panels and lifting line, boundary layers (Blasius, reference
+temperature, Van Driest II), Couette flow, Tauber/Sutton–Graves heating,
+Allen–Eggers and point-mass entry, and launch-vehicle methods (Barrowman,
+Allen–Perkins crossflow, NACA TR 1307 interference, SP-8035 loads, an
+SLS-style aerodynamic database). Seven HTTP routes and six browser modules
+expose them. Source misprints found while verifying (Anderson, Barrowman,
+SP-8035) are recorded beside the tests. `TRL_ASSESSMENT.md` states what TRL 5
+still needs from hardware.
+
+Closed the Phase 2 NASA CEA release gate. Nine points (LOX/LH2, LOX/CH4,
+LOX/RP-1 × three O/F, 6.895 MPa, area ratio 40) were produced by NASA CEA
+3.3.4 and recorded with its version and database hash; the new
+infinite-area-combustor solver (`thermochemistry.rocket_performance`) matches
+them within 2e-5 against a declared 1 % tolerance, reproduces RP-1311 example 8
+at its published station, and agrees at 0.5 and 25 MPa for every pair. The
+local equilibrium solver gained 26 gas species and six condensed reactants
+from NASA CEA `thermo.inp` (pinned commit, `scripts/sync_nasa_thermo.py`), a
+warm-started Newton that no longer falls back to a zero-trace composition for
+carbon systems, and NTO/MMH and local LOX/RP-1 pairs; liquid reactants now
+enter at their storage-state enthalpy, which changes local sweep values
+relative to 0.9.0's 298 K gas reactants. NASA's `cea` package is an optional
+provider (`pip install ".[cea]"`). Off-design nozzle regimes can now be driven
+by a perfect gas calibrated to the equilibrium design point. The propellant
+catalogue links each family to its computable pair or states why it cannot be
+computed, with page-cited NASA values. Added cited coolant and wall-material
+catalogues, wall conduction with a material-limit check, centrifugal pump
+affinity, suction and map relations, HTTP routes and browser modules for the
+transient core (feed, blowdown, electric, pulse mode, uncertainty, scenarios,
+calibration, timeline, SASS), distributed water hammer, regulator hysteresis,
+layered ullage stratification, hot-fire calibration fields over the
+operating-condition surface, a native Sidera wrapper for the propagation
+bridge, and a clean-environment package smoke test
+(`scripts/package_smoke_test.py`). See `VALIDATION_REPORT.md`.
+
 Repaired relative-time boundary ownership, early bridge cutoff, shifted-time
 rounding and native event merging. Exact origins/endpoints and zero implicit
 snap windows preserve arbitrarily short representable relative profiles.
@@ -34,7 +95,7 @@ returns the greatest safe binary64 horizon with an unrounded binding decision.
 Added 16 adversarial methods and eight selected faults. See
 `DIRECT_INVENTORY_HELPERS_REVIEW.md` for sentinel and output-range semantics.
 
-## Unreleased â€” motor/feed assurance review
+## Unreleased — motor/feed assurance review
 
 - Applied a byte-bound native Lunaris impulse correction: norm and mass-law
   factors stay in Decimal96 through final export, recoverable exponential range
@@ -193,7 +254,7 @@ Added 16 adversarial methods and eight selected faults. See
 - See `PROPULSION_ASSURANCE.md` and generated `output/assurance/` records for
   scope, unresolved checks and independent-data research.
 
-## Unreleased â€” cited UZM 508E propulsion project preparation
+## Unreleased — cited UZM 508E propulsion project preparation
 
 - Researched the official UZM 508E course record and separated verified
   course identity from inferred project scope. The public course description
@@ -207,7 +268,7 @@ Added 16 adversarial methods and eight selected faults. See
   report, synthetic example and source/function audit tests. Catalogue ranges
   and maxima cannot create nominal points, and extrapolation is disabled.
 
-## Unreleased â€” standalone burn vertical slice
+## Unreleased — standalone burn vertical slice
 
 - Consolidated the advanced propulsion work on one Sidera-first branch while
   retaining Lunaris only as a tested legacy compatibility adapter.
@@ -433,7 +494,7 @@ Added 16 adversarial methods and eight selected faults. See
   directions/conditions/drivers, concurrent-burn summation and a verified
   timeline document.
 - Added `ThrusterLayout.allocate`: bounded-variable least squares
-  (0 â‰¤ T â‰¤ T_max) by an active-set Lawsonâ€“Hanson / Starkâ€“Parker method with
+  (0 â‰¤ T â‰¤ T_max) by an active-set Lawson–Hanson / Stark–Parker method with
   Householder QR, reporting residuals and binding limits.
 - New tests: fuzzing, integer round trips, bool rejection, property tests on
   random profiles/tables/geometries, persistence tamper tests, a two-burn
@@ -533,7 +594,7 @@ Added 16 adversarial methods and eight selected faults. See
   (removes a ~3e-5 pressure jump at layer bases) and documents geopotential
   altitude.
 
-## 0.9.0 â€” engineering preview
+## 0.9.0 — engineering preview
 
 - Added variable-property thermochemistry, external CEA adaptation, and an
   experimental local equilibrium provider.
