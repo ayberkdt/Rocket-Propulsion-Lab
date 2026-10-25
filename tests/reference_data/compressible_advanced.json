@@ -1,0 +1,135 @@
+{
+  "schema": "compressible_advanced_reference/1",
+  "accessed": "2026-10-25",
+  "notes": "Every value below was read in this task from the source and locator given beside it. Chart values are graphical readings; their tolerance is the stated reading resolution, not a model accuracy claim.",
+  "sources": {
+    "NACA-TR-1135": "Ames Research Staff, Equations, Tables, and Charts for Compressible Flow, NACA Report 1135, 1953. https://ntrs.nasa.gov/citations/19930091059",
+    "NASA-SP-3004": "J. L. Sims, Tables for Supersonic Flow Around Right Circular Cones at Zero Angle of Attack, NASA SP-3004, 1964. https://ntrs.nasa.gov/citations/19640009035",
+    "ANDERSON-FOA-2017": "J. D. Anderson Jr., Fundamentals of Aerodynamics, 6th ed., McGraw-Hill, 2017, ISBN 978-1-259-12991-9. Book page = PDF page - 23 in the user's copy.",
+    "NACA-TR-1194": "M. D. Van Dyke, A Study of Hypersonic Small-Disturbance Theory, NACA Report 1194, 1954. https://ntrs.nasa.gov/citations/19930092209"
+  },
+  "thermally_perfect": {
+    "model": "NACA 1135 harmonic vibrator, gamma_perf = 1.4, Theta = 5500 degR (p. 627); temperatures in degR are converted with 1 degR = 5/9 K.",
+    "gamma_table": {
+      "locator": "NACA-TR-1135 p. 627, table 'Variation of ratio of specific heats with temperature' (eq. 180, Theta = 5500 degR)",
+      "tolerance_abs": 0.001,
+      "tolerance_basis": "one unit of the third printed decimal; the printed table deviates from eq. (180) by up to 6.2e-4 (largest at 3000 degR)",
+      "points_degR_gamma": [
+        [500, 1.400], [600, 1.399], [700, 1.396], [800, 1.392], [900, 1.387],
+        [1000, 1.381], [1100, 1.375], [1200, 1.368], [1300, 1.361], [1400, 1.355],
+        [1500, 1.349], [1600, 1.344], [1700, 1.339], [1800, 1.335], [1900, 1.331],
+        [2000, 1.328], [2200, 1.322], [2400, 1.317], [2600, 1.313], [2800, 1.309],
+        [3000, 1.306], [3500, 1.301], [4000, 1.298], [4500, 1.296], [5000, 1.294]
+      ]
+    },
+    "isentropic_charts": [
+      {"chart": 11, "locator": "NACA-TR-1135 chart 11 (p. 667), (rho/rho_t) therm perf / perf", "quantity": "density_ratio", "mach": 9.0, "total_temperature_degR": 2000, "value": 0.8846, "tolerance_abs": 0.003, "reading": "pixel-digitized plateau (7.5 <= M <= 10), 1 px = 0.0004"},
+      {"chart": 11, "locator": "NACA-TR-1135 chart 11 (p. 667)", "quantity": "density_ratio", "mach": 9.0, "total_temperature_degR": 3000, "value": 0.7508, "tolerance_abs": 0.003, "reading": "pixel-digitized plateau"},
+      {"chart": 11, "locator": "NACA-TR-1135 chart 11 (p. 667)", "quantity": "density_ratio", "mach": 9.0, "total_temperature_degR": 5000, "value": 0.5536, "tolerance_abs": 0.003, "reading": "pixel-digitized plateau"},
+      {"chart": 12, "locator": "NACA-TR-1135 chart 12 (p. 668), (p/p_t) therm perf / perf", "quantity": "pressure_ratio", "mach": 9.0, "total_temperature_degR": 2000, "value": 0.9316, "tolerance_abs": 0.003, "reading": "pixel-digitized plateau"},
+      {"chart": 12, "locator": "NACA-TR-1135 chart 12 (p. 668)", "quantity": "pressure_ratio", "mach": 9.0, "total_temperature_degR": 3000, "value": 0.8271, "tolerance_abs": 0.003, "reading": "pixel-digitized plateau"},
+      {"chart": 12, "locator": "NACA-TR-1135 chart 12 (p. 668)", "quantity": "pressure_ratio", "mach": 9.0, "total_temperature_degR": 5000, "value": 0.6411, "tolerance_abs": 0.004, "reading": "pixel-digitized plateau; curve overlaps a grid line (0.6399 to 0.6422)"},
+      {"chart": 14, "locator": "NACA-TR-1135 chart 14 (p. 669), (A/A*) therm perf / perf", "quantity": "area_ratio", "mach": 9.2, "total_temperature_degR": 2000, "value": 1.0812, "tolerance_abs": 0.003, "reading": "pixel-digitized at M = 9.2"},
+      {"chart": 14, "locator": "NACA-TR-1135 chart 14 (p. 669)", "quantity": "area_ratio", "mach": 9.2, "total_temperature_degR": 3000, "value": 1.2397, "tolerance_abs": 0.003, "reading": "pixel-digitized at M = 9.2"},
+      {"chart": 14, "locator": "NACA-TR-1135 chart 14 (p. 669)", "quantity": "area_ratio", "mach": 9.2, "total_temperature_degR": 5000, "value": 1.6308, "tolerance_abs": 0.003, "reading": "pixel-digitized at M = 9.2"}
+    ],
+    "normal_shock_charts": [
+      {"chart": 15, "locator": "NACA-TR-1135 chart 15 (p. 669), (T2/T1) therm perf / perf", "quantity": "temperature_ratio", "mach": 10.0, "total_temperature_degR": 2000, "value": 0.963, "tolerance_abs": 0.01, "reading": "visual, one minor division = 0.01"},
+      {"chart": 15, "locator": "NACA-TR-1135 chart 15 (p. 669)", "quantity": "temperature_ratio", "mach": 10.0, "total_temperature_degR": 3000, "value": 0.925, "tolerance_abs": 0.01, "reading": "visual"},
+      {"chart": 15, "locator": "NACA-TR-1135 chart 15 (p. 669)", "quantity": "temperature_ratio", "mach": 10.0, "total_temperature_degR": 5000, "value": 0.878, "tolerance_abs": 0.01, "reading": "visual"},
+      {"chart": 16, "locator": "NACA-TR-1135 chart 16 (p. 670), (rho2/rho1) therm perf / perf", "quantity": "density_ratio", "mach": 10.0, "total_temperature_degR": 2000, "value": 1.057, "tolerance_abs": 0.005, "reading": "visual, one minor division = 0.005"},
+      {"chart": 16, "locator": "NACA-TR-1135 chart 16 (p. 670)", "quantity": "density_ratio", "mach": 10.0, "total_temperature_degR": 3000, "value": 1.114, "tolerance_abs": 0.005, "reading": "visual"},
+      {"chart": 16, "locator": "NACA-TR-1135 chart 16 (p. 670)", "quantity": "density_ratio", "mach": 10.0, "total_temperature_degR": 5000, "value": 1.181, "tolerance_abs": 0.005, "reading": "visual"},
+      {"chart": 18, "locator": "NACA-TR-1135 chart 18 (p. 670), (p2/p1) therm perf / perf", "quantity": "pressure_ratio", "mach": 10.0, "total_temperature_degR": 2000, "value": 1.013, "tolerance_abs": 0.002, "reading": "visual, one minor division = 0.002"},
+      {"chart": 18, "locator": "NACA-TR-1135 chart 18 (p. 670)", "quantity": "pressure_ratio", "mach": 10.0, "total_temperature_degR": 3000, "value": 1.023, "tolerance_abs": 0.002, "reading": "visual"},
+      {"chart": 18, "locator": "NACA-TR-1135 chart 18 (p. 670)", "quantity": "pressure_ratio", "mach": 10.0, "total_temperature_degR": 5000, "value": 1.034, "tolerance_abs": 0.002, "reading": "visual"},
+      {"chart": 19, "locator": "NACA-TR-1135 chart 19 (p. 671), M2 therm perf / M2 perf", "quantity": "downstream_mach", "mach": 10.0, "total_temperature_degR": 2000, "value": 0.991, "tolerance_abs": 0.002, "reading": "visual, one minor division = 0.002"},
+      {"chart": 19, "locator": "NACA-TR-1135 chart 19 (p. 671)", "quantity": "downstream_mach", "mach": 10.0, "total_temperature_degR": 3000, "value": 0.971, "tolerance_abs": 0.002, "reading": "visual"},
+      {"chart": 19, "locator": "NACA-TR-1135 chart 19 (p. 671)", "quantity": "downstream_mach", "mach": 10.0, "total_temperature_degR": 5000, "value": 0.941, "tolerance_abs": 0.002, "reading": "visual"},
+      {"chart": 20, "locator": "NACA-TR-1135 chart 20 (p. 671), (pt2/pt1) therm perf / perf", "quantity": "stagnation_pressure_ratio", "mach": 10.0, "total_temperature_degR": 2000, "value": 0.941, "tolerance_abs": 0.01, "reading": "visual, one minor division = 0.01"},
+      {"chart": 20, "locator": "NACA-TR-1135 chart 20 (p. 671)", "quantity": "stagnation_pressure_ratio", "mach": 10.0, "total_temperature_degR": 3000, "value": 0.836, "tolerance_abs": 0.01, "reading": "visual"},
+      {"chart": 20, "locator": "NACA-TR-1135 chart 20 (p. 671)", "quantity": "stagnation_pressure_ratio", "mach": 10.0, "total_temperature_degR": 5000, "value": 0.653, "tolerance_abs": 0.01, "reading": "visual"}
+    ]
+  },
+  "cone_flow": {
+    "locator": "NASA-SP-3004 Table 7 (M at cone surface, p. 12), Table 9 (surface pressure coefficient, p. 14), Table 11 (shock-wave angle theta_w in radians, p. 16); gamma = 1.4; columns are nominal free-stream Mach numbers",
+    "tolerance": {"shock_angle_rad_abs": 1.0e-5, "pressure_coefficient_abs": 3.0e-5, "surface_mach_rel": 2.0e-5},
+    "tolerance_basis": "Measured agreement, not a printed-digit tolerance: the largest deviations are 7.2e-6 rad (shock angle, 25 deg at M = 1.5), 2.2e-5 (Cp) and 1.6e-5 relative (surface Mach), largest at low Mach. Sims (p. 3) quotes integration error below 5e-8 and Rankine-Hugoniot residual 2e-7, so the 1e-5 offsets are not explained by the print; Table 70 confirms M_inf = 1.5000000 exactly. This library's integration is step-converged to 1e-12 and its post-shock state satisfies Sims eqs. (5)-(6) to machine precision.",
+    "points": [
+      {"cone_deg": 5.0, "mach": 2.0, "shock_angle_rad": 0.52524879, "pressure_coefficient": 0.0339457, "surface_mach": 1.9415254},
+      {"cone_deg": 5.0, "mach": 10.0, "shock_angle_rad": 0.13498608, "pressure_coefficient": 0.01871810, "surface_mach": 8.7725147},
+      {"cone_deg": 10.0, "mach": 1.5, "shock_angle_rad": 0.74466072, "pressure_coefficient": 0.1237983, "surface_mach": 1.3748579},
+      {"cone_deg": 10.0, "mach": 2.0, "shock_angle_rad": 0.54464827, "pressure_coefficient": 0.1044583, "surface_mach": 1.8340453},
+      {"cone_deg": 10.0, "mach": 3.0, "shock_angle_rad": 0.37899374, "pressure_coefficient": 0.08747518, "surface_mach": 2.7101402},
+      {"cone_deg": 10.0, "mach": 5.0, "shock_angle_rad": 0.27241579, "pressure_coefficient": 0.07475691, "surface_mach": 4.2921847},
+      {"cone_deg": 10.0, "mach": 10.0, "shock_angle_rad": 0.21462672, "pressure_coefficient": 0.06670277, "surface_mach": 7.1977580},
+      {"cone_deg": 20.0, "mach": 2.0, "shock_angle_rad": 0.65966167, "pressure_coefficient": 0.3255312, "surface_mach": 1.5677572},
+      {"cone_deg": 20.0, "mach": 3.0, "shock_angle_rad": 0.51687237, "pressure_coefficient": 0.28426241, "surface_mach": 2.2899646},
+      {"cone_deg": 20.0, "mach": 5.0, "shock_angle_rad": 0.43533264, "pressure_coefficient": 0.26046646, "surface_mach": 3.3752078},
+      {"cone_deg": 20.0, "mach": 10.0, "shock_angle_rad": 0.39698293, "pressure_coefficient": 0.24893118, "surface_mach": 4.6723717},
+      {"cone_deg": 25.0, "mach": 1.5, "shock_angle_rad": 0.95578504, "pressure_coefficient": 0.5699888, "surface_mach": 1.0100703},
+      {"cone_deg": 30.0, "mach": 2.0, "shock_angle_rad": 0.83913453, "pressure_coefficient": 0.64511954, "surface_mach": 1.2535953},
+      {"cone_deg": 30.0, "mach": 5.0, "shock_angle_rad": 0.62140105, "pressure_coefficient": 0.54245194, "surface_mach": 2.5289133},
+      {"cone_deg": 30.0, "mach": 10.0, "shock_angle_rad": 0.58984179, "pressure_coefficient": 0.52867228, "surface_mach": 3.1391940}
+    ],
+    "anderson_figure_9_16": {"locator": "ANDERSON-FOA-2017 Fig. 9.16, p. 635 (PDF 658): M = 2, 20 deg cone, shock angle printed as 37 deg", "mach": 2.0, "cone_deg": 20.0, "shock_angle_deg": 37.0, "tolerance_deg": 1.0, "tolerance_basis": "two printed significant figures"}
+  },
+  "shock_expansion": {
+    "replay_note": "Anderson's worked examples read wave angles from the theta-beta-M chart (Fig. 9.9) and interpolate Appendix tables. 'replay' entries feed the printed intermediate pressure ratios to this library's force integration; 'exact' entries compare this library's exact shock-expansion result with the printed final value, with a tolerance equal to the documented effect of the chart-read inputs.",
+    "examples": [
+      {"id": "Example 9.6", "locator": "ANDERSON-FOA-2017 Example 9.6, pp. 636-637 (PDF 659-660): 15 deg half-angle wedge, M = 5, base pressure = p1",
+       "mach": 5.0, "alpha_deg": 0.0, "section": "wedge", "half_angle_deg": 15.0, "base_pressure_ratio": 1.0,
+       "replay_panel_pressure_ratios": {"upper": [4.736], "lower": [4.736]},
+       "printed": {"drag_coefficient": 0.114}, "replay_tolerance_abs": 0.0005,
+       "exact_tolerance_rel": 0.02, "exact_basis": "printed beta = 24.2 deg (chart) vs exact 24.32 deg gives p2/p1 4.736 vs 4.781"},
+      {"id": "Example 9.12", "locator": "ANDERSON-FOA-2017 Example 9.12, pp. 663-664 (PDF 686-687): flat plate, alpha = 5 deg, M = 3",
+       "mach": 3.0, "alpha_deg": 5.0, "section": "flat_plate", "base_pressure_ratio": 1.0,
+       "replay_panel_pressure_ratios": {"upper": [0.668], "lower": [1.458]},
+       "printed": {"lift_coefficient": 0.125, "drag_coefficient": 0.011, "upper_pressure_ratio": 0.668, "upper_mach": 3.27}, "replay_tolerance_abs": 0.0005,
+       "exact_tolerance_rel": 0.02, "exact_basis": "printed p3/p1 = 1.458 is the nearest Appendix B entry for Mn = 1.177"},
+      {"id": "Example 9.13a", "locator": "ANDERSON-FOA-2017 Example 9.13a, pp. 665-667 (PDF 688-690): flat plate, alpha = 10 deg, M = 7",
+       "mach": 7.0, "alpha_deg": 10.0, "section": "flat_plate", "base_pressure_ratio": 1.0,
+       "replay_panel_pressure_ratios": {"upper": [0.1255], "lower": [4.45]},
+       "printed": {"normal_force_coefficient": 0.126}, "replay_tolerance_abs": 0.0005,
+       "printed_note": "the book labels 0.126 as c_l, but its arithmetic 2/(1.4*49)*(4.45 - 0.1255) = 0.1261 omits the cos(alpha) factor of its own formula; 0.126 is therefore c_n and c_l = 0.1242 from the printed pressures",
+       "exact_tolerance_rel": 0.04, "exact_basis": "printed beta = 16.5 deg (chart) vs exact 16.38 deg; printed p2/p1 = 0.1255 from interpolated Appendix A entries vs exact 0.1346"},
+      {"id": "Example 9.13b", "locator": "ANDERSON-FOA-2017 Example 9.13b, pp. 667-668 (PDF 690-691): 10 deg included-angle wedge, alpha = 10 deg, M = 7, base force neglected",
+       "mach": 7.0, "alpha_deg": 10.0, "section": "wedge", "half_angle_deg": 5.0, "base_pressure_ratio": 0.0,
+       "replay_panel_pressure_ratios": {"upper": [0.38], "lower": [8.915]},
+       "printed": {"lift_coefficient": 0.241}, "replay_tolerance_abs": 0.0005,
+       "exact_tolerance_rel": null, "exact_basis": "not compared: the book reads beta = 23.5 deg for M = 7, theta = 15 deg; the theta-beta-M relation gives 21.60 deg, so p3/p1 is 7.58, not 8.915, and the exact c_l is 0.203"},
+      {"id": "Example 14.1a", "locator": "ANDERSON-FOA-2017 Example 14.1(a), pp. 889-890 (PDF 912-913): flat plate, alpha = 15 deg, M = 8, shock-expansion",
+       "mach": 8.0, "alpha_deg": 15.0, "section": "flat_plate", "base_pressure_ratio": 1.0,
+       "replay_panel_pressure_ratios": {"upper": [0.0203], "lower": [9.443]},
+       "printed": {"upper_pressure_coefficient": -0.0219, "lower_pressure_coefficient": 0.1885, "normal_force_coefficient": 0.2104, "lift_coefficient": 0.2032, "drag_coefficient": 0.0545, "lift_to_drag_ratio": 3.73},
+       "replay_tolerance_abs": 0.0005,
+       "exact_tolerance_rel": 0.02, "exact_basis": "printed beta = 21 deg (chart) vs exact 20.86 deg"}
+    ]
+  },
+  "linearized": {
+    "example_11_1": {"locator": "ANDERSON-FOA-2017 Example 11.1, p. 755 (PDF 778)", "cp0": -0.3, "mach": 0.6, "cp": -0.375, "tolerance_abs": 0.0005},
+    "example_11_2": {"locator": "ANDERSON-FOA-2017 Example 11.2, p. 755 (PDF 778): c_l = 2 pi alpha at M = 0.7 gives 8.8 alpha", "mach": 0.7, "lift_slope_per_rad": 8.8, "tolerance_abs": 0.05},
+    "critical_cp_table": {"locator": "ANDERSON-FOA-2017 Example 11.3, table on p. 762 (PDF 785), eq. (11.60), gamma = 1.4",
+      "points": [[0.4, -3.66], [0.5, -2.13], [0.6, -1.29], [0.7, -0.779], [0.8, -0.435], [0.9, -0.188], [1.0, 0.0]],
+      "tolerance_basis": "half a unit in the last printed digit"},
+    "minimum_cp_table": {"locator": "ANDERSON-FOA-2017 Example 11.3, table on p. 762 (PDF 785), eq. (11.61) with Cp,0 = -0.43",
+      "points": [[0.0, -0.43], [0.2, -0.439], [0.4, -0.469], [0.6, -0.538], [0.8, -0.717]]},
+    "critical_mach_iteration_table": {"locator": "ANDERSON-FOA-2017 Example 11.3(b), table on p. 763 (PDF 786), eq. (11.63)",
+      "points": [[0.72, -0.6196, -0.6996], [0.73, -0.6292, -0.6621], [0.74, -0.6393, -0.6260], [0.738, -0.6372, -0.6331], [0.737, -0.6362, -0.6367], [0.7371, -0.6363, -0.6363]],
+      "tolerance_abs": 0.00005},
+    "critical_mach_naca0012": {"locator": "ANDERSON-FOA-2017 Example 11.3(b), p. 763 (PDF 786): Cp,0 min = -0.43, Prandtl-Glauert", "cp0_min": -0.43, "critical_mach": 0.7371, "tolerance_abs": 0.00005},
+    "critical_cp_naca0012_data": {"locator": "ANDERSON-FOA-2017 Fig. 11.10, p. 764 (PDF 787)", "points": [[0.575, -1.465], [0.725, -0.681]], "tolerance_abs": 0.0005},
+    "example_12_1": {"locator": "ANDERSON-FOA-2017 Example 12.1, pp. 818-819 (PDF 841-842): alpha = 5 deg (0.087 rad as printed), M = 3", "mach": 3.0, "alpha_rad_printed": 0.087, "lift_coefficient": 0.123, "drag_coefficient": 0.011, "tolerance_abs": 0.0005},
+    "example_12_2": {"locator": "ANDERSON-FOA-2017 Example 12.2, p. 820 (PDF 843): c_l = 0.08 at M = 2 gives alpha = 0.035 rad = 1.98 deg", "mach": 2.0, "lift_coefficient": 0.08, "alpha_rad": 0.035, "tolerance_abs": 0.0005},
+    "example_12_3": {"locator": "ANDERSON-FOA-2017 Example 12.3, p. 825 (PDF 848): alpha = 0.035 rad, M = 2, c_d = 2.83e-3", "mach": 2.0, "alpha_rad": 0.035, "drag_coefficient": 0.00283, "tolerance_abs": 0.000005}
+  },
+  "hypersonic": {
+    "example_14_1b": {"locator": "ANDERSON-FOA-2017 Example 14.1(b), p. 890 (PDF 913): Newtonian flat plate, alpha = 15 deg",
+      "alpha_deg": 15.0, "lower_pressure_coefficient": 0.134, "lift_coefficient": 0.1294, "drag_coefficient": 0.03468, "lift_to_drag_ratio": 3.73},
+    "maximum_lift": {"locator": "ANDERSON-FOA-2017 p. 886 (PDF 909): sin^2 alpha = 2/3, alpha = 54.7 deg, c_l,max = 0.77", "alpha_deg": 54.7, "lift_coefficient": 0.77},
+    "stagnation_cp": {"locator": "ANDERSON-FOA-2017 p. 879 (PDF 902): stagnation Cp is 1.28 at M = 1 and 1.86 as M -> infinity for gamma = 1.4",
+      "mach_1": 1.28, "mach_infinity": 1.86,
+      "note": "the M -> infinity limit of the book's own normal-shock and isentropic relations is 1.8394; the printed 1.86 is 1.1 % high and is checked only with a 0.025 tolerance"},
+    "limiting_wave_angle_ratio": {"locator": "ANDERSON-FOA-2017 eqs. (14.35)-(14.36), p. 893 (PDF 916)", "gamma": 1.4, "ratio": 1.2}
+  }
+}

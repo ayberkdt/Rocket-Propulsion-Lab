@@ -1,0 +1,167 @@
+{
+  "_about": "Reference values for tests/test_aero_subsonic.py. Every value names its source and locator. ANDERSON = J. D. Anderson Jr., Fundamentals of Aerodynamics, 6th ed., McGraw-Hill, 2017 (book page; PDF page of the user's copy = book page + 23). Figure read-offs carry an explicit read tolerance. Values were read from the sources in the session that created this file (2026-10-25).",
+  "potential_flow": {
+    "example_3_16": {
+      "source": "ANDERSON Example 3.16, pp. 278-279",
+      "lift_coefficient": 5.0,
+      "peak_pressure_coefficient": -6.82,
+      "printed_digits_tolerance": 0.005
+    },
+    "example_3_17": {
+      "source": "ANDERSON Example 3.17, pp. 279-280 (same flow as Example 3.16)",
+      "stagnation_angles_deg": [203.4, 336.6],
+      "freestream_pressure_angles_deg": [5.85, 174.1, 243.8, 296.23],
+      "angle_tolerance_deg": 0.12,
+      "angle_note": "Anderson prints 243.8 and 296.23 deg for the two roots of sin(theta) = -0.897; symmetry about 270 deg requires their sum to be 540, so the printed 296.23 carries a rounding slip of about 0.1 deg; the exact roots are 243.88 and 296.12 deg.",
+      "bottom_pressure_coefficient": -0.45,
+      "bottom_tolerance": 0.005
+    },
+    "example_3_18": {
+      "source": "ANDERSON Example 3.18, pp. 281-282",
+      "diameter_m": 0.5,
+      "freestream_speed_m_s": 25.0,
+      "maximum_surface_speed_m_s": 75.0,
+      "density_kg_m3": 0.90926,
+      "circulation_m2_s": 39.27,
+      "lift_per_span_n_m": 892.7,
+      "relative_tolerance": 0.0002
+    },
+    "nonlifting_cylinder": {
+      "source": "ANDERSON Eqs. (3.100)-(3.101), pp. 258-259: Cp = 1 - 4 sin^2(theta), from 1 at stagnation to -3 at theta = 90 deg",
+      "stagnation_cp": 1.0,
+      "minimum_cp": -3.0
+    }
+  },
+  "thin_airfoil": {
+    "example_4_5_flat_plate": {
+      "source": "ANDERSON Example 4.5, pp. 355-356 (alpha = 5 deg; Anderson rounds alpha to 0.0873 rad)",
+      "alpha_deg": 5.0,
+      "lift_coefficient": 0.5485,
+      "moment_coefficient_leading_edge": -0.137,
+      "moment_coefficient_quarter_chord": 0.0,
+      "tolerance": 0.0005
+    },
+    "example_4_6_naca_23012": {
+      "source": "ANDERSON Example 4.6, pp. 361-364 (mean line written with constants 2.6595, 0.6075, 0.1147, 0.02208 and junction 0.2025; Anderson integrates with rounded intermediate coefficients)",
+      "mean_line_constants": {"k1_over_6": 2.6595, "three_m": 0.6075, "m_squared_3_minus_m": 0.1147, "k1_m_cubed_over_6": 0.02208, "junction": 0.2025},
+      "alpha_deg": 4.0,
+      "zero_lift_angle_deg": -1.09,
+      "lift_coefficient": 0.559,
+      "a1": 0.0954,
+      "a2": 0.0792,
+      "moment_coefficient_quarter_chord": -0.0127,
+      "center_of_pressure_x_over_c": 0.273,
+      "tolerances": {"zero_lift_angle_deg": 0.01, "lift_coefficient": 0.001, "a1": 0.0002, "a2": 0.0002, "moment_coefficient_quarter_chord": 0.0002, "center_of_pressure_x_over_c": 0.001},
+      "experiment": {
+        "source": "ANDERSON Example 4.6 comparison table p. 364 and Example 4.7 p. 367 (data from Abbott and von Doenhoff via Fig. 4.28)",
+        "zero_lift_angle_deg": -1.1,
+        "lift_coefficient_at_4_deg": 0.55,
+        "moment_coefficient_quarter_chord_average": -0.01,
+        "aerodynamic_center_x_over_c": 0.241
+      }
+    },
+    "naca_824_mean_line_theory": {
+      "source": "NACA-TR-824 p. 14 (PDF p. 19), Moment coefficients Example 2 and Angle of zero lift Example 2, Eq. (16); data of the NACA 64 mean line (supplementary figures) scaled linearly",
+      "naca_64_mean_line": {"ideal_angle_deg": 0.74, "ideal_lift_coefficient": 0.76, "moment_coefficient_quarter_chord": -0.157},
+      "naca_4415_moment_coefficient_quarter_chord": -0.105,
+      "naca_2415": {"ideal_angle_deg": 0.25, "ideal_lift_coefficient": 0.253, "zero_lift_angle_deg_printed": -2.0},
+      "equation_16": "alpha_l0 = alpha_i - 57.3 c_li / (2 pi) [deg]",
+      "tolerances": {"zero_lift_angle_deg": 0.05, "moment_coefficient_relative": 0.02, "ideal_lift_coefficient_relative": 0.02, "ideal_angle_deg": 0.035},
+      "note": "The TR-824 ideal angle 0.74 deg differs from the thin-airfoil integral (1/pi) int dz/dx dtheta = 0.772 deg for the 6-percent 64 mean line by 0.032 deg; recorded as a measured deviation."
+    },
+    "naca_2412_experiment": {
+      "source": "ANDERSON Section 4.3 p. 330 (alpha_L=0 = -2.1 deg read from Fig. 4.10, data from Abbott and von Doenhoff) and Example 4.1 pp. 331-332 (c_l = 0.65 at alpha = 4 deg read from Fig. 4.10)",
+      "zero_lift_angle_deg": -2.1,
+      "lift_coefficient_at_4_deg": 0.65,
+      "read_tolerance_deg": 0.1
+    },
+    "naca_824_lift_slope": {
+      "source": "NACA-TR-824 p. 30 (PDF p. 35): for 6-10 percent thick four-, five-digit and 64-series sections the measured lift-curve slope is very close to 2 pi per rad (0.110 per deg); four-digit zero-lift angles are about 0.93 and 230-series about 1.08 times the thin-airfoil values",
+      "lift_slope_per_deg": 0.110,
+      "four_digit_zero_lift_ratio": 0.93,
+      "five_digit_230_zero_lift_ratio": 1.08
+    }
+  },
+  "airfoil_geometry": {
+    "naca_1412_ordinates_percent": {
+      "source": "NACA-TR-824 p. 100 (PDF p. 103), table NACA 1412 (stations and ordinates in percent of chord)",
+      "upper": [[1.158, 1.954], [4.845, 3.786], [14.833, 5.951], [29.925, 6.940], [40.000, 6.803], [60.051, 5.453], [80.058, 3.178], [95.025, 0.966], [100.000, 0.126]],
+      "lower": [[1.342, -1.830], [5.155, -3.318], [15.167, -4.733], [30.075, -5.064], [40.000, -4.803], [59.949, -3.675], [79.942, -2.066], [94.975, -0.646], [100.000, -0.126]],
+      "nominal_stations_percent": [1.25, 5.0, 15.0, 30.0, 40.0, 60.0, 80.0, 95.0, 100.0],
+      "leading_edge_radius_percent": 1.58,
+      "slope_of_radius_through_le": 0.05,
+      "print_tolerance_percent": 0.0015
+    },
+    "naca_0006_ordinates_percent": {
+      "source": "NACA-TR-824 p. 100 (PDF p. 103), table NACA 0006",
+      "points": [[1.25, 0.95], [2.5, 1.31], [5.0, 1.78], [10.0, 2.34], [30.0, 3.00], [50.0, 2.65], [80.0, 1.31], [95.0, 0.40], [100.0, 0.06]],
+      "leading_edge_radius_percent": 0.40,
+      "print_tolerance_percent": 0.006
+    },
+    "naca_0009_leading_edge_radius_percent": {"source": "NACA-TR-824 p. 100, table NACA 0009", "value": 0.89, "tolerance": 0.006},
+    "naca_23024_ordinates_percent": {
+      "source": "NACA-TR-824 p. 101 (PDF p. 104), table NACA 23024",
+      "upper": [[0.277, 4.017], [3.853, 8.172], [15.001, 12.528], [30.265, 13.546], [50.235, 11.690], [70.162, 7.988], [95.036, 1.724]],
+      "lower": [[2.223, -3.303], [6.147, -5.862], [14.999, -8.852], [29.735, -10.454], [49.766, -9.482], [69.838, -6.664], [94.964, -1.504]],
+      "nominal_stations_percent": [1.25, 5.0, 15.0, 30.0, 50.0, 70.0, 95.0],
+      "leading_edge_radius_percent": 6.33,
+      "slope_of_radius_through_le": 0.305,
+      "print_tolerance_percent": 0.0025
+    },
+    "tr_537_table_i": {
+      "source": "NACA-TR-537 Table I, p. 522 (PDF p. 2); k2/k1 column is 1e4 x the ratio of the TR-537 formula k2/k1 = (3 (m - p)^2 - m^3)/(1 - m)^3",
+      "reflexed_k2_over_k1_column": {"221": 7.64, "231": 67.70, "241": 303.0, "251": 1355.0},
+      "relative_tolerance": 0.001
+    },
+    "tr_610_230_camber": {
+      "source": "NACA-TR-610 p. 2 (PDF p. 8): the NACA 230 mean line has a camber of 1.8 percent of the chord at 0.15c",
+      "camber_percent": 1.8,
+      "camber_position": 0.15,
+      "print_tolerance_percent": 0.05
+    }
+  },
+  "panel_methods": {
+    "example_3_19": {
+      "source": "ANDERSON Example 3.19, pp. 290-293: eight equal panels on a unit circle, panel 1 the vertical panel facing the stream, numbered clockwise",
+      "I_4j": {"1": 0.4074, "2": 0.4018, "3": 0.3528, "5": 0.3528, "6": 0.4018, "7": 0.4074, "8": 0.4084},
+      "lambda_over_2_pi_v": [0.3765, 0.2662, 0.0, -0.2662, -0.3765, -0.2662, 0.0, 0.2662],
+      "printed_digits_tolerance": 0.00006
+    },
+    "naca_2412_experiment_comparison": {
+      "source": "Measured (this work) vs ANDERSON p. 330 and Example 4.1 data (see thin_airfoil.naca_2412_experiment); inviscid panel lift slope exceeds the viscous measurement",
+      "allowed_zero_lift_angle_difference_deg": 0.15,
+      "documented_lift_overprediction_band": [1.05, 1.20]
+    }
+  },
+  "lifting_line": {
+    "example_5_1": {
+      "source": "ANDERSON Example 5.1, pp. 457-458: AR = 8, taper 0.8, delta = tau = 0.055 read by Anderson from Fig. 5.20, a0 = 2 pi, alpha = 5 deg",
+      "aspect_ratio": 8.0, "delta": 0.055, "tau": 0.055, "alpha_deg": 5.0,
+      "lift_slope_per_rad": 4.97, "lift_slope_per_deg": 0.0867, "lift_coefficient": 0.4335, "induced_drag_coefficient": 0.00789,
+      "relative_tolerance": 0.002
+    },
+    "example_5_2": {
+      "source": "ANDERSON Example 5.2, pp. 458-459: rectangular wings, delta = tau, AR 6 (delta 0.055) and AR 10 (delta 0.105), zero-lift angle -2 deg, alpha 3.4 deg, C_D,i = 0.01 at AR 6",
+      "induced_drag_ar6": 0.01, "lift_coefficient_ar6": 0.423, "lift_slope_ar6_per_rad": 4.485, "section_lift_slope_per_rad": 5.989,
+      "lift_slope_ar10_per_rad": 4.95, "lift_coefficient_ar10": 0.464, "induced_drag_ar10": 0.0076,
+      "relative_tolerance": 0.006
+    },
+    "figure_5_20": {
+      "source": "ANDERSON Fig. 5.20, p. 452 (McCormick 1979 data): induced drag factor delta vs taper ratio; values digitised from a 300-dpi render of PDF p. 475",
+      "read_tolerance": 0.003,
+      "delta_at_taper_1": {"4": 0.042, "6": 0.062, "8": 0.085, "10": 0.105},
+      "minimum_taper_ratio_read": 0.3,
+      "minimum_taper_read_tolerance": 0.08,
+      "measured_discrepancy": "Glauert-series lifting line (this work, a0 = 2 pi, 40 terms) gives delta(taper 1) = 0.0285, 0.0483, 0.0676, 0.0859 for AR 4, 6, 8, 10 and 0.0444 at AR 8, taper 0.8 (Anderson reads 0.055): about 70-80 percent of the figure values. The trend with AR and the location of the minimum agree. Not resolved here; the tests pin the measured ratio band so a change is noticed.",
+      "documented_ratio_band": [0.6, 0.85]
+    }
+  },
+  "quadrature": {
+    "dlmf_table_3_5_1": {
+      "source": "DLMF section 3.5(v), Table 3.5.1 (Gauss-Legendre, n = 5)",
+      "nodes": [0.0, 0.538469310105683, 0.906179845938664],
+      "weights": [0.568888888888889, 0.478628670499366, 0.236926885056189],
+      "tolerance": 1e-14
+    }
+  }
+}
