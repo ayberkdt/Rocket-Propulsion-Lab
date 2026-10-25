@@ -44,6 +44,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from math import exp, isfinite, log, sqrt
 from pathlib import Path
+from typing import TypedDict, Unpack
 
 from rocket_propulsion.core.constants import MOLAR_GAS_CONSTANT_J_MOL_K
 from rocket_propulsion.core.errors import DomainError, InputError
@@ -815,7 +816,7 @@ def mixture_transport_properties(
             )
             if pair is not None and not usable:
                 estimated_pairs.append("-".join(pair.pair))
-            if usable:
+            if pair is not None and usable:
                 value = evaluate(pair.viscosity, "-".join(pair.pair), "Interaction-viscosity",
                                  MICROPOISE_TO_PA_S)
             else:
@@ -918,8 +919,33 @@ def mixture_transport_properties(
     )
 
 
+class TransportOptions(TypedDict, total=False):
+    """Keyword options of :func:`mixture_transport_properties` [1]_.
+
+    Attributes
+    ----------
+    reacting : bool
+        Add the reaction contribution to the conductivity.
+    minimum_mole_fraction, maximum_omitted_mole_fraction : float
+        Trace-species cut-off and the largest total mole fraction omitted.
+    allow_extrapolation : bool
+        Evaluate fits outside their temperature range.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part I: Analysis",
+           chapter 5. https://ntrs.nasa.gov/citations/19950013764
+    """
+
+    reacting: bool
+    minimum_mole_fraction: float
+    maximum_omitted_mole_fraction: float
+    allow_extrapolation: bool
+
+
 def equilibrium_transport_properties(
-    result: EquilibriumResult, **options: object
+    result: EquilibriumResult, **options: Unpack[TransportOptions]
 ) -> MixtureTransportProperties:
     """Transport properties of an equilibrium result's gas composition [1]_.
 

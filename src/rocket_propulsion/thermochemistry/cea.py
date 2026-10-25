@@ -706,7 +706,7 @@ class CeaSubprocessAdapter:
                 if source.is_file():
                     shutil.copy2(source, work / library_name)
             command = [str(executable)]
-            standard_input = f"{prefix}\n"
+            standard_input: str | None = f"{prefix}\n"
             if self.invocation == "input-argument":
                 command.append(str(input_path))
                 standard_input = None

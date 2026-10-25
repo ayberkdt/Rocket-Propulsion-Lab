@@ -36,6 +36,10 @@ from rocket_propulsion.core.errors import DomainError
 from .models import ThrottleSchedule
 from .profiles import resolved_schedule_intervals
 
+#: Largest sampling grid a response history may request (library choice):
+#: one million samples bound memory to tens of MB and run time to seconds.
+MAXIMUM_RESPONSE_SAMPLES = 1_000_000
+
 
 def _unit_interval(value: float, label: str) -> None:
     """Raise ``DomainError`` unless ``value`` is finite and in ``[0, 1]``."""
@@ -363,11 +367,19 @@ class RealizedThrottleHistory:
         Raises
         ------
         DomainError
-            If ``maximum_step_s`` is not finite and positive.
+            If ``maximum_step_s`` is not finite and positive, or if the grid
+            would exceed ``MAXIMUM_RESPONSE_SAMPLES`` samples.
         """
 
         if not isfinite(maximum_step_s) or maximum_step_s <= 0.0:
             raise DomainError("Maximum response sample step must be positive and finite.")
+        # Count before building: a 1e9 s burn at a 1e-300 s step must be refused, not looped over.
+        requested = sum(segment.duration_s / maximum_step_s for segment in self.segments)
+        if not requested <= MAXIMUM_RESPONSE_SAMPLES:
+            raise DomainError(
+                f"Response grid needs about {requested:.3g} samples; the limit is "
+                f"{MAXIMUM_RESPONSE_SAMPLES}. Increase maximum_step_s or shorten the burn.",
+                code="sample_budget_exceeded", field="maximum_step_s")
         times = {0.0, self.duration_s}
         for segment in self.segments:
             divisions = max(1, ceil(segment.duration_s / maximum_step_s))

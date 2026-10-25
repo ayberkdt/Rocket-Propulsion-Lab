@@ -30,7 +30,6 @@ from typing import Any, Literal
 from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError, InputError
 from rocket_propulsion.core.validation import (
     integer,
-    read_json_document,
     real,
     records,
     strings,
@@ -44,6 +43,7 @@ from rocket_propulsion.propulsion.burns.ensemble_serialization import (
     hierarchical_ensemble_hash,
     hierarchical_ensemble_to_dict,
 )
+from rocket_propulsion.propulsion.burns.exchange_documents import _read_document
 from rocket_propulsion.propulsion.burns.numeric_outputs import _finite_rational, _fraction
 from rocket_propulsion.propulsion.burns.serialization import canonical_json_bytes
 from rocket_propulsion.propulsion.burns.tabulated import TabulatedBurnArtifact
@@ -440,7 +440,8 @@ class SideraEnsembleHandoff:
                     joint_probability=float(item["joint_probability"]),
                     t_start_s=float(item["t_start_s"]),
                     direction=direction,
-                    frame=str(item["frame"]),
+                    # __post_init__ normalizes and validates the free-text frame.
+                    frame=str(item["frame"]),  # type: ignore[arg-type]
                     artifact=TabulatedBurnArtifact.from_dict(item["artifact"]),
                 )
                 object.__setattr__(job, "direction", direction)
@@ -501,7 +502,7 @@ class SideraEnsembleHandoff:
                https://standards.nasa.gov/standard/NASA/NASA-STD-7009
         """
 
-        return read_json_document(text, "Sidera ensemble hand-off", cls.from_dict)
+        return _read_document(text, "Sidera ensemble hand-off", cls.from_dict)
 
 
 def export_sidera_ensemble_handoff(

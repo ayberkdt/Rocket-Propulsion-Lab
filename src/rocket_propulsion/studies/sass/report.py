@@ -87,10 +87,10 @@ def build_project_html(study: ProjectStudy) -> str:
                     "No final course-project architecture is selected.</p>"
                     "<table><tr><th>Alternative</th><th>Eligibility</th><th>Score</th><th>Evidence</th></tr>")
     for row in study.scores:
-        score = "unknown" if row.score is None else f"{row.score.value:.6g}"
+        score_text = "unknown" if row.score is None else f"{row.score.value:.6g}"
         cites = "" if row.score is None else _citations(row.score)
         sections.append(f"<tr><th>{escape(row.name)}</th><td>{row.eligibility}</td>"
-                        f"<td>{score}</td><td>{cites}</td></tr>")
+                        f"<td>{score_text}</td><td>{cites}</td></tr>")
     sections.append("</table>")
     for item, score in zip(study.candidates, study.scores, strict=True):
         sections.append(f"<h2>{escape(item.candidate.identifier)}</h2>")

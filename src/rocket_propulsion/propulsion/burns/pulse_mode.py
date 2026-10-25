@@ -59,7 +59,6 @@ from threading import Lock
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import (
     integer,
-    read_json_document,
     real,
     real_tuple,
     strings,
@@ -67,6 +66,7 @@ from rocket_propulsion.core.validation import (
 )
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
+from .exchange_documents import _read_document
 from .serialization import _require_numerical_policies, canonical_sha256
 from .tabulated import InterpolationPolicy, TabulatedBurnArtifact, TabulatedBurnSegment
 from .throttleable import MonotoneCubicCurve
@@ -932,10 +932,12 @@ class PulseModeThruster:
         propellant = 0.0 if bit is None else count * bit.propellant_kg
         if target == "impulse":
             delivered = impulse
+        elif bit is None:
+            delivered = 0.0
+        elif initial_mass is None:  # every delta-v caller passes the validated mass
+            raise DomainError("A delta-v pulse plan requires the initial mass.")
         else:
-            delivered = 0.0 if bit is None else bit.exhaust_velocity_m_s * -log1p(
-                -propellant / initial_mass
-            )
+            delivered = bit.exhaust_velocity_m_s * -log1p(-propellant / initial_mass)
         residual = request - delivered
         scale = max(abs(request), 1e-300)
         return PulsePlan(
@@ -1040,19 +1042,29 @@ class PulseModeThruster:
         if not isinstance(payload, Mapping):
             raise InputError("Pulse-mode document root must be an object.")
         try:
+            # The document has no separate structural validator, so each member
+            # passes the same normaliser the constructor applies to it; any
+            # failure is a DomainError, reported below as a malformed document.
+            maximum_on_time = payload["maximum_on_time_s"]
             model = cls(
-                on_times_s=payload["on_times_s"],
-                impulse_bits_n_s=payload["impulse_bits_n_s"],
-                propellant_per_pulse_kg=payload["propellant_per_pulse_kg"],
-                steady_thrust_n=payload["steady_thrust_n"],
-                steady_mass_flow_kg_s=payload["steady_mass_flow_kg_s"],
-                minimum_off_time_s=payload["minimum_off_time_s"],
-                maximum_on_time_s=payload["maximum_on_time_s"],
-                source_id=payload["source_id"],
-                source_sha256=payload["source_sha256"],
-                model_id=payload["model_id"],
-                reference_ids=payload["reference_ids"],
-                schema=payload["schema"],
+                on_times_s=real_tuple(payload["on_times_s"], "Pulse on_times_s"),
+                impulse_bits_n_s=real_tuple(payload["impulse_bits_n_s"], "Pulse impulse_bits_n_s"),
+                propellant_per_pulse_kg=real_tuple(
+                    payload["propellant_per_pulse_kg"], "Pulse propellant_per_pulse_kg"
+                ),
+                steady_thrust_n=real(payload["steady_thrust_n"], "Pulse steady_thrust_n"),
+                steady_mass_flow_kg_s=real(
+                    payload["steady_mass_flow_kg_s"], "Pulse steady_mass_flow_kg_s"
+                ),
+                minimum_off_time_s=real(payload["minimum_off_time_s"], "Pulse minimum_off_time_s"),
+                maximum_on_time_s=(
+                    None if maximum_on_time is None else real(maximum_on_time, "Maximum on-time")
+                ),
+                source_id=text(payload["source_id"], "Pulse source id"),
+                source_sha256=text(payload["source_sha256"], "Pulse source hash"),
+                model_id=text(payload["model_id"], "Pulse model id"),
+                reference_ids=strings(payload["reference_ids"], "Pulse reference ids"),
+                schema=text(payload["schema"], "Pulse-mode schema"),
             )
         except InputError:
             raise
@@ -1089,7 +1101,7 @@ class PulseModeThruster:
                Format". https://www.rfc-editor.org/rfc/rfc8259
         """
 
-        return read_json_document(text_value, "Pulse-mode document", cls.from_dict)
+        return _read_document(text_value, "Pulse-mode document", cls.from_dict)
 
 
 def _policy(value: str) -> str:

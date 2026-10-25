@@ -55,6 +55,7 @@ from typing import Literal
 from rocket_propulsion.core.constants import MOLAR_GAS_CONSTANT_J_MOL_K, STANDARD_GRAVITY_M_S2
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
+from rocket_propulsion.core.validation import numeric_range_guard
 
 from .equilibrium import EquilibriumProblem, EquilibriumProvider, LocalEquilibriumProvider
 from .kinetics import Mechanism, StepRejected, _compile, solve_stiff
@@ -122,6 +123,7 @@ class HyperbolicNozzle:
         angle = self.convergent_half_angle_deg if x_m < 0.0 else self.divergent_half_angle_deg
         return tan(radians(angle))
 
+    @numeric_range_guard("x_m")
     def area_ratio(self, x_m: float) -> float:
         """Return ``A(x)/A_t``; ``x`` is measured from the throat."""
         return 1.0 + (x_m * self._slope(x_m) / self.throat_radius_m) ** 2
@@ -431,11 +433,9 @@ class _Expansion:
             trial = guess
             for _ in range(25):
                 if trial < _MINIMUM_TEMPERATURE_K or trial > 6000.0:
-                    trial = None
                     break
                 evaluated = log_flux(trial)
                 if evaluated is None or evaluated[1] == 0.0:
-                    trial = None
                     break
                 step = -(evaluated[0] - log_target) / evaluated[1]
                 step = max(-0.05 * trial, min(0.05 * trial, step))

@@ -33,8 +33,9 @@ from math import cos, pi, sin, sqrt
 from typing import Any
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import read_json_document, real, records, text, vector3
+from rocket_propulsion.core.validation import real, records, text, vector3
 
+from .exchange_documents import _read_document
 from .serialization import canonical_sha256
 
 THRUST_VECTORING_SCHEMA = "rocket_propulsion_thrust_vectoring_v1"
@@ -709,7 +710,7 @@ class MountedEngineCluster:
                Format". https://www.rfc-editor.org/rfc/rfc8259
         """
 
-        return read_json_document(document, "Mounted engine cluster", cls.from_dict)  # type: ignore[return-value]
+        return _read_document(document, "Mounted engine cluster", cls.from_dict)
 
     def evaluate(
         self,

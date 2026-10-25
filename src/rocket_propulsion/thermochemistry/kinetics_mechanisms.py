@@ -39,6 +39,7 @@ References
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import TypedDict
 
 from .kinetics import ArrheniusRate, Mechanism, Reaction, ThirdBody, TroeFalloff
 
@@ -106,7 +107,18 @@ _GRI30_H2O2_ROWS: tuple[tuple, ...] = (
 
 # Falloff reaction, lines 152-155: 2OH(+M)<=>H2O2(+M); high-pressure limit,
 # LOW, TROE (alpha, T***, T*, T**) and efficiencies.
-_GRI30_FALLOFF = {
+class _FalloffRow(TypedDict):
+    """CHEMKIN fields of one Troe falloff reaction (``A``, ``b``, ``E`` per limit)."""
+
+    lines: str
+    equation: str
+    high: tuple[float, float, float]
+    low: tuple[float, float, float]
+    troe: tuple[float, float, float, float]
+    efficiencies: tuple[tuple[str, float], ...]
+
+
+_GRI30_FALLOFF: _FalloffRow = {
     "lines": "152-155",
     "equation": "2OH(+M)<=>H2O2(+M)",
     "high": (7.400e13, -0.370, 0.00),

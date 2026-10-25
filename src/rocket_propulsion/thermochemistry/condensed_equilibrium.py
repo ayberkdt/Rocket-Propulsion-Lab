@@ -41,6 +41,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from math import exp, isfinite, log, sqrt
 from pathlib import Path
+from typing import TypedDict
 
 from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
@@ -55,7 +56,12 @@ from .equilibrium import (
     ReactantAmount,
 )
 from .mixtures import REFERENCE_PRESSURE_PA
-from .nasa_polynomials import UNIVERSAL_GAS_CONSTANT_J_MOL_K, NasaPolynomialInterval
+from .nasa_polynomials import (
+    UNIVERSAL_GAS_CONSTANT_J_MOL_K,
+    NasaIntervalRecord,
+    NasaPolynomialInterval,
+    interval_from_record,
+)
 from .rocket_performance import (
     _GOLDEN,
     RocketExit,
@@ -164,18 +170,18 @@ class CondensedCatalog:
     reactants: dict[str, CondensedReactant]
 
 
-def _intervals(record: Mapping[str, object]) -> tuple[NasaPolynomialInterval, ...]:
-    return tuple(
-        NasaPolynomialInterval(
-            minimum_temperature_k=float(item["minimum_temperature_k"]),
-            maximum_temperature_k=float(item["maximum_temperature_k"]),
-            coefficients=tuple(float(value) for value in item["coefficients"]),
-        )
-        for item in record["intervals"]
-    )
+class _PhaseRecord(TypedDict):
+    """Fields shared by every species record of ``nasa_cea_condensed.json``."""
+
+    formula: dict[str, float]
+    intervals: list[NasaIntervalRecord]
 
 
-def _formula(record: Mapping[str, object]) -> tuple[tuple[str, float], ...]:
+def _intervals(record: _PhaseRecord) -> tuple[NasaPolynomialInterval, ...]:
+    return tuple(interval_from_record(item) for item in record["intervals"])
+
+
+def _formula(record: _PhaseRecord) -> tuple[tuple[str, float], ...]:
     return tuple((str(key), float(value)) for key, value in record["formula"].items())
 
 
@@ -633,6 +639,24 @@ class _System:
     target_h_over_r: float | None
     target_s_over_r: float | None
 
+    def fixed_temperature_k(self) -> float:
+        """Prescribed temperature of a TP problem, K."""
+        if self.temperature_k is None:
+            raise InputError("TP requires a temperature.", field="temperature_k")
+        return self.temperature_k
+
+    def enthalpy_target(self) -> float:
+        """Target ``H/R`` of an HP problem, K mol/kg."""
+        if self.target_h_over_r is None:
+            raise InputError("HP requires a target enthalpy.", field="target_enthalpy_j")
+        return self.target_h_over_r
+
+    def entropy_target(self) -> float:
+        """Target ``S/R`` of an SP problem, mol/kg."""
+        if self.target_s_over_r is None:
+            raise InputError("SP requires a target entropy.", field="target_entropy_j_k")
+        return self.target_s_over_r
+
 
 @dataclass(slots=True)
 class _Iterate:
@@ -892,7 +916,7 @@ class CondensedEquilibriumProvider:
         )
 
     def _initial(self, system: _System, start: CondensedEquilibriumState | None) -> _Iterate:
-        temperature = system.temperature_k if system.mode == "TP" else _INITIAL_TEMPERATURE_K
+        temperature = system.fixed_temperature_k() if system.mode == "TP" else _INITIAL_TEMPERATURE_K
         keys = tuple(item.key for item in system.gases)
         if start is not None and start.gas_keys == keys:
             condensed_index = {item.key: position for position, item in enumerate(system.condensed)}
@@ -1018,7 +1042,7 @@ class CondensedEquilibriumProvider:
                     matrix[t_col][elements + position] = cond_props[position][1]
                 matrix[t_col][n_col] = sum_nh
                 matrix[t_col][t_col] = sum_ncp + cond_cp + sum_nh2
-                rhs[t_col] = system.target_h_over_r / temperature - h_total + sum_nhmu
+                rhs[t_col] = system.enthalpy_target() / temperature - h_total + sum_nhmu
             elif system.mode == "SP":
                 s_total = sum_ns + sum(state.condensed_amounts[c] * cond_props[p][2]
                                        for p, c in enumerate(active))
@@ -1028,7 +1052,7 @@ class CondensedEquilibriumProvider:
                     matrix[t_col][elements + position] = cond_props[position][2]
                 matrix[t_col][n_col] = sum_ns
                 matrix[t_col][t_col] = sum_ncp + cond_cp + sum_nhs
-                rhs[t_col] = system.target_s_over_r - s_total + total_gas - sum_n + sum_nsmu
+                rhs[t_col] = system.entropy_target() - s_total + total_gas - sum_n + sum_nsmu
             try:
                 correction = _gauss(matrix, rhs)
             except _Singular:
@@ -1073,11 +1097,13 @@ class CondensedEquilibriumProvider:
                 and abs(delta_log_t) <= self.temperature_tolerance
             )
             if converged and system.mode == "SP":
-                converged = abs(system.target_s_over_r - s_total) <= self.state_tolerance * max(
-                    abs(system.target_s_over_r), 1.0)
+                target_s = system.entropy_target()
+                converged = abs(target_s - s_total) <= self.state_tolerance * max(
+                    abs(target_s), 1.0)
             if converged and system.mode == "HP":
-                converged = abs(system.target_h_over_r / temperature - h_total) <= (
-                    self.state_tolerance * max(abs(system.target_h_over_r / temperature), 1.0))
+                target_h = system.enthalpy_target()
+                converged = abs(target_h / temperature - h_total) <= (
+                    self.state_tolerance * max(abs(target_h / temperature), 1.0))
             # Control factor, eqs. (3.1)-(3.3).
             largest = max(5.0 * abs(delta_log_t), 5.0 * abs(delta_log_n))
             lambda2 = 1.0
@@ -1189,7 +1215,7 @@ class CondensedEquilibriumProvider:
                 continue
             # Inclusion test, eq. (3.7): at most one new species per convergence.
             tests = self._test_values(system, state, potentials)
-            candidate = min(tests, key=tests.get, default=None)
+            candidate = min(tests, key=tests.__getitem__, default=None)
             if candidate is not None and tests[candidate] < 0.0:
                 key = (tuple(sorted(state.active + [candidate])), round(temperature))
                 if key in seen:
@@ -1245,14 +1271,14 @@ class CondensedEquilibriumProvider:
                 out_of_range_trace.append(species.key)
         by_key = {item.key: item for item in system.condensed}
         for key, amount in condensed_amounts.items():
-            species = by_key[key]
-            cp, h, s0 = _reduced(species.intervals, temperature, log_t)
+            phase = by_key[key]
+            cp, h, s0 = _reduced(phase.intervals, temperature, log_t)
             enthalpy += amount * h * r * temperature
             entropy += amount * s0 * r
             cp_total += amount * cp * r
-            outside = max(species.minimum_temperature_k - temperature,
-                          temperature - species.maximum_temperature_k)
-            coexisting = any(by_key[other].phase_group == species.phase_group
+            outside = max(phase.minimum_temperature_k - temperature,
+                          temperature - phase.maximum_temperature_k)
+            coexisting = any(by_key[other].phase_group == phase.phase_group
                              and by_key[other].covers(temperature)
                              for other in condensed_amounts if other != key)
             # Two phases of one substance pin T to their transition; the data
@@ -1278,10 +1304,10 @@ class CondensedEquilibriumProvider:
         energy_target = None
         energy_residual = None
         if system.mode == "HP":
-            energy_target = system.target_h_over_r * r * mass
+            energy_target = system.enthalpy_target() * r * mass
             energy_residual = abs(enthalpy - energy_target) / max(abs(energy_target), 1.0)
         elif system.mode == "SP":
-            target_s = system.target_s_over_r * r * mass
+            target_s = system.entropy_target() * r * mass
             energy_residual = abs(entropy - target_s) / max(abs(target_s), 1.0e-12)
         molecular_mass = mass / gas_moles
         gas_constant = r / molecular_mass

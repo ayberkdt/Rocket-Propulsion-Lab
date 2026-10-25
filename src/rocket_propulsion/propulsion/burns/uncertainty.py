@@ -27,6 +27,7 @@ References
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from enum import Enum
 from fractions import Fraction
@@ -482,10 +483,11 @@ class PropulsionSensitivity:
             if self.absolute_correlation is not None or self.rank is not None or self.undefined_reason!='constant_input_or_output':
                 raise DomainError("Undefined Pearson sensitivity requires null magnitude/rank and a constant-vector reason.")
         else:
-            object.__setattr__(self,"rank",integer(self.rank,"Sensitivity rank"))
+            rank=integer(self.rank,"Sensitivity rank")
+            object.__setattr__(self,"rank",rank)
             if not -1<=self.correlation<=1 or self.absolute_correlation!=abs(self.correlation):
                 raise DomainError("Pearson coefficient and absolute magnitude disagree.")
-            if self.rank<1 or self.undefined_reason is not None:
+            if rank<1 or self.undefined_reason is not None:
                 raise DomainError("Defined sensitivity needs a positive rank and no undefined reason.")
 
 
@@ -710,7 +712,7 @@ def _cholesky(matrix: tuple[tuple[float, ...], ...]) -> tuple[tuple[float, ...],
     size = len(matrix)
     # Exact LDL^T decisions; only the final Cholesky coefficients are rounded.
     lower = [[Fraction(int(row == column)) for column in range(size)] for row in range(size)]
-    diagonal=[]
+    diagonal: list[Fraction]=[]
     for row in range(size):
         for column in range(row):
             residual=_fraction(matrix[row][column])-sum((lower[row][k]*lower[column][k]*diagonal[k] for k in range(column)),Fraction(0))
@@ -871,15 +873,17 @@ def sample_uncertain_parameters(
         raise DomainError("Uncertainty parameter names must be unique.")
     if not 4 <= sample_count <= 10_000:
         raise DomainError("Propulsion uncertainty sample count must be between 4 and 10000.")
-    unit_rows = _unit_samples(
+    uniform_rows = _unit_samples(
         len(parameters), sample_count=sample_count, seed=seed, method=normalized_method
     )
+    unit_rows: Sequence[Sequence[float | _GaussianProbability]] = uniform_rows
     if correlation is not None:
         expected_names = tuple(parameter.name for parameter in parameters)
         if correlation.parameter_names != expected_names:
             raise DomainError("Correlation parameter order must match uncertainty parameters.")
         lower = _cholesky(correlation.matrix)
-        for row_index, row in enumerate(unit_rows):
+        correlated_rows: list[list[_GaussianProbability]] = []
+        for row in uniform_rows:
             independent = [
                 _normal_quantile(value)
                 for value in row
@@ -888,7 +892,8 @@ def sample_uncertain_parameters(
                 _finite_rational(sum((_fraction(lower[index][column])*_fraction(independent[column]) for column in range(index+1)),Fraction(0)),"Correlated Gaussian variate")
                 for index in range(len(parameters))
             ]
-            unit_rows[row_index] = [_GaussianProbability(value) for value in correlated]
+            correlated_rows.append([_GaussianProbability(value) for value in correlated])
+        unit_rows = correlated_rows
     return tuple(
         UncertaintyDraw(
             index=index,
@@ -926,7 +931,7 @@ def _custom_parameter_value(parameter, probability):
     return value
 
 
-def _percentile(values: list[float], probability: float) -> float:
+def _percentile(values: list[float], probability: float | Fraction) -> float:
     """Return the linear-interpolation sample percentile [1]_.
 
     References

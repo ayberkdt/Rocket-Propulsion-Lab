@@ -193,7 +193,7 @@ def simulate_constant_burn(
     axial = force * _fraction(definition.cant_efficiency)
     axial_thrust = _finite_rational(axial, "Axial thrust")
     initial_mass = _fraction(definition.initial_mass_kg)
-    rates = {}
+    rates: dict[str, Fraction] = {}
     for stream in operating_point.streams:
         if stream.tank_depleting:
             rates[stream.tank_id] = rates.get(stream.tank_id, Fraction(0)) + _fraction(stream.mass_flow_kg_s)

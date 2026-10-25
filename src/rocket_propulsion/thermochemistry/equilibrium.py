@@ -34,6 +34,13 @@ from .mixtures import REFERENCE_PRESSURE_PA, Mixture
 from .nasa_polynomials import UNIVERSAL_GAS_CONSTANT_J_MOL_K
 from .species import CondensedReactant, Species, get_reactant, get_species, species_catalog
 
+#: Library bound, not a source value: the gas phase is the ideal-gas mixture of
+#: :mod:`.mixtures`, an assumption that fails long before 1 GPa (rocket
+#: chambers run below about 30 MPa). NASA CEA itself imposes no bound; above
+#: this pressure solves are refused instead of returning ideal-gas numbers for
+#: states that cannot be ideal gases.
+MAXIMUM_IDEAL_GAS_PRESSURE_PA = 1.0e9
+
 
 @dataclass(frozen=True, slots=True)
 class ReactantAmount:
@@ -732,6 +739,11 @@ class LocalEquilibriumProvider:
             )
         if not isfinite(pressure_pa) or pressure_pa <= 0.0:
             raise DomainError("Equilibrium pressure must be positive.", field="pressure_pa")
+        if pressure_pa > MAXIMUM_IDEAL_GAS_PRESSURE_PA:
+            raise DomainError(
+                f"Equilibrium pressure {pressure_pa:.4g} Pa exceeds the {MAXIMUM_IDEAL_GAS_PRESSURE_PA:.0e} Pa "
+                "limit of the ideal-gas mixture model.",
+                code="pressure_outside_ideal_gas_range", field="pressure_pa")
         # Some NASA records start at 300 K; below that they are simply absent.
         candidates = tuple(
             species
@@ -1232,6 +1244,7 @@ class LocalEquilibriumProvider:
         """Solve an assigned enthalpy and pressure (adiabatic combustion) problem."""
         if problem.pressure_pa is None:
             raise InputError("HP requires pressure.", field="pressure_pa")
+        pressure_pa = problem.pressure_pa
         reactant_enthalpy, _ = self._reactant_energy(problem)
         target = (
             problem.target_enthalpy_j
@@ -1248,7 +1261,7 @@ class LocalEquilibriumProvider:
                 inventory=inventory,
                 candidates=candidates,
                 temperature_k=temperature,
-                pressure_pa=problem.pressure_pa,
+                pressure_pa=pressure_pa,
             )
             amounts, _, _ = last
             enthalpy = sum(
@@ -1283,6 +1296,7 @@ class LocalEquilibriumProvider:
         """Solve an assigned internal energy and volume (constant-volume) problem."""
         if problem.volume_m3 is None or problem.volume_m3 <= 0.0:
             raise InputError("UV requires a positive volume.", field="volume_m3")
+        volume_m3 = problem.volume_m3
         _, reactant_internal_energy = self._reactant_energy(problem)
         target = (
             problem.target_internal_energy_j
@@ -1314,12 +1328,12 @@ class LocalEquilibriumProvider:
                     * temperature
                     / pressure
                 )
-                return log(actual_volume / problem.volume_m3)
+                return log(actual_volume / volume_m3)
 
             log_pressure, iterations = self._bisect_state(
                 volume_residual,
                 lower=log(1.0),
-                upper=log(1.0e10),
+                upper=log(MAXIMUM_IDEAL_GAS_PRESSURE_PA),
                 tolerance=1.0e-10,
             )
             pressure_iteration_total += iterations

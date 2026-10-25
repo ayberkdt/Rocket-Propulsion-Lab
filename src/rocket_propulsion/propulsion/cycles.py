@@ -333,19 +333,19 @@ def _cycle_values(inputs):
     exponent = (gamma-1)/gamma
     outputs, high_fraction = component_power_outputs(inputs.cycle,inputs.pump_feed_policy,flow,specific,
         coefficient,exponent,Fraction(inputs.turbine_pressure_ratio))
-    warnings = [WarningMessage('hot_gas_pressure_not_closed',
+    cycle_warnings = [WarningMessage('hot_gas_pressure_not_closed',
         'Hot-gas supply/exhaust pressure compatibility and integrated cycle feasibility are not established.')]
     if inputs.pump_feed_policy == 'external-gg-feed':
         scope = 'ideal_main_pump_turbine_balance_excludes_external_gg_supply'
-        warnings.append(WarningMessage('external_gg_feed_not_modelled',
+        cycle_warnings.append(WarningMessage('external_gg_feed_not_modelled',
             'Generator propellant is supplied separately; its pressure source and energy duty are excluded.',severity='critical'))
     else:
         scope = 'ideal_shared_pump_and_turbine_balance'
     if high_fraction and inputs.cycle == 'gas-generator':
-        warnings.append(WarningMessage('high_gas_generator_flow_fraction',
+        cycle_warnings.append(WarningMessage('high_gas_generator_flow_fraction',
             'Computed generator fraction triggers the heuristic 8% advisory; this is not an acceptance limit.'))
     values.update(outputs,pump_pressure_rise_pa=_finite_rational(rise,'Pump pressure rise'),
-        pressure_fed_supply_sufficient=None,energy_balance_scope=scope,warnings=tuple(warnings),
+        pressure_fed_supply_sufficient=None,energy_balance_scope=scope,warnings=tuple(cycle_warnings),
         assumptions=('single equivalent liquid density and common cold-side pressure rise',
             'constant efficiencies and calorically perfect turbine gas; total inlet temperature and total inlet/outlet pressure ratio',
             'no pump map, cavitation, gearbox, bearing or mechanical loss model',

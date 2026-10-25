@@ -35,7 +35,7 @@ References
 from __future__ import annotations
 
 import itertools
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from math import atan2, cos, degrees, exp, log, radians, sin, sqrt
 
@@ -533,6 +533,23 @@ class EntryTrajectory:
     warnings: tuple[WarningMessage, ...]
 
 
+_EntryState = tuple[float, float, float, float]
+
+
+def _entry_state(values: Iterable[float]) -> _EntryState:
+    """Pack ``(r, theta, v, u)`` from an RK stage expression into a 4-tuple."""
+    r, theta, v, u = values
+    return (r, theta, v, u)
+
+
+def _stagnation_heating(item: EntrySample) -> float:
+    """Return the stagnation heating of a sample integrated with heating on."""
+    if item.stagnation_heating_w_m2 is None:  # pragma: no cover - set for every sample
+        raise DomainError("Entry sample has no stagnation heating rate.",
+                          field="stagnation_heating_w_m2")
+    return item.stagnation_heating_w_m2
+
+
 def integrate_planar_entry(
     *,
     entry_altitude_m: float,
@@ -692,17 +709,17 @@ def integrate_planar_entry(
     termination = "time"
     while time < t_max:
         k1 = derivatives(state)
-        k2 = derivatives(tuple(s + 0.5 * dt * k for s, k in zip(state, k1)))
-        k3 = derivatives(tuple(s + 0.5 * dt * k for s, k in zip(state, k2)))
-        k4 = derivatives(tuple(s + dt * k for s, k in zip(state, k3)))
-        new_state = tuple(s + dt / 6.0 * (a + 2.0 * b + 2.0 * c + d)
-                          for s, a, b, c, d in zip(state, k1, k2, k3, k4))
+        k2 = derivatives(_entry_state(s + 0.5 * dt * k for s, k in zip(state, k1)))
+        k3 = derivatives(_entry_state(s + 0.5 * dt * k for s, k in zip(state, k2)))
+        k4 = derivatives(_entry_state(s + dt * k for s, k in zip(state, k3)))
+        new_state = _entry_state(s + dt / 6.0 * (a + 2.0 * b + 2.0 * c + d)
+                                 for s, a, b, c, d in zip(state, k1, k2, k3, k4))
         new_altitude = new_state[0] - radius0
         if new_altitude <= h_final:
             old_altitude = state[0] - radius0
             fraction = (old_altitude - h_final) / (old_altitude - new_altitude)
-            crossing = tuple(s + fraction * (n - s) for s, n in zip(state, new_state))
-            crossing = (radius0 + h_final,) + crossing[1:]
+            crossing = _entry_state(s + fraction * (n - s) for s, n in zip(state, new_state))
+            crossing = (radius0 + h_final, crossing[1], crossing[2], crossing[3])
             time += fraction * dt
             samples.append(sample(time, crossing))
             termination = "altitude"
@@ -717,9 +734,10 @@ def integrate_planar_entry(
     peak_heat = None
     load = None
     if heating is not None:
-        peak_heat = max(samples, key=lambda item: item.stagnation_heating_w_m2)
-        load = sum(0.5 * (a.stagnation_heating_w_m2 + b.stagnation_heating_w_m2) * (b.time_s - a.time_s)
-                   for a, b in itertools.pairwise(samples))
+        rates = [_stagnation_heating(item) for item in samples]
+        peak_heat = samples[max(range(len(samples)), key=rates.__getitem__)]
+        load = sum(0.5 * (qa + qb) * (b.time_s - a.time_s)
+                   for (a, qa), (b, qb) in itertools.pairwise(zip(samples, rates, strict=True)))
     warnings = [WarningMessage(
         "point_mass_planar_model",
         "Non-rotating spherical planet, constant C_D and mass, no winds, no ablation.",

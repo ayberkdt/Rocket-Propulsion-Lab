@@ -32,7 +32,7 @@ from dataclasses import asdict
 from math import ceil
 from typing import Any
 
-from rocket_propulsion.core.errors import InputError
+from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.metadata import ModelMetadata
 from rocket_propulsion.propulsion.burns import (
     BlowdownTankModel,
@@ -260,7 +260,7 @@ def _artifact_summary(artifact: TabulatedBurnArtifact) -> dict[str, Any]:
     }
 
 
-def _histogram(values: list[float], bins: int) -> dict[str, list[float]]:
+def _histogram(values: list[float], bins: int) -> dict[str, list[float] | list[int]]:
     """Equal-width histogram of sample values; a constant sample gives one bin."""
 
     low, high = min(values), max(values)
@@ -1144,7 +1144,10 @@ def evaluate_electric_route(payload: dict[str, Any]) -> dict[str, Any]:
         current = model.select_level(power, current)
         decreasing.append(current)
     sweep["level_index_decreasing"] = decreasing[::-1]
-    path_levels = model.throttle_law.levels
+    throttle_law = model.throttle_law
+    if not isinstance(throttle_law, DiscreteThrottlePath):  # constructed from one above
+        raise DomainError("Electric throttle sweep requires a discrete throttle path.")
+    path_levels = throttle_law.levels
     return {
         "model": "power-limited electric propulsion, discrete throttle path",
         "inputs": {**values, "levels": [asdict(item) for item in levels]},
@@ -2074,20 +2077,21 @@ def evaluate_timeline_route(payload: dict[str, Any]) -> dict[str, Any]:
     for index, item in enumerate(_items(payload, "burns", default=_TIMELINE_BURNS)):
         label = f"burns[{index}]"
         _reject_unknown(item, {"burn_id", *burn_fields}, label)
-        burn = {"burn_id": _text(item, "burn_id", default="")}
-        burn.update({key: _number(item, key) for key in burn_fields})
+        burn_id = _text(item, "burn_id", default="")
+        numbers = {key: _number(item, key) for key in burn_fields}
+        burn: dict[str, str | float] = {"burn_id": burn_id, **numbers}
         burn_inputs.append(burn)
-        streams = (("ox", burn["oxidizer_mass_flow_kg_s"]), ("fu", burn["fuel_mass_flow_kg_s"]))
-        flow = burn["oxidizer_mass_flow_kg_s"] + burn["fuel_mass_flow_kg_s"]
-        thrust = burn["thrust_n"]
+        streams = (("ox", numbers["oxidizer_mass_flow_kg_s"]), ("fu", numbers["fuel_mass_flow_kg_s"]))
+        flow = numbers["oxidizer_mass_flow_kg_s"] + numbers["fuel_mass_flow_kg_s"]
+        thrust = numbers["thrust_n"]
         artifact = TabulatedBurnArtifact(
             segments=(
                 TabulatedBurnSegment(
-                    0.0, burn["duration_s"], thrust, thrust, thrust, thrust,
+                    0.0, numbers["duration_s"], thrust, thrust, thrust, thrust,
                     flow, flow, streams, streams, "steady",
                 ),
             ),
-            source_id=f"{burn['burn_id']}-burn",
+            source_id=f"{burn_id}-burn",
             source_sha256="0" * 64,
             reference_ids=("NASA-20040000363",),
         )
@@ -2095,7 +2099,7 @@ def evaluate_timeline_route(payload: dict[str, Any]) -> dict[str, Any]:
             artifact,
             stream_bindings=(StreamStateBinding("ox", "m_ox"), StreamStateBinding("fu", "m_fu")),
         )
-        burns.append(ScheduledBurn(burn["burn_id"], bridge, burn["ignition_time_s"]))
+        burns.append(ScheduledBurn(burn_id, bridge, numbers["ignition_time_s"]))
     jettison_items = payload.get("jettisons", list(_TIMELINE_JETTISONS))
     if not isinstance(jettison_items, list) or len(jettison_items) > _MAX_LIST_ITEMS:
         raise InputError("Field jettisons must be a list.", field="jettisons")
@@ -2697,8 +2701,12 @@ def size_sass_mission_route(payload: dict[str, Any]) -> dict[str, Any]:
     document = study.to_dict()
     scores = {score.name: score for score in study.scores}
     rows = []
+    candidate_values: list[dict[str, float]] = []
     for item in study.candidates:
         metrics = dict(item.metrics)
+        candidate_values.append(
+            {name: metrics[name].value for name in _SASS_METRICS if name in metrics}
+        )
         score = scores.get(item.candidate.identifier)
         rows.append(
             {
@@ -2730,18 +2738,15 @@ def size_sass_mission_route(payload: dict[str, Any]) -> dict[str, Any]:
 
     def metric_column(name: str) -> list[float | None]:
         """Candidate values of one sized metric; null where a candidate is unsized."""
-        return [
-            row["metrics"][name]["value"] if name in row["metrics"] else None for row in rows
-        ]
+        return [values.get(name) for values in candidate_values]
 
-    budget = document["delta_v_budget"]["values"]
     result: dict[str, Any] = {
         "model": "cited preliminary spacecraft propulsion sizing and weighted trade",
         "inputs": {"study": study.input_data, "overrides": overrides},
         "summary": {
             "title": study.title,
-            "nominal_delta_v_m_s": budget["nominal_delta_v"]["value"],
-            "allocated_delta_v_m_s": budget["allocated_delta_v"]["value"],
+            "nominal_delta_v_m_s": study.budget.get("nominal_delta_v").value,
+            "allocated_delta_v_m_s": study.budget.get("allocated_delta_v").value,
             "candidate_count": len(rows),
             "eligible_count": sum(row["eligibility"] == "eligible" for row in rows),
             "study_hash": document["study_hash"],

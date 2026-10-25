@@ -1,5 +1,25 @@
 # Release notes
 
+Hardened the existing systems against independent oracles and hostile input.
+Eight new oracle suites check compressible flow, conduction, real-fluid
+equations of state, Gibbs equilibrium, finite-rate kinetics, radiation,
+rocket performance and incompressible aerodynamics against SciPy/mpmath
+solutions, Monte Carlo ray tracing, KKT certificates and conservation laws
+written in the test files; an AST-driven fuzzer sends type garbage and
+extreme values to every field of every HTTP route. Defects they found and
+fixed: the vortex-panel influence integrals used an unsigned distance, so
+cambered sections were wrong (NACA 4412 zero-lift cl 1.44 instead of 0.517);
+isentropic inverses are now closed-form or bracketed Newton (0.017 ms instead
+of 2.6 ms, to a few ulp); ideal-gas equilibrium refuses pressures above 1 GPa
+instead of hanging; 41 overflow, division and time-out failures under extreme
+inputs now fail closed with named codes (`numeric_range`,
+`sample_budget_exceeded`); the propagator kept thrust exact when no nozzle
+exit area is set; a bare 101 325 Pa literal now uses the registered
+constant; the SP-8120 docstring link pointed at SP-8041. Nozzle separation
+gained Schmucker's Mach-number criterion (NASA TM-77396), which locates the
+incipient separation point next to the Summerfield screen. `mypy` now runs in
+CI with `check_untyped_defs` and `warn_unused_ignores`.
+
 Added heat-transfer and combustion depth. A new `heat_transfer` package covers
 conduction (multilayer k(T) walls, fins, analytic and energy-audited
 finite-volume transients), convection (pipe, entry, external, natural,
@@ -60,6 +80,20 @@ layered ullage stratification, hot-fire calibration fields over the
 operating-condition surface, a native Sidera wrapper for the propagation
 bridge, and a clean-environment package smoke test
 (`scripts/package_smoke_test.py`). See `VALIDATION_REPORT.md`.
+
+Added transpiration cooling (`heat_transfer.transpiration`: Mickley film
+theory, the wall energy balance with efficiency and radiation,
+Eckert–Livingood and Rannie relations, the two-temperature porous wall), the
+first hot-fire comparison (Bartz against NASA TN D-6396: 7–30 % high in the
+chamber, 13–61 % at the throat), the Priem–Heidmann vaporization length
+(`thermochemistry.vaporization`) and NASA SP-194 combustion-instability
+relations (`thermochemistry.combustion_instability`). `hot_gas_from_reactants`
+builds the chamber gas for any reactant mixture. Also added ethanol and MMH
+flow-boiling burnout correlations, feed-coupled chugging with SP-194 feed
+admittances and a Nyquist count, a total heat-load comparison with the NASA
+TN D-3532 firings, and the `/api/v1/transpiration-cooling`,
+`/api/v1/combustion-stability` and `/api/v1/propellant-vaporization` routes
+with workbench panes.
 
 Repaired relative-time boundary ownership, early bridge cutoff, shifted-time
 rounding and native event merging. Exact origins/endpoints and zero implicit

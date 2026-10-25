@@ -115,6 +115,7 @@ def _direction_geometry(direction):
     if scale == 0:
         raise DomainError("Thrust direction must be non-zero.")
     scaled_norm = hypot(*(value / scale for value in vector))
-    coordinates = tuple(_fraction(value) for value in vector)
+    x, y, z = vector
+    coordinates = (_fraction(x), _fraction(y), _fraction(z))
     return _DirectionGeometry(coordinates, sum((value * value for value in coordinates), Fraction(0)),
                               _fraction(scale) * _fraction(scaled_norm))

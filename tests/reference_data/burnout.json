@@ -1,0 +1,367 @@
+{
+  "_about": "Burnout (critical) heat-flux reference data, copied from page images on 2026-10-25.",
+  "meyer_linne_rousar_ethanol": {
+    "source": "Meyer, Linne & Rousar, NASA/TM-1998-206612 (1998), Table III p. 6, Eqs. (1)-(3) pp. 5 and 8. https://ntrs.nasa.gov/citations/19980017166",
+    "stated_band": 0.2,
+    "fit_pressure_note": "Eq. (1) fitted to exit pressures near 200 psia; Fig. 5 data P < 250 psia.",
+    "transcription_note": "V x (T_sat - T_bulk) recomputed from the printed columns does not reproduce the printed V dT_sub for the long-tube rows (e.g. test 4: 369 against 796); the printed V dT_sub column is used, as the correlation plots it.",
+    "table_iii": [
+      {
+        "test": 1,
+        "pressure_psia": 206.0,
+        "bulk_temperature_f": 249.0,
+        "velocity_ft_s": 9.7,
+        "saturation_temperature_f": 332.0,
+        "velocity_subcooling_f_ft_s": 825.0,
+        "chf_btu_in2_s": 1.57
+      },
+      {
+        "test": 2,
+        "pressure_psia": 222.0,
+        "bulk_temperature_f": 256.0,
+        "velocity_ft_s": 15.8,
+        "saturation_temperature_f": 338.0,
+        "velocity_subcooling_f_ft_s": 1348.0,
+        "chf_btu_in2_s": 2.28
+      },
+      {
+        "test": 3,
+        "pressure_psia": 219.0,
+        "bulk_temperature_f": 225.0,
+        "velocity_ft_s": 21.2,
+        "saturation_temperature_f": 337.0,
+        "velocity_subcooling_f_ft_s": 2622.0,
+        "chf_btu_in2_s": 2.62
+      },
+      {
+        "test": 4,
+        "pressure_psia": 214.0,
+        "bulk_temperature_f": 317.0,
+        "velocity_ft_s": 20.5,
+        "saturation_temperature_f": 335.0,
+        "velocity_subcooling_f_ft_s": 796.0,
+        "chf_btu_in2_s": 1.21
+      },
+      {
+        "test": 5,
+        "pressure_psia": 221.0,
+        "bulk_temperature_f": 317.0,
+        "velocity_ft_s": 28.2,
+        "saturation_temperature_f": 338.0,
+        "velocity_subcooling_f_ft_s": 1010.0,
+        "chf_btu_in2_s": 1.64
+      },
+      {
+        "test": 6,
+        "pressure_psia": 204.0,
+        "bulk_temperature_f": 296.0,
+        "velocity_ft_s": 48.1,
+        "saturation_temperature_f": 332.0,
+        "velocity_subcooling_f_ft_s": 2304.0,
+        "chf_btu_in2_s": 2.94
+      },
+      {
+        "test": 7,
+        "pressure_psia": 199.0,
+        "bulk_temperature_f": 209.0,
+        "velocity_ft_s": 28.2,
+        "saturation_temperature_f": 330.0,
+        "velocity_subcooling_f_ft_s": 3585.0,
+        "chf_btu_in2_s": 3.31
+      },
+      {
+        "test": 8,
+        "pressure_psia": 224.0,
+        "bulk_temperature_f": 180.0,
+        "velocity_ft_s": 56.8,
+        "saturation_temperature_f": 339.0,
+        "velocity_subcooling_f_ft_s": 9395.0,
+        "chf_btu_in2_s": 5.47
+      },
+      {
+        "test": 9,
+        "pressure_psia": 204.0,
+        "bulk_temperature_f": 185.0,
+        "velocity_ft_s": 9.9,
+        "saturation_temperature_f": 331.0,
+        "velocity_subcooling_f_ft_s": 1484.0,
+        "chf_btu_in2_s": 1.78
+      },
+      {
+        "test": 10,
+        "pressure_psia": 214.0,
+        "bulk_temperature_f": 153.0,
+        "velocity_ft_s": 19.5,
+        "saturation_temperature_f": 335.0,
+        "velocity_subcooling_f_ft_s": 3585.0,
+        "chf_btu_in2_s": 2.88
+      },
+      {
+        "test": 11,
+        "pressure_psia": 259.0,
+        "bulk_temperature_f": 133.0,
+        "velocity_ft_s": 39.4,
+        "saturation_temperature_f": 351.0,
+        "velocity_subcooling_f_ft_s": 8679.0,
+        "chf_btu_in2_s": 4.37
+      },
+      {
+        "test": 12,
+        "pressure_psia": 223.0,
+        "bulk_temperature_f": 116.0,
+        "velocity_ft_s": 74.1,
+        "saturation_temperature_f": 339.0,
+        "velocity_subcooling_f_ft_s": 18340.0,
+        "chf_btu_in2_s": 6.99
+      },
+      {
+        "test": 13,
+        "pressure_psia": 555.0,
+        "bulk_temperature_f": 118.0,
+        "velocity_ft_s": 36.6,
+        "saturation_temperature_f": 420.0,
+        "velocity_subcooling_f_ft_s": 12600.0,
+        "chf_btu_in2_s": 3.97
+      },
+      {
+        "test": 14,
+        "pressure_psia": 531.0,
+        "bulk_temperature_f": 126.0,
+        "velocity_ft_s": 55.0,
+        "saturation_temperature_f": 415.0,
+        "velocity_subcooling_f_ft_s": 18390.0,
+        "chf_btu_in2_s": 6.11
+      },
+      {
+        "test": 15,
+        "pressure_psia": 514.0,
+        "bulk_temperature_f": 135.0,
+        "velocity_ft_s": 73.8,
+        "saturation_temperature_f": 411.0,
+        "velocity_subcooling_f_ft_s": 24230.0,
+        "chf_btu_in2_s": 8.67
+      },
+      {
+        "test": 16,
+        "pressure_psia": 220.0,
+        "bulk_temperature_f": 223.0,
+        "velocity_ft_s": 15.3,
+        "saturation_temperature_f": 337.0,
+        "velocity_subcooling_f_ft_s": 1797.0,
+        "chf_btu_in2_s": 2.25
+      },
+      {
+        "test": 17,
+        "pressure_psia": 228.0,
+        "bulk_temperature_f": 228.0,
+        "velocity_ft_s": 20.5,
+        "saturation_temperature_f": 340.0,
+        "velocity_subcooling_f_ft_s": 2408.0,
+        "chf_btu_in2_s": 2.98
+      },
+      {
+        "test": 18,
+        "pressure_psia": 202.0,
+        "bulk_temperature_f": 288.0,
+        "velocity_ft_s": 62.4,
+        "saturation_temperature_f": 331.0,
+        "velocity_subcooling_f_ft_s": 3309.0,
+        "chf_btu_in2_s": 3.69
+      },
+      {
+        "test": 19,
+        "pressure_psia": 205.0,
+        "bulk_temperature_f": 304.0,
+        "velocity_ft_s": 28.2,
+        "saturation_temperature_f": 332.0,
+        "velocity_subcooling_f_ft_s": 1145.0,
+        "chf_btu_in2_s": 1.76
+      },
+      {
+        "test": 20,
+        "pressure_psia": 202.0,
+        "bulk_temperature_f": 309.0,
+        "velocity_ft_s": 20.2,
+        "saturation_temperature_f": 331.0,
+        "velocity_subcooling_f_ft_s": 667.0,
+        "chf_btu_in2_s": 1.28
+      },
+      {
+        "test": 21,
+        "pressure_psia": 365.0,
+        "bulk_temperature_f": 134.0,
+        "velocity_ft_s": 36.6,
+        "saturation_temperature_f": 380.0,
+        "velocity_subcooling_f_ft_s": 10900.0,
+        "chf_btu_in2_s": 4.75
+      },
+      {
+        "test": 22,
+        "pressure_psia": 218.0,
+        "bulk_temperature_f": 144.0,
+        "velocity_ft_s": 38.3,
+        "saturation_temperature_f": 337.0,
+        "velocity_subcooling_f_ft_s": 7483.0,
+        "chf_btu_in2_s": 5.4
+      },
+      {
+        "test": 23,
+        "pressure_psia": 514.0,
+        "bulk_temperature_f": 125.0,
+        "velocity_ft_s": 37.0,
+        "saturation_temperature_f": 411.0,
+        "velocity_subcooling_f_ft_s": 12290.0,
+        "chf_btu_in2_s": 4.17
+      },
+      {
+        "test": 24,
+        "pressure_psia": 209.0,
+        "bulk_temperature_f": 115.0,
+        "velocity_ft_s": 63.4,
+        "saturation_temperature_f": 334.0,
+        "velocity_subcooling_f_ft_s": 16190.0,
+        "chf_btu_in2_s": 6.43
+      },
+      {
+        "test": 25,
+        "pressure_psia": 211.0,
+        "bulk_temperature_f": 111.0,
+        "velocity_ft_s": 73.3,
+        "saturation_temperature_f": 334.0,
+        "velocity_subcooling_f_ft_s": 19160.0,
+        "chf_btu_in2_s": 7.08
+      },
+      {
+        "test": 26,
+        "pressure_psia": 471.0,
+        "bulk_temperature_f": 118.0,
+        "velocity_ft_s": 36.7,
+        "saturation_temperature_f": 403.0,
+        "velocity_subcooling_f_ft_s": 12110.0,
+        "chf_btu_in2_s": 4.03
+      },
+      {
+        "test": 27,
+        "pressure_psia": 336.0,
+        "bulk_temperature_f": 71.0,
+        "velocity_ft_s": 38.2,
+        "saturation_temperature_f": 373.0,
+        "velocity_subcooling_f_ft_s": 11500.0,
+        "chf_btu_in2_s": 4.54
+      },
+      {
+        "test": 28,
+        "pressure_psia": 280.0,
+        "bulk_temperature_f": 120.0,
+        "velocity_ft_s": 39.0,
+        "saturation_temperature_f": 358.0,
+        "velocity_subcooling_f_ft_s": 9291.0,
+        "chf_btu_in2_s": 4.53
+      },
+      {
+        "test": 29,
+        "pressure_psia": 299.0,
+        "bulk_temperature_f": 68.0,
+        "velocity_ft_s": 54.4,
+        "saturation_temperature_f": 368.0,
+        "velocity_subcooling_f_ft_s": 16310.0,
+        "chf_btu_in2_s": 5.53
+      },
+      {
+        "test": 30,
+        "pressure_psia": 299.0,
+        "bulk_temperature_f": 72.0,
+        "velocity_ft_s": 21.3,
+        "saturation_temperature_f": 363.0,
+        "velocity_subcooling_f_ft_s": 6183.0,
+        "chf_btu_in2_s": 2.96
+      },
+      {
+        "test": 31,
+        "pressure_psia": 319.0,
+        "bulk_temperature_f": 159.0,
+        "velocity_ft_s": 76.7,
+        "saturation_temperature_f": 368.0,
+        "velocity_subcooling_f_ft_s": 20740.0,
+        "chf_btu_in2_s": 7.55
+      },
+      {
+        "test": 32,
+        "pressure_psia": 297.0,
+        "bulk_temperature_f": 209.0,
+        "velocity_ft_s": 23.2,
+        "saturation_temperature_f": 362.0,
+        "velocity_subcooling_f_ft_s": 3553.0,
+        "chf_btu_in2_s": 3.52
+      },
+      {
+        "test": 33,
+        "pressure_psia": 703.0,
+        "bulk_temperature_f": 109.0,
+        "velocity_ft_s": 32.0,
+        "saturation_temperature_f": 442.0,
+        "velocity_subcooling_f_ft_s": 10720.0,
+        "chf_btu_in2_s": 3.18
+      },
+      {
+        "test": 34,
+        "pressure_psia": 606.0,
+        "bulk_temperature_f": 66.0,
+        "velocity_ft_s": 35.5,
+        "saturation_temperature_f": 427.0,
+        "velocity_subcooling_f_ft_s": 12850.0,
+        "chf_btu_in2_s": 3.84
+      },
+      {
+        "test": 35,
+        "pressure_psia": 167.0,
+        "bulk_temperature_f": 108.0,
+        "velocity_ft_s": 56.2,
+        "saturation_temperature_f": 316.0,
+        "velocity_subcooling_f_ft_s": 11670.0,
+        "chf_btu_in2_s": 5.87
+      },
+      {
+        "test": 36,
+        "pressure_psia": 144.0,
+        "bulk_temperature_f": 106.0,
+        "velocity_ft_s": 58.0,
+        "saturation_temperature_f": 305.0,
+        "velocity_subcooling_f_ft_s": 11530.0,
+        "chf_btu_in2_s": 6.06
+      },
+      {
+        "test": 37,
+        "pressure_psia": 233.0,
+        "bulk_temperature_f": 141.0,
+        "velocity_ft_s": 29.6,
+        "saturation_temperature_f": 342.0,
+        "velocity_subcooling_f_ft_s": 5954.0,
+        "chf_btu_in2_s": 3.74
+      },
+      {
+        "test": 38,
+        "pressure_psia": 208.0,
+        "bulk_temperature_f": 192.0,
+        "velocity_ft_s": 37.2,
+        "saturation_temperature_f": 333.0,
+        "velocity_subcooling_f_ft_s": 5458.0,
+        "chf_btu_in2_s": 4.28
+      }
+    ]
+  },
+  "tobin_mmh": {
+    "source": "Tobin, NASA CR-134282 (1974), Eq. (A-1) p. A1, Fig. A1 p. A2. https://ntrs.nasa.gov/citations/19740018134",
+    "coefficient": 0.025,
+    "exponent": 0.633,
+    "velocity_range_ft_s": [
+      10,
+      56
+    ],
+    "subcooling_range_f": [
+      31,
+      226
+    ],
+    "design_curve_end_note": "Fig. A1 design curve ends near 8.2 Btu/(in^2 s) at 11 000 F ft/s (visual); Eq. (A-1) gives 9.04 there."
+  }
+}

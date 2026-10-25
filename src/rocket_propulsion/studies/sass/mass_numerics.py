@@ -114,11 +114,12 @@ def _at_precision(dry: float, residual: float, reserve: float,
             on_time = used / flow
             elapsed = on_time / duty
             impulse = used * exhaust
-            rows = (("initial_mass", mass, "kg"), ("final_mass", final_mass, "kg"),
-                    ("consumed_propellant", used, "kg"), ("tank_mass_flow", flow, "kg/s"),
-                    ("on_time", on_time, "s"), ("elapsed_time", elapsed, "s"),
-                    ("scalar_impulse", impulse, "N*s"), ("axial_impulse", impulse * eta, "N*s"),
-                    ("initial_axial_acceleration", force * eta / mass, "m/s^2"))
+            rows: tuple[tuple[str, Decimal, str], ...] = (
+                ("initial_mass", mass, "kg"), ("final_mass", final_mass, "kg"),
+                ("consumed_propellant", used, "kg"), ("tank_mass_flow", flow, "kg/s"),
+                ("on_time", on_time, "s"), ("elapsed_time", elapsed, "s"),
+                ("scalar_impulse", impulse, "N*s"), ("axial_impulse", impulse * eta, "N*s"),
+                ("initial_axial_acceleration", force * eta / mass, "m/s^2"))
             converted, difference = _binary_rows(rows)
             conversion_difference = max(conversion_difference, difference)
             burn_rows.append(converted)

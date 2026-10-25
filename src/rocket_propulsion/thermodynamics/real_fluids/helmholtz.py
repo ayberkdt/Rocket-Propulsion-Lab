@@ -268,7 +268,9 @@ class ResidualModel(Protocol):
         Largest admissible ``delta`` (covolume limit for a cubic equation).
     """
 
-    reduced_density_limit: float
+    @property
+    def reduced_density_limit(self) -> float:
+        """Largest admissible ``delta``; read-only on the frozen implementations."""
 
     def derivatives(self, tau: float, delta: float) -> ResidualDerivatives:
         """Return ``alphar`` and its five first and second derivatives."""

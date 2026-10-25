@@ -76,7 +76,6 @@ from typing import Any
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import (
     DOCUMENT_ERRORS,
-    read_json_document,
     real,
     real_tuple,
     records,
@@ -91,6 +90,7 @@ from .calibration import (
     calibrate_hot_fire_scale,
 )
 from .discrepancy import qualified_scale_component_name
+from .exchange_documents import _read_document
 from .interpolation import _MULTILINEAR_POLICY, _multilinear_terms
 from .numeric_outputs import _finite_rational, _fraction
 from .performance_surface import (
@@ -605,7 +605,9 @@ class HotFireCalibrationField:
         weights: list[tuple[tuple[float, ...], float]] = []
         for corner, weight, derivative_weights in _multilinear_terms(brackets):
             coordinate = tuple(
-                axis.values[brackets[index][corner[index]]] for index, axis in enumerate(self.axes)
+                # ``[:2]`` keeps the integer (lower, upper) grid indices of each bracket.
+                axis.values[brackets[index][:2][corner[index]]]
+                for index, axis in enumerate(self.axes)
             )
             calibration = self._node_index[coordinate]
             mu = _fraction(calibration.consensus_scale)
@@ -1035,7 +1037,7 @@ class HotFireCalibrationField:
                Interchange Format". https://www.rfc-editor.org/rfc/rfc8259
         """
 
-        return read_json_document(text, "Calibration-field artifact", cls.from_dict)
+        return _read_document(text, "Calibration-field artifact", cls.from_dict)
 
 
 def _coverage(coverage_factor: float) -> float:

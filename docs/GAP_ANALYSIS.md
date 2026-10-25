@@ -14,7 +14,7 @@ and what would require a higher-fidelity model.
 | Choked C-D nozzle | Implemented | Inviscid, frozen-property design point |
 | Nozzle station solution | Implemented | Quasi-one-dimensional, no internal shock |
 | Off-design with chemistry | Implemented | Perfect gas calibrated to the equilibrium design point; exact mass flow and design exit pressure |
-| Shock trains / nozzle separation | Partial | Internal normal shock and Summerfield screen; no shock train or viscous separation field |
+| Shock trains / nozzle separation | Partial | Internal normal shock; Summerfield screen and Schmucker's criterion (NASA TM-77396), which locates incipient separation on the 1-D wall pressure; no shock train, side loads or viscous separation field |
 | Boundary layer / heat transfer | Implemented (1-D) | Coupled gas/wall/coolant regenerative solve (Bartz at the local wall temperature, fin lands, Taylor or Gnielinski coolant side, real-fluid coolant, optional WSGG gas radiation); transient multilayer conduction; convection and radiation libraries (see the heat-transfer section); no axial or circumferential wall conduction, no two-phase coolant, no CFD |
 | Method of characteristics | Partial | Local interior, boundary, axis-departure and straight-wall field processes have targeted checks; the legacy full-nozzle generator uses axisymmetric area mapping and has unresolved characteristic-geometry defects (`GEOMETRY_REVIEW.md`) |
 
@@ -81,18 +81,19 @@ and what would require a higher-fidelity model.
 | Capability | Status | Current boundary |
 |---|---|---|
 | Conduction | Implemented | 1-D steady and transient (finite-volume θ-method) multilayer walls with k(T), contact resistance, generation, convective and radiative boundaries; fins with exact Bessel functions; no 2-D ribs or axial conduction |
-| Convection | Implemented | Internal, entry, rough, liquid-metal, external and natural convection; Taylor and Hess–Kunz hydrogen, RTE coolant form with curvature; boiling, peak flux and film condensation; Hatch–Papell film cooling; no transpiration cooling, no propellant burnout correlation |
+| Convection | Implemented | Internal, entry, rough, liquid-metal, external and natural convection; Taylor and Hess–Kunz hydrogen, RTE coolant form with curvature; boiling, peak flux and film condensation; Hatch–Papell film cooling; SP-8087 burnout-margin screen with subcooled flow-boiling burnout for ethanol and MMH; no free RP-1, N₂O₄ or hydrazine burnout correlation found |
+| Transpiration cooling | Implemented | Film theory (TN 3208) with the wall energy balance, wall efficiency and radiation; Eckert–Livingood and Rannie relations; two-temperature porous wall; inside the spread of four published methods on Kelley's case; no rocket-firing comparison, no foreign-gas diffusion term |
 | Radiation | Implemented | Planck, band fractions, closed-form view factors, gray enclosures, radiation-cooled extensions; H₂O–CO₂ WSGG (Bordbar 2020) and soot WSGG (Sadeghi 2021) by superposition, fitted at 1 atm; no alumina particle radiation, no spectral line-by-line model |
-| Regenerative cooling | Implemented (quasi-1-D) | Coupled station march verified against its components and conservation; not validated against hot-fire data |
+| Regenerative cooling | Implemented (quasi-1-D) | Coupled station march verified against its components and conservation; gas side compared with NASA TN D-6396 firings (Bartz 7–30 % high in the chamber, 13–61 % at the throat) and total heat load with TN D-3532 (bracketed for 1100–1500 K walls); station-by-station coolant side not compared with a firing |
 | Combustion products and dissociation | Implemented | Composition to 1e-14, radicals, dissociation energy and recombination heat, within 2.5e-4 of CEA down to 1e-10 mole fraction |
 | Finite-area combustor | Implemented | RP-1311 FAC within 1.3e-4 of CEA; gas phase only |
-| Combustion efficiency | Implemented | Measured efficiencies, vaporisation-limited c*, Rupe mixing and JANNAF ERE bookkeeping, SP-8089 mixing, L*; no Priem–Heidmann vaporisation length (NASA TR R-67 not found) |
+| Combustion efficiency | Implemented | Measured efficiencies, vaporisation-limited c*, Rupe mixing and JANNAF ERE bookkeeping, SP-8089 mixing, L*; Priem–Heidmann generalized length and curve as tabulated in NASA CR-168066 (TR R-67 itself not on NTRS) |
 | Finite-rate kinetics | Implemented (H₂–O₂) | GRI-Mech 3.0 subset with RODAS; LOX/LH₂ only; chamber-start mode does not resolve fast throat chemistry; no published ODK/TDK case compared |
-| Combustion instability | Open | No acoustic or response-function model |
+| Combustion instability | Implemented (linear, closed form) | SP-194 chamber modes, chugging and Crocco–Cheng limits, n–τ neutral curve, resonator tuning, response factor, Q and decay rate; feed-coupled chugging (lines, manifolds, orifices, tanks; Nyquist); no pumps, baffles, liners in the eigenvalue or nonlinear instability |
 
 ## Highest-value next steps
 
-1. Hot-fire wall-temperature or heat-flux data to validate the regenerative solver.
+1. Hot-fire coolant-side and wall-temperature data (for example NASA TN D-7207 or a calorimeter chamber) to validate the coupled regenerative solver beyond the gas side.
 2. Sourced HTPB and paraffin thermochemistry to compute the hybrid families.
 3. Line priming once a primary model source is available.
 4. Clean-machine (not only clean-environment) package smoke test for the 1.0 tag.

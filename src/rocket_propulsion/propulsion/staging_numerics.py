@@ -166,7 +166,7 @@ def _increment_identity(a, ak, b, bk, step):
     """
     ax, bx = _exponent(a, step), _exponent(b, step)
     ae, be = Fraction(a.structural_fraction), Fraction(b.structural_fraction)
-    terms = {}
+    terms: dict[Fraction, Fraction] = {}
     for power, coefficient in ((-ak*ax-(bk+1)*bx, Fraction(1)),
             (-ak*ax, -be), (-(bk+1)*bx, -ae),
             (-bk*bx-(ak+1)*ax, Fraction(-1)),
@@ -370,7 +370,7 @@ def _objective_polynomial(inputs, allocations):
     step = Fraction(inputs.target_delta_v_m_s)/inputs.resolution
     for stage, count in zip(inputs.stages, allocations):
         eps = Fraction(stage.structural_fraction)
-        x = _exponent(stage, step*count); following = {}
+        x = _exponent(stage, step*count); following: dict[Fraction, Fraction] = {}
         for power, coefficient in terms.items():
             following[power-x] = following.get(power-x, Fraction(0))+coefficient/(1-eps)
             following[power] = following.get(power, Fraction(0))-coefficient*eps/(1-eps)

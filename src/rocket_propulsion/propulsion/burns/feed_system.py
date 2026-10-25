@@ -1424,11 +1424,9 @@ def evaluate_coupled_feed_propulsion(
                 (name, demanded_flow_wrt_pressure * partial)
                 for name, partial in closed_pressure_partials
             )
+            ax, ay, az = acceleration_wrt_pressure
             acceleration_state_partials = tuple(
-                (
-                    name,
-                    tuple(component * partial for component in acceleration_wrt_pressure),
-                )
+                (name, (ax * partial, ay * partial, az * partial))
                 for name, partial in closed_pressure_partials
             )
             evidence = FeedCouplingEvidence(

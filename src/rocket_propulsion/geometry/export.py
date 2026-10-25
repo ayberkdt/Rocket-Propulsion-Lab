@@ -113,7 +113,7 @@ class ContourExportInputs:
         if not 8 <= count <= 128:
             raise DomainError('STL angular segment count must be between 8 and 128.', field='angular_segments')
         object.__setattr__(self, 'angular_segments', count)
-        points = []
+        points: list[NozzleStation] = []
         for station in _ordered_items(self.stations, 'Export stations'):
             station = _owned(station, NozzleStation, 'Export station')
             values = {item.name: real(getattr(station, item.name), item.name) for item in fields(NozzleStation)}
@@ -125,9 +125,9 @@ class ContourExportInputs:
             points.append(station)
         if len(points) < 2:
             raise DomainError('An export needs at least two axial stations.', field='Export stations')
-        points = tuple(points)
-        _check_geometry(points, self.throat_area_m2, self.area_ratio)
-        object.__setattr__(self, 'stations', points)
+        ordered = tuple(points)
+        _check_geometry(ordered, self.throat_area_m2, self.area_ratio)
+        object.__setattr__(self, 'stations', ordered)
 
 
 @dataclass(frozen=True, slots=True)
@@ -357,7 +357,7 @@ def _stl(contour: ContourExportInputs, angular_segments: int) -> str:
 
 
 @lru_cache(maxsize=1)
-def _render(inputs):
+def _render(inputs: ContourExportInputs) -> tuple[str, str, str, str]:
     """Return ``(csv, svg, dxf, stl)`` for ``inputs``.
 
     A one-entry cache lets :func:`export_nozzle_contour` and the bundle's

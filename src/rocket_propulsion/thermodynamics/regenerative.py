@@ -49,7 +49,7 @@ from functools import lru_cache
 from itertools import islice
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.metadata import WarningMessage
+from rocket_propulsion.core.metadata import WarningMessage, is_warning_severity
 from rocket_propulsion.core.validation import _ordered_items, integer, real, strings, text
 
 from .heat_transfer import _owned
@@ -143,13 +143,14 @@ class RegenerativeInputs:
         for field in fields(self):
             name=field.name
             if name=='channel_count':
-                value=integer(self.channel_count,name)
-                if value<1:raise DomainError('Channel count must be positive.',field=name)
+                count=integer(self.channel_count,name)
+                if count<1:raise DomainError('Channel count must be positive.',field=name)
+                object.__setattr__(self,name,count)
             else:
                 value=real(getattr(self,name),name)
                 if value<0 or value==0 and name!='roughness_m':
                     raise DomainError('Positive coolant quantity required; roughness may be zero.',field=name)
-            object.__setattr__(self,name,value)
+                object.__setattr__(self,name,value)
         if self.maximum_coolant_temperature_k<=self.coolant_inlet_temperature_k:
             raise DomainError('Maximum coolant temperature must exceed inlet temperature.',field='maximum_coolant_temperature_k')
 
@@ -166,7 +167,7 @@ def _warnings(value):
     for warning in items:
         warning=_owned(warning,WarningMessage,'Coolant warning')
         severity=text(warning.severity,'Warning severity')
-        if severity not in ('info','warning','critical'):raise DomainError('Unknown warning severity.',field='Warning severity')
+        if not is_warning_severity(severity):raise DomainError('Unknown warning severity.',field='Warning severity')
         result.append(WarningMessage(text(warning.code,'Warning code'),text(warning.message,'Warning message'),severity,
             None if warning.field is None else text(warning.field,'Warning field')))
     return tuple(result)
@@ -419,7 +420,7 @@ class RegenerativeCoolingResult:
                printed p. 104 (PDF p. 113), equations (4-19) to (4-22),
                https://ntrs.nasa.gov/api/citations/19710019929/downloads/19710019929.pdf
         """
-        extra=()
+        extra:tuple[WarningMessage,...]=()
         if self.coolant_selection is not None:
             extra+=self.coolant_selection.warnings
         if self.wall_conduction is not None:

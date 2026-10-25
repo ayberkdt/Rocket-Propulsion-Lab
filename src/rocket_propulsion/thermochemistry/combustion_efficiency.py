@@ -78,7 +78,7 @@ from .equilibrium import (
     LocalEquilibriumProvider,
 )
 from .rocket_equilibrium import PropellantPair, get_propellant_pair, reactants_for_mass_ratio
-from .rocket_performance import solve_rocket_performance
+from .rocket_performance import Chemistry, solve_rocket_performance
 from .species import get_reactant, get_species
 
 #: Oxidation states used by NASA CEA for the chemical equivalence ratio
@@ -109,6 +109,8 @@ SP125_RECOMMENDED_CHARACTERISTIC_LENGTH_M: dict[str, tuple[float, float]] = {
 
 Objective = Literal["vacuum_specific_impulse", "density_vacuum_impulse"]
 _GOLDEN = (sqrt(5.0) - 1.0) / 2.0
+#: Shifting then frozen chemistry, the two limits of :func:`frozen_equilibrium_limits`.
+_CHEMISTRY_LIMITS: tuple[Chemistry, Chemistry] = ("equilibrium", "frozen")
 
 
 def _positive(value: float, field: str) -> float:
@@ -766,7 +768,7 @@ def combustion_product_report(
         exit_recovered_fraction=(chamber.formation_enthalpy_j_kg - exit_.formation_enthalpy_j_kg) / dissociation,
     )
     stoich = None
-    if pair is not None:
+    if pair is not None and oxidizer_fuel_ratio is not None:
         stoich = stoichiometry_report(pair.fuel_reactant, pair.oxidizer_reactant, float(oxidizer_fuel_ratio))
     return CombustionProductReport(
         pair=pair.key if pair is not None else None,
@@ -1491,7 +1493,7 @@ def frozen_equilibrium_limits(*, propellant_pair: str, oxidizer_fuel_ratio: floa
     values = [solve_rocket_performance(reactants=mixture, chamber_pressure_pa=chamber_pressure_pa,
                                        area_ratios=(area_ratio,), chemistry=chemistry,
                                        provider=active).exits[0].vacuum_specific_impulse_s
-              for chemistry in ("equilibrium", "frozen")]
+              for chemistry in _CHEMISTRY_LIMITS]
     return ChemistryLimits(values[0], values[1], values[1] / values[0])
 
 

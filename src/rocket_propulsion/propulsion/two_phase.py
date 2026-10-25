@@ -22,7 +22,7 @@ from fractions import Fraction
 from itertools import islice
 
 from rocket_propulsion.core.errors import DomainError
-from rocket_propulsion.core.metadata import WarningMessage
+from rocket_propulsion.core.metadata import WarningMessage, is_warning_severity
 from rocket_propulsion.core.validation import (
     _ordered_items,
     coerce_fields,
@@ -172,7 +172,7 @@ def _two_phase_warnings(value):
         code, message = text(warning.code, 'Warning code'), text(warning.message, 'Warning message')
         severity = text(warning.severity, 'Warning severity')
         field = None if warning.field is None else text(warning.field, 'Warning field')
-        if severity not in ('info', 'warning', 'critical'):
+        if not is_warning_severity(severity):
             raise DomainError('Unknown warning severity.', field='Warning severity')
         result.append(WarningMessage(code, message, severity, field))
     return tuple(result)

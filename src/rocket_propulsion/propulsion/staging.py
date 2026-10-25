@@ -154,14 +154,14 @@ class StagingInputs:
             raise DomainError('Stage count must be between 1 and 5.', field='stages')
         object.__setattr__(self, 'stages', tuple(_stage(x) for x in values))
         for name in ('target_delta_v_m_s', 'payload_mass_kg'):
-            value = real(getattr(self, name), name)
-            if value <= 0:
+            number = real(getattr(self, name), name)
+            if number <= 0:
                 raise DomainError('Target delta-v and payload must be positive.', field=name)
-            object.__setattr__(self, name, value)
-        value = integer(self.resolution, 'resolution')
-        if not 40 <= value <= 800:
+            object.__setattr__(self, name, number)
+        resolution = integer(self.resolution, 'resolution')
+        if not 40 <= resolution <= 800:
             raise DomainError('Resolution must be in [40,800].', field='resolution')
-        object.__setattr__(self, 'resolution', value)
+        object.__setattr__(self, 'resolution', resolution)
 
 
 def _inputs(value):

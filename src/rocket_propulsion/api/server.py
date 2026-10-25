@@ -298,7 +298,9 @@ def main() -> None:
         raise SystemExit(f"No free port among {', '.join(map(str, ports))}; use --port.")
 
     host, port = server.server_address[:2]
-    url = f"http://{host}:{port}"
+    if isinstance(host, (bytes, bytearray)):  # typeshed allows bytes; IP sockets report str
+        host = host.decode()
+    url =f"http://{host}:{port}"
     print(f"Rocket Propulsion Lab: {url}")
     print("Press Ctrl+C (or close this window) to stop the server.")
     if arguments.open:

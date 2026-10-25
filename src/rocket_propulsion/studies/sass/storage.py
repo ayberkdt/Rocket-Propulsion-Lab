@@ -56,12 +56,12 @@ def liquid_tank_volume(propellant_mass: CitedScalar, density: CitedScalar,
     .. [2] NASA-SP8112. NASA, "Pressurization Systems for Liquid Rockets"; ullage and
            stored-liquid tank pressurization.
     """
-    m = quantity(propellant_mass, "kg", minimum=0)
-    rho = quantity(density, "kg/m^3", strictly_positive=True)
-    ullage = quantity(ullage_fraction, "1", minimum=0)
-    if ullage >= 1:
+    m_value = quantity(propellant_mass, "kg", minimum=0)
+    rho_value = quantity(density, "kg/m^3", strictly_positive=True)
+    ullage_value = quantity(ullage_fraction, "1", minimum=0)
+    if ullage_value >= 1:
         raise DomainError("Ullage fraction must be less than one.")
-    m, rho, ullage = map(Fraction, (m, rho, ullage))
+    m, rho, ullage = map(Fraction, (m_value, rho_value, ullage_value))
     liquid = m / rho
     tank = liquid / (1 - ullage)
     inputs = (propellant_mass, density, ullage_fraction)
@@ -120,14 +120,14 @@ def ideal_cold_gas_storage(usable_mass: CitedScalar, initial_pressure: CitedScal
     .. [2] NASA-SP8112. NASA, "Pressurization Systems for Liquid Rockets"; blowdown
            inventory and cutoff boundary.
     """
-    m = quantity(usable_mass, "kg", minimum=0)
-    p0 = quantity(initial_pressure, "Pa", strictly_positive=True)
-    pf = quantity(cutoff_pressure, "Pa", strictly_positive=True)
-    t = quantity(temperature, "K", strictly_positive=True)
-    gas_r = quantity(specific_gas_constant, "J/(kg*K)", strictly_positive=True)
-    if p0 <= pf:
+    m_value = quantity(usable_mass, "kg", minimum=0)
+    p0_value = quantity(initial_pressure, "Pa", strictly_positive=True)
+    pf_value = quantity(cutoff_pressure, "Pa", strictly_positive=True)
+    t_value = quantity(temperature, "K", strictly_positive=True)
+    gas_r_value = quantity(specific_gas_constant, "J/(kg*K)", strictly_positive=True)
+    if p0_value <= pf_value:
         raise DomainError("Initial absolute pressure must exceed cutoff pressure.")
-    m, p0, pf, t, gas_r = map(Fraction, (m, p0, pf, t, gas_r))
+    m, p0, pf, t, gas_r = map(Fraction, (m_value, p0_value, pf_value, t_value, gas_r_value))
     thermal = gas_r * t
     volume = m * thermal / (p0 - pf)
     loaded = m * p0 / (p0 - pf)
@@ -193,15 +193,16 @@ def ideal_regulated_pressurant(displaced_volume: CitedScalar, tank_pressure: Cit
     .. [2] NASA-SP8112. NASA, "Pressurization Systems for Liquid Rockets"; regulated
            bottle-to-ullage pressurization architecture.
     """
-    displaced = quantity(displaced_volume, "m^3", minimum=0)
-    pt = quantity(tank_pressure, "Pa", strictly_positive=True)
-    p0 = quantity(bottle_initial_pressure, "Pa", strictly_positive=True)
-    pf = quantity(bottle_final_pressure, "Pa", strictly_positive=True)
-    t = quantity(temperature, "K", strictly_positive=True)
-    gas_r = quantity(specific_gas_constant, "J/(kg*K)", strictly_positive=True)
-    if not p0 > pf > pt:
+    displaced_value = quantity(displaced_volume, "m^3", minimum=0)
+    pt_value = quantity(tank_pressure, "Pa", strictly_positive=True)
+    p0_value = quantity(bottle_initial_pressure, "Pa", strictly_positive=True)
+    pf_value = quantity(bottle_final_pressure, "Pa", strictly_positive=True)
+    t_value = quantity(temperature, "K", strictly_positive=True)
+    gas_r_value = quantity(specific_gas_constant, "J/(kg*K)", strictly_positive=True)
+    if not p0_value > pf_value > pt_value:
         raise DomainError("Require bottle initial > bottle final > regulated tank pressure.")
-    displaced, pt, p0, pf, t, gas_r = map(Fraction, (displaced, pt, p0, pf, t, gas_r))
+    displaced, pt, p0, pf, t, gas_r = map(Fraction, (
+        displaced_value, pt_value, p0_value, pf_value, t_value, gas_r_value))
     thermal = gas_r * t
     volume = pt * displaced / (p0 - pf)
     used = pt * displaced / thermal

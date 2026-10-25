@@ -1,8 +1,9 @@
 /* Rocket Propulsion Lab — ısı transferi, rejeneratif soğutma ve yanma ürünleri.
  *
- * Bu dosya hesap yapmaz: her sayı /api/v1/heat-*, /regen-chamber,
+ * Bu dosya hesap yapmaz: her sayı /api/v1/heat-*, /regen-chamber, /transpiration-cooling,
+ * /combustion-stability, /propellant-vaporization,
  * /combustion-products ve /combustion-losses uçlarından gelir
- * (src/rocket_propulsion/api/thermal_routes.py). Burada yalnız birim gösterimi
+ * (api/thermal_routes.py, api/combustion_dynamics_routes.py). Burada yalnız birim gösterimi
  * (m → mm) ve çizim yapılır. Genel işlevler app.js'ten (calculate,
  * renderResults, renderLineChart) ve visuals.js'ten (window.labCharts) gelir.   */
 
@@ -104,6 +105,46 @@
       warn("losses-warning", data.kinetics ? data.kinetics.warnings : ["Sonlu hızlı kimya yalnız LOX/LH₂ için; kinetik verim 1 alındı."]);
     }],
   };
+
+  renderers["transpiration-form"] = ["/api/v1/transpiration-cooling", (data) => {
+    scoped("transpiration", data.required);
+    line("transpiration-wall-chart", [[data.sweep, "coolant_mass_flux_kg_m2_s", "wall_temperature_k", 1]],
+      { xLabel: "ṁ″ (kg/(m²·s))", yLabel: "duvar T (K)" });
+    line("transpiration-blowing-chart", [[data.sweep, "coolant_mass_flux_kg_m2_s", "blowing_correction", 2]],
+      { xLabel: "ṁ″ (kg/(m²·s))", yLabel: "h/h*" });
+    warn("transpiration-warning", data.warnings || []);
+  }];
+
+  renderers["combustion-stability-form"] = ["/api/v1/combustion-stability", (data) => {
+    const chug = data.chugging;
+    const oneT = data.modes.find((mode) => mode.name === "1T");
+    scoped("combustion-stability", {
+      verdict: chug.unconditionally_stable ? "koşulsuz kararlı (K ≤ 1)" : (chug.stable ? "kararlı" : "kararsız"),
+      gain: chug.gain,
+      critical_time_lag_s: chug.critical_time_lag_s,
+      neutral_frequency_hz: chug.neutral_frequency_hz,
+      residence_time_s: data.chamber.residence_time_s,
+      first_tangential_hz: oneT ? oneT.frequency_hz : null,
+    });
+    bars("stability-modes-chart", data.modes.slice(0, 8).map((mode, index) => ({
+      label: mode.name, value: mode.frequency_hz, slot: mode.name.includes("T") || mode.name.includes("R") ? 2 : 1,
+      name: mode.name.includes("T") || mode.name.includes("R") ? "enine/karma" : "boyuna",
+    })), "Hz", "Frekans (Hz)");
+    line("stability-nyquist-chart", [[data.nyquist.curve, "real", "imaginary", 1]],
+      { xLabel: "Re f(iω)", yLabel: "Im f(iω)" });
+    const zeros = data.nyquist.right_half_plane_zeros;
+    warn("stability-warning", [`Nyquist: sağ yarı düzlemde ${zeros} kök${zeros ? " (kararsız)" : ""}; −1 noktası çevrelenmemeli. Rijit besleme; besleme hattı rezonansları için Python API'deki feed_coupled_stability kullanılır.`]);
+  }];
+
+  renderers["propellant-vaporization-form"] = ["/api/v1/propellant-vaporization", (data) => {
+    scoped("propellant-vaporization", { ...data.result, oxidizer_generalized_length_m: data.oxidizer_generalized_length_m,
+      fuel_generalized_length_m: data.fuel_generalized_length_m });
+    line("vaporization-length-chart", [
+      [data.sweep, "chamber_length_m", "oxidizer_percent_vaporized", 1],
+      [data.sweep, "chamber_length_m", "fuel_percent_vaporized", 2],
+    ], { xLabel: "L (m)", yLabel: "buharlaşan kütle (%)" });
+    warn("vaporization-warning", data.properties.fuel ? [] : ["Hidrojen gaz olarak enjekte edilir; tamamen buharlaşmış sayılır."]);
+  }];
 
   for (const [formId, [endpoint, render]] of Object.entries(renderers)) {
     const form = byId(formId);

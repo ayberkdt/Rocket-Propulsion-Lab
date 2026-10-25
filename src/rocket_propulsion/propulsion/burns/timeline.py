@@ -35,11 +35,12 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
+from typing import cast
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import read_json_document, real, real_mapping, records, text
+from rocket_propulsion.core.validation import real, real_mapping, records, text
 
-from .exchange_documents import _timeline_document
+from .exchange_documents import _read_document, _timeline_document
 from .numeric_outputs import _finite_rational, _fraction
 from .propagator import (
     BurnEventSurface,
@@ -680,7 +681,7 @@ class PropulsionTimeline:
                 continue
             if burn.burn_id not in directions:
                 raise DomainError(f"Burn {burn.burn_id!r} is active but has no direction.")
-            value = burn.bridge._evaluate(
+            evaluation = burn.bridge._evaluate(
                 relative_time_s=_finite_rational(_fraction(time_s)-_fraction(burn.ignition_time_s),
                                                  'Timeline relative time'),
                 _resolved_profile_time=effective,
@@ -695,15 +696,15 @@ class PropulsionTimeline:
                     ambient_pressure_pa if burn.bridge.nozzle_exit_area_m2 is not None else None
                 ),
             )
-            evaluations.append((burn.burn_id, value))
-            if not value.active:
+            evaluations.append((burn.burn_id, evaluation))
+            if not evaluation.active:
                 continue
             active.append(burn.burn_id)
             for index in range(3):
-                acceleration[index] += value.acceleration_m_s2[index]
-                acceleration_wrt_mass[index] += value.partials.acceleration_wrt_mass[index]
-            mass_rate += value.mass_derivative_kg_s
-            for name, rate in value.additional_state_derivatives:
+                acceleration[index] += evaluation.acceleration_m_s2[index]
+                acceleration_wrt_mass[index] += evaluation.partials.acceleration_wrt_mass[index]
+            mass_rate += evaluation.mass_derivative_kg_s
+            for name, rate in evaluation.additional_state_derivatives:
                 drains[name] = drains.get(name, 0.0) + rate
         if not self.allow_overlapping_burns and len(active) > 1:
             raise DomainError("More than one burn is active on a non-overlapping timeline.")
@@ -838,24 +839,31 @@ class PropulsionTimeline:
 
         _timeline_document(payload)
         _require_numerical_policies(payload, {'time_numerics':_TIME_POLICY})
+        # _timeline_document has checked the JSON types of every member read below.
         try:
-            bridges = payload["bridges"]
+            bridges = cast(dict[str, dict[str, object]], payload["bridges"])
+            burns_payload = cast(list[dict[str, object]], payload["burns"])
             timeline = cls(
                 burns=tuple(
                     ScheduledBurn(
-                        item["burn_id"],
-                        PropagatorPropulsionBridge.from_dict(bridges[item["burn_id"]]),
-                        item["ignition_time_s"],
+                        cast(str, item["burn_id"]),
+                        PropagatorPropulsionBridge.from_dict(bridges[cast(str, item["burn_id"])]),
+                        cast(float, item["ignition_time_s"]),
                     )
-                    for item in payload["burns"]
+                    for item in burns_payload
                 ),
                 jettisons=tuple(
-                    MassJettison(item["event_id"], item["time_s"], item["mass_kg"], item["label"])
-                    for item in payload["jettisons"]
+                    MassJettison(
+                        cast(str, item["event_id"]),
+                        cast(float, item["time_s"]),
+                        cast(float, item["mass_kg"]),
+                        cast(str, item["label"]),
+                    )
+                    for item in cast(list[dict[str, object]], payload["jettisons"])
                 ),
-                allow_overlapping_burns=payload["allow_overlapping_burns"],
-                timeline_id=payload["timeline_id"],
-                schema=payload["schema"],
+                allow_overlapping_burns=cast(bool, payload["allow_overlapping_burns"]),
+                timeline_id=cast(str, payload["timeline_id"]),
+                schema=cast(str, payload["schema"]),
             )
         except InputError:
             raise
@@ -863,8 +871,9 @@ class PropulsionTimeline:
             raise InputError("Malformed propulsion timeline document.") from error
         if payload.get("timeline_hash") != timeline.timeline_hash:
             raise InputError("Propulsion timeline hash does not match its contents.")
-        for item in payload['burns']:
-            if item['bridge_model_hash'] != timeline.burn(item['burn_id']).bridge.model_hash:
+        for item in burns_payload:
+            bridge = timeline.burn(cast(str, item['burn_id'])).bridge
+            if item['bridge_model_hash'] != bridge.model_hash:
                 raise InputError("Scheduled burn bridge hash does not match its bridge.",
                                  field='bridge_model_hash')
         return timeline
@@ -894,4 +903,4 @@ class PropulsionTimeline:
                Interchange Format", https://www.rfc-editor.org/rfc/rfc8259.
         """
 
-        return read_json_document(text_value, "Propulsion timeline document", cls.from_dict)
+        return _read_document(text_value, "Propulsion timeline document", cls.from_dict)

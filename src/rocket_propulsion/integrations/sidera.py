@@ -274,7 +274,7 @@ def export_sidera_artifact(
         # its original throttle here would incorrectly scale force and flow twice.
         "throttle": 1.0,
     }
-    manifest = {
+    manifest: dict[str, object] = {
         "source_schema": result.schema,
         "source_input_hash": result.input_hash,
         "source_result_hash": result.result_hash,

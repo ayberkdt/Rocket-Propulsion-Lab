@@ -303,16 +303,17 @@ def weighted_trade(alternatives: Mapping[str, Mapping[str, CitedScalar]],
         missing = tuple(x.metric for x in entries if metrics.get(x.metric) is None)
         failed = any(x.status == "fail" for x in checks)
         incomplete = bool(missing) or any(x.status == "unknown" for x in checks)
-        eligibility = "infeasible" if failed else "incomplete" if incomplete else "eligible"
+        eligibility: Literal["eligible", "infeasible", "incomplete"] = (
+            "infeasible" if failed else "incomplete" if incomplete else "eligible")
         utilities = []
         terms = []
-        score_inputs = []
+        score_inputs: list[CitedScalar] = []
         for criterion in entries:
             if criterion.metric in missing:
                 continue
             value = metrics[criterion.metric]
-            actual = quantity(value, criterion.best.unit)
-            best, worst, actual = map(Fraction, (criterion.best.value, criterion.worst.value, actual))
+            measured = quantity(value, criterion.best.unit)
+            best, worst, actual = map(Fraction, (criterion.best.value, criterion.worst.value, measured))
             utility = max(Fraction(0), min(Fraction(1), (actual - worst) / (best - worst)))
             q = derived(float(utility), "1", (value, criterion.best, criterion.worst, criterion.weight), (
                 Citation("NASA-SE-6", "6.8.1.2.4: explicitly chosen clipped affine utility"),

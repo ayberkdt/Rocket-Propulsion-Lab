@@ -38,10 +38,10 @@ from math import isfinite, sqrt
 from typing import Any
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import read_json_document
 
 from .calibration import CalibrationScope, MandelPauleEvidence, _mandel_paule
 from .ensemble import ScenarioConditionalUncertainty
+from .exchange_documents import _read_document
 from .multivariate_calibration import HotFireMultivariateCalibration
 from .serialization import canonical_json_bytes
 from .tabulated import TabulatedBurnArtifact, scale_tabulated_artifact
@@ -476,7 +476,7 @@ class ScaleDiscrepancyCalibration:
                duplicate-member and nonstandard numeric token behavior.
         """
 
-        return read_json_document(text, "Discrepancy calibration", cls.from_dict)
+        return _read_document(text, "Discrepancy calibration", cls.from_dict)
 
 
 def calibrate_scale_discrepancy(

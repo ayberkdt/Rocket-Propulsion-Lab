@@ -586,14 +586,19 @@ class PropulsionParameterPrior:
         if not isinstance(payload, Mapping):
             raise InputError("Parameter-prior artifact root must be an object.")
         try:
+            # Each member passes the same normaliser or check the constructor
+            # applies to it; any failure is reported below as malformed.
+            source, rationale = payload["source"], payload["rationale"]
+            if not isinstance(source, str) or not isinstance(rationale, str):
+                raise DomainError("Prior source and rationale must be strings.")
             prior = cls(
-                parameter_names=payload["parameter_names"],
-                mean=payload["mean"],
-                covariance=payload["covariance"],
-                source=payload["source"],
-                rationale=payload["rationale"],
-                reference_ids=payload["reference_ids"],
-                schema=payload["schema"],
+                parameter_names=strings(payload["parameter_names"], "Prior parameter_names"),
+                mean=real_tuple(payload["mean"], "Prior mean"),
+                covariance=real_matrix(payload["covariance"], "Prior covariance"),
+                source=source,
+                rationale=rationale,
+                reference_ids=strings(payload["reference_ids"], "Prior reference_ids"),
+                schema=text(payload["schema"], "Propulsion-prior schema"),
             )
         except (KeyError, TypeError, ValueError, DomainError) as error:
             raise InputError("Malformed parameter-prior artifact.") from error
@@ -898,9 +903,9 @@ class GatesExecutionErrorModel:
         delta_v = vector3(delta_v, "Delta-v")
         along, transverse = self.along_and_transverse_variance(magnitude)
         helper = (1.0, 0.0, 0.0) if abs(unit[0]) < 0.9 else (0.0, 1.0, 0.0)
-        first = _cross(unit, helper)
-        norm = sqrt(sum(value * value for value in first))
-        first = tuple(value / norm for value in first)
+        normal = _cross(unit, helper)
+        norm = sqrt(sum(value * value for value in normal))
+        first = (normal[0] / norm, normal[1] / norm, normal[2] / norm)
         second = _cross(unit, first)
         a = generator.gauss(0.0, sqrt(along))
         b = generator.gauss(0.0, sqrt(transverse))

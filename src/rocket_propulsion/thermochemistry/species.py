@@ -24,11 +24,17 @@ from dataclasses import dataclass
 from functools import lru_cache
 from math import isfinite
 from pathlib import Path
+from typing import TypedDict
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.numerics import solve_bisect_monotonic
 
-from .nasa_polynomials import UNIVERSAL_GAS_CONSTANT_J_MOL_K, NasaPolynomialInterval
+from .nasa_polynomials import (
+    UNIVERSAL_GAS_CONSTANT_J_MOL_K,
+    NasaIntervalRecord,
+    NasaPolynomialInterval,
+    interval_from_record,
+)
 
 DATA_FILE = Path(__file__).parent / "data" / "nasa_glenn_2002.json"
 CEA_DATA_FILE = Path(__file__).parent / "data" / "nasa_cea_thermo.json"
@@ -287,16 +293,20 @@ class Species:
         return result.value
 
 
-def _parse_species(record: dict[str, object], source: dict[str, str]) -> Species:
+class _SpeciesRecord(TypedDict):
+    """One gas-species record of the packaged JSON data files."""
+
+    key: str
+    name: str
+    formula: dict[str, float]
+    molecular_mass_g_mol: float
+    heat_of_formation_j_mol_298: float
+    intervals: list[NasaIntervalRecord]
+
+
+def _parse_species(record: _SpeciesRecord, source: dict[str, str]) -> Species:
     """Build a :class:`Species` from one JSON record; molar mass is given in g/mol."""
-    intervals = tuple(
-        NasaPolynomialInterval(
-            minimum_temperature_k=float(interval["minimum_temperature_k"]),
-            maximum_temperature_k=float(interval["maximum_temperature_k"]),
-            coefficients=tuple(float(value) for value in interval["coefficients"]),
-        )
-        for interval in record["intervals"]
-    )
+    intervals = tuple(interval_from_record(interval) for interval in record["intervals"])
     return Species(
         key=str(record["key"]),
         name=str(record["name"]),

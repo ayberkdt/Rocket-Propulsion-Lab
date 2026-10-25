@@ -41,7 +41,6 @@ from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import (
     finite_float_text,
     name_value_pairs,
-    read_json_document,
     real,
     records,
     strings,
@@ -49,6 +48,7 @@ from rocket_propulsion.core.validation import (
 )
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
+from .exchange_documents import _read_document
 from .models import ProfiledBurnResult
 from .numeric_outputs import _finite_rational, _fraction
 from .profiles import resolved_schedule_intervals
@@ -746,7 +746,8 @@ class TabulatedBurnArtifact:
     def _segment_index_at(self, time_s: Fraction, *, side: str) -> int:
         """Return the owning segment index for an exact rational time."""
         segments = self.segments
-        index = max(0, bisect_right(segments, time_s, key=_segment_start) - 1)
+        probe: Fraction | float = time_s  # exact time bisected against float keys
+        index = max(0, bisect_right(segments, probe, key=_segment_start) - 1)
         if (
             side == "left"
             and index > 0
@@ -820,7 +821,8 @@ class TabulatedBurnArtifact:
                     "Boundary tolerance must be below half the shortest segment duration."
                 )
             tolerance = _fraction(requested)
-        index = bisect_left(self.segments, time_s, key=_segment_end)
+        probe: Fraction | float = time_s  # exact time bisected against float keys
+        index = bisect_left(self.segments, probe, key=_segment_end)
         candidates = [0.0]
         if index < len(self.segments):
             candidates.append(self.segments[index].end_time_s)
@@ -858,7 +860,8 @@ class TabulatedBurnArtifact:
         """Return whether an exact rational time equals zero or a segment end."""
         if time_s == 0.0:
             return True
-        index = bisect_left(self.segments, time_s, key=_segment_end)
+        probe: Fraction | float = time_s  # exact time bisected against float keys
+        index = bisect_left(self.segments, probe, key=_segment_end)
         return index < len(self.segments) and self.segments[index].end_time_s == time_s
 
     def _history_dict(self) -> dict[str, Any]:
@@ -1017,7 +1020,7 @@ class TabulatedBurnArtifact:
         .. [1] IETF RFC 8259, "The JavaScript Object Notation (JSON) Data
                Interchange Format". https://www.rfc-editor.org/rfc/rfc8259
         """
-        return read_json_document(text, "Tabulated burn artifact", cls.from_dict)
+        return _read_document(text, "Tabulated burn artifact", cls.from_dict)
 
 
 def scale_tabulated_artifact(
@@ -1221,7 +1224,7 @@ def tabulated_artifact_from_profiled_burn(result: ProfiledBurnResult) -> Tabulat
     if not isinstance(result, ProfiledBurnResult):
         raise DomainError("L1 conversion requires a ProfiledBurnResult.", field="result")
     burn_result_to_dict(result)
-    tank_rates = {}
+    tank_rates: dict[str, Fraction] = {}
     for stream in result.operating_point.streams:
         if stream.tank_depleting:
             tank_rates[stream.tank_id] = tank_rates.get(stream.tank_id, Fraction(0)) + _fraction(

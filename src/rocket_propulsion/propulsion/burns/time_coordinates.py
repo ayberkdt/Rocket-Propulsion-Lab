@@ -88,7 +88,7 @@ def _clock_table(boundaries, ignition, bias):
         raise DomainError('Absolute clock cannot distinguish successive profile boundaries.',
                           field='Epoch resolution')
     primary = dict(zip(canonical, boundaries, strict=True))
-    proposed = {}
+    proposed: dict[float, set[float]] = {}
     for boundary in boundaries:
         if not isinstance(boundary, float):
             continue  # Internal exact cutoffs have only their canonical date.

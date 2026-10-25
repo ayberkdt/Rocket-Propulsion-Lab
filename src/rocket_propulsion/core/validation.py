@@ -32,6 +32,7 @@ References
 
 from __future__ import annotations
 
+import functools
 import json
 from collections.abc import Callable, Mapping
 from collections.abc import Set as AbstractSet
@@ -40,9 +41,12 @@ from itertools import islice
 from math import isfinite
 from numbers import Integral, Real
 from types import UnionType
-from typing import Union, get_args, get_origin
+from typing import ParamSpec, TypeVar, Union, get_args, get_origin
 
 from .errors import DomainError, InputError
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
 
 
 def real(value: object, label: str) -> float:
@@ -695,3 +699,45 @@ def read_json_document(value: object, label: str, build: Callable[[object], obje
         raise
     except DOCUMENT_ERRORS as error:
         raise InputError(f"{label} is malformed ({type(error).__name__}).", field=label) from error
+
+
+def numeric_range_guard(field: str) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
+    """Make a numerical function fail closed on floating-point range errors.
+
+    Python's float arithmetic raises ``OverflowError`` from ``**`` and
+    ``math`` functions and ``ZeroDivisionError`` when a denominator underflows
+    to zero; for inputs that are finite and well typed but extreme (``1e300``,
+    ``1e-300``) those bare exceptions would escape a public function. The
+    decorator converts exactly these two into :class:`DomainError` with code
+    ``"numeric_range"``, naming ``field`` and the function; every other
+    exception, including the package's own errors, passes through unchanged.
+
+    Parameters
+    ----------
+    field : str
+        Input the error is reported against (usually the first argument).
+
+    Returns
+    -------
+    callable
+        Decorator preserving the wrapped function's signature.
+
+    References
+    ----------
+    .. [1] PYTHON-3.12-EXCEPTIONS. Python 3.12, "Built-in Exceptions",
+           OverflowError and ZeroDivisionError,
+           https://docs.python.org/3.12/library/exceptions.html
+    """
+
+    def decorate(function: Callable[_P, _R]) -> Callable[_P, _R]:
+        @functools.wraps(function)
+        def guarded(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+            try:
+                return function(*args, **kwargs)
+            except (OverflowError, ZeroDivisionError) as exc:
+                raise DomainError(
+                    f"{function.__qualname__}: inputs are outside the floating-point range of the "
+                    f"model ({type(exc).__name__}: {exc}).",
+                    code="numeric_range", field=field) from exc
+        return guarded
+    return decorate

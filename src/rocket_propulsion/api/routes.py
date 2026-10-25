@@ -18,7 +18,7 @@ from decimal import Decimal, InvalidOperation
 from fractions import Fraction
 from math import isfinite, log
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from rocket_propulsion.compressible import (
     calculate_fanno,
@@ -107,6 +107,10 @@ from rocket_propulsion.thermodynamics import (
 from .aero_routes import AERO_ROUTE_METADATA, AERO_ROUTES
 from .capabilities import SideraCapabilityProbe
 from .chemistry_routes import CHEMISTRY_ROUTE_METADATA, CHEMISTRY_ROUTES
+from .combustion_dynamics_routes import (
+    COMBUSTION_DYNAMICS_ROUTE_METADATA,
+    COMBUSTION_DYNAMICS_ROUTES,
+)
 from .thermal_routes import THERMAL_ROUTE_METADATA, THERMAL_ROUTES
 
 
@@ -696,6 +700,19 @@ def calculate_nozzle_route(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+class _OffDesignInputs(TypedDict):
+    """Validated keyword arguments of :func:`calculate_off_design_nozzle`."""
+
+    chamber_pressure_pa: float
+    chamber_temperature_k: float
+    throat_area_m2: float
+    area_ratio: float
+    ambient_pressure_pa: float
+    gamma: float
+    gas_constant_j_kg_k: float
+    station_count: int
+
+
 def calculate_off_design_nozzle_route(payload: dict[str, Any]) -> dict[str, Any]:
     """Solve the back-pressure-driven nozzle regime and optionally an altitude sweep.
 
@@ -758,7 +775,7 @@ def calculate_off_design_nozzle_route(payload: dict[str, Any]) -> dict[str, Any]
            NASA-TM-X-74335, https://ntrs.nasa.gov/citations/19770009539
     """
 
-    inputs = {
+    inputs: _OffDesignInputs = {
         "chamber_pressure_pa": _number(payload, "chamber_pressure_pa"),
         "chamber_temperature_k": _number(payload, "chamber_temperature_k"),
         "throat_area_m2": _number(payload, "throat_area_m2"),
@@ -1287,6 +1304,21 @@ def simulate_burn_route(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+class _ConstantPointCommon(TypedDict):
+    """Validated keyword arguments shared by both constant-provider families."""
+
+    delivered_thrust_n: float
+    system_specific_impulse_s: float
+    ideal_thrust_n: float | None
+    commanded_throttle: float
+    realized_throttle: float
+    active_engine_count: int
+    chamber_pressure_pa: float
+    ambient_pressure_pa: float
+    name: str
+    source: str
+
+
 def calculate_engine_operating_point_route(payload: dict[str, Any]) -> dict[str, Any]:
     """Resolve a constant-performance shortcut into an explicit operating point.
 
@@ -1340,7 +1372,7 @@ def calculate_engine_operating_point_route(payload: dict[str, Any]) -> dict[str,
     """
 
     family = str(payload.get("family", "bipropellant")).strip().lower()
-    common = {
+    common: _ConstantPointCommon = {
         "delivered_thrust_n": _number(payload, "delivered_thrust_n"),
         "system_specific_impulse_s": _number(payload, "system_specific_impulse_s"),
         "ideal_thrust_n": _optional_number(payload, "ideal_thrust_n"),
@@ -1596,10 +1628,18 @@ def calculate_loss_budget_route(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+class _ContourCommon(TypedDict):
+    """Validated keyword arguments shared by the thermal-route contour builders."""
+
+    throat_area_m2: float
+    area_ratio: float
+    gamma: float
+
+
 def _thermal_contour(payload: dict[str, Any]) -> NozzleContour:
     """Build the nozzle contour for the thermal route (Rao by default)."""
     model = str(payload.get("contour", "rao")).strip().lower()
-    common = {
+    common: _ContourCommon = {
         "throat_area_m2": _number(payload, "throat_area_m2"),
         "area_ratio": _number(payload, "area_ratio"),
         "gamma": _number(payload, "gamma", default=1.22),
@@ -3179,6 +3219,8 @@ ROUTES.update(AERO_ROUTES)
 ROUTE_METADATA.update(AERO_ROUTE_METADATA)
 ROUTES.update(THERMAL_ROUTES)
 ROUTE_METADATA.update(THERMAL_ROUTE_METADATA)
+ROUTES.update(COMBUSTION_DYNAMICS_ROUTES)
+ROUTE_METADATA.update(COMBUSTION_DYNAMICS_ROUTE_METADATA)
 
 
 def dispatch_calculation(path: str, payload: dict[str, Any]) -> dict[str, Any]:

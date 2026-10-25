@@ -41,13 +41,14 @@ References
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from math import isfinite, pi, sqrt
 from typing import Literal
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
+from rocket_propulsion.core.validation import numeric_range_guard
 from rocket_propulsion.geometry import NozzleContour
 from rocket_propulsion.heat_transfer import conduction, convection, radiation
 from rocket_propulsion.thermodynamics.materials import get_wall_material
@@ -284,6 +285,7 @@ def _temperature_from_enthalpy(fluid: str, enthalpy: float, pressure: float, gue
     return 0.5 * (low + high)
 
 
+@numeric_range_guard("contour")
 def solve_regen_chamber(
     *,
     contour: NozzleContour,
@@ -371,8 +373,13 @@ def solve_regen_chamber(
     if wall_thermal_conductivity_w_m_k is not None:
         conductivity = _positive(wall_thermal_conductivity_w_m_k, "wall_thermal_conductivity_w_m_k")
     elif wall_material is not None:
-        material = get_wall_material(wall_material)
-        conductivity = material.thermal_conductivity.value
+        catalog = get_wall_material(wall_material).thermal_conductivity
+        if catalog is None:
+            raise InputError(f"{wall_material} has no verified catalog conductivity; give "
+                             "wall_thermal_conductivity_w_m_k.",
+                             code="wall_conductivity_unavailable",
+                             field="wall_thermal_conductivity_w_m_k")
+        conductivity = catalog.value
     else:
         raise InputError("Give a wall material or a wall conductivity.", field="wall_material")
     if wall_material is not None:
@@ -566,13 +573,15 @@ def solve_regen_chamber(
     )
 
 
-def hot_gas_from_propellant(*, propellant_pair: str, chamber_pressure_pa: float,
-                            oxidizer_fuel_ratio: float | None = None,
-                            throat_radius_of_curvature_m: float) -> HotGas:
-    """Build :class:`HotGas` from the CEA-gated equilibrium chamber and CEA transport fits [1]_, [2]_.
+def hot_gas_from_reactants(*, reactants: Mapping[str, float], chamber_pressure_pa: float,
+                           throat_radius_of_curvature_m: float) -> HotGas:
+    """Build :class:`HotGas` for any reactant mixture from the CEA-gated solver [1]_, [2]_.
 
-    Frozen ``cp`` and ``gamma`` come from the chamber composition; viscosity
-    and Prandtl number from NASA CEA's transport data at the chamber state.
+    ``reactants`` maps reactant keys (gas species such as ``"H2"`` at
+    298.15 K, or condensed reactants such as ``"O2(L)"``) to moles. Frozen
+    ``cp`` and ``gamma`` come from the equilibrium chamber composition;
+    viscosity and Prandtl number from NASA CEA's transport data at the
+    chamber state.
 
     References
     ----------
@@ -586,18 +595,14 @@ def hot_gas_from_propellant(*, propellant_pair: str, chamber_pressure_pa: float,
     from rocket_propulsion.thermochemistry import (
         EquilibriumProblem,
         LocalEquilibriumProvider,
-        get_propellant_pair,
-        reactants_for_mass_ratio,
         solve_rocket_performance,
     )
     from rocket_propulsion.thermochemistry.transport import equilibrium_transport_properties
 
-    pair = get_propellant_pair(propellant_pair)
-    ratio = pair.reference_oxidizer_fuel_ratio if oxidizer_fuel_ratio is None else oxidizer_fuel_ratio
-    reactants = reactants_for_mass_ratio(pair, ratio)
-    performance = solve_rocket_performance(reactants=reactants, chamber_pressure_pa=chamber_pressure_pa,
+    mixture = dict(reactants)
+    performance = solve_rocket_performance(reactants=mixture, chamber_pressure_pa=chamber_pressure_pa,
                                            area_ratios=(2.0,))
-    chamber = LocalEquilibriumProvider().solve(EquilibriumProblem.hp(reactants, pressure_pa=chamber_pressure_pa))
+    chamber = LocalEquilibriumProvider().solve(EquilibriumProblem.hp(mixture, pressure_pa=chamber_pressure_pa))
     transport = equilibrium_transport_properties(chamber)
     fractions = dict(performance.chamber.mole_fractions)
     return HotGas(
@@ -614,6 +619,32 @@ def hot_gas_from_propellant(*, propellant_pair: str, chamber_pressure_pa: float,
     )
 
 
+def hot_gas_from_propellant(*, propellant_pair: str, chamber_pressure_pa: float,
+                            oxidizer_fuel_ratio: float | None = None,
+                            throat_radius_of_curvature_m: float) -> HotGas:
+    """Build :class:`HotGas` for a propellant preset; see :func:`hot_gas_from_reactants` [1]_, [2]_.
+
+    References
+    ----------
+    .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part I: Analysis".
+           https://ntrs.nasa.gov/citations/19950013764
+    .. [2] NASA-CEA-TRANS. NASA Glenn Research Center, CEA transport database
+           ``data/trans.inp``. https://github.com/nasa/cea
+    """
+
+    from rocket_propulsion.thermochemistry import (
+        get_propellant_pair,
+        reactants_for_mass_ratio,
+    )
+
+    pair = get_propellant_pair(propellant_pair)
+    ratio = pair.reference_oxidizer_fuel_ratio if oxidizer_fuel_ratio is None else oxidizer_fuel_ratio
+    return hot_gas_from_reactants(reactants=reactants_for_mass_ratio(pair, ratio),
+                                  chamber_pressure_pa=chamber_pressure_pa,
+                                  throat_radius_of_curvature_m=throat_radius_of_curvature_m)
+
+
 __all__: Sequence[str] = (
     "Coolant",
     "CoolingChannels",
@@ -622,5 +653,6 @@ __all__: Sequence[str] = (
     "ThermalStation",
     "bartz_coefficient",
     "hot_gas_from_propellant",
+    "hot_gas_from_reactants",
     "solve_regen_chamber",
 )

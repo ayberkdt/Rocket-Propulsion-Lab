@@ -745,11 +745,11 @@ def propagate_uncertainty(
     evaluator = _evaluator(evaluator)
     sampler = latin_hypercube_samples if method == 'latin-hypercube' else monte_carlo_samples
     inputs = sampler(parameters, sample_count=sample_count, seed=seed)
-    samples = []
+    points: list[SweepPoint] = []
     for row in inputs:
         owned = _owned_values(row, 'Sample inputs')
-        samples.append(SweepPoint(owned, real(evaluator(owned), 'Evaluator output')))
-    samples = tuple(samples)
+        points.append(SweepPoint(owned, real(evaluator(owned), 'Evaluator output')))
+    samples = tuple(points)
     mean, deviation, percentiles = _summaries(samples)
     return UncertaintyResult(method, seed, sample_count, samples, mean, deviation, percentiles,
                              _sensitivities(parameters, samples), parameters=parameters)

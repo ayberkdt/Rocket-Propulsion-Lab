@@ -518,7 +518,7 @@ class _Compiled:
             inverse_kc = 1.0 / constants[j]
             dq = [0.0] * size
             uses_third = third is not None and reaction.falloff is None
-            factor = third if uses_third else 1.0
+            factor = third if third is not None and uses_third else 1.0
             for orders, sign in ((self.reactant_orders[j], 1.0),
                                  (self.product_orders[j], -inverse_kc)):
                 derivative_keys = {k for k, _ in orders}
@@ -908,7 +908,7 @@ def solve_stiff(
     first_step: float = 1.0e-6,
     max_step: float = inf,
     max_steps: int = 100_000,
-    step_callback: Callable[[float, Sequence[float]], None] | None = None,
+    step_callback: Callable[[float, tuple[float, ...]], None] | None = None,
 ) -> StiffSolution:
     """Integrate ``y' = f(t, y)`` with the RODAS Rosenbrock method of order 4(3) [1]_.
 
@@ -940,7 +940,8 @@ def solve_stiff(
     max_steps : int, default 100000
         Step budget.
     step_callback : callable, optional
-        Called as ``callback(t, y)`` after every accepted step.
+        Called as ``callback(t, y)`` after every accepted step, with ``y`` a
+        tuple.
 
     Returns
     -------

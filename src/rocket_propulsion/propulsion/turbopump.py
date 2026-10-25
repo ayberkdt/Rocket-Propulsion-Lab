@@ -439,8 +439,9 @@ def evaluate_pump_suction(
     if (shaft_speed_rad_s is None) != (flow_m3_s is None):
         raise InputError("Give shaft speed and flow together for suction specific speed.",
                          field="shaft_speed_rad_s")
-    suction = None if flow_m3_s is None else pump_suction_specific_speed(
-        shaft_speed_rad_s=shaft_speed_rad_s, flow_m3_s=flow_m3_s, npsh_m=required)
+    suction = None if flow_m3_s is None or shaft_speed_rad_s is None else (
+        pump_suction_specific_speed(
+            shaft_speed_rad_s=shaft_speed_rad_s, flow_m3_s=flow_m3_s, npsh_m=required))
     adequate = available >= ratio_required * required
     warnings = [WarningMessage(
         "npsh_required_is_input",
@@ -681,7 +682,9 @@ def evaluate_pump_map(characteristic: PumpCharacteristic, *, flow_m3_s: float,
     if c.quadratic_coefficient != 0:
         zero = _finite(-c.linear_coefficient * n * c.design_flow_m3_s
                        / (2 * c.quadratic_coefficient), "Zero-slope flow")
-    rule = None if c.quadratic_coefficient >= 0 else zero <= 0.9 * float(flow_m3_s)
+    # A negative quadratic coefficient is non-zero, so ``zero`` is set on that branch.
+    rule = (None if c.quadratic_coefficient >= 0 or zero is None
+            else zero <= 0.9 * float(flow_m3_s))
     warnings = [WarningMessage(
         "pump_map_is_caller_data",
         "Characteristic coefficients are caller data; efficiency, stall and cavitation are "
@@ -803,7 +806,9 @@ def evaluate_cycle_pump_point(cycle: EngineCycleResult, characteristic: PumpChar
     if cycle.cycle == "pressure-fed" or cycle.pump_mass_flow_kg_s <= 0:
         raise InputError("The cycle has no pump duty to place on a characteristic.",
                          code="cycle_has_no_pump", field="cycle")
-    density = cycle.inputs.propellant_density_kg_m3
+    density = None if cycle.inputs is None else cycle.inputs.propellant_density_kg_m3
+    if density is None:  # a validated pumped-cycle result always retains its density
+        raise InputError("The cycle has no retained pump propellant density.", field="cycle")
     required = _finite(cycle.pump_pressure_rise_pa / (density * STANDARD_GRAVITY_M_S2),
                        "Required head")
     flow = _finite(cycle.pump_mass_flow_kg_s / density, "Volumetric flow")

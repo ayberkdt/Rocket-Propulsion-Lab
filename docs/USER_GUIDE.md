@@ -15,8 +15,9 @@ module navigation with the keyboard.
    `RPLAB_CEA_EXECUTABLE` when an independently installed NASA CEA executable is
    available; the repository intentionally does not distribute it.
 3. Size the ideal nozzle, then inspect **Tasarım dışı nozul** over ambient
-   pressure or altitude. Treat the Summerfield result as a screening warning,
-   not a viscous separation solution.
+   pressure or altitude. Treat the Summerfield and Schmucker results as
+   empirical warnings, not a viscous separation solution; the Schmucker point
+   uses the one-dimensional wall pressure and is not assessed beyond M = 5.
 4. Compare conical, preliminary, Rao, and MOC geometry. MOC results include
    boundary residuals and mesh-refinement evidence. Export geometry only after
    reviewing the stated model fidelity.

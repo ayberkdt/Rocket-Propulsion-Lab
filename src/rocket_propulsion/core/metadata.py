@@ -3,7 +3,28 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, TypeGuard
+
+WarningSeverity = Literal["info", "warning", "critical"]
+"""Admissible :attr:`WarningMessage.severity` values."""
+
+_WARNING_SEVERITIES: tuple[WarningSeverity, ...] = ("info", "warning", "critical")
+
+
+def is_warning_severity(value: object) -> TypeGuard[WarningSeverity]:
+    """Return whether ``value`` is an admissible warning severity.
+
+    Parameters
+    ----------
+    value : object
+        Candidate severity.
+
+    Returns
+    -------
+    bool
+        True if ``value`` is one of ``"info"``, ``"warning"`` or ``"critical"``.
+    """
+    return value in _WARNING_SEVERITIES
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,7 +74,7 @@ class WarningMessage:
 
     code: str
     message: str
-    severity: Literal["info", "warning", "critical"] = "warning"
+    severity: WarningSeverity = "warning"
     field: str | None = None
 
 

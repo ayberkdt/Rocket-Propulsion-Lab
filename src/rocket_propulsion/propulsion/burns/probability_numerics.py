@@ -175,11 +175,11 @@ def _weight_ledger(values):
         raise DomainError(
             "A weighted distribution requires positive mass.", field="Probability weight"
         )
-    rows = tuple(sorted(rows))
-    total = sum((w for x, w in rows), Fraction(0))
-    mean = sum((x * w for x, w in rows), Fraction(0)) / total
-    variance = sum((w * (x - mean) ** 2 for x, w in rows), Fraction(0)) / total
-    return _WeightedLedger(rows, total, mean, variance)
+    ordered = tuple(sorted(rows))
+    total = sum((w for x, w in ordered), Fraction(0))
+    mean = sum((x * w for x, w in ordered), Fraction(0)) / total
+    variance = sum((w * (x - mean) ** 2 for x, w in ordered), Fraction(0)) / total
+    return _WeightedLedger(ordered, total, mean, variance)
 
 
 def _quantiles(ledger):

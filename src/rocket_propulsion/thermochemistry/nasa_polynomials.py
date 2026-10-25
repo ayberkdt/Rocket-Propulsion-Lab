@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import log
+from typing import TypedDict
 
 from rocket_propulsion.core.constants import MOLAR_GAS_CONSTANT_J_MOL_K
 from rocket_propulsion.core.errors import DomainError
@@ -198,3 +199,63 @@ class NasaPolynomialInterval:
         )
         return s_over_r * UNIVERSAL_GAS_CONSTANT_J_MOL_K
 
+
+
+class NasaIntervalRecord(TypedDict):
+    """One NASA-9 interval as stored in the packaged JSON data files.
+
+    Attributes
+    ----------
+    minimum_temperature_k, maximum_temperature_k : float
+        Interval bounds in K.
+    coefficients : list of float
+        ``[a1, ..., a7, b1, b2]`` as printed in the source [1]_.
+
+    References
+    ----------
+    .. [1] NASA/TP-2002-211556. NASA Glenn, "NASA Glenn Coefficients for
+           Calculating Thermodynamic Properties of Individual Species".
+           https://ntrs.nasa.gov/citations/20020085330
+    """
+
+    minimum_temperature_k: float
+    maximum_temperature_k: float
+    coefficients: list[float]
+
+
+def interval_from_record(record: NasaIntervalRecord) -> NasaPolynomialInterval:
+    """Build a :class:`NasaPolynomialInterval` from one packaged JSON record.
+
+    Parameters
+    ----------
+    record : NasaIntervalRecord
+        Interval bounds and the nine coefficients ``a1..a7, b1, b2``.
+
+    Returns
+    -------
+    NasaPolynomialInterval
+
+    Raises
+    ------
+    DomainError
+        If the record does not hold exactly nine coefficients, or the bounds
+        are not positive and increasing.
+
+    References
+    ----------
+    .. [1] NASA/TP-2002-211556. NASA Glenn, "NASA Glenn Coefficients for
+           Calculating Thermodynamic Properties of Individual Species".
+           https://ntrs.nasa.gov/citations/20020085330
+    """
+    minimum = float(record["minimum_temperature_k"])
+    maximum = float(record["maximum_temperature_k"])
+    values = tuple(float(value) for value in record["coefficients"])
+    if len(values) != 9:
+        raise DomainError("A NASA-9 interval needs nine coefficients (a1..a7, b1, b2).",
+                          field="coefficients")
+    a1, a2, a3, a4, a5, a6, a7, b1, b2 = values
+    return NasaPolynomialInterval(
+        minimum_temperature_k=minimum,
+        maximum_temperature_k=maximum,
+        coefficients=(a1, a2, a3, a4, a5, a6, a7, b1, b2),
+    )

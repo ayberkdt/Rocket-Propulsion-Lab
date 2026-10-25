@@ -36,7 +36,7 @@ from math import asin, isfinite, log10, sqrt
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
-from rocket_propulsion.core.validation import real
+from rocket_propulsion.core.validation import numeric_range_guard, real
 
 __all__ = [
     "ANDERSON_AIR_SUTHERLAND",
@@ -116,6 +116,7 @@ class SutherlandViscosity:
         _positive(self.reference_temperature_k, "reference_temperature_k")
         _nonnegative(self.sutherland_constant_k, "sutherland_constant_k")
 
+    @numeric_range_guard("temperature_k")
     def viscosity(self, temperature_k: float) -> float:
         """Return the dynamic viscosity in Pa s at ``temperature_k``.
 
@@ -340,7 +341,7 @@ def _blasius_shot(curvature: float, eta_max: float, steps: int, record: bool = F
         return (fp, fpp, -0.5 * f * fpp)
 
     state = (0.0, 0.0, curvature)
-    history = [(0.0, state)] if record else None
+    history: list[tuple[float, tuple[float, ...]]] = [(0.0, state)] if record else []
     for index in range(steps):
         k1 = rhs(state)
         k2 = rhs(tuple(s + 0.5 * h * k for s, k in zip(state, k1)))
@@ -939,6 +940,7 @@ def _keyes_viscosity_ratio(edge_temperature_k: float, wall_temperature_k: float)
     return sqrt(te / tw) * (1.0 + 122.0 / tw * 10.0 ** (-5.0 / tw)) / (1.0 + 122.0 / te * 10.0 ** (-5.0 / te))
 
 
+@numeric_range_guard("mach")
 def van_driest_ii(
     *,
     mach: float,

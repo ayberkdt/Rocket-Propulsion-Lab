@@ -70,11 +70,11 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from itertools import pairwise
 from math import isfinite
+from typing import cast
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import (
     integer,
-    read_json_document,
     real,
     real_mapping,
     records,
@@ -84,7 +84,7 @@ from rocket_propulsion.core.validation import (
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
 from .direction import _direction_geometry
-from .exchange_documents import _metadata
+from .exchange_documents import _metadata, _read_document
 from .mass_closure import _MASS_CLOSURE_POLICY, _inventory_ledger
 from .numeric_outputs import _finite_rational, _fraction
 from .power_documents import _POWER_METADATA, _power_document, _table_document
@@ -94,6 +94,7 @@ from .propagator import (
     BurnEventSurface,
     EstimableParameter,
     PropellantMassClosure,
+    _document_parameters,
     _validated_states,
 )
 from .serialization import _require_numerical_policies, canonical_sha256
@@ -448,11 +449,12 @@ class ElectricThrottleTable:
             levels_payload = payload["levels"]
             if not isinstance(levels_payload, list):
                 raise TypeError
+            # _table_document has checked the JSON types of these members.
             table = cls(
-                schema=payload["schema"],
-                source_id=payload["source_id"],
-                source_sha256=payload["source_sha256"],
-                reference_ids=payload["reference_ids"],
+                schema=cast(str, payload["schema"]),
+                source_id=cast(str, payload["source_id"]),
+                source_sha256=cast(str, payload["source_sha256"]),
+                reference_ids=tuple(cast(list[str], payload["reference_ids"])),
                 levels=tuple(
                     ElectricThrottleLevel(
                         level_id=item["level_id"],
@@ -494,7 +496,7 @@ class ElectricThrottleTable:
                Interchange Format", https://www.rfc-editor.org/rfc/rfc8259.
         """
 
-        return read_json_document(text, "Electric throttle-table artifact", cls.from_dict)
+        return _read_document(text, "Electric throttle-table artifact", cls.from_dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -655,7 +657,12 @@ class PowerSwitchSurface:
     @property
     def threshold_exact_w(self) -> Fraction:
         """Exact threshold in W; ``threshold_w`` is its nearest-float display."""
-        return Fraction(*self.threshold_ratio)
+        ratio = self.threshold_ratio
+        if ratio is None:  # __post_init__ always stores the normalized ratio
+            raise DomainError(
+                "Power-switch threshold ratio is unset.", field="Power-switch threshold ratio"
+            )
+        return Fraction(*ratio)
 
     def value(self, available_power_w: float) -> float:
         """Return the event function ``available_power_w - threshold_exact_w``.
@@ -1697,49 +1704,42 @@ class PowerLimitedPropulsionModel:
         """
 
         _power_document(payload)
+        # _power_document has checked the JSON types of every member read below.
         try:
-            law_payload = payload["throttle_law"]
+            law_payload = cast(dict[str, object], payload["throttle_law"])
             if law_payload["law"] == "discrete_throttle_path":
-                table = ElectricThrottleTable.from_dict(payload["throttle_table"])
+                table = ElectricThrottleTable.from_dict(
+                    cast(dict[str, object], payload["throttle_table"])
+                )
                 if table.table_hash != law_payload["table_hash"]:
                     raise InputError("Throttle-path table hash does not match the table.")
                 law: DiscreteThrottlePath | FixedEfficiencyThrottle = DiscreteThrottlePath(
                     table,
-                    tuple(law_payload["level_ids"]),
-                    law_payload["up_switch_hysteresis_w"],
-                    law_payload["path_id"],
+                    tuple(cast(list[str], law_payload["level_ids"])),
+                    cast(float, law_payload["up_switch_hysteresis_w"]),
+                    cast(str, law_payload["path_id"]),
                 )
             elif law_payload["law"] == "fixed_efficiency":
                 law = FixedEfficiencyThrottle(
-                    law_payload["total_efficiency"],
-                    law_payload["specific_impulse_s"],
-                    law_payload["minimum_power_w"],
-                    law_payload["maximum_power_w"],
-                    law_payload["start_hysteresis_w"],
-                    law_payload["law_id"],
+                    cast(float, law_payload["total_efficiency"]),
+                    cast(float, law_payload["specific_impulse_s"]),
+                    cast(float, law_payload["minimum_power_w"]),
+                    cast(float, law_payload["maximum_power_w"]),
+                    cast(float, law_payload["start_hysteresis_w"]),
+                    cast(str, law_payload["law_id"]),
                 )
             else:
                 raise InputError("Unknown throttle law in model document.")
             model = cls(
                 throttle_law=law,
-                propellant_state_name=payload["propellant_state_name"],
-                propellant_reserve_kg=payload["propellant_reserve_kg"],
-                protected_dry_mass_kg=payload["protected_dry_mass_kg"],
-                power_margin_w=payload["power_margin_w"],
-                duty_cycle=payload["duty_cycle"],
-                parameters=tuple(
-                    EstimableParameter(
-                        item["name"],
-                        item["reference_value"],
-                        item["scale"],
-                        item["minimum"],
-                        item["maximum"],
-                        item["unit"],
-                    )
-                    for item in payload["parameters"]
-                ),
-                model_id=payload["model_id"],
-                schema=payload["schema"],
+                propellant_state_name=cast(str, payload["propellant_state_name"]),
+                propellant_reserve_kg=cast(float | None, payload["propellant_reserve_kg"]),
+                protected_dry_mass_kg=cast(float | None, payload["protected_dry_mass_kg"]),
+                power_margin_w=cast(float, payload["power_margin_w"]),
+                duty_cycle=cast(float, payload["duty_cycle"]),
+                parameters=_document_parameters(payload["parameters"]),
+                model_id=cast(str, payload["model_id"]),
+                schema=cast(str, payload["schema"]),
             )
         except InputError:
             raise
@@ -1776,7 +1776,7 @@ class PowerLimitedPropulsionModel:
                Interchange Format", https://www.rfc-editor.org/rfc/rfc8259.
         """
 
-        return read_json_document(text, "Power-limited model document", cls.from_dict)
+        return _read_document(text, "Power-limited model document", cls.from_dict)
 
     @property
     def model_hash(self) -> str:
@@ -1952,8 +1952,9 @@ class PowerLimitedPropulsionModel:
         if type(self.throttle_law) in (DiscreteThrottlePath, FixedEfficiencyThrottle):
             point = _operating_point_ledger(self.throttle_law, level_index, effective_power)
         else:
-            # A subclassed law keeps its own public operating_point callback.
-            point = self.throttle_law.operating_point(level_index, effective_power)
+            # A subclassed law keeps its own public operating_point callback; for
+            # such a law ``effective_power`` came from the float-valued effective_power_w.
+            point = self.throttle_law.operating_point(level_index, cast(float, effective_power))
         duty = self.duty_cycle
         base_thrust = _fraction(point.thrust_n) * _fraction(duty)
         base_flow = _fraction(point.mass_flow_kg_s) * _fraction(duty)
@@ -1972,13 +1973,13 @@ class PowerLimitedPropulsionModel:
             level_index=level_index,
             level_id=point.level_id,
             thrust_n=thrust,
-            force_vector_n=force,  # type: ignore[arg-type]
-            acceleration_m_s2=acceleration,  # type: ignore[arg-type]
+            force_vector_n=force,
+            acceleration_m_s2=acceleration,
             mass_derivative_kg_s=drain,
             additional_state_derivatives=((self.propellant_state_name, drain),),
             available_power_w=available_power_w,
             consumed_power_w=_finite_rational(_fraction(point.input_power_w) * _fraction(duty), "Consumed electric power"),
-            power_deficit_w=_finite_rational(max(0, _fraction(point.required_power_w) - _fraction(effective_power)), "Electric power deficit"),
+            power_deficit_w=_finite_rational(max(Fraction(0), _fraction(point.required_power_w) - _fraction(effective_power)), "Electric power deficit"),
             specific_impulse_s=(
                 _finite_rational(exact_thrust / (_fraction(STANDARD_GRAVITY_M_S2) * flow),
                                  "Electric specific impulse") if flow > 0 else None
@@ -1997,7 +1998,7 @@ class PowerLimitedPropulsionModel:
                         "thrust_scale",
                         geometry.project(base_thrust, vehicle_mass_kg,
                                          label="Thrust scale acceleration partial"),
-                    ),  # type: ignore[arg-type]
+                    ),
                     ("mass_flow_scale", _ZERO3),
                 ),
                 mass_rate_wrt_parameters=(

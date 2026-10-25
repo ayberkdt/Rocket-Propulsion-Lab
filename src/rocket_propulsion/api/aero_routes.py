@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
 from math import cos, isfinite, pi, radians, sin, sqrt
-from typing import Any
+from typing import Any, TypedDict
 
 from rocket_propulsion.aerodynamics import (
     airfoil_geometry,
@@ -73,6 +73,14 @@ def _number(payload: dict[str, Any], key: str, default: float) -> float:
         raise InputError(f"Field {key} must be a number.", field=key) from error
     if not isfinite(value):
         raise InputError(f"Field {key} must be finite.", field=key)
+    return value
+
+
+def _positive(payload: dict[str, Any], key: str, default: float) -> float:
+    """Return ``_number`` for a length, area or flux that must be strictly positive."""
+    value = _number(payload, key, default)
+    if value <= 0.0:
+        raise InputError(f"Field {key} must be greater than zero.", field=key)
     return value
 
 
@@ -336,6 +344,16 @@ def supersonic_route(payload: dict[str, Any]) -> dict[str, Any]:
     return _clean({"mach": mach, "cone": cone, "at_angle": coefficients(alpha), "sweep": sweep})
 
 
+class _FlatPlateEdge(TypedDict):
+    """Edge state shared by every flat-plate reference-temperature call."""
+
+    edge_temperature_k: float
+    edge_pressure_pa: float
+    edge_velocity_m_s: float
+    gas_constant_j_kg_k: float
+    wall_temperature_k: float | None
+
+
 def flat_plate_route(payload: dict[str, Any]) -> dict[str, Any]:
     """Compressible flat-plate skin friction and heating at a flight condition [1]_.
 
@@ -368,15 +386,16 @@ def flat_plate_route(payload: dict[str, Any]) -> dict[str, Any]:
     wall = None if raw_wall in (None, "") else _number(payload, "wall_temperature_k", 0.0)
     air = _atmosphere(altitude)
     velocity = mach * air["speed_of_sound_m_s"]
-    common = {"edge_temperature_k": air["temperature_k"], "edge_pressure_pa": air["pressure_pa"],
-              "edge_velocity_m_s": velocity, "gas_constant_j_kg_k": AIR_SPECIFIC_GAS_CONSTANT_J_KG_K,
-              "wall_temperature_k": wall}
+    common: _FlatPlateEdge = {
+        "edge_temperature_k": air["temperature_k"], "edge_pressure_pa": air["pressure_pa"],
+        "edge_velocity_m_s": velocity, "gas_constant_j_kg_k": AIR_SPECIFIC_GAS_CONSTANT_J_KG_K,
+        "wall_temperature_k": wall}
     laminar = boundary_layer.compressible_flat_plate_reference_temperature(x_m=length, regime="laminar", **common)
     turbulent = boundary_layer.compressible_flat_plate_reference_temperature(x_m=length, regime="turbulent", **common)
     reynolds = air["density_kg_m3"] * velocity * length / boundary_layer.SutherlandViscosity().viscosity(air["temperature_k"])
     van_driest = boundary_layer.van_driest_ii(
-        mach=mach, edge_temperature_k=air["temperature_k"], reynolds_x=reynolds,
-        **({"wall_temperature_k": wall} if wall is not None else {"wall_to_adiabatic_temperature": 1.0}))
+        mach=mach, edge_temperature_k=air["temperature_k"], reynolds_x=reynolds, wall_temperature_k=wall,
+        wall_to_adiabatic_temperature=None if wall is not None else 1.0)
     sweep = []
     for x in _linspace(length / 40.0, length, 40):
         sweep.append({

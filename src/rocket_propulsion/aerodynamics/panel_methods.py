@@ -47,11 +47,11 @@ from __future__ import annotations
 import itertools
 from collections.abc import Sequence
 from dataclasses import dataclass
-from math import atan, atan2, cos, degrees, hypot, isfinite, log, pi, sin, sqrt
+from math import atan2, cos, degrees, hypot, isfinite, log, pi, sin
 
 from rocket_propulsion.core.errors import DomainError
 
-from ._subsonic_numerics import gauss_legendre, solve_dense
+from ._subsonic_numerics import solve_dense
 
 # Library threshold (not a source value): below it the contour is treated as cusped.
 _MINIMUM_TRAILING_EDGE_ANGLE_DEG = 2.5
@@ -146,42 +146,51 @@ def panel_geometry(nodes: Sequence[Sequence[float]]) -> PanelGeometry:
 
 
 def _panel_integrals(geometry: PanelGeometry, i: int, j: int) -> tuple[float, float]:
-    """Return ``(I_ij, J_ij)`` of Anderson Eqs. (3.163) and (3.165) for ``i != j``.
+    """Return ``(I_ij, J_ij)`` of Anderson Eqs. (3.162)-(3.165) for ``i != j``.
 
     Notes
     -----
-    When the control point lies on the extension of panel ``j``
-    (``E = sqrt(B - A^2)`` vanishes) the closed forms are 0/0; the integrals
-    (3.162) and (3.165) are then evaluated by 32-point Gauss-Legendre
-    quadrature of their (smooth) integrands.
+    The integrals are evaluated in the frame of panel ``j`` (origin at its
+    first node, ``xi`` along the panel, ``eta`` to its left), where the
+    gradient of ``ln r`` integrated over the panel is
+    ``(ln(r_1/r_2), theta_2 - theta_1)``: the log of the distances to the
+    two panel ends and the **signed** angle the panel subtends at the control
+    point. That vector is rotated back and projected on the outward normal
+    ``beta_i`` (``I_ij``) and on ``-(-sin beta_i, cos beta_i)`` (``J_ij``,
+    Anderson's tangential sense).
+
+    Anderson's closed forms (3.163) and (3.165) write the subtended angle
+    with the unsigned distance ``E = sqrt(B - A^2)``, which is correct only
+    while every control point lies on the inner side of every other panel's
+    line, i.e. on convex contours. On cambered sections with a concave lower
+    surface (NACA 4412, 4415, 4418, ...) part of ``J_ij`` then took the wrong
+    sign and the lift was overpredicted by up to a factor of 2.5; the signed
+    form removes that restriction and, being finite on the extension of a
+    panel, needs no separate quadrature there.
     """
 
     xi, yi = geometry.control_points[i]
     xj, yj = geometry.nodes[j]
-    phi_i, phi_j = geometry.angles[i], geometry.angles[j]
+    phi_j = geometry.angles[j]
+    beta_i = geometry.angles[i] + 0.5 * pi
     length = geometry.lengths[j]
-    a = -(xi - xj) * cos(phi_j) - (yi - yj) * sin(phi_j)
-    b = (xi - xj) ** 2 + (yi - yj) ** 2
-    c = sin(phi_i - phi_j)
-    d = (yi - yj) * cos(phi_i) - (xi - xj) * sin(phi_i)
-    e_squared = b - a * a
-    if e_squared > 1.0e-20 * b:
-        e = sqrt(e_squared)
-        log_term = log((length * length + 2.0 * a * length + b) / b)
-        atan_term = atan((length + a) / e) - atan(a / e)
-        normal = 0.5 * c * log_term + (d - a * c) / e * atan_term
-        tangential = (d - a * c) / (2.0 * e) * log_term - c * atan_term
-        return normal, tangential
-    p = (xi - xj) * cos(phi_i) + (yi - yj) * sin(phi_i)
-    q = cos(phi_i - phi_j)
-    nodes, weights = gauss_legendre(32)
-    normal = tangential = 0.0
-    for node, weight in zip(nodes, weights, strict=True):
-        s = 0.5 * length * (node + 1.0)
-        denominator = s * s + 2.0 * a * s + b
-        normal += weight * (c * s + d) / denominator
-        tangential += weight * (p - q * s) / denominator
-    return 0.5 * length * normal, 0.5 * length * tangential
+    cj, sj = cos(phi_j), sin(phi_j)
+    dx, dy = xi - xj, yi - yj
+    xi_local = dx * cj + dy * sj
+    eta_local = -dx * sj + dy * cj
+    r_start = hypot(xi_local, eta_local)
+    r_end = hypot(xi_local - length, eta_local)
+    subtended = atan2(eta_local, xi_local - length) - atan2(eta_local, xi_local)
+    if subtended > pi:
+        subtended -= 2.0 * pi
+    elif subtended <= -pi:
+        subtended += 2.0 * pi
+    u_local = log(r_start / r_end)
+    u_global = u_local * cj - subtended * sj
+    v_global = u_local * sj + subtended * cj
+    normal = u_global * cos(beta_i) + v_global * sin(beta_i)
+    tangential = u_global * sin(beta_i) - v_global * cos(beta_i)
+    return normal, tangential
 
 
 def influence_matrices(geometry: PanelGeometry) -> tuple[tuple[tuple[float, ...], ...], tuple[tuple[float, ...], ...]]:

@@ -517,7 +517,7 @@ class ProfiledPerformanceProvider:
         """
         del definition
         cursor = Fraction(0)
-        boundaries = []
+        boundaries: list[float] = []
         for segment in self.schedule.segments[:-1]:
             cursor += _fraction(segment.duration_s)
             value = _finite_rational(cursor, "Schedule discontinuity time")

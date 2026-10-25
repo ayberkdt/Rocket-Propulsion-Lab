@@ -15,10 +15,50 @@ References
        duplicate-member and nonstandard numeric token behavior.
 """
 
+from collections.abc import Callable
+from typing import TypeVar, cast
+
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import real
+from rocket_propulsion.core.validation import read_json_document, real
 
 from .tabulated_documents import _validate_document as _tabulated_document
+
+_Model = TypeVar("_Model")
+
+
+def _read_document(
+    value: object, label: str, build: Callable[[dict[str, object]], _Model]
+) -> _Model:
+    """Typed front end of :func:`~rocket_propulsion.core.validation.read_json_document`.
+
+    Parameters
+    ----------
+    value : object
+        Document text, passed unchanged to ``read_json_document``.
+    label : str
+        Document name used in error messages.
+    build : callable
+        Reader that turns the decoded root object into a model.
+
+    Returns
+    -------
+    object
+        The model returned by ``build``.
+
+    Raises
+    ------
+    InputError, DomainError
+        Exactly as raised by ``read_json_document``; the root-object check
+        below repeats its own and cannot fire on its output.
+    """
+
+    def _build(payload: object) -> object:
+        if not isinstance(payload, dict):
+            raise InputError(f"{label} root must be a JSON object.", field=label)
+        return build(payload)
+
+    # read_json_document returns whatever ``_build`` returned, i.e. ``build``'s model.
+    return cast(_Model, read_json_document(value, label, _build))
 
 
 def _object(value, required, label, optional=()):

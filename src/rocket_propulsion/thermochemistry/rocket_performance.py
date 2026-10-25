@@ -36,7 +36,12 @@ from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
 
-from .equilibrium import EquilibriumProblem, EquilibriumProvider, LocalEquilibriumProvider
+from .equilibrium import (
+    MAXIMUM_IDEAL_GAS_PRESSURE_PA,
+    EquilibriumProblem,
+    EquilibriumProvider,
+    LocalEquilibriumProvider,
+)
 from .mixtures import Mixture
 
 Chemistry = Literal["equilibrium", "frozen"]
@@ -338,6 +343,11 @@ def solve_rocket_performance(
         raise InputError("Rocket chemistry must be equilibrium or frozen.", field="chemistry")
     if not isfinite(chamber_pressure_pa) or chamber_pressure_pa <= 0.0:
         raise DomainError("Chamber pressure must be positive.", field="chamber_pressure_pa")
+    if chamber_pressure_pa > MAXIMUM_IDEAL_GAS_PRESSURE_PA:
+        raise DomainError(
+            f"Chamber pressure {chamber_pressure_pa:.4g} Pa exceeds the {MAXIMUM_IDEAL_GAS_PRESSURE_PA:.0e} Pa "
+            "limit of the ideal-gas mixture model.",
+            code="pressure_outside_ideal_gas_range", field="chamber_pressure_pa")
     ratios = tuple(float(value) for value in area_ratios)
     if not ratios or any(not isfinite(value) or value <= 1.0 for value in ratios):
         raise DomainError("Rocket area ratios must all exceed one.", field="area_ratios")

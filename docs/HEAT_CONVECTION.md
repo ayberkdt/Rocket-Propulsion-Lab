@@ -61,6 +61,8 @@ tests: `tests/test_heat_convection.py` (35 tests, about 3 s).
 | `rte_coolant_nusselt` | RTE coolant equation `C_c Re^0.8 Pr^0.4 phi_ent phi_cur`, Wadel Eq. (6), C_c = 0.023 as in the TM |
 | `taylor_hydrogen_coefficient`, `hess_kunz_coefficient`, `sp125_supercritical_film_heat_transfer` | the above evaluated with real-fluid density and c_p (`thermodynamics.real_fluids`), returning `CoolantHeatTransfer` |
 | `burnout_margin_screen` | SP-8087 p. 61: operate below 80 % of the mean burnout heat flux |
+| `ethanol_burnout_heat_flux` | Subcooled flow-boiling CHF of ethanol, `0.1003 + 0.05264 sqrt(V dT_sub)` Btu/(in² s), with the pressure factor `1.17 - 8.56e-4 P`, NASA/TM-1998-206612 Eqs. (1)-(3) |
+| `mmh_burnout_heat_flux` | MMH burnout `0.025 (V dT_sub)^0.633` Btu/(in² s), NASA CR-134282 Eq. (A-1), 10-56 ft/s and 31-226 F subcooling |
 
 Viscosity and thermal conductivity are always caller inputs: the package has no
 verified transport-property model for cryogenic coolants, and none was added.
@@ -117,6 +119,20 @@ air within 4.9 % for 1e5 <= Re_x <= 1e7; Taylor's equation at C2 = 0 equals
 the RTE form with C_c = 0.023; the RTE concave curvature factor equals Ito's
 friction ratio for the same Re and r/R.
 
+### Burnout correlations against their data (`tests/test_burnout.py`)
+
+| Check | Result |
+|---|---|
+| Ethanol Eq. (1), the 23 tests below 250 psia (Table III) | 22 inside the stated ±20 %; worst −23.7 % (test 4, 19.6 in. tube); mean −1.0 %, standard deviation 10.7 % |
+| Ethanol Eqs. (1)-(3), all 38 tests | mean +0.1 %, standard deviation 13 %; worst is test 15 at 514 psia (+43 %), the regime the authors flag |
+| Ethanol test 1 (V dT_sub = 825) | 1.61 against 1.57 Btu/(in² s) measured |
+| MMH Eq. (A-1) | reproduces the printed constants; Fig. A1's drawn curve ends near 8.2 Btu/(in² s) at 11 000 F ft/s where the equation gives 9.0 |
+
+Table III's printed `V dT_sub` column does not equal `V (T_sat − T_bulk)` from
+its other columns for the long-tube tests (test 4: 796 printed, 369
+recomputed); the correlation is checked against the printed column, as the
+paper plots it.
+
 ## Not implemented or not verified
 
 - Hess and Kunz's original paper and validity range were not opened; the
@@ -128,12 +144,17 @@ friction ratio for the same Re and r/R.
 - Roughness enhancement for rocket coolant channels (Norris,
   Dipprey-Sabersky as reported by NASA) was not found in a readable NASA
   source; only Lienhard's Bhatti-Shah fully rough correlation is provided.
-- Transpiration cooling: no source opened; not implemented. SP-8087 Table XI
+- Transpiration cooling is in `heat_transfer.transpiration`
+  ([TRANSPIRATION_COOLING.md](TRANSPIRATION_COOLING.md)). SP-8087 Table XI
   (liquid-film length and gaseous-film integration) was read but not
   implemented.
-- Forced-convection burnout (CHF) correlations for propellants (SP-8087 ref.
-  34) and SP-125 Eq. (4-24) (unspecified coolant constant C2) are not
-  implemented; `burnout_margin_screen` takes the burnout flux as an input.
+- Burnout: ethanol (Meyer, Linne and Rousar) and MMH (Tobin) are
+  implemented. SP-8087 gives no correlation in the pages read and refers to
+  Van Huff and Rousar (CPIA 121, 1966), which is Confidential; no free RP-1,
+  N₂O₄ or hydrazine burnout correlation was found. Ammonia and propane forms
+  in NASA CR-171712 (Aerojet) were read by a search but not opened page by
+  page here, so they are not implemented. SP-125 Eq. (4-24) (unspecified
+  coolant constant C2) is not implemented.
 - The Miller-Seader-Trebes equation (CR-678 Eq. 2) is not implemented: its
   reference temperature is defined only in Taylor's symbol list.
 - No NASA data points from CR-678 or Taylor's tables were digitised; the
