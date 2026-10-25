@@ -30,17 +30,18 @@ from rocket_propulsion.core.metadata import WarningMessage
 
 from .mixtures import REFERENCE_PRESSURE_PA, Mixture
 from .nasa_polynomials import UNIVERSAL_GAS_CONSTANT_J_MOL_K
-from .species import Species, get_species, species_catalog
+from .species import CondensedReactant, Species, get_reactant, get_species, species_catalog
 
 
 @dataclass(frozen=True, slots=True)
 class ReactantAmount:
-    """A positive molar amount of one bundled species.
+    """A positive molar amount of one bundled species or condensed reactant.
 
     Attributes
     ----------
     species : str
-        Upper-case species key.
+        Upper-case gas species key (``"O2"``) or condensed reactant key
+        (``"O2(L)"``, ``"RP-1"``).
     moles : float
         Finite, positive amount in mol.
     """
@@ -443,7 +444,7 @@ def _reactants(values: Mapping[str, float]) -> tuple[ReactantAmount, ...]:
                 f"Reactant amount for {key} must be finite and positive.",
                 field="reactants",
             )
-        get_species(str(key))
+        get_reactant(str(key))
         result.append(ReactantAmount(str(key).upper(), value))
     return tuple(sorted(result, key=lambda item: item.species))
 
@@ -487,6 +488,48 @@ def _logsumexp(values: list[float]) -> float:
     return maximum + log(sum(exp(value - maximum) for value in values))
 
 
+# The ten NASA/TP-2002-211556 combustion species; enough to bound the major
+# composition of H/C/N/O systems quickly when Newton needs a warm start.
+_MAJOR_SPECIES = frozenset({"H2", "O2", "H2O", "OH", "H", "O", "N2", "CO", "CO2", "CH4"})
+
+
+def _potentials_from_basis(
+    amounts: Mapping[str, float],
+    candidates: tuple[Species, ...],
+    g_over_rt: list[float],
+    elements: tuple[str, ...],
+    pressure_term: float,
+) -> list[float] | None:
+    """Return element potentials whose weights reproduce a basis composition.
+
+    For every basis species ``j``, ``sum_i a_ij pi_i = ln x_j + g_j/(RT) -
+    pressure_term``; the minimum-norm solution ``pi = A^T (A A^T)^-1 b`` is
+    used when the basis has fewer species than elements. Returns ``None``
+    when the basis is empty or singular.
+    """
+    total = sum(value for value in amounts.values() if value > 0.0)
+    index = {species.key: position for position, species in enumerate(candidates)}
+    rows: list[list[float]] = []
+    vector: list[float] = []
+    for key, amount in amounts.items():
+        if amount <= 0.0 or key not in index:
+            continue
+        formula = dict(candidates[index[key]].formula)
+        rows.append([formula.get(element, 0.0) for element in elements])
+        vector.append(log(amount / total) + g_over_rt[index[key]] - pressure_term)
+    if not rows:
+        return None
+    gram = [[sum(a * b for a, b in zip(left, right, strict=True)) for right in rows] for left in rows]
+    try:
+        weights = _solve_linear(gram, vector)
+    except ConvergenceError:
+        return None
+    return [
+        sum(weight * row[column] for weight, row in zip(weights, rows, strict=True))
+        for column in range(len(elements))
+    ]
+
+
 class LocalEquilibriumProvider:
     """Experimental ideal-gas equilibrium solver for the bundled species set.
 
@@ -517,9 +560,14 @@ class LocalEquilibriumProvider:
     """
 
     name = "local-gibbs"
-    version = "0.1-experimental"
+    version = "0.2-experimental"
     maximum_iterations = 100
     residual_tolerance = 2.0e-9
+
+    def __init__(self) -> None:
+        # Last converged element potentials per element tuple (warm start only;
+        # every returned state still satisfies the residual tolerance).
+        self._last_potentials: dict[tuple[str, ...], list[float]] = {}
 
     def solve(self, problem: EquilibriumProblem) -> EquilibriumResult:
         """Solve TP directly and HP/UV through nested state closure.
@@ -581,7 +629,7 @@ class LocalEquilibriumProvider:
         """Return reactant element amounts in mol, sorted by element symbol."""
         inventory: dict[str, float] = {}
         for reactant in problem.reactants:
-            for element, coefficient in get_species(reactant.species).formula:
+            for element, coefficient in get_reactant(reactant.species).formula:
                 inventory[element] = inventory.get(element, 0.0) + reactant.moles * coefficient
         return dict(sorted(inventory.items()))
 
@@ -663,7 +711,8 @@ class LocalEquilibriumProvider:
         Jacobian, step 1e-5, halving line search) so that the fractions sum to
         one and every element ratio matches the reactant inventory. If the
         Jacobian is singular or no step reduces the residual, the lowest-Gibbs
-        feasible boundary composition is returned instead.
+        feasible boundary composition is returned instead. Candidates whose
+        polynomial range does not cover ``temperature_k`` are left out.
 
         References
         ----------
@@ -681,6 +730,12 @@ class LocalEquilibriumProvider:
             )
         if not isfinite(pressure_pa) or pressure_pa <= 0.0:
             raise DomainError("Equilibrium pressure must be positive.", field="pressure_pa")
+        # Some NASA records start at 300 K; below that they are simply absent.
+        candidates = tuple(
+            species
+            for species in candidates
+            if species.minimum_temperature_k <= temperature_k <= species.maximum_temperature_k
+        )
 
         elements = tuple(inventory)
         reference_element = elements[0]
@@ -735,54 +790,70 @@ class LocalEquilibriumProvider:
                     )
             return values, fractions
 
-        potentials = [0.0] * len(elements)
-        for iteration in range(1, self.maximum_iterations + 1):
-            values, fractions = residuals(potentials)
-            norm = max(abs(value) for value in values)
-            if norm <= self.residual_tolerance:
-                break
-            step_size = 1.0e-5
-            jacobian: list[list[float]] = []
-            for row in range(len(elements)):
-                jacobian.append([])
-                for column in range(len(elements)):
-                    shifted = potentials[:]
-                    shifted[column] += step_size
-                    shifted_values, _ = residuals(shifted)
-                    jacobian[row].append((shifted_values[row] - values[row]) / step_size)
+        solved_potentials: list[list[float]] = [[]]
+
+        def newton(start: list[float]) -> tuple[list[float], int, float] | None:
+            potentials = start[:]
+            for iteration in range(1, self.maximum_iterations + 1):
+                values, fractions = residuals(potentials)
+                norm = max(abs(value) for value in values)
+                if norm <= self.residual_tolerance:
+                    solved_potentials[0] = potentials
+                    return fractions, iteration, norm
+                step_size = 1.0e-5
+                jacobian: list[list[float]] = []
+                for row in range(len(elements)):
+                    jacobian.append([])
+                    for column in range(len(elements)):
+                        shifted = potentials[:]
+                        shifted[column] += step_size
+                        shifted_values, _ = residuals(shifted)
+                        jacobian[row].append((shifted_values[row] - values[row]) / step_size)
+                try:
+                    delta = _solve_linear(jacobian, [-value for value in values])
+                except ConvergenceError:
+                    return None
+                damping = 1.0
+                while damping >= 1.0e-6:
+                    trial = [
+                        value + damping * change
+                        for value, change in zip(potentials, delta, strict=True)
+                    ]
+                    trial_values, _ = residuals(trial)
+                    if max(abs(value) for value in trial_values) < norm:
+                        potentials = trial
+                        break
+                    damping *= 0.5
+                else:
+                    return None
+            return None
+
+        # Continuation: successive states of one expansion are close, so the
+        # last converged potentials for this element set are tried first.
+        previous = self._last_potentials.get(elements)
+        solved = newton(previous) if previous is not None else None
+        if solved is None:
+            solved = newton([0.0] * len(elements))
+        if solved is None:
+            # Warm start: element potentials that reproduce the zero-trace
+            # boundary composition of the major species exactly.
+            major = tuple(species for species in candidates if species.key in _MAJOR_SPECIES)
             try:
-                delta = _solve_linear(jacobian, [-value for value in values])
+                boundary, _, _ = self._boundary_composition(
+                    inventory=inventory,
+                    candidates=major or candidates,
+                    temperature_k=temperature_k,
+                    pressure_pa=pressure_pa,
+                    iterations=0,
+                )
             except ConvergenceError:
-                return self._boundary_composition(
-                    inventory=inventory,
-                    candidates=candidates,
-                    temperature_k=temperature_k,
-                    pressure_pa=pressure_pa,
-                    iterations=iteration,
-                )
-            damping = 1.0
-            accepted = False
-            while damping >= 1.0e-6:
-                trial = [
-                    value + damping * change
-                    for value, change in zip(potentials, delta, strict=True)
-                ]
-                trial_values, _ = residuals(trial)
-                trial_norm = max(abs(value) for value in trial_values)
-                if trial_norm < norm:
-                    potentials = trial
-                    accepted = True
-                    break
-                damping *= 0.5
-            if not accepted:
-                return self._boundary_composition(
-                    inventory=inventory,
-                    candidates=candidates,
-                    temperature_k=temperature_k,
-                    pressure_pa=pressure_pa,
-                    iterations=iteration,
-                )
-        else:
+                boundary = {}
+            start = _potentials_from_basis(
+                boundary, candidates, g_over_rt, elements, pressure_term
+            )
+            if start is not None:
+                solved = newton(start)
+        if solved is None:
             return self._boundary_composition(
                 inventory=inventory,
                 candidates=candidates,
@@ -790,6 +861,8 @@ class LocalEquilibriumProvider:
                 pressure_pa=pressure_pa,
                 iterations=self.maximum_iterations,
             )
+        fractions, iteration, norm = solved
+        self._last_potentials[elements] = solved_potentials[0]
 
         atoms_per_mole = {
             element: sum(
@@ -1073,31 +1146,40 @@ class LocalEquilibriumProvider:
         )
 
     def _reactant_energy(self, problem: EquilibriumProblem) -> tuple[float, float]:
-        """Return reactant ``(H, U)`` in J at the reactant temperature.
+        """Return reactant ``(H, U)`` in J.
+
+        Gas reactants are evaluated at ``reactant_temperature_k``; condensed
+        reactants contribute their assigned enthalpy at their own storage
+        temperature, as in NASA CEA [1]_, and no ``pV`` term.
 
         Raises
         ------
         InputError
-            If ``reactant_temperature_k`` is missing.
+            If a gas reactant is present and ``reactant_temperature_k`` is
+            missing.
+
+        References
+        ----------
+        .. [1] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+               Equilibrium Compositions and Applications, Part II: Users Manual
+               and Program Description". https://ntrs.nasa.gov/citations/19960044559
         """
         temperature = problem.reactant_temperature_k
-        if temperature is None:
-            raise InputError(
-                "Combustion problems require reactant_temperature_k.",
-                field="reactant_temperature_k",
-            )
         enthalpy = 0.0
-        total_moles = 0.0
+        gas_pv = 0.0
         for reactant in problem.reactants:
-            enthalpy += (
-                reactant.moles
-                * get_species(reactant.species).properties(temperature).enthalpy_molar_j_mol
-            )
-            total_moles += reactant.moles
-        internal_energy = enthalpy - (
-            total_moles * UNIVERSAL_GAS_CONSTANT_J_MOL_K * temperature
-        )
-        return enthalpy, internal_energy
+            record = get_reactant(reactant.species)
+            if isinstance(record, CondensedReactant):
+                enthalpy += reactant.moles * record.enthalpy_j_mol
+                continue
+            if temperature is None:
+                raise InputError(
+                    "Combustion problems with gas reactants require reactant_temperature_k.",
+                    field="reactant_temperature_k",
+                )
+            enthalpy += reactant.moles * record.properties(temperature).enthalpy_molar_j_mol
+            gas_pv += reactant.moles * UNIVERSAL_GAS_CONSTANT_J_MOL_K * temperature
+        return enthalpy, enthalpy - gas_pv
 
     def _bisect_state(
         self,

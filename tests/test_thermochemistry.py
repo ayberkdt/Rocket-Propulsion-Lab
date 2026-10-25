@@ -8,10 +8,12 @@ from rocket_propulsion.thermochemistry import Mixture, get_species, species_cata
 
 class SpeciesPropertyTests(unittest.TestCase):
     def test_catalog_contains_initial_rocket_species(self) -> None:
-        self.assertEqual(
-            set(species_catalog()),
-            {"H2", "O2", "H2O", "OH", "H", "O", "N2", "CO", "CO2", "CH4"},
-        )
+        catalog = species_catalog()
+        initial = {"H2", "O2", "H2O", "OH", "H", "O", "N2", "CO", "CO2", "CH4"}
+        self.assertLessEqual(initial, set(catalog))
+        for key in initial:
+            with self.subTest(species=key):
+                self.assertIn("2002-211556", catalog[key].source)
 
     def test_published_298_k_reference_values(self) -> None:
         references = {

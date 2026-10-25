@@ -1,0 +1,1355 @@
+{
+ "schema_version": 1,
+ "source": {
+  "title": "NASA CEA thermodynamic database (thermo.inp)",
+  "authors": "NASA Glenn Research Center",
+  "url": "https://github.com/nasa/cea/blob/2f79a647e85737742fb08a127da00d1ea1d069da/data/thermo.inp",
+  "repository": "https://github.com/nasa/cea",
+  "commit": "2f79a647e85737742fb08a127da00d1ea1d069da",
+  "sha256": "fa7746572952d74e249e818a82a35c113829742fb421a308e167185528884363",
+  "license": "Apache-2.0",
+  "format_reference": "NASA RP-1311 Part II Appendix A; NASA/TP-2002-211556"
+ },
+ "model": {
+  "name": "NASA Glenn seven-term cp polynomial with two integration constants",
+  "coefficient_order": [
+   "a1",
+   "a2",
+   "a3",
+   "a4",
+   "a5",
+   "a6",
+   "a7",
+   "b1",
+   "b2"
+  ],
+  "reference_pressure_pa": 100000
+ },
+ "species": [
+  {
+   "key": "HO2",
+   "name": "HO2",
+   "thermo_inp_comment": "Hf:Hills,1984 & NASA data. Jacox,1998 p153.",
+   "reference_date_code": "g 4/02",
+   "formula": {
+    "H": 1.0,
+    "O": 2.0
+   },
+   "molecular_mass_g_mol": 33.00674,
+   "heat_of_formation_j_mol_298": 12020.0,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      -75988.8254,
+      1329.383918,
+      -4.67738824,
+      0.02508308202,
+      -3.006551588e-05,
+      1.895600056e-08,
+      -4.82856739e-12,
+      -5873.35096,
+      51.9360214
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      -1810669.724,
+      4963.19203,
+      -1.039498992,
+      0.00456014853,
+      -1.061859447e-06,
+      1.144567878e-10,
+      -4.76306416e-15,
+      -32008.1719,
+      40.6685092
+     ]
+    }
+   ]
+  },
+  {
+   "key": "H2O2",
+   "name": "H2O2",
+   "thermo_inp_comment": "Hf:Gurvich,1989 pt1 p127. Gurvich,1978 pt1 p121.",
+   "reference_date_code": "g 6/99",
+   "formula": {
+    "H": 2.0,
+    "O": 2.0
+   },
+   "molecular_mass_g_mol": 34.01468,
+   "heat_of_formation_j_mol_298": -135880.0,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      -92795.3358,
+      1564.748385,
+      -5.97646014,
+      0.0327074452,
+      -3.93219326e-05,
+      2.509255235e-08,
+      -6.46504529e-12,
+      -24940.04728,
+      58.7717418
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      1489428.027,
+      -5170.82178,
+      11.2820497,
+      -8.04239779e-05,
+      -1.818383769e-08,
+      6.94726559e-12,
+      -4.8278319e-16,
+      14182.51038,
+      -46.5085566
+     ]
+    }
+   ]
+  },
+  {
+   "key": "O3",
+   "name": "O3",
+   "thermo_inp_comment": "Gurvich,1989 pt1 p101 pt2 p15.",
+   "reference_date_code": "g 8/01",
+   "formula": {
+    "O": 3.0
+   },
+   "molecular_mass_g_mol": 47.9982,
+   "heat_of_formation_j_mol_298": 141800.0,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      -12823.14507,
+      589.821664,
+      -2.547496763,
+      0.02690121526,
+      -3.52825834e-05,
+      2.312290922e-08,
+      -6.04489327e-12,
+      13483.68701,
+      38.5221858
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      -38696624.8,
+      102334.4994,
+      -89.615516,
+      0.0370614497,
+      -4.13763874e-06,
+      -2.725018591e-10,
+      5.24818811e-14,
+      -651791.818,
+      702.910952
+     ]
+    }
+   ]
+  },
+  {
+   "key": "N",
+   "name": "N",
+   "thermo_inp_comment": "Hf:Cox,1989. Moore,1975. Gordon,1999.",
+   "reference_date_code": "g 5/97",
+   "formula": {
+    "N": 1.0
+   },
+   "molecular_mass_g_mol": 14.0067,
+   "heat_of_formation_j_mol_298": 472680.0,
+   "intervals": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      0.0,
+      0.0,
+      2.5,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      56104.6378,
+      4.193905036
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      88765.0138,
+      -107.12315,
+      2.362188287,
+      0.0002916720081,
+      -1.7295151e-07,
+      4.01265788e-11,
+      -2.677227571e-15,
+      56973.5133,
+      4.865231506
+     ]
+    },
+    {
+     "minimum_temperature_k": 6000.0,
+     "maximum_temperature_k": 20000.0,
+     "coefficients": [
+      547518105.0,
+      -310757.498,
+      69.1678274,
+      -0.00684798813,
+      3.8275724e-07,
+      -1.098367709e-11,
+      1.277986024e-16,
+      2550585.618,
+      -584.8769753
+     ]
+    }
+   ]
+  },
+  {
+   "key": "NO",
+   "name": "NO",
+   "thermo_inp_comment": "Gurvich,1978,1989 pt1 p326 pt2 p203.",
+   "reference_date_code": "tpis89",
+   "formula": {
+    "N": 1.0,
+    "O": 1.0
+   },
+   "molecular_mass_g_mol": 30.0061,
+   "heat_of_formation_j_mol_298": 91271.31,
+   "intervals": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      -11439.16503,
+      153.6467592,
+      3.43146873,
+      -0.002668592368,
+      8.48139912e-06,
+      -7.68511105e-09,
+      2.386797655e-12,
+      9098.21441,
+      6.72872549
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      223901.8716,
+      -1289.651623,
+      5.43393603,
+      -0.00036560349,
+      9.88096645e-08,
+      -1.416076856e-11,
+      9.38018462e-16,
+      17503.17656,
+      -8.50166909
+     ]
+    },
+    {
+     "minimum_temperature_k": 6000.0,
+     "maximum_temperature_k": 20000.0,
+     "coefficients": [
+      -957530354.0,
+      591243.448,
+      -138.4566826,
+      0.01694339403,
+      -1.007351096e-06,
+      2.912584076e-11,
+      -3.29510935e-16,
+      -4677501.24,
+      1242.081216
+     ]
+    }
+   ]
+  },
+  {
+   "key": "NO2",
+   "name": "NO2",
+   "thermo_inp_comment": "Gurvich,1989 pt1 p332 pt2 p207.",
+   "reference_date_code": "g 4/99",
+   "formula": {
+    "N": 1.0,
+    "O": 2.0
+   },
+   "molecular_mass_g_mol": 46.0055,
+   "heat_of_formation_j_mol_298": 34193.019,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      -56420.3878,
+      963.308572,
+      -2.434510974,
+      0.01927760886,
+      -1.874559328e-05,
+      9.14549773e-09,
+      -1.777647635e-12,
+      -1547.925037,
+      40.6785121
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      721300.157,
+      -3832.6152,
+      11.13963285,
+      -0.002238062246,
+      6.54772343e-07,
+      -7.6113359e-11,
+      3.32836105e-15,
+      25024.97403,
+      -43.0513004
+     ]
+    }
+   ]
+  },
+  {
+   "key": "N2O",
+   "name": "N2O",
+   "thermo_inp_comment": "Gurvich,1989 pt1 p337 pt2 p210.",
+   "reference_date_code": "g 4/99",
+   "formula": {
+    "N": 2.0,
+    "O": 1.0
+   },
+   "molecular_mass_g_mol": 44.0128,
+   "heat_of_formation_j_mol_298": 81600.0,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      42882.2597,
+      -644.011844,
+      6.03435143,
+      0.0002265394436,
+      3.47278285e-06,
+      -3.62774864e-09,
+      1.137969552e-12,
+      11794.05506,
+      -10.0312857
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      343844.804,
+      -2404.557558,
+      9.12563622,
+      -0.000540166793,
+      1.315124031e-07,
+      -1.4142151e-11,
+      6.38106687e-16,
+      21986.32638,
+      -31.47805016
+     ]
+    }
+   ]
+  },
+  {
+   "key": "NH",
+   "name": "NH",
+   "thermo_inp_comment": "Hf:Anderson,1989. Gurvich,1978 pt2 p223.",
+   "reference_date_code": "g 4/99",
+   "formula": {
+    "N": 1.0,
+    "H": 1.0
+   },
+   "molecular_mass_g_mol": 15.01464,
+   "heat_of_formation_j_mol_298": 357032.001,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      13596.5132,
+      -190.0296604,
+      4.51849679,
+      -0.002432776899,
+      2.377587464e-06,
+      -2.592797084e-10,
+      -2.659680792e-13,
+      42809.7219,
+      -3.886561616
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      1958141.991,
+      -5782.8613,
+      9.33574202,
+      -0.002292910311,
+      6.07609248e-07,
+      -6.64794275e-11,
+      2.384234783e-15,
+      78989.1234,
+      -41.169704
+     ]
+    },
+    {
+     "minimum_temperature_k": 6000.0,
+     "maximum_temperature_k": 20000.0,
+     "coefficients": [
+      95246367.9,
+      -85858.2691,
+      29.80445181,
+      -0.002979563697,
+      1.656334158e-07,
+      -4.74479184e-12,
+      5.57014829e-17,
+      696143.427,
+      -222.9027419
+     ]
+    }
+   ]
+  },
+  {
+   "key": "NH2",
+   "name": "NH2",
+   "thermo_inp_comment": "Hf:Anderson,1989. Gurvich,1989 pt1 p349.Jacox,1998 p133.",
+   "reference_date_code": "g 3/01",
+   "formula": {
+    "N": 1.0,
+    "H": 2.0
+   },
+   "molecular_mass_g_mol": 16.02258,
+   "heat_of_formation_j_mol_298": 189134.713,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      -31182.40659,
+      475.424339,
+      1.372395176,
+      0.00630642972,
+      -5.98789356e-06,
+      4.49275234e-09,
+      -1.414073548e-12,
+      19289.39662,
+      15.40126885
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      2111053.74,
+      -6880.62723,
+      11.32305924,
+      -0.001829236741,
+      5.64389009e-07,
+      -7.88645248e-11,
+      4.07859345e-15,
+      65037.7856,
+      -53.59155744
+     ]
+    }
+   ]
+  },
+  {
+   "key": "NH3",
+   "name": "NH3",
+   "thermo_inp_comment": "Gurvich,1989 pt1 p354 pt2 p219. Haar,1968.",
+   "reference_date_code": "tpis89",
+   "formula": {
+    "N": 1.0,
+    "H": 3.0
+   },
+   "molecular_mass_g_mol": 17.03052,
+   "heat_of_formation_j_mol_298": -45940.0,
+   "intervals": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      -76812.2615,
+      1270.951578,
+      -3.89322913,
+      0.02145988418,
+      -2.183766703e-05,
+      1.317385706e-08,
+      -3.33232206e-12,
+      -12648.86413,
+      43.66014588
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      2452389.535,
+      -8040.89424,
+      12.71346201,
+      -0.000398018658,
+      3.55250275e-08,
+      2.53092357e-12,
+      -3.32270053e-16,
+      43861.9196,
+      -64.62330602
+     ]
+    }
+   ]
+  },
+  {
+   "key": "HNO",
+   "name": "HNO",
+   "thermo_inp_comment": "Gurvich,1989 pt1 p362 pt2 p227. Jacox,1998 p151.",
+   "reference_date_code": "g10/01",
+   "formula": {
+    "H": 1.0,
+    "N": 1.0,
+    "O": 1.0
+   },
+   "molecular_mass_g_mol": 31.01404,
+   "heat_of_formation_j_mol_298": 102032.725,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      -68547.6486,
+      955.16272,
+      -0.600072021,
+      0.00799517675,
+      -6.54707916e-07,
+      -3.6705134e-09,
+      1.783392519e-12,
+      6435.35126,
+      30.48166179
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      -5795614.98,
+      19454.57427,
+      -21.52568374,
+      0.01797428992,
+      -4.97604067e-06,
+      6.39792417e-10,
+      -3.142619368e-14,
+      -110419.2372,
+      181.8650338
+     ]
+    }
+   ]
+  },
+  {
+   "key": "N2H2",
+   "name": "N2H2",
+   "thermo_inp_comment": "Gurvich,1989 pt1 p356.Trans,cis,& 1,1 in equilibrium.",
+   "reference_date_code": "g 5/99",
+   "formula": {
+    "N": 2.0,
+    "H": 2.0
+   },
+   "molecular_mass_g_mol": 30.02928,
+   "heat_of_formation_j_mol_298": 211858.756,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      -150400.5163,
+      2346.687716,
+      -9.40543029,
+      0.032842998,
+      -3.121920401e-05,
+      1.72128319e-08,
+      -4.01453722e-12,
+      13193.84041,
+      78.3238263
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      6217567.87,
+      -17539.52096,
+      20.22730509,
+      -0.000975729766,
+      -4.20841674e-07,
+      1.117921171e-10,
+      -7.62710221e-15,
+      137415.2574,
+      -119.9559168
+     ]
+    }
+   ]
+  },
+  {
+   "key": "C",
+   "name": "C",
+   "thermo_inp_comment": "Hf:Douglas,1955. Moore,1970b. Gordon,1999.",
+   "reference_date_code": "g 7/97",
+   "formula": {
+    "C": 1.0
+   },
+   "molecular_mass_g_mol": 12.0107,
+   "heat_of_formation_j_mol_298": 716680.0,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      649.503147,
+      -0.964901086,
+      2.504675479,
+      -1.281448025e-05,
+      1.980133654e-08,
+      -1.606144025e-11,
+      5.314483411e-15,
+      85457.6311,
+      4.747924288
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      -128913.6472,
+      171.9528572,
+      2.646044387,
+      -0.000335306895,
+      1.74209274e-07,
+      -2.902817829e-11,
+      1.642182385e-15,
+      84105.9785,
+      4.130047418
+     ]
+    },
+    {
+     "minimum_temperature_k": 6000.0,
+     "maximum_temperature_k": 20000.0,
+     "coefficients": [
+      443252801.0,
+      -288601.8412,
+      77.3710832,
+      -0.00971528189,
+      6.64959533e-07,
+      -2.230078776e-11,
+      2.899388702e-16,
+      2355273.444,
+      -640.512316
+     ]
+    }
+   ]
+  },
+  {
+   "key": "CH",
+   "name": "CH",
+   "thermo_inp_comment": "Gurvich,1979 pt1 p37 pt2 p39.",
+   "reference_date_code": "tpis79",
+   "formula": {
+    "C": 1.0,
+    "H": 1.0
+   },
+   "molecular_mass_g_mol": 13.01864,
+   "heat_of_formation_j_mol_298": 597370.604,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      22205.90133,
+      -340.541153,
+      5.53145229,
+      -0.00579496426,
+      7.96955488e-06,
+      -4.46591159e-09,
+      9.59633832e-13,
+      72407.8327,
+      -9.10767305
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      2060763.44,
+      -5396.20666,
+      7.85629385,
+      -0.000796590745,
+      1.764308305e-07,
+      -1.976386267e-11,
+      5.03042951e-16,
+      106223.6592,
+      -31.54757439
+     ]
+    },
+    {
+     "minimum_temperature_k": 6000.0,
+     "maximum_temperature_k": 20000.0,
+     "coefficients": [
+      -806836869.0,
+      457545.054,
+      -98.4397508,
+      0.01235244098,
+      -8.48560857e-07,
+      3.040410624e-11,
+      -4.40031517e-16,
+      -3595851.59,
+      895.347744
+     ]
+    }
+   ]
+  },
+  {
+   "key": "CH2",
+   "name": "CH2",
+   "thermo_inp_comment": "D0(H2C-H): Ruscic,1999. Bunker,1983. Jacox,1998.",
+   "reference_date_code": "g 4/02",
+   "formula": {
+    "C": 1.0,
+    "H": 2.0
+   },
+   "molecular_mass_g_mol": 14.02658,
+   "heat_of_formation_j_mol_298": 390364.517,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      32189.2173,
+      -287.7601815,
+      4.20358382,
+      0.00345540596,
+      -6.74619334e-06,
+      7.65457164e-09,
+      -2.870328419e-12,
+      47336.2471,
+      -2.143628603
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      2550418.031,
+      -7971.62539,
+      12.28924487,
+      -0.001699122922,
+      2.991728605e-07,
+      -2.767007492e-11,
+      1.05134174e-15,
+      96422.1689,
+      -60.9473991
+     ]
+    }
+   ]
+  },
+  {
+   "key": "CH3",
+   "name": "CH3",
+   "thermo_inp_comment": "D0(H3C-H): Ruscic,1999. Jacox,1998.",
+   "reference_date_code": "g 4/02",
+   "formula": {
+    "C": 1.0,
+    "H": 3.0
+   },
+   "molecular_mass_g_mol": 15.03452,
+   "heat_of_formation_j_mol_298": 146658.04,
+   "intervals": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      -28761.88806,
+      509.326866,
+      0.2002143949,
+      0.01363605829,
+      -1.433989346e-05,
+      1.013556725e-08,
+      -3.027331936e-12,
+      14082.71825,
+      20.22772791
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      2760802.663,
+      -9336.53117,
+      14.87729606,
+      -0.001439429774,
+      2.444477951e-07,
+      -2.224555778e-11,
+      8.39506576e-16,
+      74818.0948,
+      -79.196824
+     ]
+    }
+   ]
+  },
+  {
+   "key": "HCO",
+   "name": "HCO",
+   "thermo_inp_comment": "Hf:Terentis,1996. Jacox,1998 p146.",
+   "reference_date_code": "g 1/01",
+   "formula": {
+    "H": 1.0,
+    "C": 1.0,
+    "O": 1.0
+   },
+   "molecular_mass_g_mol": 29.01804,
+   "heat_of_formation_j_mol_298": 42397.85,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      -11898.51887,
+      215.1536111,
+      2.730224028,
+      0.001806516108,
+      4.98430057e-06,
+      -5.81456792e-09,
+      1.869689894e-12,
+      2905.75564,
+      11.3677254
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      694960.612,
+      -3656.22338,
+      9.60473117,
+      -0.001117129278,
+      2.875328019e-07,
+      -3.62624774e-11,
+      1.808329595e-15,
+      25437.0444,
+      -35.8247372
+     ]
+    }
+   ]
+  },
+  {
+   "key": "HCHO,formaldehy",
+   "name": "HCHO,formaldehy",
+   "thermo_inp_comment": "Hf:TRC(6/78) w-5300. Gurvich,1991 pt1 p62 pt2 p47.",
+   "reference_date_code": "g 5/01",
+   "formula": {
+    "H": 2.0,
+    "C": 1.0,
+    "O": 1.0
+   },
+   "molecular_mass_g_mol": 30.02598,
+   "heat_of_formation_j_mol_298": -108580.0,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      -117391.6343,
+      1873.628846,
+      -6.89028857,
+      0.02641561665,
+      -2.186389299e-05,
+      1.005693006e-08,
+      -2.023476949e-12,
+      -23073.51768,
+      64.2042055
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      1700825.405,
+      -7620.85384,
+      14.72447547,
+      -0.001649111754,
+      3.29214472e-07,
+      -3.49504977e-11,
+      1.526135e-15,
+      31468.12947,
+      -73.864785
+     ]
+    }
+   ]
+  },
+  {
+   "key": "COOH",
+   "name": "COOH",
+   "thermo_inp_comment": "Gurvich,1991 pt1 p60 pt2 p46.",
+   "reference_date_code": "tpis91",
+   "formula": {
+    "C": 1.0,
+    "O": 2.0,
+    "H": 1.0
+   },
+   "molecular_mass_g_mol": 45.01744,
+   "heat_of_formation_j_mol_298": -213000.0,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      -11283.80671,
+      377.517943,
+      -0.599255041,
+      0.02181894272,
+      -2.425918417e-05,
+      1.451245206e-08,
+      -3.59623338e-12,
+      -28410.42565,
+      29.34561769
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      929318.873,
+      -4483.03057,
+      12.42199567,
+      -0.000746313964,
+      1.332996131e-07,
+      -1.28271055e-11,
+      5.1379979e-16,
+      -851.823268,
+      -50.6806551
+     ]
+    }
+   ]
+  },
+  {
+   "key": "HCOOH",
+   "name": "HCOOH",
+   "thermo_inp_comment": "Formic acid. Chao,1978.",
+   "reference_date_code": "g 6/01",
+   "formula": {
+    "H": 2.0,
+    "C": 1.0,
+    "O": 2.0
+   },
+   "molecular_mass_g_mol": 46.02538,
+   "heat_of_formation_j_mol_298": -378570.0,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      -29062.79097,
+      765.837888,
+      -3.32841413,
+      0.02817542991,
+      -2.370050804e-05,
+      1.166063663e-08,
+      -2.79137317e-12,
+      -50064.4347,
+      43.8709423
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      487233.645,
+      -7632.23808,
+      21.32788153,
+      -0.00440254654,
+      1.102001695e-06,
+      -1.364343517e-10,
+      6.64842975e-15,
+      -5781.43191,
+      -111.1790688
+     ]
+    }
+   ]
+  },
+  {
+   "key": "C2H2,acetylene",
+   "name": "C2H2,acetylene",
+   "thermo_inp_comment": "Hf:TRC(10/93) w-3040. Gurvich,1991 pt1 p47 pt2 p39.",
+   "reference_date_code": "g 1/91",
+   "formula": {
+    "C": 2.0,
+    "H": 2.0
+   },
+   "molecular_mass_g_mol": 26.03728,
+   "heat_of_formation_j_mol_298": 228200.0,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      159811.2089,
+      -2216.644118,
+      12.65707813,
+      -0.00797965108,
+      8.05499275e-06,
+      -2.433307673e-09,
+      -7.52923318e-14,
+      37126.1906,
+      -52.443389
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      1713847.41,
+      -5929.10666,
+      12.36127943,
+      0.0001314186993,
+      -1.362764431e-07,
+      2.712655786e-11,
+      -1.302066204e-15,
+      62665.7897,
+      -58.1896059
+     ]
+    }
+   ]
+  },
+  {
+   "key": "C2H4",
+   "name": "C2H4",
+   "thermo_inp_comment": "TRC(4/88) w2600. Chao,1975. Knippers,1985.",
+   "reference_date_code": "g 1/00",
+   "formula": {
+    "C": 2.0,
+    "H": 4.0
+   },
+   "molecular_mass_g_mol": 28.05316,
+   "heat_of_formation_j_mol_298": 52500.0,
+   "intervals": [
+    {
+     "minimum_temperature_k": 200.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      -116360.5836,
+      2554.85151,
+      -16.09746428,
+      0.0662577932,
+      -7.88508186e-05,
+      5.12522482e-08,
+      -1.370340031e-11,
+      -6176.19107,
+      109.3338343
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      3408763.67,
+      -13748.47903,
+      23.65898074,
+      -0.002423804419,
+      4.43139566e-07,
+      -4.35268339e-11,
+      1.775410633e-15,
+      88204.2938,
+      -137.1278108
+     ]
+    }
+   ]
+  },
+  {
+   "key": "HCN",
+   "name": "HCN",
+   "thermo_inp_comment": "Hf: East,1993. Gurvich,1991 pt1 p226.",
+   "reference_date_code": "g 6/01",
+   "formula": {
+    "H": 1.0,
+    "C": 1.0,
+    "N": 1.0
+   },
+   "molecular_mass_g_mol": 27.02534,
+   "heat_of_formation_j_mol_298": 133082.46,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      90982.8693,
+      -1238.657512,
+      8.72130787,
+      -0.00652824294,
+      8.87270083e-06,
+      -4.80888667e-09,
+      9.3178985e-13,
+      20989.1545,
+      -27.46678076
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      1236889.278,
+      -4446.73241,
+      9.73887485,
+      -0.000585518264,
+      1.07279144e-07,
+      -1.013313244e-11,
+      3.34824798e-16,
+      42215.1377,
+      -40.05774072
+     ]
+    }
+   ]
+  },
+  {
+   "key": "CN",
+   "name": "CN",
+   "thermo_inp_comment": "Hf: Huang,1992. Gurvich,1979 pt1 p212 pt2 p210.",
+   "reference_date_code": "g 8/99",
+   "formula": {
+    "C": 1.0,
+    "N": 1.0
+   },
+   "molecular_mass_g_mol": 26.0174,
+   "heat_of_formation_j_mol_298": 438683.552,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      3949.14857,
+      -139.1590572,
+      4.93083532,
+      -0.00630467051,
+      1.256836472e-05,
+      -9.8783005e-09,
+      2.843137221e-12,
+      52284.5538,
+      -2.763115585
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      -2228006.27,
+      5040.73339,
+      -0.2121897722,
+      0.001354901134,
+      1.325929798e-07,
+      -6.93700637e-11,
+      5.49495227e-15,
+      17844.96132,
+      32.82563919
+     ]
+    },
+    {
+     "minimum_temperature_k": 6000.0,
+     "maximum_temperature_k": 20000.0,
+     "coefficients": [
+      -179479811.8,
+      105434.6069,
+      -17.2962417,
+      0.00219489553,
+      -8.50893803e-08,
+      9.31869299e-13,
+      6.35813993e-18,
+      -796259.412,
+      191.3139639
+     ]
+    }
+   ]
+  },
+  {
+   "key": "HNCO",
+   "name": "HNCO",
+   "thermo_inp_comment": "Hf:East,1993. Jacox,1998 p236.",
+   "reference_date_code": "g 7/00",
+   "formula": {
+    "H": 1.0,
+    "N": 1.0,
+    "C": 1.0,
+    "O": 1.0
+   },
+   "molecular_mass_g_mol": 43.02474,
+   "heat_of_formation_j_mol_298": -118056.529,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      75424.6008,
+      -955.093777,
+      6.72570587,
+      0.0047056875,
+      -4.95947551e-06,
+      3.69425512e-09,
+      -1.164859121e-12,
+      -10681.49742,
+      -13.65584762
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      1253216.926,
+      -5021.09154,
+      12.47789314,
+      -0.000689165525,
+      1.097738448e-07,
+      -9.3064038e-12,
+      3.24260695e-16,
+      14531.55559,
+      -53.06419819
+     ]
+    }
+   ]
+  },
+  {
+   "key": "NCO",
+   "name": "NCO",
+   "thermo_inp_comment": "Hf:East,1993. Jacox,1998 p184.",
+   "reference_date_code": "g 6/01",
+   "formula": {
+    "N": 1.0,
+    "C": 1.0,
+    "O": 1.0
+   },
+   "molecular_mass_g_mol": 42.0168,
+   "heat_of_formation_j_mol_298": 131847.241,
+   "intervals": [
+    {
+     "minimum_temperature_k": 300.0,
+     "maximum_temperature_k": 1000.0,
+     "coefficients": [
+      11365.03036,
+      -244.4613367,
+      4.6713761,
+      0.002309387548,
+      2.798649599e-06,
+      -4.54635738e-09,
+      1.692880931e-12,
+      15776.49188,
+      -0.2171476903
+     ]
+    },
+    {
+     "minimum_temperature_k": 1000.0,
+     "maximum_temperature_k": 6000.0,
+     "coefficients": [
+      108944.5289,
+      -1735.459316,
+      8.65561033,
+      -0.000405322926,
+      7.59971641e-08,
+      -7.25380415e-12,
+      3.24487241e-16,
+      23657.92776,
+      -26.1953297
+     ]
+    }
+   ]
+  }
+ ],
+ "reactants": [
+  {
+   "key": "H2(L)",
+   "name": "Liquid hydrogen",
+   "thermo_inp_comment": "Hydrogen. McBride,1996 pp84,92.",
+   "reference_date_code": "g 6/96",
+   "formula": {
+    "H": 2.0
+   },
+   "molecular_mass_g_mol": 2.01588,
+   "assigned_enthalpy_j_mol": -9012.0,
+   "assigned_temperature_k": 20.27,
+   "phase": "condensed"
+  },
+  {
+   "key": "O2(L)",
+   "name": "Liquid oxygen",
+   "thermo_inp_comment": "Oxygen. McBride,1996 pp85,93.",
+   "reference_date_code": "g 6/96",
+   "formula": {
+    "O": 2.0
+   },
+   "molecular_mass_g_mol": 31.9988,
+   "assigned_enthalpy_j_mol": -12979.0,
+   "assigned_temperature_k": 90.17,
+   "phase": "condensed"
+  },
+  {
+   "key": "CH4(L)",
+   "name": "Liquid methane",
+   "thermo_inp_comment": "Methane. McBride,1996 pp85,93.",
+   "reference_date_code": "g 6/96",
+   "formula": {
+    "C": 1.0,
+    "H": 4.0
+   },
+   "molecular_mass_g_mol": 16.04246,
+   "assigned_enthalpy_j_mol": -89233.0,
+   "assigned_temperature_k": 111.643,
+   "phase": "condensed"
+  },
+  {
+   "key": "RP-1",
+   "name": "RP-1 kerosene",
+   "thermo_inp_comment": "Mehta et.al. AIAA 95-2962 1995. Hcomb(high) = 19923.BTU/#",
+   "reference_date_code": "gll/00",
+   "formula": {
+    "C": 1.0,
+    "H": 1.95
+   },
+   "molecular_mass_g_mol": 13.976183,
+   "assigned_enthalpy_j_mol": -24717.7,
+   "assigned_temperature_k": 298.15,
+   "phase": "condensed"
+  },
+  {
+   "key": "N2O4(L)",
+   "name": "Nitrogen tetroxide",
+   "thermo_inp_comment": "Dinitrogen tetroxide. McBride,1996 pp85,93.",
+   "reference_date_code": "g 6/96",
+   "formula": {
+    "N": 2.0,
+    "O": 4.0
+   },
+   "molecular_mass_g_mol": 92.011,
+   "assigned_enthalpy_j_mol": -17549.0,
+   "assigned_temperature_k": 298.15,
+   "phase": "condensed"
+  },
+  {
+   "key": "CH6N2(L)",
+   "name": "Monomethylhydrazine",
+   "thermo_inp_comment": "Monomethyl Hydrazine. TRC(12/93) p9220.",
+   "reference_date_code": "n12/93",
+   "formula": {
+    "C": 1.0,
+    "H": 6.0,
+    "N": 2.0
+   },
+   "molecular_mass_g_mol": 46.07174,
+   "assigned_enthalpy_j_mol": 54200.0,
+   "assigned_temperature_k": 298.15,
+   "phase": "condensed"
+  }
+ ]
+}
