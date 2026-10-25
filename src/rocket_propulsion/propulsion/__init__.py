@@ -2,6 +2,7 @@
 
 The package provides the ideal rocket and steady thrust equations
 (:mod:`.performance`), preliminary engine-cycle balances (:mod:`.cycles`),
+centrifugal-pump similarity, suction and head-flow relations (:mod:`.turbopump`),
 finite-grid staging optimization (:mod:`.staging`), declared performance-factor
 budgets (:mod:`.losses`), conditional two-phase exit-state ranges
 (:mod:`.two_phase`), propellant screening records (:mod:`.propellants`) and the
@@ -54,6 +55,20 @@ from .staging import (
     StagingOptimizationResult,
     optimize_staging,
 )
+from .turbopump import (
+    CyclePumpOperatingPoint,
+    PumpAffinityResult,
+    PumpCharacteristic,
+    PumpMapPoint,
+    PumpSuctionResult,
+    evaluate_cycle_pump_point,
+    evaluate_pump_map,
+    evaluate_pump_suction,
+    net_positive_suction_head,
+    pump_specific_speed,
+    pump_suction_specific_speed,
+    scale_pump_affinity,
+)
 from .two_phase import TwoPhaseInputs, TwoPhasePerformanceBand, calculate_two_phase_band
 
 __all__ = [
@@ -65,6 +80,7 @@ __all__ = [
     "BurnTargetKind",
     "ConstantBurnReduction",
     "ConstantPerformanceProvider",
+    "CyclePumpOperatingPoint",
     "EngineCycleInputs",
     "EngineCycleResult",
     "EngineOperatingPoint",
@@ -79,6 +95,10 @@ __all__ = [
     "PropellantRecord",
     "PropellantRole",
     "PropulsionProvider",
+    "PumpAffinityResult",
+    "PumpCharacteristic",
+    "PumpMapPoint",
+    "PumpSuctionResult",
     "RocketEquationResult",
     "StageDefinition",
     "StageSolution",
@@ -100,9 +120,16 @@ __all__ = [
     "calculate_rocket_equation",
     "calculate_thrust",
     "calculate_two_phase_band",
+    "evaluate_cycle_pump_point",
+    "evaluate_pump_map",
+    "evaluate_pump_suction",
     "list_propellants",
+    "net_positive_suction_head",
     "optimize_staging",
+    "pump_specific_speed",
+    "pump_suction_specific_speed",
     "reduce_to_constant",
+    "scale_pump_affinity",
     "simulate_burn",
     "simulate_constant_burn",
     "simulate_profiled_burn",
