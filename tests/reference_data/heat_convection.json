@@ -1,0 +1,237 @@
+{
+  "_about": "Reference values for tests/test_heat_convection.py. Every value names its source and locator and was read from the source in the session that created this file (2026-10-25). LIENHARD = J. H. Lienhard V and J. H. Lienhard IV, A Heat Transfer Textbook, 6th ed. (v6.00), Phlogiston Press, 2024 (printed page; PDF page = printed + 14 in AHTTv600.pdf). TAYLOR = M. F. Taylor, NASA TN D-4332, 1968. CR678 = Aerojet-General, NASA CR-678, 1967. HATCH = Hatch and Papell, NASA TN D-130, 1959. Worked-example values are printed to 3-4 digits; tolerances cover that rounding (printed_rel_tol) unless stated otherwise. Figure read-offs carry an explicit read tolerance. 'measured_*' entries are agreements measured in this session between two correlations (regression guards), not source tolerances.",
+  "lienhard_examples": {
+    "example_7_1": {
+      "source": "LIENHARD Example 7.1 and following text, pp. 360-361 (Eq. 7.22)",
+      "nusselt_uniform_flux_fully_developed": 4.364,
+      "heat_transfer_coefficient_w_m2_k": 2791.0,
+      "conductivity_w_m_k": 0.6396,
+      "diameter_m": 0.001,
+      "printed_rel_tol": 0.001
+    },
+    "example_7_2": {
+      "source": "LIENHARD Example 7.2, pp. 363-364 (Eq. 7.30)",
+      "graetz": 43.56,
+      "nusselt_local_uniform_flux": 5.06,
+      "printed_rel_tol": 0.002
+    },
+    "example_7_3": {
+      "source": "LIENHARD Example 7.3, pp. 371-372 (Eqs. 7.41, 7.42, 7.44, 7.46)",
+      "reynolds": 412300.0,
+      "prandtl": 3.61,
+      "bulk_to_wall_viscosity_ratio": 1.75,
+      "friction_ratio_for_eq_7_46": 1.74,
+      "darcy_friction_factor": 0.0136,
+      "nusselt": 1570.0,
+      "conductivity_w_m_k": 0.642,
+      "diameter_m": 0.12,
+      "heat_transfer_coefficient_w_m2_k": 8400.0,
+      "corrected_friction_factor": 0.0119,
+      "printed_rel_tol": 0.005
+    },
+    "example_7_4": {
+      "source": "LIENHARD Example 7.4, p. 374 (Eqs. 7.48a, 7.49, 7.50)",
+      "reynolds": 412300.0,
+      "prandtl": 3.61,
+      "roughness_m": 360e-6,
+      "diameter_m": 0.12,
+      "darcy_friction_factor": 0.02651,
+      "roughness_reynolds": 71.2,
+      "nusselt": 2959.0,
+      "heat_transfer_coefficient_w_m2_k": 15800.0,
+      "h_ratio_rough_to_smooth": 1.9,
+      "printed_rel_tol": 0.002,
+      "h_printed_rel_tol": 0.005,
+      "ratio_printed_abs_tol": 0.05
+    },
+    "example_7_5": {
+      "source": "LIENHARD Example 7.5, p. 379 (Eq. 7.55)",
+      "peclet": 4470.0,
+      "nusselt": 24.2,
+      "printed_rel_tol": 0.003
+    },
+    "example_7_6": {
+      "source": "LIENHARD Example 7.6, pp. 381-382 (Eq. 7.29)",
+      "graetz": 11.8,
+      "average_nusselt_isothermal": 4.27,
+      "printed_rel_tol": 0.002
+    },
+    "example_7_7": {
+      "source": "LIENHARD Example 7.7, p. 384 (Eqs. 7.41, 7.42, 7.61a)",
+      "reynolds": 19011.0,
+      "prandtl": 0.713,
+      "side_m": 0.3,
+      "darcy_friction_factor": 0.02646,
+      "nusselt": 49.82,
+      "printed_rel_tol": 0.0005
+    },
+    "example_7_8": {
+      "source": "LIENHARD Example 7.8, pp. 391-392 (Eq. 7.66): Re_D = 457 is the root of Nu_D = 10.69",
+      "reynolds": 457.0,
+      "prandtl": 0.712,
+      "nusselt": 10.69,
+      "printed_rel_tol": 0.002
+    },
+    "example_6_5": {
+      "source": "LIENHARD Example 6.5, pp. 310-311 (Eq. 6.68)",
+      "reynolds": 384600.0,
+      "prandtl": 0.703,
+      "average_nusselt": 366.2,
+      "printed_rel_tol": 0.0005
+    },
+    "example_8_1": {
+      "source": "LIENHARD Example 8.1, p. 421 (Eq. 8.13a)",
+      "gravity_m_s2": 9.8,
+      "expansion_coefficient_1_k": 0.00325,
+      "temperature_difference_k": 30.0,
+      "length_m": 0.30,
+      "kinematic_viscosity_m2_s": 1.643e-5,
+      "thermal_diffusivity_m2_s": 2.315e-5,
+      "rayleigh": 6.78e7,
+      "prandtl": 0.710,
+      "average_nusselt": 47.33,
+      "printed_rel_tol": 0.001,
+      "rayleigh_printed_rel_tol": 0.002
+    },
+    "example_8_6": {
+      "source": "LIENHARD Example 8.6, p. 448 (Eqs. 8.61, 8.62b); the book computes Nu_L = (4/3) L / delta(L) from the rounded delta(L) = 0.104 mm",
+      "latent_heat_j_kg": 2257e3,
+      "liquid_specific_heat_j_kg_k": 4210.0,
+      "saturation_minus_wall_k": 10.0,
+      "liquid_prandtl": 1.85,
+      "corrected_latent_heat_j_kg": 2281e3,
+      "gravity_m_s2": 9.806,
+      "liquid_density_kg_m3": 961.9,
+      "vapor_density_kg_m3": 0.60,
+      "kinematic_viscosity_m2_s": 3.091e-7,
+      "conductivity_w_m_k": 0.6773,
+      "length_m": 0.3,
+      "average_nusselt": 3846.0,
+      "printed_rel_tol": 0.002,
+      "nusselt_rel_tol_from_rounded_delta": 0.005
+    },
+    "example_9_2": {
+      "source": "LIENHARD Example 9.2, p. 484 (Eq. 9.4): with Csf = 0.016, s = 1, the book reads q = 800 kW/m^2 at dT = 22 K and inverts Eq. (9.4) treating the exponent 0.33 as 1/3",
+      "specific_heat_j_kg_k": 4220.0,
+      "prandtl": 1.75,
+      "density_difference_kg_m3": 958.0,
+      "surface_tension_n_m": 0.0589,
+      "latent_heat_j_kg": 2257e3,
+      "viscosity_pa_s": 0.000282,
+      "gravity_m_s2": 9.8,
+      "surface_constant": 0.016,
+      "wall_superheat_k": 22.0,
+      "heat_flux_w_m2": 800e3,
+      "rel_tol_note": "Csf printed to 2 digits and q read from Fig. 9.2; 0.33 vs 1/3 changes q by about 1.2 % here",
+      "rel_tol": 0.03
+    },
+    "example_9_5": {
+      "source": "LIENHARD Example 9.5, p. 495 (Eq. 9.11)",
+      "vapor_density_kg_m3": 0.597,
+      "latent_heat_j_kg": 2257000.0,
+      "liquid_density_kg_m3": 958.2,
+      "surface_tension_n_m": 0.0589,
+      "gravity_m_s2": 9.8,
+      "peak_heat_flux_w_m2": 1.260e6,
+      "printed_rel_tol": 0.0005
+    },
+    "example_9_6": {
+      "source": "LIENHARD Example 9.6, pp. 495-496 (Eq. 9.11), mercury at 1 atm",
+      "vapor_density_kg_m3": 4.0,
+      "latent_heat_j_kg": 294900.0,
+      "liquid_density_kg_m3": 12740.0,
+      "surface_tension_n_m": 0.418,
+      "gravity_m_s2": 9.8,
+      "peak_heat_flux_w_m2": 1.328e6,
+      "printed_rel_tol": 0.0005
+    },
+    "taylor_wavelength_water": {
+      "source": "LIENHARD p. 488: lambda_d1 = 2.72 cm for water at 1 atm with the Example 9.2 properties (Eq. 9.6a)",
+      "liquid_density_kg_m3": 958.2,
+      "vapor_density_kg_m3": 0.597,
+      "surface_tension_n_m": 0.0589,
+      "gravity_m_s2": 9.8,
+      "wavelength_m": 0.0272,
+      "printed_rel_tol": 0.003
+    }
+  },
+  "lienhard_tables": {
+    "table_7_4": {
+      "source": "LIENHARD Table 7.4, p. 387; Eq. (7.63), p. 386",
+      "uniform_temperature": {"circular": 3.657, "square": 2.976, "rectangle_2to1": 3.391,
+                              "rectangle_4to1": 4.439, "rectangle_8to1": 5.597,
+                              "parallel_plates": 7.541},
+      "uniform_heat_flux": {"circular": 4.364, "square": 3.608, "rectangle_2to1": 4.123,
+                            "rectangle_4to1": 5.331, "rectangle_8to1": 6.490,
+                            "parallel_plates": 8.235},
+      "one_side_insulated_uniform_flux": 5.385
+    },
+    "fig_7_4_limits": {
+      "source": "LIENHARD Fig. 7.4, p. 363: entry Nusselt numbers tend to 4.364 (uniform flux) and 3.658/3.657 (uniform temperature) far downstream",
+      "uniform_flux_limit": 4.364,
+      "uniform_temperature_limit": 3.657,
+      "large_x_graetz": 1.0,
+      "rel_tol": 0.001
+    },
+    "table_7_2": {
+      "source": "LIENHARD Eq. (7.31) and Table 7.2, pp. 365-366",
+      "long_straight_pipe": [0.9756, 0.760],
+      "square_edged_inlet": [2.4254, 0.676],
+      "bend_180_deg": [0.9759, 0.700],
+      "bend_90_deg": [1.0517, 0.629],
+      "sharp_elbow_90_deg": [2.0152, 0.614]
+    }
+  },
+  "taylor_tn_d4332": {
+    "source": "TAYLOR Eq. (19)-(20) p. 12; Table I p. 2; Fig. 2 p. 12 (read-off)",
+    "fig2_present_report_readoff": [[20.0, 0.49], [40.0, 0.53], [140.0, 0.56]],
+    "fig2_ref12_13_eq13_readoff": [[100.0, 0.48]],
+    "fig2_ref9_eq9_readoff": [[100.0, 0.85]],
+    "readoff_abs_tol": 0.03,
+    "table_i": {"x_over_d": [2.0, 252.0], "wall_to_bulk": [1.1, 27.6], "reynolds_bulk": [7500.0, 13800000.0]},
+    "region_2": {"source": "TAYLOR p. 14", "inlet_temperature_min_k": 25.0, "inlet_pressure_max_pa": 3.65e6}
+  },
+  "cr678_cl_table": {
+    "source": "CR678 p. 3, C_L versus coolant temperature (degR)",
+    "rankine": [50, 55, 60, 65, 70, 75, 80, 85],
+    "straight": [2.0, 1.73, 1.48, 1.26, 1.07, 0.93, 0.87, 0.85],
+    "curved": [null, null, 1.95, 1.64, 1.37, 1.21, 1.11, 1.10]
+  },
+  "hatch_papell_example": {
+    "source": "HATCH worked example, pp. 8-10 (Eqs. 12-14), English units as printed; the main-gas velocity 2000 ft/s lies above the 104-1040 ft/s data range of the summary (p. 1)",
+    "slot_height_ft": 0.0208,
+    "gas_velocity_ft_s": 2000.0,
+    "coolant_velocity_ft_s": 1000.0,
+    "coolant_diffusivity_ft2_s": 0.24e-3,
+    "slot_peclet_term": 4.51,
+    "velocity_function": 1.31,
+    "gas_temperature_r": 1200.0,
+    "coolant_temperature_r": 540.0,
+    "wall_temperature_r": 800.0,
+    "adiabatic_wall_temperature_r": 1472.0,
+    "effectiveness": 0.722,
+    "eta_definition_note": "(1472 - 800)/(1472 - 540) from the printed temperatures is 0.7210; the source prints 0.722",
+    "eta_definition_abs_tol": 0.0015,
+    "ln_effectiveness": -0.326,
+    "h_btu_ft2_s_r": 0.0306,
+    "slot_length_ft": 6.2832,
+    "distance_ft": 2.0,
+    "coolant_cp_btu_lb_r": 0.24,
+    "first_iteration_flow_lb_s": 16.84,
+    "second_iteration_slot_ft": 0.0365,
+    "second_iteration_flow_lb_s": 17.56,
+    "printed_rel_tol": 0.005
+  },
+  "cross_checks": {
+    "measured_chen_vs_haaland_max_rel": 0.0158,
+    "chen_vs_haaland_grid": {"reynolds": [1e4, 1e5, 1e6, 1e7], "relative_roughness": [1e-5, 1e-4, 1e-3, 1e-2, 0.05]},
+    "measured_gnielinski_power_law_vs_7_41_max_rel": 0.261,
+    "gnielinski_grid": {"reynolds": [2300, 5000, 1e4, 1e5, 1e6, 5e6], "prandtl": [0.7, 1.0, 1.5, 3.0, 10.0, 100.0, 500.0]},
+    "measured_flat_plate_6_111_vs_6_112_air_max_rel": 0.049,
+    "flat_plate_grid": {"reynolds": [1e5, 1e6, 1e7], "prandtl": 0.71}
+  },
+  "sp8087": {
+    "source": "NASA SP-8087 p. 61: operate heat-flux-limited systems at less than 80 percent of the mean burnout heat flux",
+    "allowable_fraction": 0.8
+  }
+}

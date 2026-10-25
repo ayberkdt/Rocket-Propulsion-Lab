@@ -142,6 +142,44 @@ CELSIUS_OFFSET = PhysicalConstant(
     exact=True,
 )
 
+SPEED_OF_LIGHT = PhysicalConstant(
+    "speed of light in vacuum c",
+    299_792_458.0,
+    "m/s",
+    "BIPM SI Brochure, 9th ed. (2019): defining constant c",
+    "https://www.bipm.org/en/publications/si-brochure",
+    exact=True,
+)
+
+PLANCK_CONSTANT = PhysicalConstant(
+    "Planck constant h",
+    6.62607015e-34,
+    "J s",
+    "BIPM SI Brochure, 9th ed. (2019): defining constant h",
+    "https://www.bipm.org/en/publications/si-brochure",
+    exact=True,
+)
+
+BOLTZMANN_CONSTANT = PhysicalConstant(
+    "Boltzmann constant k",
+    1.380649e-23,
+    "J/K",
+    "BIPM SI Brochure, 9th ed. (2019): defining constant k",
+    "https://www.bipm.org/en/publications/si-brochure",
+    exact=True,
+)
+
+STEFAN_BOLTZMANN = PhysicalConstant(
+    "Stefan-Boltzmann constant sigma",
+    2.0 * 3.141592653589793**5 * BOLTZMANN_CONSTANT.value**4
+    / (15.0 * PLANCK_CONSTANT.value**3 * SPEED_OF_LIGHT.value**2),
+    "W/(m^2 K^4)",
+    "sigma = 2 pi^5 k^4 / (15 h^3 c^2) from the exact SI defining constants (BIPM SI Brochure, 2019)",
+    "https://www.bipm.org/en/publications/si-brochure",
+    exact=False,
+    note="Exact in theory; stored as the binary64 evaluation of the defining expression.",
+)
+
 REGISTERED_CONSTANTS: tuple[PhysicalConstant, ...] = (
     STANDARD_GRAVITY,
     MOLAR_GAS_CONSTANT_SI_2019,
@@ -151,6 +189,10 @@ REGISTERED_CONSTANTS: tuple[PhysicalConstant, ...] = (
     USSA1976_SEA_LEVEL_PRESSURE,
     USSA1976_SEA_LEVEL_TEMPERATURE,
     CELSIUS_OFFSET,
+    SPEED_OF_LIGHT,
+    PLANCK_CONSTANT,
+    BOLTZMANN_CONSTANT,
+    STEFAN_BOLTZMANN,
 )
 
 STANDARD_GRAVITY_M_S2 = STANDARD_GRAVITY.value
@@ -161,3 +203,7 @@ AIR_SPECIFIC_GAS_CONSTANT_J_KG_K = AIR_SPECIFIC_GAS_CONSTANT.value
 CELSIUS_OFFSET_K = CELSIUS_OFFSET.value
 USSA1976_SEA_LEVEL_PRESSURE_PA = USSA1976_SEA_LEVEL_PRESSURE.value
 USSA1976_SEA_LEVEL_TEMPERATURE_K = USSA1976_SEA_LEVEL_TEMPERATURE.value
+SPEED_OF_LIGHT_M_S = SPEED_OF_LIGHT.value
+PLANCK_CONSTANT_J_S = PLANCK_CONSTANT.value
+BOLTZMANN_CONSTANT_J_K = BOLTZMANN_CONSTANT.value
+STEFAN_BOLTZMANN_W_M2_K4 = STEFAN_BOLTZMANN.value

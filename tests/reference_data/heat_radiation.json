@@ -1,0 +1,91 @@
+{
+  "description": "Reference values for rocket_propulsion.heat_transfer.radiation. Every number is copied from the located source; 'book_sigma' is the Stefan-Boltzmann value the textbook used in that example. Values read by the textbook author from charts are marked 'chart_read'.",
+  "sources": {
+    "LIENHARD-AHTT-6.00": "J. H. Lienhard IV and J. H. Lienhard V, A Heat Transfer Textbook, 6th ed., v6.00 (19 April 2024), https://ahtt.mit.edu/wp-content/uploads/2024/04/AHTTv600.pdf (printed page = PDF page - 13 in chapter 10)",
+    "NIST-CODATA-2022": "https://physics.nist.gov/cuu/Constants/index.html (pages Value?sigma, Value?bwien, Value?c22ndrc)",
+    "HOWELL-CATALOG-C": "https://www.thermalradiation.net/indexCat.html (factors C-40, C-41, C-78, C-111)",
+    "BORDBAR-FRAGA-HOSTIKKA-2020": "https://acris.aalto.fi/ws/portalfiles/portal/39751900/ENG_Bordbar_et_al_An_extended_weighted_sum_of_gray_gases_model_ICHMT.pdf",
+    "SADEGHI-2021-FSJ": "https://acris.aalto.fi/ws/portalfiles/portal/66772583/1_s2.0_S0379711221001612_main_1.pdf"
+  },
+  "constants": {
+    "locator": "NIST CODATA 2022 value pages; Lienhard p. 30 Eqs. (1.28)-(1.29)",
+    "nist_stefan_boltzmann_w_m2_k4": 5.670374419e-8,
+    "nist_wien_wavelength_m_k": 2.897771955e-3,
+    "nist_second_radiation_constant_m_k": 1.438776877e-2,
+    "nist_printed_digits": 10,
+    "lienhard_stefan_boltzmann_w_m2_k4": 5.670374e-8,
+    "lienhard_wien_um_k": 2897.77
+  },
+  "blackbody_statements": {
+    "locator": "Lienhard p. 30 (text after Eq. (1.29)) and p. 554 footnote 3",
+    "fraction_above_peak_approx": 0.75,
+    "fraction_above_peak_tolerance": 0.005,
+    "bands_containing_ninety_percent": [
+      {"temperature_k": 300.0, "lower_um": 6.3, "upper_um": 42.0, "fraction": 0.90},
+      {"temperature_k": 5772.0, "lower_um": 0.33, "upper_um": 2.2, "fraction": 0.90}
+    ],
+    "band_tolerance": 0.005
+  },
+  "example_10_1": {
+    "locator": "Lienhard Example 10.1, pp. 557-558",
+    "book_sigma": 5.67e-8,
+    "jet_diameter_m": 0.003, "shield_diameter_m": 0.05, "slit_angle_deg": 30.0,
+    "jet_temperature_k": 2273.0, "shield_temperature_k": 973.0, "room_temperature_k": 303.0,
+    "q_jet_room_w_m": 1190.0, "q_jet_shield_w_m": 12640.0,
+    "slit_area_m2_per_m": 0.01294, "f_slit_jet": 0.06067, "f_slit_shield": 0.9393,
+    "f_shield_room": 0.08441, "q_shield_room_w_m": 611.0,
+    "book_f_jet_room_used": 0.0833
+  },
+  "example_10_2": {
+    "locator": "Lienhard Example 10.2, p. 565 (Fig. 10.9 read at w/l = h/l = 1/2)",
+    "f_combined_chart_read": 0.245, "f_1_4": 0.20, "f_1_2": 0.045, "chart_read": true
+  },
+  "example_10_3_10_4": {
+    "locator": "Lienhard Examples 10.3-10.4, pp. 565-567",
+    "book_sigma": 5.67e-8,
+    "heater_radius_m": 0.05, "opening_radius_m": 0.10, "height_m": 0.20,
+    "heater_temperature_k": 1473.0, "shield_temperature_k": 373.0,
+    "f_heater_opening": 0.192, "f_heater_shield": 0.808, "q_heater_shield_w": 1687.0,
+    "shield_area_m2": 0.09715, "f_shield_heater": 0.0653
+  },
+  "example_10_8": {
+    "locator": "Lienhard Example 10.8, p. 572",
+    "book_sigma": 5.67e-8,
+    "line_diameter_m": 0.00635, "shield_diameter_m": 0.0127, "emissivity": 0.2,
+    "line_temperature_k": 80.0, "chamber_temperature_k": 230.0,
+    "q_gain_unshielded_w_m": 0.624, "q_gain_shielded_w_m": 0.328, "shield_temperature_k": 213.0
+  },
+  "example_10_9": {
+    "locator": "Lienhard Example 10.9, pp. 575-577",
+    "book_sigma": 5.67e-8,
+    "strip_width_m": 1.0, "separation_m": 2.40, "f_12": 0.2,
+    "t1_k": 400.0, "t2_k": 300.0, "e1": 0.3, "e2": 0.5, "t_surroundings_k": 250.0,
+    "case_a": {"b1": 612.1, "b2": 379.5, "q_12_w_m": 46.53},
+    "case_b": {"b1": 987.7, "b2": 657.4, "b3": 822.6, "q_12_w_m": 198.0, "t3_k": 347.0}
+  },
+  "example_10_10": {
+    "locator": "Lienhard Example 10.10, pp. 579-581 (surface 1 = copper base)",
+    "book_sigma": 5.67e-8,
+    "widths_m": [0.5, 0.3, 0.4], "emissivities": [0.15, 0.5, 0.5], "temperatures_k": [373.0, 773.0, 773.0],
+    "f_12": 0.4, "q_1_w_m": -1294.0,
+    "note": "The book eliminates B2, B3 with view factors rounded to two digits (0.67, 0.33) and coefficients to three."
+  },
+  "example_10_11": {
+    "locator": "Lienhard Example 10.11, p. 593; chart values read from Figs. 10.22 and 10.24 (Alberti et al. correlations, CO2 in N2 at 1 atm, p_a -> 0)",
+    "book_sigma": 5.67e-8,
+    "diameter_m": 0.40, "gas_temperature_k": 1473.0, "wall_temperature_k": 573.0,
+    "co2_pressure_atm": 0.2, "total_pressure_atm": 1.0,
+    "mean_beam_length_m": 0.40, "eps_g_chart_read": 0.084, "eps_g_scaled_chart_read": 0.073,
+    "alpha_g": 0.12, "q_w_m": 27000.0, "chart_read": true
+  },
+  "examples_1_5_1_6": {
+    "locator": "Lienhard Examples 1.5-1.6, pp. 32-33 (sigma = 5.6704e-8, T(K) = T(C) + 273)",
+    "h_w_m2_k": 75.0, "air_c": 20.0, "wall_c": 100.0, "kelvin_offset_used": 273.0,
+    "black_reading_c": 28.4, "gray_emissivity": 0.4, "gray_reading_c": 23.5
+  },
+  "wsgg_double_integration_accuracy": {
+    "locator": "Bordbar, Fraga and Hostikka 2020, Table 4, row 'Double integration' (pure-species Tables 2-3 combined), accepted manuscript p. 10",
+    "domain_average_percent": {"case1": [5.77, 7.28], "case2": [4.50, 5.24], "case3": [2.74, 3.02], "case4": [6.68, 7.26]},
+    "maximum_percent": {"case1": [9.18, 21.5], "case2": [6.34, 8.92], "case3": [6.55, 5.81], "case4": [10.6, 19.5]}
+  }
+}
