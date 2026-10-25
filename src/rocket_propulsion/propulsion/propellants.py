@@ -3,15 +3,20 @@
 Notes
 -----
 Vacuum Isp entries are deliberately broad preliminary-design ranges for each
-propellant family [1]_ [2]_; categories follow the liquid/solid/hybrid
-classification of [3]_. They are not substitutes for equilibrium chemistry, engine
-test data or a validated cycle/nozzle model, and mixture-ratio notes describe
-screening regions, not operating instructions.
+propellant family [2]_; categories follow the liquid/solid/hybrid
+classification of [3]_. Where a NASA briefing prints a single representative
+value it is stored separately with its page [1]_. Records that the bundled
+thermochemistry can compute name their ``thermochemistry_pair``; ideal
+performance for those comes from the CEA-gated equilibrium solver, not from
+the screening range. The remaining records state why they cannot be
+computed. Mixture-ratio notes describe screening regions, not operating
+instructions.
 
 References
 ----------
-.. [1] NASA KSC Engineering, "Examples of Specific Impulse", NTRS 20100036816
-       (representative LOX/LH2, LOX/RP-1, storable and solid systems).
+.. [1] KSC-2010-233. L. G. Delgado, "Expendable Launch Vehicles Briefing and
+       Basic Rocketry Physics", NASA Kennedy Space Center, 2010, NTRS
+       20100036816, PDF p.46 "Examples of Specific Impulse".
 .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
        Elements", 9th ed., Wiley, 2017.
 .. [3] NASA, "2020 NASA Technology Taxonomy", TX01 Propulsion Systems (liquid,
@@ -47,19 +52,29 @@ class PropellantRecord:
         Descriptive oxidizer/fuel screening region.
     strengths, limitations : tuple of str
         Qualitative screening notes.
+    thermochemistry_pair : str or None
+        Key of the matching
+        :data:`~rocket_propulsion.thermochemistry.PROPELLANT_PAIRS` preset
+        when the bundled NASA data can compute this system, else ``None``.
+    computability_note : str
+        Why the system can or cannot be computed by the bundled solver.
+    published_isp_s : float or None
+        Single representative Isp printed by [1]_, when the briefing lists the
+        family; the briefing does not state vacuum or sea-level conditions.
+    published_isp_source : str
+        Locator of ``published_isp_s``.
 
     Notes
     -----
-    Vacuum Isp entries are deliberately broad preliminary-design ranges for each
-    propellant family [1]_ [2]_; categories follow the liquid/solid/hybrid
-    classification of [3]_. They are not substitutes for equilibrium chemistry, engine
-    test data or a validated cycle/nozzle model, and mixture-ratio notes describe
-    screening regions, not operating instructions.
+    The screening ranges are broad preliminary-design bands [2]_ and are not
+    substitutes for equilibrium chemistry, engine test data or a validated
+    cycle/nozzle model; categories follow [3]_.
 
     References
     ----------
-    .. [1] NASA KSC Engineering, "Examples of Specific Impulse", NTRS 20100036816
-           (representative LOX/LH2, LOX/RP-1, storable and solid systems).
+    .. [1] KSC-2010-233. L. G. Delgado, "Expendable Launch Vehicles Briefing and
+           Basic Rocketry Physics", NASA Kennedy Space Center, 2010, NTRS
+           20100036816, PDF p.46.
     .. [2] SUTTON-BIBLARZ-2017. G. P. Sutton and O. Biblarz, "Rocket Propulsion
            Elements", 9th ed., Wiley, 2017.
     .. [3] NASA, "2020 NASA Technology Taxonomy", TX01 Propulsion Systems (liquid,
@@ -78,6 +93,10 @@ class PropellantRecord:
     mixture_ratio_note: str
     strengths: tuple[str, ...]
     limitations: tuple[str, ...]
+    thermochemistry_pair: str | None = None
+    computability_note: str = ""
+    published_isp_s: float | None = None
+    published_isp_source: str = ""
 
 
 PROPELLANTS: tuple[PropellantRecord, ...] = (
@@ -94,6 +113,10 @@ PROPELLANTS: tuple[PropellantRecord, ...] = (
         mixture_ratio_note="Typical O/F study region: about 5–6.5",
         strengths=("Highest common chemical Isp", "Clean exhaust", "Strong upper-stage heritage"),
         limitations=("Very low fuel density", "Deep cryogenic storage", "Large insulated tanks"),
+        thermochemistry_pair="LOX_LH2",
+        computability_note="Liquid reactants at NASA CEA storage-state enthalpy; local equilibrium solver gated against NASA CEA 3.3.4.",
+        published_isp_s=455.0,
+        published_isp_source="KSC-2010-233 (NTRS 20100036816), PDF p.46",
     ),
     PropellantRecord(
         key="lox-rp1",
@@ -108,6 +131,10 @@ PROPELLANTS: tuple[PropellantRecord, ...] = (
         mixture_ratio_note="Typical O/F study region: about 2.3–2.8",
         strengths=("High bulk density", "Strong first-stage performance", "Mature supply chain"),
         limitations=("Coking potential", "Lower Isp than hydrogen", "LOX handling required"),
+        thermochemistry_pair="LOX_RP1",
+        computability_note="Liquid reactants at NASA CEA storage-state enthalpy; local equilibrium solver gated against NASA CEA 3.3.4.",
+        published_isp_s=358.0,
+        published_isp_source="KSC-2010-233 (NTRS 20100036816), PDF p.46",
     ),
     PropellantRecord(
         key="lox-lch4",
@@ -122,6 +149,8 @@ PROPELLANTS: tuple[PropellantRecord, ...] = (
         mixture_ratio_note="Typical O/F study region: about 3.2–3.8",
         strengths=("Clean-burning hydrocarbon", "Good reusable-engine fit", "Better density than LH₂"),
         limitations=("Cryogenic storage", "Lower Isp than hydrogen", "Boil-off management"),
+        thermochemistry_pair="LOX_CH4",
+        computability_note="Liquid reactants at NASA CEA storage-state enthalpy; local equilibrium solver gated against NASA CEA 3.3.4.",
     ),
     PropellantRecord(
         key="nto-mmh",
@@ -136,6 +165,10 @@ PROPELLANTS: tuple[PropellantRecord, ...] = (
         mixture_ratio_note="Typical O/F study region: about 1.6–2.1",
         strengths=("Reliable restart", "Long-duration storage", "No separate igniter"),
         limitations=("Highly toxic", "Corrosive oxidizer", "Strict ground-safety burden"),
+        thermochemistry_pair="NTO_MMH",
+        computability_note="Liquid reactants at NASA CEA storage-state enthalpy; local equilibrium solver gated against NASA CEA 3.3.4.",
+        published_isp_s=305.0,
+        published_isp_source="KSC-2010-233 (NTRS 20100036816), PDF p.46, listed as hydrazine/N2O4",
     ),
     PropellantRecord(
         key="ap-htpb-al",
@@ -150,6 +183,12 @@ PROPELLANTS: tuple[PropellantRecord, ...] = (
         mixture_ratio_note="Premixed composite; formulation-specific",
         strengths=("High readiness", "Simple feed system", "High thrust density"),
         limitations=("Limited throttling/restart", "Grain integrity constraints", "Particle-rich exhaust"),
+        computability_note=(
+            "Not computed: aluminized exhaust has condensed Al2O3, the local solver is "
+            "gas-only, and HTPB is not in NASA CEA thermo.inp; formulation data must be supplied."
+        ),
+        published_isp_s=250.0,
+        published_isp_source="KSC-2010-233 (NTRS 20100036816), PDF p.46, listed as solid motor",
     ),
     PropellantRecord(
         key="n2o-htpb",
@@ -164,6 +203,10 @@ PROPELLANTS: tuple[PropellantRecord, ...] = (
         mixture_ratio_note="Operating O/F changes during regression",
         strengths=("Separated fuel and oxidizer", "Potential shutdown", "Simpler than bipropellant feed"),
         limitations=("Regression-rate limits", "Mixture-ratio shift", "Oxidizer decomposition hazards"),
+        computability_note=(
+            "Not computed: HTPB is not in NASA CEA thermo.inp and the hybrid O/F shifts "
+            "with grain regression."
+        ),
     ),
     PropellantRecord(
         key="lox-paraffin",
@@ -178,6 +221,10 @@ PROPELLANTS: tuple[PropellantRecord, ...] = (
         mixture_ratio_note="Operating O/F and regression are geometry-dependent",
         strengths=("High paraffin regression rate", "Potential throttling", "Relatively dense fuel"),
         limitations=("Cryogenic oxidizer", "Combustion efficiency sensitivity", "Fuel mechanical design"),
+        computability_note=(
+            "Not computed: paraffin wax is not in NASA CEA thermo.inp and the hybrid O/F "
+            "shifts with grain regression."
+        ),
     ),
 )
 

@@ -35,7 +35,7 @@ from .equilibrium import (
     EquilibriumResult,
     LocalEquilibriumProvider,
 )
-from .species import get_species
+from .species import get_reactant
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,11 +46,9 @@ class PropellantPair:
     ----------
     key, name : str
         Preset key and display name.
-    fuel_species : str or None
-        Bundled fuel species for the local provider; ``None`` when only the
-        CEA provider can represent the fuel.
-    oxidizer_species : str
-        Bundled oxidizer species.
+    fuel_reactant, oxidizer_reactant : str
+        Bundled reactant keys; condensed reactants (``"H2(L)"``, ``"RP-1"``)
+        carry the assigned storage-state enthalpy of NASA CEA's database.
     minimum_oxidizer_fuel_ratio, maximum_oxidizer_fuel_ratio : float
         Default sweep range of the oxidizer-to-fuel mass ratio.
     reference_oxidizer_fuel_ratio : float
@@ -59,26 +57,31 @@ class PropellantPair:
         Reactant names for CEA input decks.
     source : str
         Basis of the preset values.
+    verified_chamber_pressure_range_pa : tuple of float
+        Chamber pressures at whose ends the local solver was compared with
+        NASA CEA 3.3.4 at the reference O/F and area ratio 40
+        (``tests/reference_data/cea_gate_points.json``, pressure-domain points).
     """
 
     key: str
     name: str
-    fuel_species: str | None
-    oxidizer_species: str
+    fuel_reactant: str
+    oxidizer_reactant: str
     minimum_oxidizer_fuel_ratio: float
     maximum_oxidizer_fuel_ratio: float
     reference_oxidizer_fuel_ratio: float
     cea_fuel_name: str
     cea_oxidizer_name: str
     source: str
+    verified_chamber_pressure_range_pa: tuple[float, float] = (5.0e5, 2.5e7)
 
 
 PROPELLANT_PAIRS: dict[str, PropellantPair] = {
     "LOX_LH2": PropellantPair(
         key="LOX_LH2",
         name="LOX / LH2",
-        fuel_species="H2",
-        oxidizer_species="O2",
+        fuel_reactant="H2(L)",
+        oxidizer_reactant="O2(L)",
         minimum_oxidizer_fuel_ratio=4.0,
         maximum_oxidizer_fuel_ratio=8.0,
         reference_oxidizer_fuel_ratio=5.55157,
@@ -89,8 +92,8 @@ PROPELLANT_PAIRS: dict[str, PropellantPair] = {
     "LOX_CH4": PropellantPair(
         key="LOX_CH4",
         name="LOX / CH4",
-        fuel_species="CH4",
-        oxidizer_species="O2",
+        fuel_reactant="CH4(L)",
+        oxidizer_reactant="O2(L)",
         minimum_oxidizer_fuel_ratio=2.0,
         maximum_oxidizer_fuel_ratio=5.0,
         reference_oxidizer_fuel_ratio=3.4,
@@ -100,15 +103,27 @@ PROPELLANT_PAIRS: dict[str, PropellantPair] = {
     ),
     "LOX_RP1": PropellantPair(
         key="LOX_RP1",
-        name="LOX / RP-1 surrogate",
-        fuel_species=None,
-        oxidizer_species="O2",
+        name="LOX / RP-1",
+        fuel_reactant="RP-1",
+        oxidizer_reactant="O2(L)",
         minimum_oxidizer_fuel_ratio=2.0,
         maximum_oxidizer_fuel_ratio=3.5,
         reference_oxidizer_fuel_ratio=2.7,
-        cea_fuel_name="C12H26(L)",
+        cea_fuel_name="RP-1",
         cea_oxidizer_name="O2(L)",
-        source="C12H26 liquid surrogate; CEA validation required",
+        source="NASA CEA thermo.inp RP-1 record (CH1.95; Mehta et al., AIAA 95-2962)",
+    ),
+    "NTO_MMH": PropellantPair(
+        key="NTO_MMH",
+        name="NTO / MMH",
+        fuel_reactant="CH6N2(L)",
+        oxidizer_reactant="N2O4(L)",
+        minimum_oxidizer_fuel_ratio=1.2,
+        maximum_oxidizer_fuel_ratio=2.6,
+        reference_oxidizer_fuel_ratio=1.65,
+        cea_fuel_name="CH6N2(L)",
+        cea_oxidizer_name="N2O4(L)",
+        source="Screening preset; reactants from NASA CEA thermo.inp N2O4(L) and CH6N2(L)",
     ),
 }
 
@@ -241,7 +256,7 @@ class OxidizerFuelSweep:
     provider, provider_version : str
         Equilibrium provider used.
     warnings : tuple of WarningMessage
-        Statement of the gaseous-reactant reference state.
+        Statement of the reactant reference state and the hybrid expansion.
 
     References
     ----------
@@ -299,7 +314,7 @@ def reactants_for_mass_ratio(pair: PropellantPair, ratio: float) -> dict[str, fl
     Parameters
     ----------
     pair : PropellantPair
-        Preset with a bundled fuel species.
+        Propellant preset.
     ratio : float
         Oxidizer-to-fuel mass ratio, finite and positive.
 
@@ -310,22 +325,14 @@ def reactants_for_mass_ratio(pair: PropellantPair, ratio: float) -> dict[str, fl
 
     Raises
     ------
-    InputError
-        If the preset has no bundled fuel species (code ``provider_required``).
     DomainError
         If ``ratio`` is not finite and positive.
     """
 
-    if pair.fuel_species is None:
-        raise InputError(
-            f"{pair.name} requires the NASA CEA provider; no local RP-1 species is bundled.",
-            code="provider_required",
-            field="propellant_pair",
-        )
     if not isfinite(ratio) or ratio <= 0.0:
         raise DomainError("O/F ratio must be positive.", field="oxidizer_fuel_ratio")
-    fuel = get_species(pair.fuel_species)
-    oxidizer = get_species(pair.oxidizer_species)
+    fuel = get_reactant(pair.fuel_reactant)
+    oxidizer = get_reactant(pair.oxidizer_reactant)
     oxidizer_moles = ratio * fuel.molecular_mass_kg_mol / oxidizer.molecular_mass_kg_mol
     return {fuel.key: 1.0, oxidizer.key: oxidizer_moles}
 
@@ -564,8 +571,11 @@ def generate_oxidizer_fuel_sweep(
     Notes
     -----
     Each point calls :func:`compare_nozzle_chemistry` with vacuum ambient
-    pressure [1]_, [2]_. Local sweeps use bundled gaseous reactants at
-    298.15 K; liquid-propellant reference states require the CEA adapter.
+    pressure [1]_, [2]_. Reactants enter at the assigned storage-state
+    enthalpy of NASA CEA's database (for example O2(L) at 90.17 K). The sweep
+    keeps the fast hybrid expansion of :func:`compare_nozzle_chemistry`; use
+    :func:`~rocket_propulsion.thermochemistry.rocket_performance.solve_rocket_performance`
+    for the CEA-equivalent shifting-equilibrium throat and exit.
 
     References
     ----------
@@ -621,10 +631,11 @@ def generate_oxidizer_fuel_sweep(
         provider_version=active_provider.version,
         warnings=(
             WarningMessage(
-                code="gaseous_reactant_reference",
+                code="hybrid_sweep_expansion",
                 message=(
-                    "Local sweeps use bundled gas species at 298.15 K. Select the CEA "
-                    "adapter with real liquid reactants for release-grade comparisons."
+                    "Reactants use NASA CEA storage-state enthalpies; the sweep's throat "
+                    "flow is frozen at the chamber. Use the rocket-performance solve for "
+                    "CEA-equivalent equilibrium values."
                 ),
             ),
         ),

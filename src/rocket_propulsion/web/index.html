@@ -25,10 +25,13 @@
     <link rel="stylesheet" href="/vendor/sunumatik/table-presets.css" />
     <link rel="stylesheet" href="/vendor/sunumatik/pano-odak.css" />
     <!-- ?v= : önbellek başlığı göndermeyen eski sunucunun bıraktığı kopyaları atlatır -->
-    <link rel="stylesheet" href="/styles.css?v=3" />
-    <script src="/app.js?v=3" defer></script>
-    <script src="/visuals.js?v=3" defer></script>
-    <script type="module" src="/shell.mjs?v=3"></script>
+    <link rel="stylesheet" href="/styles.css?v=4" />
+    <script src="/app.js?v=4" defer></script>
+    <script src="/visuals.js?v=4" defer></script>
+    <script src="/transient.js?v=4" defer></script>
+    <script src="/aero.js?v=4" defer></script>
+    <script src="/thermal.js?v=5" defer></script>
+    <script type="module" src="/shell.mjs?v=4"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Ana içeriğe geç</a>
@@ -60,13 +63,27 @@
           <ul aria-labelledby="nav-termo">
             <li><a class="nav-link" href="#thermo"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-pressure"></use></svg>İdeal gaz durumu</a></li>
             <li><a class="nav-link" href="#total-state"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-work-energy"></use></svg>Statik ↔ toplam</a></li>
+            <li><a class="nav-link" href="#real-fluids"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-molecule"></use></svg>Gerçek akışkanlar</a></li>
+            <li><a class="nav-link" href="#heat-transfer"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-heat-flow"></use></svg>Isı transferi</a></li>
             <li><a class="nav-link" href="#thermal-properties"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-entropy"></use></svg>Gaz özellikleri</a></li>
+          </ul>
+        </div>
+        <div class="nav-group" data-group="aero">
+          <p class="nav-group-title" id="nav-aero">Aerodinamik</p>
+          <ul aria-labelledby="nav-aero">
+            <li><a class="nav-link" href="#airfoil"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-force-vector"></use></svg>Kanat profili</a></li>
+            <li><a class="nav-link" href="#wing"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-angle-theta"></use></svg>Sonlu kanat</a></li>
+            <li><a class="nav-link" href="#supersonic"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-shock-diamonds"></use></svg>Süpersonik cisimler</a></li>
+            <li><a class="nav-link" href="#aeroheating"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-heat-flow"></use></svg>Sınır tabaka ve ısınma</a></li>
+            <li><a class="nav-link" href="#launch-aero"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-max-q"></use></svg>Fırlatma aracı</a></li>
           </ul>
         </div>
         <div class="nav-group" data-group="yanma">
           <p class="nav-group-title" id="nav-yanma">Yanma</p>
           <ul aria-labelledby="nav-yanma">
             <li><a class="nav-link" href="#equilibrium"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-mixture-ratio"></use></svg>Denge ve O/F</a></li>
+            <li><a class="nav-link" href="#performance"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-specific-impulse"></use></svg>Roket performansı</a></li>
+            <li><a class="nav-link" href="#combustion"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-combustion-chamber"></use></svg>Ürünler ve verim</a></li>
             <li><a class="nav-link" href="#propellants"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-propellant-tank"></use></svg>İtici kataloğu</a></li>
           </ul>
         </div>
@@ -75,6 +92,7 @@
           <ul aria-labelledby="nav-nozul">
             <li><a class="nav-link" href="#nozzle"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-nozzle-expansion"></use></svg>C–D nozul</a></li>
             <li><a class="nav-link" href="#geometry"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-nozzle-throat"></use></svg>Kontur &amp; istasyonlar</a></li>
+            <li><a class="nav-link" href="#regen"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-regenerative-cooling"></use></svg>Rejeneratif soğutma</a></li>
             <li><a class="nav-link" href="#losses"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-regenerative-cooling"></use></svg>Kayıplar &amp; ısıl yük</a></li>
           </ul>
         </div>
@@ -84,6 +102,16 @@
             <li><a class="nav-link" href="#rocket"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-delta-v-burn"></use></svg>Tsiolkovski &amp; itki</a></li>
             <li><a class="nav-link" href="#burn"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-thrust-curve"></use></svg>Sonlu yanış</a></li>
             <li><a class="nav-link" href="#studies"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-rocket-stages"></use></svg>Sistem analizi</a></li>
+          </ul>
+        </div>
+        <div class="nav-group" data-group="gecici">
+          <p class="nav-group-title" id="nav-gecici">Geçici rejim</p>
+          <ul aria-labelledby="nav-gecici">
+            <li><a class="nav-link" href="#feed-transient"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-pressure-fed"></use></svg>Besleme ve blowdown</a></li>
+            <li><a class="nav-link" href="#electric-pulse"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-hall-thruster"></use></svg>Elektrik ve darbe</a></li>
+            <li><a class="nav-link" href="#dispersion"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-hot-fire-test"></use></svg>Belirsizlik ve kalibrasyon</a></li>
+            <li><a class="nav-link" href="#timeline"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-launch-trajectory"></use></svg>Zaman çizelgesi</a></li>
+            <li><a class="nav-link" href="#sass"><svg class="icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-satellite-bus"></use></svg>Uzay aracı itkisi</a></li>
           </ul>
         </div>
         <p class="nav-foot">SI birimleri · mükemmel gaz temeli · yerel hesap</p>
@@ -549,6 +577,13 @@
                     <option value="H">H · atomik hidrojen</option>
                     <option value="O">O · atomik oksijen</option>
                   </optgroup>
+                  <optgroup label="Azotlu ve hidrokarbon (NASA CEA)">
+                    <option value="NO">NO · azot monoksit</option>
+                    <option value="NH3">NH₃ · amonyak</option>
+                    <option value="N">N · atomik azot</option>
+                    <option value="CH3">CH₃ · metil</option>
+                    <option value="C2H4">C₂H₄ · etilen</option>
+                  </optgroup>
                 </select>
               </label>
               <div class="field-row two-columns">
@@ -559,7 +594,7 @@
               <input name="maximum_temperature_k" type="hidden" value="6000" />
               <input name="point_count" type="hidden" value="101" />
               <button class="btn-primary" type="submit">Özellikleri hesapla</button>
-              <p class="form-note">Kaynak: NASA/TP-2002-211556. Aralık dışında ekstrapolasyon yapılmaz.</p>
+              <p class="form-note">Kaynak: NASA/TP-2002-211556 ve NASA CEA thermo.inp (commit 2f79a64). Aralık dışında ekstrapolasyon yapılmaz.</p>
               <p class="form-message" role="status" aria-live="polite"></p>
             </form>
             <div class="results-panel">
@@ -608,7 +643,8 @@
                 <select name="propellant_pair" id="equilibrium-pair">
                   <option value="LOX_LH2">LOX / LH₂</option>
                   <option value="LOX_CH4">LOX / CH₄</option>
-                  <option value="LOX_RP1" disabled>LOX / RP-1 · CEA gerekli</option>
+                  <option value="LOX_RP1">LOX / RP-1</option>
+                  <option value="NTO_MMH">NTO / MMH</option>
                 </select>
               </label>
               <div class="field-row two-columns">
@@ -622,7 +658,7 @@
               <input name="provider" type="hidden" value="local" />
               <input name="point_count" type="hidden" value="5" />
               <button class="btn-primary" type="submit">Denge taramasını çalıştır</button>
-              <p class="form-note">Yerel sağlayıcı deneysel ve gaz reaktanları 298,15 K kabul eder. Nihai tasarımı NASA CEA ile doğrula.</p>
+              <p class="form-note">Reaktanlar NASA CEA'nın depolama durumu entalpileriyle girer (ör. O₂(L) 90,17 K). Bu tarama hızlı hibrit genleşme kullanır; CEA eşdeğeri değerler Roket performansı modülündedir.</p>
               <p class="form-message" role="status" aria-live="polite"></p>
             </form>
             <div class="results-panel">
@@ -651,10 +687,77 @@
           <details class="model-notes">
             <summary>Model sınırı ve CEA adaptörü</summary>
             <p>
-              Yerel model gaz fazlı ve deneysel bir ön taramadır. Harici NASA CEA
-              yürütülebilir dosyası <code>RPLAB_CEA_EXECUTABLE</code> ile
-              yapılandırılabilir; dosya depoya gömülmez. CEA adaptörü girdi, ham
-              çıktı, sayısal tablo, uyarı ve önbellek izini birlikte saklar.
+              Yerel model gaz fazlıdır; ürün türleri ve sıvı reaktanlar NASA CEA
+              <code>thermo.inp</code> veritabanından (commit 2f79a64) alınır. Oda
+              dengesi NASA CEA 3.3.4 ile dokuz noktada 2×10⁻⁵ bağıl fark içinde
+              örtüşür. Bu taramanın boğaz debisi donmuş oda özelliklerinden gelir;
+              tam kayan denge çözümü Roket performansı modülündedir.
+            </p>
+          </details>
+        </section>
+
+        <section class="view module" id="performance" data-group="yanma" data-module="rocket-performance" aria-labelledby="h-performance">
+          <header class="module-heading">
+            <svg class="icon module-icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-specific-impulse"></use></svg>
+            <div>
+              <p class="eyebrow">Yanma · NASA CEA ile doğrulandı</p>
+              <h2 id="h-performance">Roket performansı</h2>
+              <p class="module-lede">Sonsuz alanlı yanma odasından kayan ya da donmuş dengeyle genleş; boğazı en büyük kütle akısında bul, her alan oranında c*, C<sub>F</sub> ve vakum Isp'yi gör.</p>
+            </div>
+          </header>
+          <div class="workbench">
+            <form class="control-panel" id="rocket-performance-form">
+              <label>
+                <span>İtici çifti</span>
+                <select name="propellant_pair" id="performance-pair">
+                  <option value="LOX_LH2">LOX / LH₂</option>
+                  <option value="LOX_RP1">LOX / RP-1</option>
+                  <option value="LOX_CH4">LOX / CH₄</option>
+                  <option value="NTO_MMH">NTO / MMH</option>
+                </select>
+              </label>
+              <div class="field-row two-columns">
+                <label><span>O/F (kütle)</span><input name="oxidizer_fuel_ratio" type="number" value="5.55157" min="0.01" step="any" required /></label>
+                <label><span>Oda basıncı, p<sub>c</sub> (Pa)</span><input name="chamber_pressure_pa" type="number" value="7000000" min="1" step="any" required /></label>
+              </div>
+              <div class="field-row two-columns">
+                <label><span>Genleşme kimyası</span><select name="chemistry"><option value="equilibrium" selected>Kayan denge</option><option value="frozen">Odada donmuş</option></select></label>
+                <label><span>Sağlayıcı</span><select name="provider" id="performance-provider"><option value="local" selected>Yerel çözücü</option><option value="compare" disabled>Yerel + NASA CEA</option></select></label>
+              </div>
+              <input name="area_ratios" type="hidden" value="5,10,25,40,80" />
+              <button class="btn-primary" type="submit">Performansı hesapla</button>
+              <p class="form-note">Geçerlilik: 0,5–25 MPa uçlarında ve dokuz kapı noktasında NASA CEA 3.3.4 ile 2×10⁻⁵ içinde. Kinetik, sürtünme, ıraksama ve yoğuşmuş faz gecikmesi yok.</p>
+              <p class="form-message" role="status" aria-live="polite"></p>
+            </form>
+            <div class="results-panel">
+              <div class="results-lead"><span>Vakum Isp, Aₑ/A* = 40</span><strong data-key="isp_40">—</strong></div>
+              <div class="result-group">
+                <h3>Oda ve boğaz</h3>
+                <dl>
+                  <div><dt>T<sub>c</sub> (K)</dt><dd data-key="chamber_temperature_k">—</dd></div>
+                  <div><dt>M<sub>c</sub> (g/mol)</dt><dd data-key="chamber_molecular_mass_g_mol">—</dd></div>
+                  <div><dt>c* (m/s)</dt><dd data-key="characteristic_velocity_m_s">—</dd></div>
+                  <div><dt>p<sub>t</sub>/p<sub>c</sub></dt><dd data-key="throat_pressure_ratio">—</dd></div>
+                  <div><dt>T<sub>t</sub> (K)</dt><dd data-key="throat_temperature_k">—</dd></div>
+                  <div><dt>NASA CEA farkı, Isp</dt><dd data-key="cea_isp_difference" data-ham-sayi>—</dd></div>
+                  <div><dt>Sağlayıcı</dt><dd data-key="provider_label" data-ham-sayi>—</dd></div>
+                </dl>
+              </div>
+            </div>
+          </div>
+          <div class="chart-grid">
+            <figure class="chart-figure"><figcaption>Vakum Isp – alan oranı</figcaption><div class="chart-legend"><span class="legend-1">Isp,vac</span></div><svg class="sci-chart engineering-chart" id="performance-isp-chart" role="img" aria-label="Alan oranına göre vakum özgül itki"></svg></figure>
+            <figure class="chart-figure"><figcaption>Çıkış sıcaklığı – alan oranı</figcaption><div class="chart-legend"><span class="legend-2">T<sub>e</sub></span></div><svg class="sci-chart engineering-chart" id="performance-temperature-chart" role="img" aria-label="Alan oranına göre çıkış statik sıcaklığı"></svg></figure>
+            <figure class="chart-figure"><figcaption>Oda bileşimi (mol kesri)</figcaption><svg class="sci-chart engineering-chart" id="performance-species-chart" role="img" aria-label="Oda denge bileşiminde başlıca türlerin mol kesirleri"></svg></figure>
+          </div>
+          <details class="model-notes">
+            <summary>Yöntem ve doğrulama</summary>
+            <p>
+              Oda, atanmış entalpi ve basınçta (HP) Gibbs enerjisi en küçüklemesiyle
+              çözülür. Genleşme izentropiktir; boğaz, izentrop boyunca ρu'nun en büyük
+              olduğu basınçtır; çıkışlar (ρu)<sub>t</sub>/(ρu)<sub>e</sub> = Aₑ/A*
+              koşulundan bulunur (NASA RP-1311 ile aynı problem). Kapı noktaları ve
+              CEA sürümü <code>tests/reference_data/cea_gate_points.json</code> dosyasındadır.
             </p>
           </details>
         </section>
@@ -780,6 +883,50 @@
                 <figure class="chart-figure"><figcaption>İtki – irtifa</figcaption><div class="chart-legend"><span class="legend-1">F</span></div><svg class="sci-chart engineering-chart" id="altitude-thrust-chart" role="img" aria-label="İrtifaya göre nozul itkisi"></svg></figure>
                 <figure class="chart-figure"><figcaption>Isp – irtifa</figcaption><div class="chart-legend"><span class="legend-3">Isp</span></div><svg class="sci-chart engineering-chart" id="altitude-isp-chart" role="img" aria-label="İrtifaya göre özgül itki"></svg></figure>
                 <figure class="chart-figure"><figcaption>p₀/pₐ – irtifa</figcaption><div class="chart-legend"><span class="legend-reference">p₀/pₐ</span></div><svg class="sci-chart engineering-chart" id="altitude-pressure-ratio-chart" role="img" aria-label="İrtifaya göre oda ortam basınç oranı"></svg></figure>
+              </div>
+            </div>
+            <div class="pane submodule" data-module="nozzle-chemistry" data-pane="İtici kimyasıyla">
+              <div class="workbench">
+                <form class="control-panel" id="nozzle-chemistry-form">
+                  <label>
+                    <span>İtici çifti</span>
+                    <select name="propellant_pair">
+                      <option value="LOX_RP1" selected>LOX / RP-1</option>
+                      <option value="LOX_LH2">LOX / LH₂</option>
+                      <option value="LOX_CH4">LOX / CH₄</option>
+                      <option value="NTO_MMH">NTO / MMH</option>
+                    </select>
+                  </label>
+                  <div class="field-row two-columns">
+                    <label><span>Oda basıncı, p<sub>c</sub> (Pa)</span><input name="chamber_pressure_pa" type="number" value="7000000" min="1" step="any" required /></label>
+                    <label><span>Alan oranı, Aₑ/A*</span><input name="area_ratio" type="number" value="16" min="1.000001" step="any" required /></label>
+                  </div>
+                  <div class="field-row two-columns">
+                    <label><span>Geri basıncı, p<sub>b</sub> (Pa)</span><input name="ambient_pressure_pa" type="number" value="101325" min="0" step="any" required /></label>
+                    <label><span>Maksimum irtifa (m)</span><input name="maximum_altitude_m" type="number" value="50000" min="1" max="84852" step="any" required /></label>
+                  </div>
+                  <input name="throat_area_m2" type="hidden" value="0.01" />
+                  <input name="point_count" type="hidden" value="26" />
+                  <button class="btn-primary" type="submit">Kimyayla çöz</button>
+                  <p class="form-note">γ ve R, tasarım alan oranındaki kayan denge çözümüne kalibre edilir: debi ve tasarım çıkış basıncı dengeyle aynıdır; Isp farkı raporlanır.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Akış rejimi</span><strong class="result-text" data-key="regime">—</strong></div>
+                  <div class="result-group"><h3>Kalibre gaz ve çıkış</h3><dl>
+                    <div><dt>γ<sub>eş</sub></dt><dd data-key="equivalent_gamma">—</dd></div>
+                    <div><dt>R<sub>eş</sub> (J/kg·K)</dt><dd data-key="equivalent_gas_constant">—</dd></div>
+                    <div><dt>T<sub>c</sub> (K)</dt><dd data-key="chamber_temperature_k">—</dd></div>
+                    <div><dt>Isp (s)</dt><dd data-key="specific_impulse_s">—</dd></div>
+                    <div><dt>İtki (N)</dt><dd data-key="thrust_n">—</dd></div>
+                    <div><dt>Ayrılma taraması</dt><dd data-key="separation_status">—</dd></div>
+                    <div><dt>Kalibrasyon artığı, Isp<sub>vac</sub></dt><dd data-key="calibration_residual" data-ham-sayi>—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>İtki – irtifa</figcaption><div class="chart-legend"><span class="legend-1">F</span></div><svg class="sci-chart engineering-chart" id="chemistry-altitude-thrust-chart" role="img" aria-label="Kimyaya kalibre gazla irtifaya göre itki"></svg></figure>
+                <figure class="chart-figure"><figcaption>Isp – irtifa</figcaption><div class="chart-legend"><span class="legend-3">Isp</span></div><svg class="sci-chart engineering-chart" id="chemistry-altitude-isp-chart" role="img" aria-label="Kimyaya kalibre gazla irtifaya göre özgül itki"></svg></figure>
               </div>
             </div>
           </div>
@@ -973,6 +1120,7 @@
                   </div>
                 </fieldset></details>
                 <details><summary>Soğutma kanalı</summary><fieldset class="field-group" aria-label="Soğutma kanalı">
+                  <label><span>Soğutucu</span><select name="coolant" id="thermal-coolant"><option value="" selected>Özellikleri elle gir</option><option value="liquid-hydrogen">Sıvı parahidrojen · NIST, 20 K / 1 MPa</option><option value="liquid-methane">Sıvı metan · NIST, 111 K / 1 MPa</option><option value="water">Su · NIST, 300 K / 1 MPa</option><option value="rp-1">RP-1 · NISTIR 6646 (cp elle)</option></select></label>
                   <div class="field-row two-columns">
                     <label><span>Soğutucu debisi (kg/s)</span><input name="coolant_mass_flow_kg_s" type="number" value="5" step="any" required /></label>
                     <label><span>Soğutucu cp (J/kg·K)</span><input name="coolant_specific_heat_j_kg_k" type="number" value="10000" step="any" required /></label>
@@ -996,6 +1144,13 @@
                   <label><span>Pürüzlülük (m)</span><input name="roughness_m" type="number" value="0.00001" min="0" step="any" required /></label>
                   <label><span>Laminar Darcy f × Re (64: dairesel eşdeğer varsayımı)</span><input name="laminar_darcy_poiseuille_number" type="number" value="64" step="any" required /></label>
                 </fieldset></details>
+                <details><summary>Duvar iletimi</summary><fieldset class="field-group" aria-label="Duvar iletimi">
+                  <label><span>Duvar malzemesi</span><select name="wall_material"><option value="" selected>Hesaplama</option><option value="ofhc-copper">OFHC bakır (C10200)</option><option value="grcop-84">GRCop-84</option><option value="inconel-718">Inconel 718</option><option value="stainless-304">304 paslanmaz</option></select></label>
+                  <div class="field-row two-columns">
+                    <label><span>Duvar kalınlığı (m)</span><input name="wall_thickness_m" type="number" value="0.001" min="0.000001" step="any" /></label>
+                    <label><span>Soğutucu tarafı h (W/m²·K)</span><input name="coolant_side_heat_transfer_coefficient_w_m2_k" type="number" value="50000" min="0.000001" step="any" /></label>
+                  </div>
+                </fieldset></details>
                 <input name="include_cooling" type="hidden" value="true" />
                 <input name="station_count" type="hidden" value="121" />
                 <button class="btn-primary" type="submit">Isıl yükleri çöz</button>
@@ -1010,6 +1165,8 @@
                   <div><dt>Soğutucu çıkış T (K)</dt><dd id="coolant-outlet-temperature">—</dd></div>
                   <div><dt>Soğutucu Δp (Pa)</dt><dd id="coolant-pressure-drop">—</dd></div>
                   <div><dt>Sıcaklık gösteriminin enerji farkı (W)</dt><dd id="coolant-energy-residual">—</dd></div>
+                  <div><dt>Sıcak duvar T, tepe akıda (K)</dt><dd id="wall-hot-temperature">—</dd></div>
+                  <div><dt>Malzeme sınırı (K)</dt><dd id="wall-limit-temperature">—</dd></div>
                 </dl></div>
                 <p class="model-warning" id="thermal-warning">Korelasyon uyarıları burada gösterilir.</p>
                 <p class="model-warning" id="coolant-scope-note">Soğutucu sıcaklık sınırı ve akış modeli bilgisi burada gösterilir.</p>
@@ -1329,6 +1486,777 @@
                 <button class="btn-secondary" type="button" id="workspace-duplicate">İlk vakayı çoğalt</button>
               </div>
               <p class="form-message" id="workspace-message" role="status" aria-live="polite">Henüz çalışma oluşturulmadı.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="view module" id="feed-transient" data-group="gecici" data-module="feed-transient" aria-labelledby="h-feed-transient">
+          <header class="module-heading">
+            <svg class="icon module-icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-pressure-fed"></use></svg>
+            <div>
+              <p class="eyebrow">Geçici rejim · besleme</p>
+              <h2 id="h-feed-transient">Besleme ve blowdown</h2>
+              <p class="module-lede">Basınçlı tankın boşalırken itkiyi nasıl düşürdüğünü, regülatörün beslemeyi nasıl tuttuğunu ve sıvı hattının sönümünü aynı yerde incele.</p>
+            </div>
+          </header>
+          <div class="panes">
+            <div class="pane submodule" data-module="transient-blowdown" data-pane="Blowdown">
+              <div class="workbench">
+                <form class="control-panel" id="transient-blowdown-form">
+                  <div class="field-row two-columns"><label><span>İlk tank basıncı (Pa)</span><input name="initial_pressure_pa" type="number" value="2000000" min="1" step="any" required /></label><label><span>Kesme basıncı (Pa)</span><input name="minimum_supply_pressure_pa" type="number" value="1000000" min="1" step="any" required /></label></div>
+                  <div class="field-row two-columns"><label><span>İtici kütlesi (kg)</span><input name="initial_propellant_mass_kg" type="number" value="10" min="0.001" step="any" required /></label><label><span>İlk ullage hacmi (m³)</span><input name="initial_ullage_volume_m3" type="number" value="0.01" min="0.000001" step="any" required /></label></div>
+                  <label><span>Anma itkisi (N)</span><input name="delivered_thrust_n" type="number" value="100" min="0.001" step="any" required /></label>
+                  <button class="btn-primary" type="submit">Blowdown'u çöz</button>
+                  <p class="form-note">Politropik ullage, basınca bağlı itki/Isp yasası; ağ yakınsaması raporlanır. Örnek: examples/pressure_fed_blowdown.py.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Kesme nedeni</span><strong class="result-text" data-key="cutoff_reason">—</strong></div>
+                  <div class="result-group"><h3>Yanış özeti</h3><dl>
+                    <div><dt>Süre (s)</dt><dd data-key="duration_s">—</dd></div>
+                    <div><dt>Toplam impuls (N·s)</dt><dd data-key="delivered_impulse_n_s">—</dd></div>
+                    <div><dt>Harcanan itici (kg)</dt><dd data-key="consumed_propellant_kg">—</dd></div>
+                    <div><dt>Sistem Isp (s)</dt><dd data-key="system_equivalent_specific_impulse_s">—</dd></div>
+                    <div><dt>Son tank basıncı (Pa)</dt><dd data-key="final_supply_pressure_pa">—</dd></div>
+                    <div><dt>Son itki (N)</dt><dd data-key="final_delivered_thrust_n">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="blowdown-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Tank basıncı – zaman</figcaption><div class="chart-legend"><span class="legend-1">p<sub>tank</sub></span></div><svg class="sci-chart engineering-chart" id="blowdown-pressure-chart" role="img" aria-label="Zamana göre tank besleme basıncı"></svg></figure>
+                <figure class="chart-figure"><figcaption>İtki – zaman</figcaption><div class="chart-legend"><span class="legend-2">F</span></div><svg class="sci-chart engineering-chart" id="blowdown-thrust-chart" role="img" aria-label="Zamana göre itki"></svg></figure>
+                <figure class="chart-figure"><figcaption>Kalan itici – zaman</figcaption><div class="chart-legend"><span class="legend-3">m<sub>p</sub></span></div><svg class="sci-chart engineering-chart" id="blowdown-mass-chart" role="img" aria-label="Zamana göre kalan itici kütlesi"></svg></figure>
+              </div>
+            </div>
+            <div class="pane submodule" data-module="transient-feed" data-pane="Regüleli besleme">
+              <div class="workbench">
+                <form class="control-panel" id="transient-feed-form">
+                  <div class="field-row two-columns"><label><span>Regülatör ayar basıncı (Pa)</span><input name="regulator_set_pressure_pa" type="number" value="2100000" min="1" step="any" required /></label><label><span>Tüp basıncı (Pa)</span><input name="bottle_pressure_pa" type="number" value="20000000" min="1" step="any" required /></label></div>
+                  <div class="field-row two-columns"><label><span>Tank basıncı (Pa)</span><input name="tank_pressure_pa" type="number" value="2000000" min="1" step="any" required /></label><label><span>İtici kütlesi (kg)</span><input name="propellant_mass_kg" type="number" value="10" min="0.001" step="any" required /></label></div>
+                  <button class="btn-primary" type="submit">Besleme noktasını çöz</button>
+                  <p class="form-note">Altı durumlu helyum basınçlandırma: tüp ve ullage enerji dengesi, boğulmuş regülatör, hat kaybı. Örnek: examples/coupled_feed_propagator.py.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Eksenel itki (N)</span><strong class="result-text" data-key="axial_thrust_n">—</strong></div>
+                  <div class="result-group"><h3>Besleme durumu</h3><dl>
+                    <div><dt>Motor debisi (kg/s)</dt><dd data-key="engine_mass_flow_kg_s">—</dd></div>
+                    <div><dt>Enjektör basıncı (Pa)</dt><dd data-key="injector_pressure_pa">—</dd></div>
+                    <div><dt>Hat basınç kaybı (Pa)</dt><dd data-key="feed_line_pressure_drop_pa">—</dd></div>
+                    <div><dt>Regülatör komutu</dt><dd data-key="regulator_command">—</dd></div>
+                    <div><dt>Regülatör debisi (kg/s)</dt><dd data-key="regulator_mass_flow_kg_s">—</dd></div>
+                    <div><dt>Boğulmuş akış</dt><dd data-key="regulator_choked_label">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="feed-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Enjektör basıncı – debi</figcaption><div class="chart-legend"><span class="legend-1">p<sub>enj</sub></span></div><svg class="sci-chart engineering-chart" id="feed-demand-chart" role="img" aria-label="Talep edilen debiye göre enjektör basıncı"></svg></figure>
+                <figure class="chart-figure"><figcaption>Regülatör debisi – tank basıncı</figcaption><div class="chart-legend"><span class="legend-2">ṁ<sub>reg</sub></span></div><svg class="sci-chart engineering-chart" id="feed-regulator-chart" role="img" aria-label="Tank basıncına göre regülatör gaz debisi"></svg></figure>
+              </div>
+            </div>
+            <div class="pane submodule" data-module="transient-line" data-pane="Sıvı hattı">
+              <div class="workbench">
+                <form class="control-panel" id="transient-line-form">
+                  <div class="field-row two-columns"><label><span>Hat debisi (kg/s)</span><input name="line_mass_flow_kg_s" type="number" value="0.217" step="any" required /></label><label><span>Manifold basıncı (Pa)</span><input name="manifold_pressure_pa" type="number" value="1800000" min="1" step="any" required /></label></div>
+                  <button class="btn-primary" type="submit">Hattı değerlendir</button>
+                  <p class="form-note">İki durumlu hidrolik ataletli ve esnek hat vekili; dağılmış su darbesi ayrı modeldedir. Örnek: examples/dynamic_feed_line_propagator.py.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Sönüm oranı ζ</span><strong class="result-text" data-key="damping_ratio">—</strong></div>
+                  <div class="result-group"><h3>Hat dinamiği</h3><dl>
+                    <div><dt>Doğal frekans ωₙ (rad/s)</dt><dd data-key="natural_angular_frequency_rad_s">—</dd></div>
+                    <div><dt>Sürtünme kaybı (Pa)</dt><dd data-key="friction_pressure_drop_pa">—</dd></div>
+                    <div><dt>Kütle kapanış hatası (kg/s)</dt><dd data-key="external_mass_closure_error_kg_s">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="line-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Sönüm oranı – debi</figcaption><div class="chart-legend"><span class="legend-1">ζ</span></div><svg class="sci-chart engineering-chart" id="line-damping-chart" role="img" aria-label="Hat debisine göre sönüm oranı"></svg></figure>
+                <figure class="chart-figure"><figcaption>Sürtünme kaybı – debi</figcaption><div class="chart-legend"><span class="legend-2">Δp<sub>f</sub></span></div><svg class="sci-chart engineering-chart" id="line-friction-chart" role="img" aria-label="Hat debisine göre sürtünme basınç kaybı"></svg></figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view module" id="electric-pulse" data-group="gecici" data-module="electric-pulse" aria-labelledby="h-electric-pulse">
+          <header class="module-heading">
+            <svg class="icon module-icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-hall-thruster"></use></svg>
+            <div>
+              <p class="eyebrow">Geçici rejim · güç ve darbe</p>
+              <h2 id="h-electric-pulse">Elektrik itki ve darbe modu</h2>
+              <p class="module-lede">Güç sınırlı elektrik itkide kısma seviyesinin güçle ve histerezisle nasıl değiştiğini, darbeli küçük iticide en küçük impuls bitini gör.</p>
+            </div>
+          </header>
+          <div class="panes">
+            <div class="pane submodule" data-module="transient-electric" data-pane="Elektrik itki">
+              <div class="workbench">
+                <form class="control-panel" id="transient-electric-form">
+                  <div class="field-row two-columns"><label><span>Kullanılabilir güç (W)</span><input name="available_power_w" type="number" value="2400" min="0" step="any" required /></label><label><span>Araç kütlesi (kg)</span><input name="vehicle_mass_kg" type="number" value="500" min="0.001" step="any" required /></label></div>
+                  <div class="field-row two-columns"><label><span>İtici kütlesi (kg)</span><input name="propellant_mass_kg" type="number" value="20" min="0" step="any" required /></label><label><span>Yukarı geçiş histerezisi (W)</span><input name="up_switch_hysteresis_w" type="number" value="50" min="0" step="any" required /></label></div>
+                  <label><span>Amaç</span><select name="objective"><option value="thrust" selected>En yüksek itki</option><option value="specific_impulse">En yüksek Isp</option></select></label>
+                  <button class="btn-primary" type="submit">Seviyeyi seç</button>
+                  <p class="form-note">Tablo üç seviyeli sentetik örnektir (examples/electric_propulsion.py); gerçek itici için ölçülmüş tablo gerekir.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Seçilen seviye</span><strong class="result-text" data-key="level_id">—</strong></div>
+                  <div class="result-group"><h3>Çalışma noktası</h3><dl>
+                    <div><dt>İtki (N)</dt><dd data-key="thrust_n">—</dd></div>
+                    <div><dt>Isp (s)</dt><dd data-key="specific_impulse_s">—</dd></div>
+                    <div><dt>Tüketilen güç (W)</dt><dd data-key="consumed_power_w">—</dd></div>
+                    <div><dt>Güç açığı (W)</dt><dd data-key="power_deficit_w">—</dd></div>
+                    <div><dt>Debi (kg/s)</dt><dd data-key="propellant_mass_rate_kg_s">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="electric-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>İtki – güç</figcaption><div class="chart-legend"><span class="legend-1">F</span></div><svg class="sci-chart engineering-chart" id="electric-thrust-chart" role="img" aria-label="Kullanılabilir güce göre itki"></svg></figure>
+                <figure class="chart-figure"><figcaption>Seviye – güç (histerezis)</figcaption><div class="chart-legend"><span class="legend-1">artan güç</span><span class="legend-2">azalan güç</span></div><svg class="sci-chart engineering-chart" id="electric-level-chart" role="img" aria-label="Artan ve azalan güçte seçilen seviye"></svg></figure>
+                <figure class="chart-figure"><figcaption>Isp – güç</figcaption><div class="chart-legend"><span class="legend-3">Isp</span></div><svg class="sci-chart engineering-chart" id="electric-isp-chart" role="img" aria-label="Kullanılabilir güce göre özgül itki"></svg></figure>
+              </div>
+            </div>
+            <div class="pane submodule" data-module="transient-pulse" data-pane="Darbe modu">
+              <div class="workbench">
+                <form class="control-panel" id="transient-pulse-form">
+                  <div class="field-row two-columns"><label><span>Hedef Δv (m/s)</span><input name="delta_v_m_s" type="number" value="0.05" min="0" step="any" required /></label><label><span>Araç kütlesi (kg)</span><input name="initial_mass_kg" type="number" value="12" min="0.001" step="any" required /></label></div>
+                  <div class="field-row two-columns"><label><span>Darbe arası (s)</span><input name="pulse_off_time_s" type="number" value="0.05" min="0" step="any" required /></label><label><span>Nicemleme</span><select name="quantization"><option value="nearest" selected>En yakın</option><option value="no_overshoot">Aşmadan</option></select></label></div>
+                  <button class="btn-primary" type="submit">Darbe planını çöz</button>
+                  <p class="form-note">1 N sentetik darbe tablosu (examples/pulse_mode_trim.py); ölçülmüş impuls bitleri yerine geçmez.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>En küçük impuls biti (N·s)</span><strong class="result-text" data-key="minimum_impulse_bit_n_s">—</strong></div>
+                  <div class="result-group"><h3>Darbe özellikleri</h3><dl>
+                    <div><dt>En kısa açık kalma (s)</dt><dd data-key="minimum_on_time_s">—</dd></div>
+                    <div><dt>En küçük bitte Isp (s)</dt><dd data-key="specific_impulse_at_minimum_bit_s">—</dd></div>
+                    <div><dt>Plan: darbe sayısı</dt><dd data-key="pulse_count">—</dd></div>
+                    <div><dt>Plan: elde edilen Δv (m/s)</dt><dd data-key="achieved_delta_v_m_s">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="pulse-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>İmpuls biti – açık kalma</figcaption><div class="chart-legend"><span class="legend-1">I<sub>bit</sub></span></div><svg class="sci-chart engineering-chart" id="pulse-impulse-chart" role="img" aria-label="Açık kalma süresine göre impuls biti"></svg></figure>
+                <figure class="chart-figure"><figcaption>Isp – açık kalma</figcaption><div class="chart-legend"><span class="legend-3">Isp</span></div><svg class="sci-chart engineering-chart" id="pulse-isp-chart" role="img" aria-label="Açık kalma süresine göre darbe özgül itkisi"></svg></figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view module" id="dispersion" data-group="gecici" data-module="dispersion" aria-labelledby="h-dispersion">
+          <header class="module-heading">
+            <svg class="icon module-icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-hot-fire-test"></use></svg>
+            <div>
+              <p class="eyebrow">Geçici rejim · belirsizlik</p>
+              <h2 id="h-dispersion">Belirsizlik, senaryo ve kalibrasyon</h2>
+              <p class="module-lede">Tohumlu örneklemeyle blowdown sonuçlarının dağılımını, olasılık ağırlıklı arıza senaryolarını ve sıcak test verisinden itki ölçeği kalibrasyonunu gör.</p>
+            </div>
+          </header>
+          <div class="panes">
+            <div class="pane submodule" data-module="transient-uncertainty" data-pane="Belirsizlik">
+              <div class="workbench">
+                <form class="control-panel" id="transient-uncertainty-form">
+                  <div class="field-row two-columns"><label><span>Örnek sayısı</span><input name="sample_count" type="number" value="16" min="4" max="256" step="1" required /></label><label><span>Tohum</span><input name="seed" type="number" value="42" min="0" step="1" required /></label></div>
+                  <label><span>Yöntem</span><select name="method"><option value="latin-hypercube" selected>Latin hiperküp</option><option value="monte-carlo">Monte Carlo</option></select></label>
+                  <button class="btn-primary" type="submit">Örneklemeyi çalıştır</button>
+                  <p class="form-note">Tank basıncı (aleatorik) ve anma itkisi (epistemik) dağıtılır; her örnek tam bir blowdown çözümüdür. Örnek: examples/blowdown_uncertainty.py.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Toplam impuls P50 (N·s)</span><strong class="result-text" data-key="impulse_p50">—</strong></div>
+                  <div class="result-group"><h3>Dağılım özeti</h3><dl>
+                    <div><dt>İmpuls P05 (N·s)</dt><dd data-key="impulse_p05">—</dd></div>
+                    <div><dt>İmpuls P95 (N·s)</dt><dd data-key="impulse_p95">—</dd></div>
+                    <div><dt>Süre P50 (s)</dt><dd data-key="duration_p50">—</dd></div>
+                    <div><dt>Süre P05–P95 (s)</dt><dd data-key="duration_band" data-ham-sayi>—</dd></div>
+                    <div><dt>Yarı örnek yakınsaması</dt><dd data-key="convergence_label" data-ham-sayi>—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="uncertainty-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Toplam impuls dağılımı</figcaption><svg class="sci-chart engineering-chart" id="uncertainty-impulse-chart" role="img" aria-label="Toplam impuls örneklerinin histogramı"></svg></figure>
+                <figure class="chart-figure"><figcaption>Yanış süresi dağılımı</figcaption><svg class="sci-chart engineering-chart" id="uncertainty-duration-chart" role="img" aria-label="Yanış süresi örneklerinin histogramı"></svg></figure>
+                <figure class="chart-figure"><figcaption>Duyarlılık (toplam impuls)</figcaption><svg class="sci-chart engineering-chart" id="uncertainty-sensitivity-chart" role="img" aria-label="Girdilerin toplam impulsla korelasyonu"></svg></figure>
+              </div>
+            </div>
+            <div class="pane submodule" data-module="transient-scenarios" data-pane="Senaryolar">
+              <div class="workbench">
+                <form class="control-panel" id="transient-scenarios-form">
+                  <div class="field-row two-columns"><label><span>Anma itkisi (N)</span><input name="delivered_thrust_n" type="number" value="100" min="0.001" step="any" required /></label><label><span>Yanış süresi (s)</span><input name="burn_duration_s" type="number" value="10" min="0.001" step="any" required /></label></div>
+                  <button class="btn-primary" type="submit">Senaryoları değerlendir</button>
+                  <p class="form-note">İki motor; nominal %90, tek motor kaybı %8, ortak neden kaybı %2 (examples/propulsion_scenarios.py). Olasılıklar örnek değerdir.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Sıfır itki olasılığı</span><strong class="result-text" data-key="zero_thrust_probability">—</strong></div>
+                  <div class="result-group"><h3>Senaryo kümesi</h3><dl>
+                    <div><dt>Senaryo sayısı</dt><dd data-key="scenario_count">—</dd></div>
+                    <div><dt>Beklenen impuls (N·s)</dt><dd data-key="expected_impulse">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="scenario-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Senaryoya göre impuls</figcaption><svg class="sci-chart engineering-chart" id="scenario-impulse-chart" role="img" aria-label="Her senaryonun toplam impulsu"></svg></figure>
+                <figure class="chart-figure"><figcaption>Senaryo olasılığı</figcaption><svg class="sci-chart engineering-chart" id="scenario-probability-chart" role="img" aria-label="Her senaryonun olasılığı"></svg></figure>
+              </div>
+            </div>
+            <div class="pane submodule" data-module="transient-calibration" data-pane="Sıcak test kalibrasyonu">
+              <div class="workbench">
+                <form class="control-panel" id="transient-calibration-form">
+                  <div class="field-row two-columns"><label><span>Ölçek</span><select name="parameter_name"><option value="thrust_scale" selected>İtki ölçeği</option><option value="specific_impulse_scale">Isp ölçeği</option><option value="time_scale">Zaman ölçeği</option><option value="axial_efficiency_scale">Eksenel verim ölçeği</option></select></label><label><span>Kapsama katsayısı</span><input name="coverage_factor" type="number" value="3" min="0.1" step="any" required /></label></div>
+                  <button class="btn-primary" type="submit">Kalibre et</button>
+                  <p class="form-note">Altı motor × üç koşu sentetik veri; heteroskedastik Mandel–Paule rastgele etkiler (examples/hot_fire_calibration.py).</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Uzlaşı ölçeği</span><strong class="result-text" data-key="consensus_scale">—</strong></div>
+                  <div class="result-group"><h3>Varyans bileşenleri</h3><dl>
+                    <div><dt>Standart belirsizlik</dt><dd data-key="consensus_standard_uncertainty">—</dd></div>
+                    <div><dt>Motorlar arası pay</dt><dd data-key="between_engine_fraction">—</dd></div>
+                    <div><dt>Motor içi pay</dt><dd data-key="within_engine_fraction">—</dd></div>
+                    <div><dt>Gözlem / motor</dt><dd data-key="observation_label" data-ham-sayi>—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="calibration-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Motor başına ölçek aralığı</figcaption><svg class="sci-chart engineering-chart" id="calibration-engines-chart" role="img" aria-label="Her motorun en küçük ve en büyük ölçeği"></svg></figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view module" id="timeline" data-group="gecici" data-module="timeline" aria-labelledby="h-timeline">
+          <header class="module-heading">
+            <svg class="icon module-icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-launch-trajectory"></use></svg>
+            <div>
+              <p class="eyebrow">Geçici rejim · görev</p>
+              <h2 id="h-timeline">Çok yanışlı zaman çizelgesi</h2>
+              <p class="module-lede">Ardışık yanışları ve ayırmaları tek kütle defterinde birleştir; itki, debi ve atılan kütle olay sınırlarında sol/sağ limitleriyle görünür.</p>
+            </div>
+          </header>
+          <div class="panes">
+            <div class="pane submodule" data-module="transient-timeline" data-pane="Zaman çizelgesi">
+              <div class="workbench">
+                <form class="control-panel" id="transient-timeline-form">
+                  <div class="field-row two-columns"><label><span>İlk araç kütlesi (kg)</span><input name="initial_vehicle_mass_kg" type="number" value="6000" min="0.001" step="any" required /></label><label><span>Oksitleyici (kg)</span><input name="oxidizer_mass_kg" type="number" value="2400" min="0" step="any" required /></label></div>
+                  <div class="field-row two-columns"><label><span>Yakıt (kg)</span><input name="fuel_mass_kg" type="number" value="700" min="0" step="any" required /></label><label><span>Bitiş zamanı (s)</span><input name="end_time_s" type="number" value="500" min="0.001" step="any" required /></label></div>
+                  <button class="btn-primary" type="submit">Zaman çizelgesini çöz</button>
+                  <p class="form-note">Perije ve apoje yanışları ile 150 kg adaptör ayrılması (examples/propulsion_timeline.py). Yörünge çözülmez.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Son araç kütlesi (kg)</span><strong class="result-text" data-key="final_vehicle_mass_kg">—</strong></div>
+                  <div class="result-group"><h3>Defter</h3><dl>
+                    <div><dt>Toplam impuls (N·s)</dt><dd data-key="total_delivered_impulse_n_s">—</dd></div>
+                    <div><dt>Harcanan itici (kg)</dt><dd data-key="total_consumed_propellant_kg">—</dd></div>
+                    <div><dt>Atılan kütle (kg)</dt><dd data-key="total_jettisoned_mass_kg">—</dd></div>
+                    <div><dt>Yanış / ayrılma</dt><dd data-key="event_label" data-ham-sayi>—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="timeline-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>İtki – zaman</figcaption><div class="chart-legend"><span class="legend-1">F</span></div><svg class="sci-chart engineering-chart" id="timeline-thrust-chart" role="img" aria-label="Zamana göre toplam eksenel itki"></svg></figure>
+                <figure class="chart-figure"><figcaption>Debi – zaman</figcaption><div class="chart-legend"><span class="legend-2">ṁ</span></div><svg class="sci-chart engineering-chart" id="timeline-flow-chart" role="img" aria-label="Zamana göre toplam itici debisi"></svg></figure>
+                <figure class="chart-figure"><figcaption>Atılan kütle – zaman</figcaption><div class="chart-legend"><span class="legend-4">m<sub>atılan</sub></span></div><svg class="sci-chart engineering-chart" id="timeline-jettison-chart" role="img" aria-label="Zamana göre birikimli atılan kütle"></svg></figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view module" id="sass" data-group="gecici" data-module="sass" aria-labelledby="h-sass">
+          <header class="module-heading">
+            <svg class="icon module-icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-satellite-bus"></use></svg>
+            <div>
+              <p class="eyebrow">Geçici rejim · uzay aracı</p>
+              <h2 id="h-sass">Uzay aracı itki seçimi</h2>
+              <p class="module-lede">Kaynaklı itici kataloğundan beş seçeneği aynı Δv bütçesi, kütle, güç ve süre isterleriyle karşılaştır; eksik verili seçenekler puanlanmaz.</p>
+            </div>
+          </header>
+          <div class="panes">
+            <div class="pane submodule" data-module="transient-sass" data-pane="Seçenek karşılaştırması">
+              <div class="workbench">
+                <form class="control-panel" id="transient-sass-form">
+                  <div class="field-row two-columns"><label><span>Bus kuru kütlesi (kg)</span><input name="bus_dry_mass_kg" type="number" value="50" min="0.001" step="any" required /></label><label><span>Artık itici oranı</span><input name="residual_fraction" type="number" value="0.02" min="0" max="0.5" step="any" required /></label></div>
+                  <label><span>Sabit rezerv (kg)</span><input name="fixed_reserve_kg" type="number" value="0.2" min="0" step="any" required /></label>
+                  <button class="btn-primary" type="submit">Seçenekleri karşılaştır</button>
+                  <p class="form-note">Görev, kütle ve ağırlıklar sentetik tasarım varsayımıdır (docs/SASS_PROJECT_PREPARATION.md); katalog alanları kaynaklıdır.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>En yüksek puanlı seçenek</span><strong class="result-text" data-key="best_candidate">—</strong></div>
+                  <div class="result-group"><h3>Çalışma</h3><dl>
+                    <div><dt>Nominal Δv (m/s)</dt><dd data-key="nominal_delta_v_m_s">—</dd></div>
+                    <div><dt>Marjlı Δv (m/s)</dt><dd data-key="allocated_delta_v_m_s">—</dd></div>
+                    <div><dt>Uygun / toplam</dt><dd data-key="eligible_label" data-ham-sayi>—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="sass-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Islak kütle</figcaption><svg class="sci-chart engineering-chart" id="sass-mass-chart" role="img" aria-label="Seçeneklere göre ıslak kütle"></svg></figure>
+                <figure class="chart-figure"><figcaption>Karar puanı</figcaption><svg class="sci-chart engineering-chart" id="sass-score-chart" role="img" aria-label="Seçeneklere göre ağırlıklı karar puanı"></svg></figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view module" id="real-fluids" data-group="termo" data-module="real-fluids" aria-labelledby="h-real-fluids">
+          <header class="module-heading">
+            <svg class="icon module-icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-molecule"></use></svg>
+            <div>
+              <p class="eyebrow">Termodinamik · NIST ile doğrulandı</p>
+              <h2 id="h-real-fluids">Gerçek akışkanlar</h2>
+              <p class="module-lede">İtici ve basınçlandırıcıların sıvı, buhar ve süperkritik durumlarını Helmholtz referans denklemleriyle çöz; ideal gaz ve kübik denklemin nerede saptığını gör.</p>
+            </div>
+          </header>
+          <div class="panes">
+            <div class="pane submodule" data-module="real-fluid" data-pane="Durum ve izobar">
+              <div class="workbench">
+                <form class="control-panel" id="real-fluid-form">
+                  <div class="field-row two-columns"><label><span>Akışkan</span><select name="fluid"><option value="oxygen" selected>Oksijen (O₂)</option><option value="parahydrogen">Parahidrojen (H₂)</option><option value="methane">Metan (CH₄)</option><option value="nitrogen">Azot (N₂)</option><option value="helium">Helyum (He)</option><option value="normal_hydrogen">Normal hidrojen</option></select></label><label><span>Sıcaklık, T (K)</span><input name="temperature_k" type="number" value="90" min="1" step="any" required /></label></div>
+                  <label><span>Basınç, p (Pa)</span><input name="pressure_pa" type="number" value="1000000" min="1" step="any" required /></label>
+                  <button class="btn-primary" type="submit">Durumu çöz</button>
+                  <p class="form-note">Referans denklemler (Leachman 2009, Stewart 1991, Span 2000, Setzmann–Wagner 1991, NIST IR 8474) NIST WebBook ile 11 ppm içinde. Kübik karşılaştırma: Peng–Robinson.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Faz</span><strong class="result-text" data-key="phase">—</strong></div>
+                  <div class="result-group"><h3>Durum</h3><dl>
+                    <div><dt>Yoğunluk ρ (kg/m³)</dt><dd data-key="density_kg_m3">—</dd></div>
+                    <div><dt>Z</dt><dd data-key="compressibility_factor">—</dd></div>
+                    <div><dt>cₚ (J/kg·K)</dt><dd data-key="cp_j_kg_k">—</dd></div>
+                    <div><dt>Ses hızı (m/s)</dt><dd data-key="speed_of_sound_m_s">—</dd></div>
+                    <div><dt>Entalpi h (J/kg)</dt><dd data-key="enthalpy_j_kg">—</dd></div>
+                    <div><dt>Peng–Robinson ρ farkı</dt><dd data-key="cubic_difference" data-ham-sayi>—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="real-fluid-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Yoğunluk – sıcaklık (izobar)</figcaption><div class="chart-legend"><span class="legend-1">sıvı</span><span class="legend-2">buhar / süperkritik</span></div><svg class="sci-chart engineering-chart" id="real-fluid-density-chart" role="img" aria-label="Seçilen basınçta sıcaklığa göre yoğunluk"></svg></figure>
+                <figure class="chart-figure"><figcaption>cₚ – sıcaklık (izobar)</figcaption><div class="chart-legend"><span class="legend-1">sıvı</span><span class="legend-2">buhar / süperkritik</span></div><svg class="sci-chart engineering-chart" id="real-fluid-cp-chart" role="img" aria-label="Seçilen basınçta sıcaklığa göre özgül ısı"></svg></figure>
+                <figure class="chart-figure"><figcaption>Doyma basıncı</figcaption><div class="chart-legend"><span class="legend-3">p<sub>sat</sub></span></div><svg class="sci-chart engineering-chart" id="real-fluid-saturation-chart" role="img" aria-label="Sıcaklığa göre doyma basıncı"></svg></figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view module" id="airfoil" data-group="aero" data-module="airfoil" aria-labelledby="h-airfoil">
+          <header class="module-heading">
+            <svg class="icon module-icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-force-vector"></use></svg>
+            <div>
+              <p class="eyebrow">Aerodinamik · ses altı</p>
+              <h2 id="h-airfoil">Kanat profili</h2>
+              <p class="module-lede">NACA profilinin kaldırmasını ince profil teorisi ve kaynak–girdap panel yöntemiyle karşılaştır; yüzey basınç dağılımını ve kaldırma eğrisini gör.</p>
+            </div>
+          </header>
+          <div class="panes">
+            <div class="pane submodule" data-module="airfoil-solver" data-pane="Profil">
+              <div class="workbench">
+                <form class="control-panel" id="airfoil-form">
+                  <div class="field-row two-columns"><label><span>NACA profili</span><input name="designation" type="text" value="2412" required /></label><label><span>Hücum açısı α (°)</span><input name="angle_of_attack_deg" type="number" value="4" min="-15" max="20" step="any" required /></label></div>
+                  <label><span>Yüzey başına panel</span><input name="panels_per_surface" type="number" value="50" min="20" max="120" step="1" required /></label>
+                  <button class="btn-primary" type="submit">Profili çöz</button>
+                  <p class="form-note">Viskozsuz, sıkıştırılamaz akış; panel kaldırması ölçümden yaklaşık %10–15 yüksektir (NACA Report 824 ile karşılaştırma docs/AERODYNAMICS_SUBSONIC.md).</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Panel c<sub>l</sub></span><strong class="result-text" data-key="panel_lift_coefficient">—</strong></div>
+                  <div class="result-group"><h3>İnce profil ve panel</h3><dl>
+                    <div><dt>İnce profil c<sub>l</sub></dt><dd data-key="thin_lift_coefficient">—</dd></div>
+                    <div><dt>α<sub>L=0</sub> (°)</dt><dd data-key="zero_lift_angle_deg">—</dd></div>
+                    <div><dt>c<sub>m,c/4</sub> (ince profil)</dt><dd data-key="thin_cm_quarter">—</dd></div>
+                    <div><dt>x<sub>cp</sub>/c</dt><dd data-key="center_of_pressure">—</dd></div>
+                    <div><dt>Panel sayısı</dt><dd data-key="panel_count">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="airfoil-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>−C<sub>p</sub> – x/c (emme yukarı)</figcaption><div class="chart-legend"><span class="legend-1">üst yüzey</span><span class="legend-2">alt yüzey</span></div><svg class="sci-chart engineering-chart" id="airfoil-cp-chart" role="img" aria-label="Profil yüzeyinde basınç katsayısı"></svg></figure>
+                <figure class="chart-figure"><figcaption>Kaldırma eğrisi</figcaption><div class="chart-legend"><span class="legend-1">panel</span><span class="legend-reference">ince profil</span></div><svg class="sci-chart engineering-chart" id="airfoil-lift-chart" role="img" aria-label="Hücum açısına göre kaldırma katsayısı"></svg></figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view module" id="wing" data-group="aero" data-module="wing" aria-labelledby="h-wing">
+          <header class="module-heading">
+            <svg class="icon module-icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-angle-theta"></use></svg>
+            <div>
+              <p class="eyebrow">Aerodinamik · sonlu kanat</p>
+              <h2 id="h-wing">Sonlu kanat</h2>
+              <p class="module-lede">Prandtl taşıyıcı çizgi teorisiyle trapez kanadın kaldırma, indüklenmiş sürükleme ve açıklık verimini bul; koniklik oranının etkisini gör.</p>
+            </div>
+          </header>
+          <div class="panes">
+            <div class="pane submodule" data-module="wing-solver" data-pane="Taşıyıcı çizgi">
+              <div class="workbench">
+                <form class="control-panel" id="wing-form">
+                  <div class="field-row two-columns"><label><span>Açıklık oranı AR</span><input name="aspect_ratio" type="number" value="8" min="1" max="40" step="any" required /></label><label><span>Koniklik λ</span><input name="taper_ratio" type="number" value="0.4" min="0.05" max="1" step="any" required /></label></div>
+                  <div class="field-row two-columns"><label><span>Kök hücum açısı α (°)</span><input name="angle_of_attack_deg" type="number" value="5" min="-10" max="15" step="any" required /></label><label><span>Uç burulması (°)</span><input name="tip_twist_deg" type="number" value="0" min="-10" max="10" step="any" required /></label></div>
+                  <button class="btn-primary" type="submit">Kanadı çöz</button>
+                  <p class="form-note">Okunmuş δ değerleri Anderson Şekil 5.20'nin yaklaşık %70–80'idir; uyuşmazlık docs/AERODYNAMICS_SUBSONIC.md'de açıkça kayıtlı.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>C<sub>L</sub></span><strong class="result-text" data-key="lift_coefficient">—</strong></div>
+                  <div class="result-group"><h3>Kanat</h3><dl>
+                    <div><dt>C<sub>D,i</sub></dt><dd data-key="induced_drag_coefficient">—</dd></div>
+                    <div><dt>Açıklık verimi e</dt><dd data-key="span_efficiency">—</dd></div>
+                    <div><dt>δ</dt><dd data-key="induced_drag_factor">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="wing-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Kesit c<sub>l</sub> – açıklık</figcaption><div class="chart-legend"><span class="legend-1">c<sub>l</sub></span></div><svg class="sci-chart engineering-chart" id="wing-span-chart" role="img" aria-label="Açıklık boyunca kesit kaldırma katsayısı"></svg></figure>
+                <figure class="chart-figure"><figcaption>δ – koniklik</figcaption><div class="chart-legend"><span class="legend-2">δ</span></div><svg class="sci-chart engineering-chart" id="wing-taper-chart" role="img" aria-label="Koniklik oranına göre indüklenmiş sürükleme çarpanı"></svg></figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view module" id="supersonic" data-group="aero" data-module="supersonic" aria-labelledby="h-supersonic">
+          <header class="module-heading">
+            <svg class="icon module-icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-shock-diamonds"></use></svg>
+            <div>
+              <p class="eyebrow">Aerodinamik · süpersonik</p>
+              <h2 id="h-supersonic">Süpersonik cisimler</h2>
+              <p class="module-lede">Koninin Taylor–Maccoll çözümünü ve elmas profilin tam şok–genleşme sonucunu Ackeret ve Busemann teorileriyle karşılaştır.</p>
+            </div>
+          </header>
+          <div class="panes">
+            <div class="pane submodule" data-module="supersonic-solver" data-pane="Koni ve profil">
+              <div class="workbench">
+                <form class="control-panel" id="supersonic-form">
+                  <div class="field-row two-columns"><label><span>Mach M∞</span><input name="mach" type="number" value="2" min="1.05" max="20" step="any" required /></label><label><span>Koni yarı açısı (°)</span><input name="cone_half_angle_deg" type="number" value="10" min="0.5" max="50" step="any" required /></label></div>
+                  <div class="field-row two-columns"><label><span>Profil yarı açısı (°)</span><input name="airfoil_half_angle_deg" type="number" value="5" min="0.5" max="20" step="any" required /></label><label><span>Hücum açısı α (°)</span><input name="angle_of_attack_deg" type="number" value="2" min="0" max="20" step="any" required /></label></div>
+                  <button class="btn-primary" type="submit">Akışı çöz</button>
+                  <p class="form-note">Koni çözümü NASA SP-3004 tablolarına şok açısında 7×10⁻⁶ rad içinde; şok–genleşme tam viskozsuz çözümdür. Simetrik elmas profilde Busemann'ın ikinci mertebe terimleri üst ve alt yüzeyde birbirini götürür, bu yüzden eğrisi Ackeret'inkiyle çakışır.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Koni şok açısı (°)</span><strong class="result-text" data-key="shock_angle_deg">—</strong></div>
+                  <div class="result-group"><h3>Koni ve profil</h3><dl>
+                    <div><dt>Koni yüzey C<sub>p</sub></dt><dd data-key="surface_pressure_coefficient">—</dd></div>
+                    <div><dt>Koni yüzey Mach</dt><dd data-key="surface_mach">—</dd></div>
+                    <div><dt>Profil c<sub>l</sub> (şok–genleşme)</dt><dd data-key="shock_expansion_lift">—</dd></div>
+                    <div><dt>Profil c<sub>d</sub> (şok–genleşme)</dt><dd data-key="shock_expansion_drag">—</dd></div>
+                    <div><dt>Profil c<sub>d</sub> (Ackeret)</dt><dd data-key="ackeret_drag">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="supersonic-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>c<sub>l</sub> – α</figcaption><div class="chart-legend"><span class="legend-1">şok–genleşme</span><span class="legend-2">Busemann</span><span class="legend-reference">Ackeret</span></div><svg class="sci-chart engineering-chart" id="supersonic-lift-chart" role="img" aria-label="Hücum açısına göre profil kaldırma katsayısı"></svg></figure>
+                <figure class="chart-figure"><figcaption>c<sub>d</sub> – α</figcaption><div class="chart-legend"><span class="legend-1">şok–genleşme</span><span class="legend-2">Busemann</span><span class="legend-reference">Ackeret</span></div><svg class="sci-chart engineering-chart" id="supersonic-drag-chart" role="img" aria-label="Hücum açısına göre profil sürükleme katsayısı"></svg></figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view module" id="aeroheating" data-group="aero" data-module="aeroheating" aria-labelledby="h-aeroheating">
+          <header class="module-heading">
+            <svg class="icon module-icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-heat-flow"></use></svg>
+            <div>
+              <p class="eyebrow">Aerodinamik · viskoz ve hipersonik</p>
+              <h2 id="h-aeroheating">Sınır tabaka ve ısınma</h2>
+              <p class="module-lede">Düz levha sürtünmesini referans sıcaklık ve Van Driest II ile, atmosfere girişte yavaşlama ve durma noktası ısınmasını nokta kütle yörüngesiyle hesapla.</p>
+            </div>
+          </header>
+          <div class="panes">
+            <div class="pane submodule" data-module="flat-plate" data-pane="Düz levha">
+              <div class="workbench">
+                <form class="control-panel" id="flat-plate-form">
+                  <div class="field-row two-columns"><label><span>Mach</span><input name="mach" type="number" value="2" min="0.1" max="10" step="any" required /></label><label><span>İrtifa (m)</span><input name="altitude_m" type="number" value="15000" min="0" max="85000" step="any" required /></label></div>
+                  <div class="field-row two-columns"><label><span>Levha boyu (m)</span><input name="length_m" type="number" value="5" min="0.01" step="any" required /></label><label><span>Duvar sıcaklığı (K, boş = adyabatik)</span><input name="wall_temperature_k" type="number" value="" min="1" step="any" /></label></div>
+                  <button class="btn-primary" type="submit">Sınır tabakayı çöz</button>
+                  <p class="form-note">Geçiş tahmin edilmez; laminer ve türbülanslı sonuçlar birlikte gösterilir. Atmosfer: U.S. Standard Atmosphere 1976 (86 km altı).</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Türbülanslı C<sub>f</sub> (Van Driest II)</span><strong class="result-text" data-key="van_driest_cf">—</strong></div>
+                  <div class="result-group"><h3>Düz levha</h3><dl>
+                    <div><dt>Laminer C<sub>f</sub> (Eckert)</dt><dd data-key="laminar_cf">—</dd></div>
+                    <div><dt>Türbülanslı C<sub>f</sub> (Eckert)</dt><dd data-key="turbulent_cf">—</dd></div>
+                    <div><dt>Re<sub>L</sub></dt><dd data-key="reynolds_length">—</dd></div>
+                    <div><dt>T<sub>aw</sub> (K)</dt><dd data-key="adiabatic_wall_temperature_k">—</dd></div>
+                    <div><dt>Ortam T (K)</dt><dd data-key="edge_temperature_k">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="flat-plate-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Yerel c<sub>f</sub> – x</figcaption><div class="chart-legend"><span class="legend-1">türbülanslı</span><span class="legend-2">laminer</span></div><svg class="sci-chart engineering-chart" id="flat-plate-cf-chart" role="img" aria-label="Levha boyunca yerel sürtünme katsayısı"></svg></figure>
+              </div>
+            </div>
+            <div class="pane submodule" data-module="entry-solver" data-pane="Atmosfere giriş">
+              <div class="workbench">
+                <form class="control-panel" id="entry-form">
+                  <div class="field-row two-columns"><label><span>Giriş hızı (m/s)</span><input name="entry_velocity_m_s" type="number" value="7000" min="100" max="12000" step="any" required /></label><label><span>Uçuş yolu açısı (°)</span><input name="entry_flight_path_angle_deg" type="number" value="-10" min="-90" max="-0.5" step="any" required /></label></div>
+                  <div class="field-row two-columns"><label><span>Kütle (kg)</span><input name="mass_kg" type="number" value="1500" min="0.1" step="any" required /></label><label><span>Burun yarıçapı (m)</span><input name="nose_radius_m" type="number" value="1" min="0.01" step="any" required /></label></div>
+                  <label><span>L/D</span><input name="lift_to_drag" type="number" value="0" min="0" max="2" step="any" required /></label>
+                  <button class="btn-primary" type="submit">Girişi çöz</button>
+                  <p class="form-note">Dönmeyen küresel Dünya, sabit C<sub>D</sub> = 1 ve 4 m² alan; durma noktası ısınması Tauber (NASA TP-2914, Denk. 40), soğuk duvar. Radyatif ısınma yok.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Tepe yavaşlama (g)</span><strong class="result-text" data-key="peak_deceleration_g">—</strong></div>
+                  <div class="result-group"><h3>Giriş</h3><dl>
+                    <div><dt>Tepe yavaşlama irtifası (m)</dt><dd data-key="peak_deceleration_altitude_m">—</dd></div>
+                    <div><dt>Tepe ısı akısı (W/m²)</dt><dd data-key="peak_heating_w_m2">—</dd></div>
+                    <div><dt>Isı yükü (J/m²)</dt><dd data-key="integrated_heat_load_j_m2">—</dd></div>
+                    <div><dt>Bitiş</dt><dd data-key="termination">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="entry-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>İrtifa – hız</figcaption><div class="chart-legend"><span class="legend-1">h</span></div><svg class="sci-chart engineering-chart" id="entry-altitude-chart" role="img" aria-label="Hıza göre irtifa"></svg></figure>
+                <figure class="chart-figure"><figcaption>Yavaşlama – zaman</figcaption><div class="chart-legend"><span class="legend-4">g</span></div><svg class="sci-chart engineering-chart" id="entry-decel-chart" role="img" aria-label="Zamana göre yavaşlama"></svg></figure>
+                <figure class="chart-figure"><figcaption>Durma noktası ısınması – zaman</figcaption><div class="chart-legend"><span class="legend-2">q̇</span></div><svg class="sci-chart engineering-chart" id="entry-heating-chart" role="img" aria-label="Zamana göre durma noktası ısı akısı"></svg></figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view module" id="launch-aero" data-group="aero" data-module="launch-aero" aria-labelledby="h-launch-aero">
+          <header class="module-heading">
+            <svg class="icon module-icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-max-q"></use></svg>
+            <div>
+              <p class="eyebrow">Aerodinamik · fırlatma aracı</p>
+              <h2 id="h-launch-aero">Fırlatma aracı aerodinamiği</h2>
+              <p class="module-lede">Burun–silindir gövdenin normal kuvvet eğimi, basınç merkezi, viskoz çapraz akış ve sürükleme bileşenlerini uçuş koşulunda hesapla.</p>
+            </div>
+          </header>
+          <div class="panes">
+            <div class="pane submodule" data-module="launch-aero-solver" data-pane="Gövde">
+              <div class="workbench">
+                <form class="control-panel" id="launch-aero-form">
+                  <div class="field-row two-columns"><label><span>Burun</span><select name="nose_shape"><option value="tangent_ogive" selected>Teğet ogive</option><option value="cone">Koni</option></select></label><label><span>Burun boyu (m)</span><input name="nose_length_m" type="number" value="6" min="0.1" step="any" required /></label></div>
+                  <div class="field-row two-columns"><label><span>Gövde boyu (m)</span><input name="body_length_m" type="number" value="40" min="0.1" step="any" required /></label><label><span>Çap (m)</span><input name="diameter_m" type="number" value="3.7" min="0.01" step="any" required /></label></div>
+                  <label><span>Mach</span><input name="mach" type="number" value="0.8" min="0.05" max="5" step="any" required /></label>
+                  <button class="btn-primary" type="submit">Gövdeyi çöz</button>
+                  <p class="form-note">Barrowman (1967) narin cisim ve sürükleme, Allen–Perkins (NACA TR 1048) viskoz çapraz akış; 11 km, α = 4°. Kanatçık, jet ve çıkıntı yok; SLS veritabanı değerleri kamuya açık değildir.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>C<sub>Nα</sub> (1/rad)</span><strong class="result-text" data-key="normal_force_slope_per_rad">—</strong></div>
+                  <div class="result-group"><h3>Kuvvetler</h3><dl>
+                    <div><dt>Basınç merkezi (m, burundan)</dt><dd data-key="center_of_pressure_m">—</dd></div>
+                    <div><dt>C<sub>N</sub>(α)</dt><dd data-key="normal_force_coefficient">—</dd></div>
+                    <div><dt>Dinamik basınç q (Pa)</dt><dd data-key="dynamic_pressure_pa">—</dd></div>
+                    <div><dt>Normal kuvvet (N)</dt><dd data-key="normal_force_n">—</dd></div>
+                    <div><dt>Sürtünme C<sub>D</sub></dt><dd data-key="friction_drag_coefficient">—</dd></div>
+                    <div><dt>Taban C<sub>D</sub></dt><dd data-key="base_drag_coefficient">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="launch-aero-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>C<sub>N</sub> – α</figcaption><div class="chart-legend"><span class="legend-1">potansiyel + viskoz</span><span class="legend-reference">yalnız potansiyel</span></div><svg class="sci-chart engineering-chart" id="launch-cn-chart" role="img" aria-label="Hücum açısına göre normal kuvvet katsayısı"></svg></figure>
+                <figure class="chart-figure"><figcaption>Sürükleme bileşenleri</figcaption><svg class="sci-chart engineering-chart" id="launch-drag-chart" role="img" aria-label="Sürükleme katsayısı bileşenleri"></svg></figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view module" id="heat-transfer" data-group="termo" data-module="heat-transfer" aria-labelledby="h-heat-transfer">
+          <header class="module-heading">
+            <svg class="icon module-icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-heat-flow"></use></svg>
+            <div>
+              <p class="eyebrow">Termodinamik · ısı transferi</p>
+              <h2 id="h-heat-transfer">Isı transferi</h2>
+              <p class="module-lede">Yanma odası duvarının geçici ısınmasını, soğutucu tarafı taşınım bağıntılarını ve radyasyonla soğutulan nozul uzantısının denge sıcaklığını çöz.</p>
+            </div>
+          </header>
+          <div class="panes">
+            <div class="pane submodule" data-module="heat-conduction" data-pane="İletim">
+              <div class="workbench">
+                <form class="control-panel" id="heat-conduction-form">
+                  <div class="field-row two-columns"><label><span>Duvar kalınlığı (m)</span><input name="hot_wall_thickness_m" type="number" value="0.001" min="0.00001" step="any" required /></label><label><span>Duvar k (W/m·K)</span><input name="hot_wall_conductivity_w_m_k" type="number" value="305" min="0.01" step="any" required /></label></div>
+                  <div class="field-row two-columns"><label><span>Gaz h (W/m²·K)</span><input name="gas_heat_transfer_coefficient_w_m2_k" type="number" value="20000" min="1" step="any" required /></label><label><span>Gaz sıcaklığı (K)</span><input name="gas_temperature_k" type="number" value="3000" min="1" step="any" required /></label></div>
+                  <label><span>Süre (s)</span><input name="duration_s" type="number" value="0.2" min="0.001" step="any" required /></label>
+                  <button class="btn-primary" type="submit">Geçici iletimi çöz</button>
+                  <p class="form-note">Crank–Nicolson sonlu hacim; soğutucu tarafı h = 5×10⁴ W/m²·K, 150 K. Enerji denetimi her sonuçta raporlanır (Lienhard, A Heat Transfer Textbook v6.00, Böl. 5).</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Son sıcak yüzey (K)</span><strong class="result-text" data-key="final_hot_surface_k">—</strong></div>
+                  <div class="result-group"><h3>Duvar</h3><dl>
+                    <div><dt>Son soğuk yüzey (K)</dt><dd data-key="final_cold_surface_k">—</dd></div>
+                    <div><dt>Depolanan enerji (J/m²)</dt><dd data-key="stored_energy_change_j_m2">—</dd></div>
+                    <div><dt>Enerji artığı (J/m²)</dt><dd data-key="energy_residual_j_m2">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="conduction-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Yüzey sıcaklıkları – zaman</figcaption><div class="chart-legend"><span class="legend-1">sıcak yüzey</span><span class="legend-2">soğuk yüzey</span></div><svg class="sci-chart engineering-chart" id="conduction-history-chart" role="img" aria-label="Zamana göre sıcak ve soğuk yüzey sıcaklığı"></svg></figure>
+                <figure class="chart-figure"><figcaption>Duvar içi profil</figcaption><div class="chart-legend"><span class="legend-1">başlangıç sonrası</span><span class="legend-3">orta</span><span class="legend-2">son</span></div><svg class="sci-chart engineering-chart" id="conduction-profile-chart" role="img" aria-label="Duvar kalınlığı boyunca sıcaklık profilleri"></svg></figure>
+              </div>
+            </div>
+            <div class="pane submodule" data-module="heat-convection" data-pane="Taşınım">
+              <div class="workbench">
+                <form class="control-panel" id="heat-convection-form">
+                  <div class="field-row two-columns"><label><span>Soğutucu</span><select name="fluid"><option value="methane" selected>Metan</option><option value="parahydrogen">Parahidrojen</option><option value="oxygen">Oksijen</option><option value="nitrogen">Azot</option></select></label><label><span>Sıcaklık (K)</span><input name="temperature_k" type="number" value="200" min="1" step="any" required /></label></div>
+                  <div class="field-row two-columns"><label><span>Basınç (Pa)</span><input name="pressure_pa" type="number" value="15000000" min="1" step="any" required /></label><label><span>Hidrolik çap (m)</span><input name="hydraulic_diameter_m" type="number" value="0.002" min="0.00001" step="any" required /></label></div>
+                  <label><span>Kütle akısı (kg/m²·s)</span><input name="mass_flux_kg_m2_s" type="number" value="20000" min="1" step="any" required /></label>
+                  <button class="btn-primary" type="submit">Bağıntıları karşılaştır</button>
+                  <p class="form-note">Yoğunluk, cₚ, μ ve k NIST ile doğrulanmış gerçek akışkan denklemlerinden; özellik oranı düzeltmesi yok (hidrojende Taylor için Rejeneratif soğutma modülüne bak).</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Pr</span><strong class="result-text" data-key="prandtl_number">—</strong></div>
+                  <div class="result-group"><h3>Soğutucu durumu</h3><dl>
+                    <div><dt>Faz</dt><dd data-key="phase">—</dd></div>
+                    <div><dt>Yoğunluk (kg/m³)</dt><dd data-key="density_kg_m3">—</dd></div>
+                    <div><dt>μ (Pa·s)</dt><dd data-key="viscosity_pa_s">—</dd></div>
+                    <div><dt>k (W/m·K)</dt><dd data-key="thermal_conductivity_w_m_k">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="convection-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>h – kütle akısı</figcaption><div class="chart-legend"><span class="legend-1">Gnielinski</span><span class="legend-2">Dittus–Boelter</span><span class="legend-reference">Colburn</span></div><svg class="sci-chart engineering-chart" id="convection-h-chart" role="img" aria-label="Kütle akısına göre ısı taşınım katsayısı"></svg></figure>
+              </div>
+            </div>
+            <div class="pane submodule" data-module="heat-radiation" data-pane="Işınım">
+              <div class="workbench">
+                <form class="control-panel" id="heat-radiation-form">
+                  <div class="field-row two-columns"><label><span>Giriş yarıçapı (m)</span><input name="inlet_radius_m" type="number" value="0.2" min="0.001" step="any" required /></label><label><span>Çıkış yarıçapı (m)</span><input name="exit_radius_m" type="number" value="0.6" min="0.001" step="any" required /></label></div>
+                  <div class="field-row two-columns"><label><span>Uzunluk (m)</span><input name="length_m" type="number" value="1" min="0.001" step="any" required /></label><label><span>Yayınım ε</span><input name="emissivity" type="number" value="0.8" min="0.01" max="1" step="any" required /></label></div>
+                  <label><span>Gaz h (W/m²·K)</span><input name="heat_transfer_coefficient_w_m2_k" type="number" value="200" min="0" step="any" required /></label>
+                  <button class="btn-primary" type="submit">Denge sıcaklığını çöz</button>
+                  <p class="form-note">Konik uzantının iç yüzeyi açıklıklardan, dış yüzeyi doğrudan 3 K uzaya ışınım yapar; geri kazanım sıcaklığı 2000 K. Görünüm faktörleri Howell C-41 ve kapalı yüzey cebiri.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Duvar sıcaklığı (K)</span><strong class="result-text" data-key="wall_temperature_k">—</strong></div>
+                  <div class="result-group"><h3>Görünüm faktörleri</h3><dl>
+                    <div><dt>ε</dt><dd data-key="emissivity">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="radiation-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Duvar sıcaklığı – ε</figcaption><div class="chart-legend"><span class="legend-1">T<sub>w</sub></span></div><svg class="sci-chart engineering-chart" id="radiation-emissivity-chart" role="img" aria-label="Yayınıma göre radyatif denge duvar sıcaklığı"></svg></figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view module" id="regen" data-group="nozul" data-module="regen" aria-labelledby="h-regen">
+          <header class="module-heading">
+            <svg class="icon module-icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-regenerative-cooling"></use></svg>
+            <div>
+              <p class="eyebrow">Nozul · bağlaşık ısıl çözüm</p>
+              <h2 id="h-regen">Rejeneratif soğutma</h2>
+              <p class="module-lede">Gaz tarafı (Bartz, yerel duvar sıcaklığı), duvar iletimi ve gerçek akışkan soğutucuyu istasyon istasyon birlikte çöz; sıcak duvar, soğutucu ve ısı akısı profillerini gör.</p>
+            </div>
+          </header>
+          <div class="panes">
+            <div class="pane submodule" data-module="regen-solver" data-pane="Oda ve kanallar">
+              <div class="workbench">
+                <form class="control-panel" id="regen-form">
+                  <div class="field-row two-columns"><label><span>İtici çifti</span><select name="propellant_pair"><option value="LOX_CH4" selected>LOX / CH₄</option><option value="LOX_LH2">LOX / LH₂</option><option value="LOX_RP1">LOX / RP-1</option></select></label><label><span>Soğutucu</span><select name="coolant"><option value="methane" selected>Metan</option><option value="parahydrogen">Parahidrojen</option></select></label></div>
+                  <div class="field-row two-columns"><label><span>Oda basıncı (Pa)</span><input name="chamber_pressure_pa" type="number" value="7000000" min="100000" step="any" required /></label><label><span>Kanal sayısı</span><input name="channel_count" type="number" value="100" min="4" max="1000" step="1" required /></label></div>
+                  <label><span>Duvar malzemesi</span><select name="wall_material"><option value="grcop-84" selected>GRCop-84</option><option value="ofhc-copper">OFHC bakır</option><option value="inconel-718">Inconel 718</option><option value="stainless-304">304 paslanmaz</option></select></label>
+                  <button class="btn-primary" type="submit">Soğutmayı çöz</button>
+                  <p class="form-note">NASA RTE yöntemi (Wadel, NASA/TM-1998-206313): ters akış, Chen sürtünmesi; hidrojende Taylor, diğerlerinde Gnielinski. Kanal 1,5×3 mm, duvar 1 mm, A* = 0,01 m², ε = 10, soğutucu 15 MPa.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>En yüksek sıcak duvar (K)</span><strong class="result-text" data-key="maximum_hot_wall_temperature_k">—</strong></div>
+                  <div class="result-group"><h3>Toplamlar</h3><dl>
+                    <div><dt>Malzeme sınırı (K)</dt><dd data-key="wall_limit_temperature_k">—</dd></div>
+                    <div><dt>Isı yükü (W)</dt><dd data-key="total_heat_load_w">—</dd></div>
+                    <div><dt>Soğutucu çıkış T (K)</dt><dd data-key="coolant_outlet_temperature_k">—</dd></div>
+                    <div><dt>Soğutucu Δp (Pa)</dt><dd data-key="coolant_pressure_drop_pa">—</dd></div>
+                    <div><dt>Enerji dengesi artığı (W)</dt><dd data-key="energy_balance_residual_w">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="regen-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Sıcaklıklar – eksen</figcaption><div class="chart-legend"><span class="legend-1">sıcak duvar</span><span class="legend-2">soğuk duvar</span><span class="legend-3">soğutucu</span></div><svg class="sci-chart engineering-chart" id="regen-temperature-chart" role="img" aria-label="Eksen boyunca sıcak duvar, soğuk duvar ve soğutucu sıcaklığı"></svg></figure>
+                <figure class="chart-figure"><figcaption>Isı akısı – eksen</figcaption><div class="chart-legend"><span class="legend-4">q</span></div><svg class="sci-chart engineering-chart" id="regen-flux-chart" role="img" aria-label="Eksen boyunca ısı akısı"></svg></figure>
+                <figure class="chart-figure"><figcaption>Soğutucu basıncı – eksen</figcaption><div class="chart-legend"><span class="legend-5">p<sub>c</sub></span></div><svg class="sci-chart engineering-chart" id="regen-pressure-chart" role="img" aria-label="Eksen boyunca soğutucu basıncı"></svg></figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view module" id="combustion" data-group="yanma" data-module="combustion" aria-labelledby="h-combustion">
+          <header class="module-heading">
+            <svg class="icon module-icon" aria-hidden="true"><use href="/vendor/sunumatik/icons.svg#i-combustion-chamber"></use></svg>
+            <div>
+              <p class="eyebrow">Yanma · ürünler ve kayıplar</p>
+              <h2 id="h-combustion">Yanma ürünleri ve verim</h2>
+              <p class="module-lede">Oda, boğaz ve çıkıştaki ürün bileşimini, radikalleri ve ayrışmada tutulan enerjiyi gör; ideal Isp'den teslim edilen Isp'ye kayıp zincirini izle.</p>
+            </div>
+          </header>
+          <div class="panes">
+            <div class="pane submodule" data-module="combustion-products" data-pane="Ürünler ve radikaller">
+              <div class="workbench">
+                <form class="control-panel" id="combustion-products-form">
+                  <div class="field-row two-columns"><label><span>İtici çifti</span><select name="propellant_pair"><option value="LOX_LH2" selected>LOX / LH₂</option><option value="LOX_CH4">LOX / CH₄</option><option value="LOX_RP1">LOX / RP-1</option><option value="NTO_MMH">NTO / MMH</option></select></label><label><span>Oda basıncı (Pa)</span><input name="chamber_pressure_pa" type="number" value="7000000" min="100000" step="any" required /></label></div>
+                  <label><span>Alan oranı</span><input name="area_ratio" type="number" value="40" min="1.01" step="any" required /></label>
+                  <button class="btn-primary" type="submit">Ürünleri çöz</button>
+                  <p class="form-note">Kayan denge; bileşimler NASA CEA 3.3.4'e 10⁻¹⁰ mol kesrine kadar 2,5×10⁻⁴ içinde. O/F çiftin referans değeri.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Ayrışma payı</span><strong class="result-text" data-key="dissociation_fraction">—</strong></div>
+                  <div class="result-group"><h3>Ayrışma</h3><dl>
+                    <div><dt>Boğaza kadar birleşme ısısı (J/kg)</dt><dd data-key="throat_recombination_j_kg">—</dd></div>
+                    <div><dt>Çıkışa kadar birleşme ısısı (J/kg)</dt><dd data-key="exit_recombination_j_kg">—</dd></div>
+                    <div><dt>Vakum Isp (s)</dt><dd data-key="vacuum_specific_impulse_s">—</dd></div>
+                    <div><dt>Stokiyometrik O/F</dt><dd data-key="stoichiometric_oxidizer_fuel_ratio">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="products-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Oda bileşimi</figcaption><svg class="sci-chart engineering-chart" id="products-chamber-chart" role="img" aria-label="Odada başlıca türlerin mol kesirleri"></svg></figure>
+                <figure class="chart-figure"><figcaption>Radikal kesri – istasyon</figcaption><svg class="sci-chart engineering-chart" id="products-radical-chart" role="img" aria-label="Oda, boğaz ve çıkışta toplam radikal mol kesri"></svg></figure>
+              </div>
+            </div>
+            <div class="pane submodule" data-module="combustion-losses" data-pane="Kayıp zinciri">
+              <div class="workbench">
+                <form class="control-panel" id="combustion-losses-form">
+                  <div class="field-row two-columns"><label><span>İtici çifti</span><select name="propellant_pair"><option value="LOX_LH2" selected>LOX / LH₂ (sonlu hızlı kimya)</option><option value="LOX_CH4">LOX / CH₄</option><option value="LOX_RP1">LOX / RP-1</option></select></label><label><span>Daralma oranı A<sub>c</sub>/A*</span><input name="contraction_ratio" type="number" value="2.5" min="1.05" step="any" required /></label></div>
+                  <div class="field-row two-columns"><label><span>Iraksama verimi</span><input name="divergence_efficiency" type="number" value="0.985" min="0.5" max="1" step="any" required /></label><label><span>c* verimi</span><input name="characteristic_velocity_efficiency" type="number" value="0.98" min="0.5" max="1" step="any" required /></label></div>
+                  <label><span>Sınır tabaka kaybı (s)</span><input name="boundary_layer_decrement_s" type="number" value="3" min="0" step="any" required /></label>
+                  <button class="btn-primary" type="submit">Kayıpları çöz</button>
+                  <p class="form-note">ODE → ODK → 2B → sınır tabaka → η<sub>c*</sub> (JANNAF tarzı). LOX/LH₂'de kinetik verim sonlu hızlı nozul çözümünden (GRI-Mech 3.0 H₂–O₂), diğerlerinde 1.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Teslim Isp (s)</span><strong class="result-text" data-key="delivered_specific_impulse_s">—</strong></div>
+                  <div class="result-group"><h3>Zincir</h3><dl>
+                    <div><dt>ODE Isp (s)</dt><dd data-key="ode_specific_impulse_s">—</dd></div>
+                    <div><dt>Kinetik verim</dt><dd data-key="kinetic_efficiency">—</dd></div>
+                    <div><dt>Toplam verim</dt><dd data-key="overall_efficiency">—</dd></div>
+                    <div><dt>FAC p₀ oranı</dt><dd data-key="stagnation_pressure_ratio">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="losses-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Isp kayıpları</figcaption><svg class="sci-chart engineering-chart" id="losses-chain-chart" role="img" aria-label="Kayıp kalemlerine göre özgül itki kaybı"></svg></figure>
+                <figure class="chart-figure"><figcaption>Sonlu hızlı radikaller – alan oranı</figcaption><div class="chart-legend"><span class="legend-1">H</span><span class="legend-2">OH</span></div><svg class="sci-chart engineering-chart" id="losses-radicals-chart" role="img" aria-label="Alan oranına göre H ve OH mol kesri"></svg></figure>
+              </div>
             </div>
           </div>
         </section>

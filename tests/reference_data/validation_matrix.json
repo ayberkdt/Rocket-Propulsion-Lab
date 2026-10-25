@@ -4,23 +4,35 @@
     {
       "id": "cea-rp1311-example-8-lox-lh2",
       "source": "NASA RP-1311 Part II, example 8",
-      "status": "recorded-external-gate",
+      "status": "automated",
       "expected": {
         "chamber_temperature_k": 3389.27,
         "characteristic_velocity_m_s": 2333.4,
         "vacuum_effective_exhaust_velocity_m_s": 4555.4,
         "exit_effective_exhaust_velocity_m_s": 4399.7
       },
-      "relative_tolerance": 0.01
+      "relative_tolerance": 0.01,
+      "station": {
+        "area_ratio": 75.0,
+        "note": "last supersonic column of RP-1311 example 8 (supar=25,50,75); column identity confirmed against NASA CEA test/main_interface/reference_output/example8.out at commit 2f79a647e85737742fb08a127da00d1ea1d069da"
+      },
+      "conditions": {
+        "fuel": "H2(L)",
+        "oxidizer": "O2(L)",
+        "oxidizer_fuel_ratio": 5.55157,
+        "chamber_pressure_pa": 5331720.0,
+        "combustor": "infinite area (IAC)",
+        "expansion": "shifting equilibrium"
+      }
     },
     {
       "id": "moc-boundary-compatibility",
       "source": "NASA method-of-characteristics design context; compatibility invariant",
       "status": "automated",
       "expected": {
-        "wall_tangency_max_deg": 1e-8,
+        "wall_tangency_max_deg": 1e-08,
         "centerline_symmetry_max_deg": 1e-10,
-        "exit_mach_absolute": 1e-8,
+        "exit_mach_absolute": 1e-08,
         "refined_length_change_relative": 0.01
       }
     },

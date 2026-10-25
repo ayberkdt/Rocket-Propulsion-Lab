@@ -1,0 +1,286 @@
+{
+ "schema_version": 1,
+ "generated": "2026-10-25",
+ "generator": "scripts/generate_cea_gate.py",
+ "reference": {
+  "program": "NASA CEA (cea Python package)",
+  "version": "3.3.4",
+  "url": "https://pypi.org/project/cea/",
+  "repository": "https://github.com/nasa/cea",
+  "thermo_lib_sha256": "8e5df1cca92d4a48663d1ee5a1372e6508c59cddc2247ceeca32f041a03ec52a"
+ },
+ "conditions": {
+  "chamber_pressure_pa": 6894759.999999999,
+  "area_ratio": 40.0,
+  "combustor": "infinite area (IAC)",
+  "expansion": "shifting equilibrium",
+  "reactant_temperature_k": {
+   "H2(L)": 20.27,
+   "O2(L)": 90.17,
+   "CH4(L)": 111.643,
+   "RP-1": 298.15,
+   "CH6N2(L)": 298.15,
+   "N2O4(L)": 298.15
+  },
+  "standard_gravity_m_s2": 9.80665
+ },
+ "declared_relative_tolerance": {
+  "chamber_temperature_k": 0.01,
+  "characteristic_velocity_m_s": 0.01,
+  "vacuum_specific_impulse_s": 0.01
+ },
+ "declared_on": "2026-10-25",
+ "points": [
+  {
+   "id": "cea-lox_lh2-of-4.5",
+   "pair": "LOX_LH2",
+   "fuel": "H2(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 4.5,
+   "expected": {
+    "chamber_temperature_k": 3132.9647980924274,
+    "characteristic_velocity_m_s": 2398.088454078953,
+    "vacuum_specific_impulse_s": 454.9548071230818,
+    "throat_pressure_pa": 3918007.850296978,
+    "exit_pressure_pa": 12033.086034166563,
+    "chamber_molecular_mass_g_mol": 10.929867298866466
+   }
+  },
+  {
+   "id": "cea-lox_lh2-of-5.5",
+   "pair": "LOX_LH2",
+   "fuel": "H2(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 5.5,
+   "expected": {
+    "chamber_temperature_k": 3398.368485222262,
+    "characteristic_velocity_m_s": 2339.9422410547986,
+    "vacuum_specific_impulse_s": 453.76571869300034,
+    "throat_pressure_pa": 3959476.653748269,
+    "exit_pressure_pa": 13993.297435357363,
+    "chamber_molecular_mass_g_mol": 12.662279234319483
+   }
+  },
+  {
+   "id": "cea-lox_lh2-of-6.5",
+   "pair": "LOX_LH2",
+   "fuel": "H2(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 6.5,
+   "expected": {
+    "chamber_temperature_k": 3540.8831565990617,
+    "characteristic_velocity_m_s": 2265.8817005533874,
+    "vacuum_specific_impulse_s": 448.6711950141909,
+    "throat_pressure_pa": 3983492.302317997,
+    "exit_pressure_pa": 16100.65177196915,
+    "chamber_molecular_mass_g_mol": 14.202534149965667
+   }
+  },
+  {
+   "id": "cea-lox_ch4-of-2.8",
+   "pair": "LOX_CH4",
+   "fuel": "CH4(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 2.8,
+   "expected": {
+    "chamber_temperature_k": 3378.8815784062376,
+    "characteristic_velocity_m_s": 1867.9339804679407,
+    "vacuum_specific_impulse_s": 361.56562220036955,
+    "throat_pressure_pa": 3954604.4301041826,
+    "exit_pressure_pa": 14319.129618732319,
+    "chamber_molecular_mass_g_mol": 19.720218528168406
+   }
+  },
+  {
+   "id": "cea-lox_ch4-of-3.4",
+   "pair": "LOX_CH4",
+   "fuel": "CH4(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 3.4,
+   "expected": {
+    "chamber_temperature_k": 3549.196144498271,
+    "characteristic_velocity_m_s": 1839.7540387017866,
+    "vacuum_specific_impulse_s": 368.55082831398005,
+    "throat_pressure_pa": 3992171.1667457507,
+    "exit_pressure_pa": 17608.359859857315,
+    "chamber_molecular_mass_g_mol": 21.665729083920144
+   }
+  },
+  {
+   "id": "cea-lox_ch4-of-4",
+   "pair": "LOX_CH4",
+   "fuel": "CH4(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 4.0,
+   "expected": {
+    "chamber_temperature_k": 3557.692340354298,
+    "characteristic_velocity_m_s": 1786.5833241839603,
+    "vacuum_specific_impulse_s": 362.27333545707,
+    "throat_pressure_pa": 3998425.3579133274,
+    "exit_pressure_pa": 20339.136498322892,
+    "chamber_molecular_mass_g_mol": 23.088936560241194
+   }
+  },
+  {
+   "id": "cea-lox_rp1-of-2.2",
+   "pair": "LOX_RP1",
+   "fuel": "RP-1",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 2.2,
+   "expected": {
+    "chamber_temperature_k": 3513.3379691669343,
+    "characteristic_velocity_m_s": 1806.1314256695052,
+    "vacuum_specific_impulse_s": 348.43308009026725,
+    "throat_pressure_pa": 3947806.955609659,
+    "exit_pressure_pa": 13973.162978582051,
+    "chamber_molecular_mass_g_mol": 21.859432517477888
+   }
+  },
+  {
+   "id": "cea-lox_rp1-of-2.6",
+   "pair": "LOX_RP1",
+   "fuel": "RP-1",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 2.6,
+   "expected": {
+    "chamber_temperature_k": 3670.151270008832,
+    "characteristic_velocity_m_s": 1793.331486366769,
+    "vacuum_specific_impulse_s": 356.99268388256417,
+    "throat_pressure_pa": 3983620.966506005,
+    "exit_pressure_pa": 16807.031464410455,
+    "chamber_molecular_mass_g_mol": 23.485589155006185
+   }
+  },
+  {
+   "id": "cea-lox_rp1-of-3",
+   "pair": "LOX_RP1",
+   "fuel": "RP-1",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 3.0,
+   "expected": {
+    "chamber_temperature_k": 3699.8708171672047,
+    "characteristic_velocity_m_s": 1758.701188527012,
+    "vacuum_specific_impulse_s": 356.0695279952185,
+    "throat_pressure_pa": 3993429.434963419,
+    "exit_pressure_pa": 20008.64863578507,
+    "chamber_molecular_mass_g_mol": 24.716122890609096
+   }
+  }
+ ],
+ "nasa_reference_output_example8": {
+  "source": "https://github.com/nasa/cea/blob/2f79a647e85737742fb08a127da00d1ea1d069da/test/main_interface/reference_output/example8.out",
+  "conditions": {
+   "fuel": "H2(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 5.55157,
+   "chamber_pressure_pa": 5331720.0
+  },
+  "expected": {
+   "chamber_temperature_k": 3383.8446259451,
+   "throat_temperature_k": 3185.67317308071,
+   "characteristic_velocity_m_s": 2332.33560769645,
+   "area_ratio_25_vacuum_effective_exhaust_velocity_m_s": 4348.51382282217,
+   "area_ratio_25_effective_exhaust_velocity_m_s": 4124.41484261268,
+   "area_ratio_75_vacuum_effective_exhaust_velocity_m_s": 4554.91082019847,
+   "area_ratio_75_effective_exhaust_velocity_m_s": 4399.11825930155
+  }
+ },
+ "pressure_domain_points": [
+  {
+   "pair": "LOX_LH2",
+   "fuel": "H2(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 5.55157,
+   "chamber_pressure_pa": 500000.0,
+   "expected": {
+    "chamber_temperature_k": 3134.5274724599185,
+    "characteristic_velocity_m_s": 2285.364751235492,
+    "vacuum_specific_impulse_s": 450.5362444729851
+   }
+  },
+  {
+   "pair": "LOX_LH2",
+   "fuel": "H2(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 5.55157,
+   "chamber_pressure_pa": 25000000.0,
+   "expected": {
+    "chamber_temperature_k": 3520.2122664552962,
+    "characteristic_velocity_m_s": 2353.5416261566133,
+    "vacuum_specific_impulse_s": 454.4860603298066
+   }
+  },
+  {
+   "pair": "LOX_CH4",
+   "fuel": "CH4(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 3.4,
+   "chamber_pressure_pa": 500000.0,
+   "expected": {
+    "chamber_temperature_k": 3207.295959958531,
+    "characteristic_velocity_m_s": 1785.3654496885993,
+    "vacuum_specific_impulse_s": 362.5413693394664
+   }
+  },
+  {
+   "pair": "LOX_CH4",
+   "fuel": "CH4(L)",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 3.4,
+   "chamber_pressure_pa": 25000000.0,
+   "expected": {
+    "chamber_temperature_k": 3718.141239183268,
+    "characteristic_velocity_m_s": 1863.6161005366105,
+    "vacuum_specific_impulse_s": 370.66276415400665
+   }
+  },
+  {
+   "pair": "LOX_RP1",
+   "fuel": "RP-1",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 2.7,
+   "chamber_pressure_pa": 500000.0,
+   "expected": {
+    "chamber_temperature_k": 3306.351395301437,
+    "characteristic_velocity_m_s": 1728.652607090992,
+    "vacuum_specific_impulse_s": 350.99708385914784
+   }
+  },
+  {
+   "pair": "LOX_RP1",
+   "fuel": "RP-1",
+   "oxidizer": "O2(L)",
+   "oxidizer_fuel_ratio": 2.7,
+   "chamber_pressure_pa": 25000000.0,
+   "expected": {
+    "chamber_temperature_k": 3876.5455486197866,
+    "characteristic_velocity_m_s": 1810.9418523536024,
+    "vacuum_specific_impulse_s": 359.969322126835
+   }
+  },
+  {
+   "pair": "NTO_MMH",
+   "fuel": "CH6N2(L)",
+   "oxidizer": "N2O4(L)",
+   "oxidizer_fuel_ratio": 1.65,
+   "chamber_pressure_pa": 500000.0,
+   "expected": {
+    "chamber_temperature_k": 3004.4198659191434,
+    "characteristic_velocity_m_s": 1734.5134778770991,
+    "vacuum_specific_impulse_s": 330.885990637356
+   }
+  },
+  {
+   "pair": "NTO_MMH",
+   "fuel": "CH6N2(L)",
+   "oxidizer": "N2O4(L)",
+   "oxidizer_fuel_ratio": 1.65,
+   "chamber_pressure_pa": 25000000.0,
+   "expected": {
+    "chamber_temperature_k": 3250.474929988696,
+    "characteristic_velocity_m_s": 1760.712951264828,
+    "vacuum_specific_impulse_s": 332.0121884250848
+   }
+  }
+ ]
+}

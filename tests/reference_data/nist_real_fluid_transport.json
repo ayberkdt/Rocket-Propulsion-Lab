@@ -1,0 +1,1339 @@
+{
+ "source": "NIST Chemistry WebBook, SRD 69, 'Thermophysical Properties of Fluid Systems' (E. W. Lemmon, M. O. McLinden and D. G. Friend), https://webbook.nist.gov/chemistry/fluid/",
+ "accessed": "2026-10-25",
+ "query": "https://webbook.nist.gov/cgi/fluid.cgi with Action=Data, Wide=on, Digits=12, RefState=DEF, VisUnit=uPa*s, Type=IsoBar and TLow=THigh=T; each row is the single data row of the stored URL.",
+ "units": {
+  "T_K": "K",
+  "p_MPa": "MPa",
+  "rho_kg_m3": "kg/m3",
+  "cv_J_gK": "J/(g K)",
+  "cp_J_gK": "J/(g K)",
+  "eta_uPa_s": "uPa s",
+  "k_W_mK": "W/(m K)"
+ },
+ "webbook_transport_models": {
+  "parahydrogen": "Viscosity: Muzny, Huber and Kazakov, J. Chem. Eng. Data 58:969-979, 2013 (normal-hydrogen correlation). Thermal conductivity: Assael et al., J. Phys. Chem. Ref. Data 40(3), 033101, 2011, with its critical enhancement.",
+  "normal_hydrogen": "Viscosity: Muzny, Huber and Kazakov, J. Chem. Eng. Data 58:969-979, 2013. Thermal conductivity: Assael et al., J. Phys. Chem. Ref. Data 40(3), 033101, 2011, with its critical enhancement.",
+  "oxygen": "Viscosity and thermal conductivity: Lemmon and Jacobsen, Int. J. Thermophys. 25:21-69, 2004.",
+  "nitrogen": "Viscosity and thermal conductivity: Lemmon and Jacobsen, Int. J. Thermophys. 25:21-69, 2004.",
+  "methane": "Viscosity: Quinones-Cisneros, Huber and Deiters, unpublished work, 2011. Thermal conductivity: Friend, Ely and Ingham, NIST Technical Note 1325, 1989, with their critical enhancement.",
+  "helium": "Viscosity: Arp, McCarty and Friend, NIST Technical Note 1334 (revised), 1998. Thermal conductivity: Hands and Arp, Cryogenics 21(12):697-703, 1981."
+ },
+ "webbook_model_pages": {
+  "parahydrogen": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Load&ID=B5000001&Type=IsoBar&Digits=5&P=1&THigh=200&TLow=100&TInc=50&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa*s&STUnit=N%2Fm",
+  "normal_hydrogen": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Load&ID=C1333740&Type=IsoBar&Digits=5&P=1&THigh=200&TLow=100&TInc=50&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa*s&STUnit=N%2Fm",
+  "oxygen": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Load&ID=C7782447&Type=IsoBar&Digits=5&P=1&THigh=200&TLow=100&TInc=50&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa*s&STUnit=N%2Fm",
+  "nitrogen": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Load&ID=C7727379&Type=IsoBar&Digits=5&P=1&THigh=200&TLow=100&TInc=50&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa*s&STUnit=N%2Fm",
+  "methane": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Load&ID=C74828&Type=IsoBar&Digits=5&P=1&THigh=200&TLow=100&TInc=50&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa*s&STUnit=N%2Fm",
+  "helium": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Load&ID=C7440597&Type=IsoBar&Digits=5&P=1&THigh=200&TLow=100&TInc=50&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa*s&STUnit=N%2Fm"
+ },
+ "near_critical_note": "Rows flagged near_critical lie within about 7 % of T_c at near-critical pressures (for hydrogen also one compressed-liquid row at 32.5 K, 1.3 MPa), where the conductivity critical enhancement is large.",
+ "fluids": {
+  "nitrogen": {
+   "webbook_id": "C7727379",
+   "rows": [
+    {
+     "T_K": 70.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 838.642340405,
+     "cv_J_gK": 1.12981774299,
+     "cp_J_gK": 2.01402333114,
+     "eta_uPa_s": 220.421172157,
+     "k_W_mK": 0.159578042721,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7727379&Type=IsoBar&P=0.1&TLow=70&THigh=70&TInc=1"
+    },
+    {
+     "T_K": 100.0,
+     "p_MPa": 5.0,
+     "rho_kg_m3": 712.559112414,
+     "cv_J_gK": 0.98927468411,
+     "cp_J_gK": 2.13711251598,
+     "eta_uPa_s": 84.5100284442,
+     "k_W_mK": 0.108130015892,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7727379&Type=IsoBar&P=5&TLow=100&THigh=100&TInc=1"
+    },
+    {
+     "T_K": 100.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 3.43663854668,
+     "cv_J_gK": 0.751402936781,
+     "cp_J_gK": 1.0713453783,
+     "eta_uPa_s": 6.95805121699,
+     "k_W_mK": 0.00938057164538,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7727379&Type=IsoBar&P=0.1&TLow=100&THigh=100&TInc=1"
+    },
+    {
+     "T_K": 300.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 1.12327855982,
+     "cv_J_gK": 0.743164285271,
+     "cp_J_gK": 1.04133489697,
+     "eta_uPa_s": 17.8899213073,
+     "k_W_mK": 0.0259682465201,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7727379&Type=IsoBar&P=0.1&TLow=300&THigh=300&TInc=1"
+    },
+    {
+     "T_K": 1000.0,
+     "p_MPa": 1.0,
+     "rho_kg_m3": 3.35761383766,
+     "cv_J_gK": 0.870795883516,
+     "cp_J_gK": 1.16825954176,
+     "eta_uPa_s": 41.5679346235,
+     "k_W_mK": 0.0654519164169,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7727379&Type=IsoBar&P=1&TLow=1000&THigh=1000&TInc=1"
+    },
+    {
+     "T_K": 150.0,
+     "p_MPa": 10.0,
+     "rho_kg_m3": 419.165562038,
+     "cv_J_gK": 0.903099721181,
+     "cp_J_gK": 2.85375065426,
+     "eta_uPa_s": 27.7397797115,
+     "k_W_mK": 0.0477184527682,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7727379&Type=IsoBar&P=10&TLow=150&THigh=150&TInc=1"
+    },
+    {
+     "T_K": 300.0,
+     "p_MPa": 20.0,
+     "rho_kg_m3": 212.537193597,
+     "cv_J_gK": 0.781130328206,
+     "cp_J_gK": 1.30206336905,
+     "eta_uPa_s": 23.1842654945,
+     "k_W_mK": 0.0374827866735,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7727379&Type=IsoBar&P=20&TLow=300&THigh=300&TInc=1"
+    },
+    {
+     "T_K": 128.0,
+     "p_MPa": 3.5,
+     "rho_kg_m3": 200.359298766,
+     "cv_J_gK": 1.15168090017,
+     "cp_J_gK": 9.21201850968,
+     "eta_uPa_s": 13.362996718,
+     "k_W_mK": 0.032459040381,
+     "phase": "supercritical",
+     "near_critical": true,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7727379&Type=IsoBar&P=3.5&TLow=128&THigh=128&TInc=1"
+    },
+    {
+     "T_K": 130.0,
+     "p_MPa": 4.0,
+     "rho_kg_m3": 299.939748025,
+     "cv_J_gK": 1.20652149914,
+     "cp_J_gK": 18.3935624599,
+     "eta_uPa_s": 17.8176696321,
+     "k_W_mK": 0.0469188458159,
+     "phase": "supercritical",
+     "near_critical": true,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7727379&Type=IsoBar&P=4&TLow=130&THigh=130&TInc=1"
+    }
+   ]
+  },
+  "oxygen": {
+   "webbook_id": "C7782447",
+   "rows": [
+    {
+     "T_K": 60.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 1282.12067317,
+     "cv_J_gK": 1.08865357299,
+     "cp_J_gK": 1.67319929088,
+     "eta_uPa_s": 578.534801517,
+     "k_W_mK": 0.193999026484,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7782447&Type=IsoBar&P=0.1&TLow=60&THigh=60&TInc=1"
+    },
+    {
+     "T_K": 90.0,
+     "p_MPa": 1.0,
+     "rho_kg_m3": 1144.09558995,
+     "cv_J_gK": 0.931403305692,
+     "cp_J_gK": 1.69429754036,
+     "eta_uPa_s": 197.432138813,
+     "k_W_mK": 0.151796271949,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7782447&Type=IsoBar&P=1&TLow=90&THigh=90&TInc=1"
+    },
+    {
+     "T_K": 120.0,
+     "p_MPa": 10.0,
+     "rho_kg_m3": 1015.03826103,
+     "cv_J_gK": 0.857050993765,
+     "cp_J_gK": 1.75463183949,
+     "eta_uPa_s": 112.384453944,
+     "k_W_mK": 0.118070773182,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7782447&Type=IsoBar&P=10&TLow=120&THigh=120&TInc=1"
+    },
+    {
+     "T_K": 100.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 3.94112063343,
+     "cv_J_gK": 0.652687848037,
+     "cp_J_gK": 0.935200812749,
+     "eta_uPa_s": 7.71205135576,
+     "k_W_mK": 0.00908518595545,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7782447&Type=IsoBar&P=0.1&TLow=100&THigh=100&TInc=1"
+    },
+    {
+     "T_K": 290.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 1.32808322884,
+     "cv_J_gK": 0.657280772943,
+     "cp_J_gK": 0.918530865928,
+     "eta_uPa_s": 20.0965643769,
+     "k_W_mK": 0.0256958514222,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7782447&Type=IsoBar&P=0.1&TLow=290&THigh=290&TInc=1"
+    },
+    {
+     "T_K": 200.0,
+     "p_MPa": 20.0,
+     "rho_kg_m3": 579.319821868,
+     "cv_J_gK": 0.76361117205,
+     "cp_J_gK": 2.01239732984,
+     "eta_uPa_s": 37.7033632839,
+     "k_W_mK": 0.054568278298,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7782447&Type=IsoBar&P=20&TLow=200&THigh=200&TInc=1"
+    },
+    {
+     "T_K": 290.0,
+     "p_MPa": 15.0,
+     "rho_kg_m3": 213.643856207,
+     "cv_J_gK": 0.691657589083,
+     "cp_J_gK": 1.19355876525,
+     "eta_uPa_s": 24.6285705697,
+     "k_W_mK": 0.0343193933455,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7782447&Type=IsoBar&P=15&TLow=290&THigh=290&TInc=1"
+    },
+    {
+     "T_K": 156.0,
+     "p_MPa": 5.1,
+     "rho_kg_m3": 278.120389811,
+     "cv_J_gK": 1.0356615131,
+     "cp_J_gK": 8.90179379034,
+     "eta_uPa_s": 17.3004674232,
+     "k_W_mK": 0.0358999433453,
+     "phase": "supercritical",
+     "near_critical": true,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7782447&Type=IsoBar&P=5.1&TLow=156&THigh=156&TInc=1"
+    },
+    {
+     "T_K": 160.0,
+     "p_MPa": 6.0,
+     "rho_kg_m3": 389.102138454,
+     "cv_J_gK": 1.04229399366,
+     "cp_J_gK": 12.9939493165,
+     "eta_uPa_s": 22.6583445537,
+     "k_W_mK": 0.0463589652474,
+     "phase": "supercritical",
+     "near_critical": true,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7782447&Type=IsoBar&P=6&TLow=160&THigh=160&TInc=1"
+    }
+   ]
+  },
+  "parahydrogen": {
+   "webbook_id": "B5000001",
+   "rows": [
+    {
+     "T_K": 16.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 75.2091180875,
+     "cv_J_gK": 5.33427838838,
+     "cp_J_gK": 7.64188445735,
+     "eta_uPa_s": 20.1203263416,
+     "k_W_mK": 0.0939735774648,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=0.1&TLow=16&THigh=16&TInc=1"
+    },
+    {
+     "T_K": 20.0,
+     "p_MPa": 1.0,
+     "rho_kg_m3": 72.2921730127,
+     "cv_J_gK": 5.63361306382,
+     "cp_J_gK": 9.18677601107,
+     "eta_uPa_s": 14.7793148015,
+     "k_W_mK": 0.102431613981,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=1&TLow=20&THigh=20&TInc=1"
+    },
+    {
+     "T_K": 25.0,
+     "p_MPa": 1.0,
+     "rho_kg_m3": 65.9893029149,
+     "cv_J_gK": 6.04646595725,
+     "cp_J_gK": 12.5589360671,
+     "eta_uPa_s": 10.0373003039,
+     "k_W_mK": 0.10232179584,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=1&TLow=25&THigh=25&TInc=1"
+    },
+    {
+     "T_K": 25.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 1.02465429012,
+     "cv_J_gK": 6.23304084823,
+     "cp_J_gK": 11.0730077076,
+     "eta_uPa_s": 1.26615348669,
+     "k_W_mK": 0.0203556720268,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=0.1&TLow=25&THigh=25&TInc=1"
+    },
+    {
+     "T_K": 300.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 0.0807710459681,
+     "cv_J_gK": 10.7189668422,
+     "cp_J_gK": 14.8454340648,
+     "eta_uPa_s": 8.93846100352,
+     "k_W_mK": 0.193109655267,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=0.1&TLow=300&THigh=300&TInc=1"
+    },
+    {
+     "T_K": 40.0,
+     "p_MPa": 5.0,
+     "rho_kg_m3": 51.3923696727,
+     "cv_J_gK": 6.57372433121,
+     "cp_J_gK": 18.9465198696,
+     "eta_uPa_s": 6.23875323216,
+     "k_W_mK": 0.093996744265,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=5&TLow=40&THigh=40&TInc=1"
+    },
+    {
+     "T_K": 100.0,
+     "p_MPa": 10.0,
+     "rho_kg_m3": 23.0066852756,
+     "cv_J_gK": 9.54643807599,
+     "cp_J_gK": 15.7603621784,
+     "eta_uPa_s": 5.131638002,
+     "k_W_mK": 0.105071812111,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=10&TLow=100&THigh=100&TInc=1"
+    },
+    {
+     "T_K": 300.0,
+     "p_MPa": 50.0,
+     "rho_kg_m3": 30.6564760409,
+     "cv_J_gK": 11.0925151826,
+     "cp_J_gK": 15.5012836525,
+     "eta_uPa_s": 10.2854975011,
+     "k_W_mK": 0.234868726335,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=50&TLow=300&THigh=300&TInc=1"
+    },
+    {
+     "T_K": 1000.0,
+     "p_MPa": 80.0,
+     "rho_kg_m3": 16.8450409722,
+     "cv_J_gK": 11.0396106971,
+     "cp_J_gK": 15.034612204,
+     "eta_uPa_s": 21.3133063433,
+     "k_W_mK": 0.487973987944,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=80&TLow=1000&THigh=1000&TInc=1"
+    },
+    {
+     "T_K": 33.5,
+     "p_MPa": 1.3,
+     "rho_kg_m3": 19.0303228009,
+     "cv_J_gK": 8.01703828644,
+     "cp_J_gK": 69.8386685424,
+     "eta_uPa_s": 2.30447595165,
+     "k_W_mK": 0.0532740710283,
+     "phase": "supercritical",
+     "near_critical": true,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=1.3&TLow=33.5&THigh=33.5&TInc=1"
+    },
+    {
+     "T_K": 35.0,
+     "p_MPa": 1.5,
+     "rho_kg_m3": 20.5041404746,
+     "cv_J_gK": 7.73359885504,
+     "cp_J_gK": 55.6629359724,
+     "eta_uPa_s": 2.48368409586,
+     "k_W_mK": 0.0539705552118,
+     "phase": "supercritical",
+     "near_critical": true,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=1.5&TLow=35&THigh=35&TInc=1"
+    },
+    {
+     "T_K": 14.5,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 76.4905252626,
+     "cv_J_gK": 5.2183611061,
+     "cp_J_gK": 7.12225616049,
+     "eta_uPa_s": 23.7890987282,
+     "k_W_mK": 0.0896914302342,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=0.1&TLow=14.5&THigh=14.5&TInc=1"
+    },
+    {
+     "T_K": 30.0,
+     "p_MPa": 0.5,
+     "rho_kg_m3": 4.98605627105,
+     "cv_J_gK": 6.53698025998,
+     "cp_J_gK": 14.607542751,
+     "eta_uPa_s": 1.58254676146,
+     "k_W_mK": 0.0278645623849,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=0.5&TLow=30&THigh=30&TInc=1"
+    },
+    {
+     "T_K": 60.0,
+     "p_MPa": 30.0,
+     "rho_kg_m3": 68.8114541753,
+     "cv_J_gK": 7.36606611793,
+     "cp_J_gK": 12.4275327227,
+     "eta_uPa_s": 10.8468197067,
+     "k_W_mK": 0.182399305013,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=30&TLow=60&THigh=60&TInc=1"
+    },
+    {
+     "T_K": 32.5,
+     "p_MPa": 1.3,
+     "rho_kg_m3": 46.1875619098,
+     "cv_J_gK": 6.91998668941,
+     "cp_J_gK": 53.5120336599,
+     "eta_uPa_s": 4.92486763393,
+     "k_W_mK": 0.0832854838807,
+     "phase": "liquid",
+     "near_critical": true,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=1.3&TLow=32.5&THigh=32.5&TInc=1"
+    },
+    {
+     "T_K": 100.0,
+     "p_MPa": 150.0,
+     "rho_kg_m3": 94.4642613197,
+     "cv_J_gK": 11.0169227468,
+     "cp_J_gK": 14.2958366261,
+     "eta_uPa_s": 25.0647463576,
+     "k_W_mK": 1.14869825439,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": false,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=B5000001&Type=IsoBar&P=150&TLow=100&THigh=100&TInc=1"
+    }
+   ]
+  },
+  "normal_hydrogen": {
+   "webbook_id": "C1333740",
+   "rows": [
+    {
+     "T_K": 16.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 75.3400513479,
+     "cv_J_gK": 5.32898904075,
+     "cp_J_gK": 7.70508118145,
+     "eta_uPa_s": 20.3156492094,
+     "k_W_mK": 0.100614556228,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=0.1&TLow=16&THigh=16&TInc=1"
+    },
+    {
+     "T_K": 20.0,
+     "p_MPa": 1.0,
+     "rho_kg_m3": 72.4051513014,
+     "cv_J_gK": 5.64445804485,
+     "cp_J_gK": 9.20299784539,
+     "eta_uPa_s": 14.8786810968,
+     "k_W_mK": 0.105125045112,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=1&TLow=20&THigh=20&TInc=1"
+    },
+    {
+     "T_K": 25.0,
+     "p_MPa": 1.0,
+     "rho_kg_m3": 66.1825941193,
+     "cv_J_gK": 5.95979490757,
+     "cp_J_gK": 12.3449600893,
+     "eta_uPa_s": 10.1279349423,
+     "k_W_mK": 0.104379515647,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=1&TLow=25&THigh=25&TInc=1"
+    },
+    {
+     "T_K": 25.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 1.02489523484,
+     "cv_J_gK": 6.26052689666,
+     "cp_J_gK": 11.1281460641,
+     "eta_uPa_s": 1.2661534391,
+     "k_W_mK": 0.0207425276593,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=0.1&TLow=25&THigh=25&TInc=1"
+    },
+    {
+     "T_K": 300.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 0.0807710253397,
+     "cv_J_gK": 10.1863505592,
+     "cp_J_gK": 14.312764914,
+     "eta_uPa_s": 8.93846100339,
+     "k_W_mK": 0.186697082467,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=0.1&TLow=300&THigh=300&TInc=1"
+    },
+    {
+     "T_K": 40.0,
+     "p_MPa": 5.0,
+     "rho_kg_m3": 51.7226064324,
+     "cv_J_gK": 6.57922161528,
+     "cp_J_gK": 18.9661973937,
+     "eta_uPa_s": 6.29947956799,
+     "k_W_mK": 0.0986757099275,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=5&TLow=40&THigh=40&TInc=1"
+    },
+    {
+     "T_K": 100.0,
+     "p_MPa": 10.0,
+     "rho_kg_m3": 22.9942240166,
+     "cv_J_gK": 7.36139819398,
+     "cp_J_gK": 13.583590009,
+     "eta_uPa_s": 5.13079412335,
+     "k_W_mK": 0.0932650523124,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=10&TLow=100&THigh=100&TInc=1"
+    },
+    {
+     "T_K": 300.0,
+     "p_MPa": 50.0,
+     "rho_kg_m3": 30.6624862767,
+     "cv_J_gK": 10.5684516297,
+     "cp_J_gK": 14.9610579665,
+     "eta_uPa_s": 10.2859930544,
+     "k_W_mK": 0.228507902356,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=50&TLow=300&THigh=300&TInc=1"
+    },
+    {
+     "T_K": 1000.0,
+     "p_MPa": 80.0,
+     "rho_kg_m3": 16.8608035045,
+     "cv_J_gK": 11.0371486391,
+     "cp_J_gK": 15.0274177061,
+     "eta_uPa_s": 21.3146849187,
+     "k_W_mK": 0.481325875421,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=80&TLow=1000&THigh=1000&TInc=1"
+    },
+    {
+     "T_K": 34.0,
+     "p_MPa": 1.35,
+     "rho_kg_m3": 19.5002001899,
+     "cv_J_gK": 7.85960095357,
+     "cp_J_gK": 67.5105391373,
+     "eta_uPa_s": 2.3625925345,
+     "k_W_mK": 0.057691561687,
+     "phase": "supercritical",
+     "near_critical": true,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=1.35&TLow=34&THigh=34&TInc=1"
+    },
+    {
+     "T_K": 35.0,
+     "p_MPa": 1.5,
+     "rho_kg_m3": 21.1779754594,
+     "cv_J_gK": 7.73738419969,
+     "cp_J_gK": 62.5438782176,
+     "eta_uPa_s": 2.52414991899,
+     "k_W_mK": 0.0596383527502,
+     "phase": "supercritical",
+     "near_critical": true,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=1.5&TLow=35&THigh=35&TInc=1"
+    },
+    {
+     "T_K": 14.5,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 76.6355724531,
+     "cv_J_gK": 5.18992020558,
+     "cp_J_gK": 7.15737361924,
+     "eta_uPa_s": 24.0710959042,
+     "k_W_mK": 0.0985143964499,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=0.1&TLow=14.5&THigh=14.5&TInc=1"
+    },
+    {
+     "T_K": 30.0,
+     "p_MPa": 0.5,
+     "rho_kg_m3": 4.99316431506,
+     "cv_J_gK": 6.59371160115,
+     "cp_J_gK": 14.7686633099,
+     "eta_uPa_s": 1.58267727292,
+     "k_W_mK": 0.0292107028029,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=0.5&TLow=30&THigh=30&TInc=1"
+    },
+    {
+     "T_K": 60.0,
+     "p_MPa": 30.0,
+     "rho_kg_m3": 68.8876362141,
+     "cv_J_gK": 7.17272901194,
+     "cp_J_gK": 12.2668836155,
+     "eta_uPa_s": 10.8699530737,
+     "k_W_mK": 0.159280643168,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=30&TLow=60&THigh=60&TInc=1"
+    },
+    {
+     "T_K": 32.5,
+     "p_MPa": 1.3,
+     "rho_kg_m3": 47.6160841983,
+     "cv_J_gK": 6.73118034172,
+     "cp_J_gK": 45.1167561856,
+     "eta_uPa_s": 5.16020038366,
+     "k_W_mK": 0.0894167067717,
+     "phase": "liquid",
+     "near_critical": true,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=1.3&TLow=32.5&THigh=32.5&TInc=1"
+    },
+    {
+     "T_K": 100.0,
+     "p_MPa": 150.0,
+     "rho_kg_m3": 94.4364939667,
+     "cv_J_gK": 8.8793024815,
+     "cp_J_gK": 12.1333535049,
+     "eta_uPa_s": 25.0341363496,
+     "k_W_mK": 0.653312394795,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": false,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C1333740&Type=IsoBar&P=150&TLow=100&THigh=100&TInc=1"
+    }
+   ]
+  },
+  "methane": {
+   "webbook_id": "C74828",
+   "rows": [
+    {
+     "T_K": 100.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 438.935406825,
+     "cv_J_gK": 2.11376789345,
+     "cp_J_gK": 3.40790912053,
+     "eta_uPa_s": 151.12164993,
+     "k_W_mK": 0.199621914658,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C74828&Type=IsoBar&P=0.1&TLow=100&THigh=100&TInc=1"
+    },
+    {
+     "T_K": 150.0,
+     "p_MPa": 5.0,
+     "rho_kg_m3": 366.674253852,
+     "cv_J_gK": 1.92507186747,
+     "cp_J_gK": 3.82152504856,
+     "eta_uPa_s": 60.9329923899,
+     "k_W_mK": 0.136307468756,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C74828&Type=IsoBar&P=5&TLow=150&THigh=150&TInc=1"
+    },
+    {
+     "T_K": 150.0,
+     "p_MPa": 0.5,
+     "rho_kg_m3": 6.97572027861,
+     "cv_J_gK": 1.63015826827,
+     "cp_J_gK": 2.33478502259,
+     "eta_uPa_s": 5.83058348248,
+     "k_W_mK": 0.0165289993705,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C74828&Type=IsoBar&P=0.5&TLow=150&THigh=150&TInc=1"
+    },
+    {
+     "T_K": 300.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 0.644254261298,
+     "cv_J_gK": 1.71284024207,
+     "cp_J_gK": 2.23581066539,
+     "eta_uPa_s": 11.1355185098,
+     "k_W_mK": 0.0342139791176,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C74828&Type=IsoBar&P=0.1&TLow=300&THigh=300&TInc=1"
+    },
+    {
+     "T_K": 300.0,
+     "p_MPa": 20.0,
+     "rho_kg_m3": 155.276545328,
+     "cv_J_gK": 1.85785175457,
+     "cp_J_gK": 3.54784727135,
+     "eta_uPa_s": 19.0680116894,
+     "k_W_mK": 0.0614275339516,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C74828&Type=IsoBar&P=20&TLow=300&THigh=300&TInc=1"
+    },
+    {
+     "T_K": 200.0,
+     "p_MPa": 10.0,
+     "rho_kg_m3": 266.19047052,
+     "cv_J_gK": 1.87803126713,
+     "cp_J_gK": 5.3036384252,
+     "eta_uPa_s": 29.5539641544,
+     "k_W_mK": 0.0839289079326,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C74828&Type=IsoBar&P=10&TLow=200&THigh=200&TInc=1"
+    },
+    {
+     "T_K": 500.0,
+     "p_MPa": 50.0,
+     "rho_kg_m3": 161.434350441,
+     "cv_J_gK": 2.45834089243,
+     "cp_J_gK": 3.35818980405,
+     "eta_uPa_s": 24.9920041436,
+     "k_W_mK": 0.0953784469695,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C74828&Type=IsoBar&P=50&TLow=500&THigh=500&TInc=1"
+    },
+    {
+     "T_K": 192.0,
+     "p_MPa": 4.7,
+     "rho_kg_m3": 114.72976015,
+     "cv_J_gK": 2.46729696909,
+     "cp_J_gK": 30.2085332861,
+     "eta_uPa_s": 11.6635217429,
+     "k_W_mK": 0.0691212781293,
+     "phase": "supercritical",
+     "near_critical": true,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C74828&Type=IsoBar&P=4.7&TLow=192&THigh=192&TInc=1"
+    },
+    {
+     "T_K": 195.0,
+     "p_MPa": 5.2,
+     "rho_kg_m3": 150.651741823,
+     "cv_J_gK": 2.45279399526,
+     "cp_J_gK": 40.8547583059,
+     "eta_uPa_s": 14.8388722432,
+     "k_W_mK": 0.0767204760363,
+     "phase": "supercritical",
+     "near_critical": true,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C74828&Type=IsoBar&P=5.2&TLow=195&THigh=195&TInc=1"
+    },
+    {
+     "T_K": 200.0,
+     "p_MPa": 5.0,
+     "rho_kg_m3": 87.7639975466,
+     "cv_J_gK": 1.99645771458,
+     "cp_J_gK": 7.27258668352,
+     "eta_uPa_s": 10.5177838061,
+     "k_W_mK": 0.0405360330202,
+     "phase": "supercritical",
+     "near_critical": true,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C74828&Type=IsoBar&P=5&TLow=200&THigh=200&TInc=1"
+    },
+    {
+     "T_K": 250.0,
+     "p_MPa": 10.0,
+     "rho_kg_m3": 112.425815785,
+     "cv_J_gK": 1.81986863749,
+     "cp_J_gK": 4.16848101963,
+     "eta_uPa_s": 14.1479460966,
+     "k_W_mK": 0.04658609145,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C74828&Type=IsoBar&P=10&TLow=250&THigh=250&TInc=1"
+    }
+   ]
+  },
+  "helium": {
+   "webbook_id": "C7440597",
+   "rows": [
+    {
+     "T_K": 4.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 129.670029621,
+     "cv_J_gK": 2.32769171086,
+     "cp_J_gK": 4.25357971152,
+     "eta_uPa_s": 3.31720400011,
+     "k_W_mK": 0.0185925569935,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=0.1&TLow=4.0&THigh=4.0&TInc=1"
+    },
+    {
+     "T_K": 4.5,
+     "p_MPa": 1.0,
+     "rho_kg_m3": 147.944088331,
+     "cv_J_gK": 2.27132539355,
+     "cp_J_gK": 3.16561681509,
+     "eta_uPa_s": 4.63377406373,
+     "k_W_mK": 0.0237871830086,
+     "phase": "liquid",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=1.0&TLow=4.5&THigh=4.5&TInc=1"
+    },
+    {
+     "T_K": 3.6,
+     "p_MPa": 0.05,
+     "rho_kg_m3": 8.32790727114,
+     "cv_J_gK": 3.15149627202,
+     "cp_J_gK": 6.87846509163,
+     "eta_uPa_s": 0.994513733227,
+     "k_W_mK": 0.00727674743386,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=0.05&TLow=3.6&THigh=3.6&TInc=1"
+    },
+    {
+     "T_K": 4.5,
+     "p_MPa": 0.05,
+     "rho_kg_m3": 5.99674941411,
+     "cv_J_gK": 3.14041872493,
+     "cp_J_gK": 5.94419786131,
+     "eta_uPa_s": 1.20408203479,
+     "k_W_mK": 0.00892090576192,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=0.05&TLow=4.5&THigh=4.5&TInc=1"
+    },
+    {
+     "T_K": 10.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 4.95287929368,
+     "cv_J_gK": 3.11717163541,
+     "cp_J_gK": 5.4122325882,
+     "eta_uPa_s": 2.25821571442,
+     "k_W_mK": 0.0168889957825,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=0.1&TLow=10&THigh=10&TInc=1"
+    },
+    {
+     "T_K": 300.0,
+     "p_MPa": 0.1,
+     "rho_kg_m3": 0.160391406247,
+     "cv_J_gK": 3.11613995521,
+     "cp_J_gK": 5.1931957938,
+     "eta_uPa_s": 19.9296734323,
+     "k_W_mK": 0.155973297974,
+     "phase": "vapor",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=0.1&TLow=300&THigh=300&TInc=1"
+    },
+    {
+     "T_K": 10.0,
+     "p_MPa": 1.0,
+     "rho_kg_m3": 61.055566768,
+     "cv_J_gK": 3.03269076052,
+     "cp_J_gK": 7.59918664054,
+     "eta_uPa_s": 3.06153655808,
+     "k_W_mK": 0.0228535857357,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=1.0&TLow=10&THigh=10&TInc=1"
+    },
+    {
+     "T_K": 50.0,
+     "p_MPa": 10.0,
+     "rho_kg_m3": 76.2318254055,
+     "cv_J_gK": 3.22803130689,
+     "cp_J_gK": 5.54692171854,
+     "eta_uPa_s": 8.0529474066,
+     "k_W_mK": 0.063855895404,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=10&TLow=50&THigh=50&TInc=1"
+    },
+    {
+     "T_K": 300.0,
+     "p_MPa": 20.0,
+     "rho_kg_m3": 29.3684252152,
+     "cv_J_gK": 3.16268479039,
+     "cp_J_gK": 5.19849447821,
+     "eta_uPa_s": 20.5490344383,
+     "k_W_mK": 0.167612243913,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=20&TLow=300&THigh=300&TInc=1"
+    },
+    {
+     "T_K": 1000.0,
+     "p_MPa": 50.0,
+     "rho_kg_m3": 22.7858023647,
+     "cv_J_gK": 3.14473692151,
+     "cp_J_gK": 5.17079189468,
+     "eta_uPa_s": 46.6443436393,
+     "k_W_mK": 0.372668530104,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=50&TLow=1000&THigh=1000&TInc=1"
+    },
+    {
+     "T_K": 1500.0,
+     "p_MPa": 90.0,
+     "rho_kg_m3": 27.2216239301,
+     "cv_J_gK": 3.14710233727,
+     "cp_J_gK": 5.16315418017,
+     "eta_uPa_s": 62.124120109,
+     "k_W_mK": 0.491041203207,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=90&TLow=1500&THigh=1500&TInc=1"
+    },
+    {
+     "T_K": 5.5,
+     "p_MPa": 0.25,
+     "rho_kg_m3": 42.0086720708,
+     "cv_J_gK": 3.32976688706,
+     "cp_J_gK": 18.7853541354,
+     "eta_uPa_s": 1.86357210975,
+     "k_W_mK": 0.0147313701693,
+     "phase": "supercritical",
+     "near_critical": true,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=0.25&TLow=5.5&THigh=5.5&TInc=1"
+    },
+    {
+     "T_K": 6.0,
+     "p_MPa": 0.3,
+     "rho_kg_m3": 41.7162902072,
+     "cv_J_gK": 3.18904954354,
+     "cp_J_gK": 13.0581474909,
+     "eta_uPa_s": 1.9841520659,
+     "k_W_mK": 0.01505598033,
+     "phase": "supercritical",
+     "near_critical": true,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=0.3&TLow=6&THigh=6&TInc=1"
+    },
+    {
+     "T_K": 150.0,
+     "p_MPa": 50.0,
+     "rho_kg_m3": 109.316949752,
+     "cv_J_gK": 3.32552469696,
+     "cp_J_gK": 5.30730231781,
+     "eta_uPa_s": 16.0148376967,
+     "k_W_mK": 0.13734014296,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=50&TLow=150&THigh=150&TInc=1"
+    },
+    {
+     "T_K": 80.0,
+     "p_MPa": 90.0,
+     "rho_kg_m3": 213.867212365,
+     "cv_J_gK": 3.60625062214,
+     "cp_J_gK": 5.34231096249,
+     "eta_uPa_s": 17.0090087284,
+     "k_W_mK": 0.196354999594,
+     "phase": "supercritical",
+     "near_critical": false,
+     "conductivity_in_range": true,
+     "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=90&TLow=80&THigh=80&TInc=1"
+    }
+   ]
+  }
+ },
+ "primary_check_values": {
+  "lemmon_jacobsen_2004_table_v": {
+   "source": "Lemmon and Jacobsen, Int. J. Thermophys. 25:21-69 (2004), Table V, p. 28 (viscosity column header prints mPa s; the text, Eq. (1), gives uPa s)",
+   "url": "https://trc.nist.gov/refprop/FAQ/NAO.PDF",
+   "columns": [
+    "T_K",
+    "rho_mol_dm3",
+    "eta_uPa_s",
+    "k_mW_mK"
+   ],
+   "nitrogen": [
+    [
+     100.0,
+     0.0,
+     6.90349,
+     9.27749
+    ],
+    [
+     300.0,
+     0.0,
+     17.8771,
+     25.9361
+    ],
+    [
+     100.0,
+     25.0,
+     79.7418,
+     103.834
+    ],
+    [
+     200.0,
+     10.0,
+     21.081,
+     36.0099
+    ],
+    [
+     300.0,
+     5.0,
+     20.743,
+     32.7694
+    ],
+    [
+     126.195,
+     11.18,
+     18.2978,
+     675.8
+    ]
+   ],
+   "oxygen": [
+    [
+     100.0,
+     0.0,
+     7.70243,
+     8.94334
+    ],
+    [
+     300.0,
+     0.0,
+     20.6307,
+     26.4403
+    ],
+    [
+     100.0,
+     35.0,
+     172.136,
+     146.044
+    ],
+    [
+     200.0,
+     10.0,
+     22.4445,
+     34.6124
+    ],
+    [
+     300.0,
+     5.0,
+     23.7577,
+     32.5491
+    ],
+    [
+     154.6,
+     13.6,
+     24.7898,
+     377.476
+    ]
+   ]
+  },
+  "assael_2011_table_7": {
+   "source": "Assael et al., J. Phys. Chem. Ref. Data 40, 033101 (2011), Table 7, p. 11 (rows without critical enhancement only: the 35 K, 30 kg/m3 row needs the background viscosity of REFPROP at the time, which is not printed)",
+   "url": "https://srd.nist.gov/jpcrdreprint/1.3606499.pdf",
+   "columns": [
+    "T_K",
+    "rho_kg_m3",
+    "k_normal_mW_mK",
+    "k_para_mW_mK"
+   ],
+   "rows": [
+    [
+     298.15,
+     0.0,
+     185.67,
+     192.38
+    ],
+    [
+     298.15,
+     0.80844,
+     186.97,
+     192.81
+    ],
+    [
+     298.15,
+     14.4813,
+     201.35,
+     207.85
+    ],
+    [
+     35.0,
+     0.0,
+     26.988,
+     27.222
+    ],
+    [
+     18.0,
+     0.0,
+     13.875,
+     13.643
+    ],
+    [
+     18.0,
+     75.0,
+     104.48,
+     100.52
+    ]
+   ]
+  },
+  "friend_ely_ingham_1989_table_a1": {
+   "source": "Friend, Ely and Ingham, J. Phys. Chem. Ref. Data 18, 583 (1989), Table A1, p. 630 (dilute-gas eta_0 from Eq. (10a), lambda_0 from Eq. (13a))",
+   "url": "https://srd.nist.gov/jpcrdreprint/1.555828.pdf",
+   "columns": [
+    "T_K",
+    "eta0_uPa_s",
+    "k0_mW_mK"
+   ],
+   "rows": [
+    [
+     100.0,
+     3.95,
+     9.83
+    ],
+    [
+     150.0,
+     5.86,
+     15.73
+    ],
+    [
+     200.0,
+     7.73,
+     21.64
+    ],
+    [
+     250.0,
+     9.51,
+     27.71
+    ],
+    [
+     300.0,
+     11.18,
+     34.32
+    ],
+    [
+     350.0,
+     12.75,
+     41.73
+    ],
+    [
+     400.0,
+     14.23,
+     49.96
+    ]
+   ]
+  },
+  "friend_ely_ingham_1989_table_a3": {
+   "source": "Friend, Ely and Ingham, J. Phys. Chem. Ref. Data 18, 583 (1989), Table A3, p. 632 (single-phase region; density from their own equation of state)",
+   "url": "https://srd.nist.gov/jpcrdreprint/1.555828.pdf",
+   "columns": [
+    "T_K",
+    "p_MPa",
+    "rho_mol_dm3",
+    "eta_uPa_s",
+    "k_mW_mK"
+   ],
+   "rows": [
+    [
+     100.0,
+     0.1,
+     27.37,
+     157.48,
+     199.8
+    ],
+    [
+     100.0,
+     50.0,
+     29.18,
+     271.34,
+     241.5
+    ],
+    [
+     120.0,
+     0.1,
+     0.1,
+     4.73,
+     12.4
+    ],
+    [
+     120.0,
+     5.0,
+     25.88,
+     104.33,
+     178.0
+    ],
+    [
+     130.0,
+     0.5,
+     24.58,
+     80.22,
+     158.1
+    ],
+    [
+     140.0,
+     0.5,
+     0.48,
+     5.61,
+     15.7
+    ],
+    [
+     140.0,
+     50.0,
+     26.69,
+     122.21,
+     199.6
+    ]
+   ]
+  },
+  "muzny_2022_erratum_check_values": {
+   "source": "Muzny, Huber and Kazakov, Erratum to J. Chem. Eng. Data 58, 969-979 (2013): check values printed in the erratum (4-5 significant digits) for the hydrogen viscosity correlation, which is implemented from the CoolProp transcription.",
+   "url": "https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=934278",
+   "columns": [
+    "T_K",
+    "rho_kg_m3",
+    "eta_uPa_s"
+   ],
+   "rows": [
+    [
+     40.0,
+     0.0,
+     1.9772
+    ],
+    [
+     40.0,
+     50.0,
+     5.9905
+    ],
+    [
+     40.0,
+     100.0,
+     49.034
+    ]
+   ]
+  }
+ },
+ "skipped_rows": [
+  {
+   "fluid": "helium",
+   "url": "https://webbook.nist.gov/cgi/fluid.cgi?Action=Data&Wide=on&Digits=12&RefState=DEF&TUnit=K&PUnit=MPa&DUnit=kg%2Fm3&HUnit=kJ%2Fkg&WUnit=m%2Fs&VisUnit=uPa%2As&STUnit=N%2Fm&ID=C7440597&Type=IsoBar&P=0.235&TLow=5.3&THigh=5.3&TInc=1",
+   "reason": "WebBook returned 'undefined' for cv, cp, w, JT and k"
+  }
+ ],
+ "conductivity_in_range_note": "False for the hydrogen rows at 150 MPa: inside the Muzny et al. viscosity range (200 MPa) but above the Assael et al. conductivity range (100 MPa); viscosity only.",
+ "coolprop_transcription": {
+  "commit": "c00300e97ad4cdb30032635d7379209d5e45a121",
+  "files": [
+   "https://github.com/CoolProp/CoolProp/blob/c00300e97ad4cdb30032635d7379209d5e45a121/dev/fluids/Hydrogen.json",
+   "https://github.com/CoolProp/CoolProp/blob/c00300e97ad4cdb30032635d7379209d5e45a121/dev/fluids/ParaHydrogen.json",
+   "https://github.com/CoolProp/CoolProp/blob/c00300e97ad4cdb30032635d7379209d5e45a121/src/Backends/Helmholtz/TransportRoutines.cpp"
+  ],
+  "used_for": "Hydrogen viscosity (Muzny et al. 2013; JSON 'viscosity' blocks plus viscosity_hydrogen_higher_order_hardcoded) and helium thermal conductivity (Hands and Arp 1981; conductivity_hardcoded_helium). The primary papers were not opened; correctness rests on these transcriptions as verified against the WebBook rows of this file.",
+  "accessed": "2026-10-25"
+ }
+}

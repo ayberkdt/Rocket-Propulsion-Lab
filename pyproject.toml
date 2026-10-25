@@ -29,6 +29,7 @@ Repository = "https://github.com/ayberkdt/Rocket-Propulsion-Lab"
 Issues = "https://github.com/ayberkdt/Rocket-Propulsion-Lab/issues"
 
 [project.optional-dependencies]
+cea = ["cea==3.3.4"]
 dev = [
     "pytest>=8",
     "ruff==0.17.2",

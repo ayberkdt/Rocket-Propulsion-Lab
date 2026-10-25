@@ -74,10 +74,11 @@ class ReferenceDataTests(unittest.TestCase):
         self.assertEqual(workspace.schema_version, 2)
         self.assertEqual(len(workspace.cases), 2)
 
-    def test_cea_release_fixture_remains_explicitly_external(self) -> None:
+    def test_cea_example_fixture_is_automated_with_its_station(self) -> None:
         document = json.loads(VALIDATION_FILE.read_text(encoding="utf-8"))
         cea_case = next(case for case in document["cases"] if case["id"].startswith("cea-"))
-        self.assertEqual(cea_case["status"], "recorded-external-gate")
+        self.assertEqual(cea_case["status"], "automated")
+        self.assertEqual(cea_case["station"]["area_ratio"], 75.0)
         self.assertGreater(cea_case["expected"]["chamber_temperature_k"], 3000.0)
 
 

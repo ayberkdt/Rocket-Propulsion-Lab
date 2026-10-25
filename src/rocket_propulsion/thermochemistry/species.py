@@ -1,14 +1,20 @@
-"""Temperature-dependent ideal-gas species built from NASA Glenn data.
+"""Temperature-dependent ideal-gas species and condensed reactants from NASA data.
 
-Species records and their polynomial coefficients are loaded from the bundled
-``data/nasa_glenn_2002.json`` file, whose source title and URL are retained
-on every :class:`Species` [1]_.
+The ten combustion species of ``data/nasa_glenn_2002.json`` come from
+NASA/TP-2002-211556 [1]_. Additional gas-phase products and the condensed
+reactants with an assigned enthalpy (liquid oxygen, liquid hydrogen, liquid
+methane, RP-1, NTO, MMH) come from ``data/nasa_cea_thermo.json``, extracted by
+``scripts/sync_nasa_thermo.py`` from NASA's CEA ``thermo.inp`` at a pinned
+commit [2]_. Every record keeps the title and URL of its own source.
 
 References
 ----------
 .. [1] NASA/TP-2002-211556. NASA Glenn, "NASA Glenn Coefficients for
        Calculating Thermodynamic Properties of Individual Species".
        https://ntrs.nasa.gov/citations/20020085330
+.. [2] NASA-CEA-THERMO. NASA Glenn Research Center, CEA thermodynamic database
+       ``data/thermo.inp``, commit 2f79a647e85737742fb08a127da00d1ea1d069da.
+       https://github.com/nasa/cea
 """
 
 from __future__ import annotations
@@ -25,6 +31,7 @@ from rocket_propulsion.core.numerics import solve_bisect_monotonic
 from .nasa_polynomials import UNIVERSAL_GAS_CONSTANT_J_MOL_K, NasaPolynomialInterval
 
 DATA_FILE = Path(__file__).parent / "data" / "nasa_glenn_2002.json"
+CEA_DATA_FILE = Path(__file__).parent / "data" / "nasa_cea_thermo.json"
 
 
 @dataclass(frozen=True, slots=True)
@@ -304,7 +311,7 @@ def _parse_species(record: dict[str, object], source: dict[str, str]) -> Species
 
 @lru_cache(maxsize=1)
 def species_catalog() -> dict[str, Species]:
-    """Load and validate the bundled, source-labelled species catalog once [1]_.
+    """Load and validate the bundled, source-labelled species catalog once [1]_, [2]_.
 
     Returns
     -------
@@ -314,23 +321,27 @@ def species_catalog() -> dict[str, Species]:
     Raises
     ------
     RuntimeError
-        If the data file contains duplicate species keys.
+        If a species key occurs in more than one record.
 
     References
     ----------
     .. [1] NASA/TP-2002-211556. NASA Glenn, "NASA Glenn Coefficients for
            Calculating Thermodynamic Properties of Individual Species".
            https://ntrs.nasa.gov/citations/20020085330
+    .. [2] NASA-CEA-THERMO. NASA Glenn Research Center, CEA thermodynamic
+           database ``data/thermo.inp``. https://github.com/nasa/cea
     """
 
-    document = json.loads(DATA_FILE.read_text(encoding="utf-8"))
-    source = document["source"]
-    result = {
-        record["key"].upper(): _parse_species(record, source)
-        for record in document["species"]
-    }
-    if len(result) != len(document["species"]):
-        raise RuntimeError("Duplicate species keys in thermochemistry data file.")
+    result: dict[str, Species] = {}
+    count = 0
+    for path in (DATA_FILE, CEA_DATA_FILE):
+        document = json.loads(path.read_text(encoding="utf-8"))
+        source = document["source"]
+        for record in document["species"]:
+            result[record["key"].upper()] = _parse_species(record, source)
+        count += len(document["species"])
+    if len(result) != count:
+        raise RuntimeError("Duplicate species keys in thermochemistry data files.")
     return result
 
 
@@ -365,3 +376,106 @@ def get_species(key: str) -> Species:
             details={"supported": sorted(species_catalog())},
         ) from error
 
+
+
+@dataclass(frozen=True, slots=True)
+class CondensedReactant:
+    """A condensed reactant with an assigned enthalpy at one temperature [1]_.
+
+    NASA CEA describes cryogenic and storable liquid propellants by their
+    enthalpy at the storage temperature instead of a polynomial; the reactant
+    enters only the element and energy balance, never the product set [2]_.
+
+    Attributes
+    ----------
+    key, name : str
+        Catalog key (the CEA name, for example ``"O2(L)"``) and description.
+    formula : tuple of (str, float)
+        Element symbols and atom counts; RP-1 is the CEA formula ``CH1.95``.
+    molecular_mass_kg_mol : float
+        Molar mass in kg/mol.
+    enthalpy_j_mol : float
+        Assigned molar enthalpy at ``temperature_k`` on the NASA scale, J/mol.
+    temperature_k : float
+        Temperature at which the enthalpy is assigned, K.
+    source, source_url : str
+        Title and URL of the data source.
+
+    References
+    ----------
+    .. [1] NASA-CEA-THERMO. NASA Glenn Research Center, CEA thermodynamic
+           database ``data/thermo.inp``. https://github.com/nasa/cea
+    .. [2] NASA RP-1311, "Computer Program for Calculation of Complex Chemical
+           Equilibrium Compositions and Applications, Part II: Users Manual and
+           Program Description". https://ntrs.nasa.gov/citations/19960044559
+    """
+
+    key: str
+    name: str
+    formula: tuple[tuple[str, float], ...]
+    molecular_mass_kg_mol: float
+    enthalpy_j_mol: float
+    temperature_k: float
+    source: str
+    source_url: str
+
+
+@lru_cache(maxsize=1)
+def condensed_reactant_catalog() -> dict[str, CondensedReactant]:
+    """Load the bundled assigned-enthalpy reactants once [1]_.
+
+    Returns
+    -------
+    dict of str to CondensedReactant
+        Reactants keyed by upper-case CEA name; the result is cached.
+
+    References
+    ----------
+    .. [1] NASA-CEA-THERMO. NASA Glenn Research Center, CEA thermodynamic
+           database ``data/thermo.inp``. https://github.com/nasa/cea
+    """
+
+    document = json.loads(CEA_DATA_FILE.read_text(encoding="utf-8"))
+    source = document["source"]
+    return {
+        record["key"].upper(): CondensedReactant(
+            key=str(record["key"]),
+            name=str(record["name"]),
+            formula=tuple((str(key), float(value)) for key, value in record["formula"].items()),
+            molecular_mass_kg_mol=float(record["molecular_mass_g_mol"]) / 1000.0,
+            enthalpy_j_mol=float(record["assigned_enthalpy_j_mol"]),
+            temperature_k=float(record["assigned_temperature_k"]),
+            source=str(source["title"]),
+            source_url=str(source["url"]),
+        )
+        for record in document["reactants"]
+    }
+
+
+def get_reactant(key: str) -> Species | CondensedReactant:
+    """Return a gas species or a condensed reactant by case-insensitive key.
+
+    Parameters
+    ----------
+    key : str
+        Species key (``"O2"``) or condensed reactant key (``"O2(L)"``).
+
+    Returns
+    -------
+    Species or CondensedReactant
+        The condensed reactant with that key, otherwise the gas species; the
+        two key sets are disjoint because condensed keys carry a phase or a
+        mixture name.
+
+    Raises
+    ------
+    InputError
+        If the key is neither a species nor a condensed reactant
+        (code ``unknown_species``).
+    """
+
+    normalized = key.strip().upper()
+    reactant = condensed_reactant_catalog().get(normalized)
+    if reactant is not None:
+        return reactant
+    return get_species(key)

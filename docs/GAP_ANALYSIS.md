@@ -13,8 +13,9 @@ and what would require a higher-fidelity model.
 | Fanno and Rayleigh lines | Implemented | Constant area and constant gamma |
 | Choked C-D nozzle | Implemented | Inviscid, frozen-property design point |
 | Nozzle station solution | Implemented | Quasi-one-dimensional, no internal shock |
+| Off-design with chemistry | Implemented | Perfect gas calibrated to the equilibrium design point; exact mass flow and design exit pressure |
 | Shock trains / nozzle separation | Partial | Internal normal shock and Summerfield screen; no shock train or viscous separation field |
-| Boundary layer / heat transfer | Partial | Bartz and lumped boundary-layer loss; no conjugate heat transfer or CFD |
+| Boundary layer / heat transfer | Implemented (1-D) | Coupled gas/wall/coolant regenerative solve (Bartz at the local wall temperature, fin lands, Taylor or Gnielinski coolant side, real-fluid coolant, optional WSGG gas radiation); transient multilayer conduction; convection and radiation libraries (see the heat-transfer section); no axial or circumferential wall conduction, no two-phase coolant, no CFD |
 | Method of characteristics | Implemented | Planar compatibility with first-order axisymmetric area mapping |
 
 ## Thermodynamics
@@ -25,11 +26,16 @@ and what would require a higher-fidelity model.
 | Static/stagnation connection | Implemented | Adiabatic and reversible |
 | Component efficiency process | Implemented | Lumped compressor/turbine/nozzle efficiency |
 | Polytropic P-v path and first law | Implemented | Quasistatic closed system |
-| Variable heat capacity | Implemented | NASA Glenn subset, 200–6000 K, no extrapolation |
-| Frozen ideal-gas mixtures | Implemented | Ten H/C/N/O combustion species, ideal mixing |
-| Combustion equilibrium | Partial | Local experimental Gibbs solver and external CEA adapter; nine-point CEA gate remains |
-| Dissociation / finite-rate chemistry | Open | Required at rocket chamber temperatures |
+| Variable heat capacity | Implemented | 36 NASA species (TP-2002-211556 plus pinned CEA `thermo.inp`), no extrapolation |
+| Frozen ideal-gas mixtures | Implemented | 36 H/C/N/O species, ideal mixing |
+| Combustion equilibrium | Implemented | Local Gibbs solver with condensed liquid reactants, gated against NASA CEA 3.3.4 (nine points plus 0.5–25 MPa); optional NASA CEA provider; gas-phase products only |
+| Rocket performance (IAC) | Implemented | Shifting or frozen expansion, maximum-mass-flux throat; matches CEA within 2e-5 |
+| Condensed-phase products (Al₂O₃, carbon) | Implemented | Graphite, ice/water and liquid/α-alumina in TP/HP equilibrium and IAC rocket expansion, within 9e-6 of CEA 3.3.4; no particle velocity or thermal lag, no FAC with condensed phases |
+| Dissociation / finite-rate chemistry | Implemented | Dissociation energy, radicals and recombination heat per station; finite-area combustor; quasi-1-D finite-rate nozzle with the GRI-Mech 3.0 H₂–O₂ subset and Bray freezing (LOX/LH₂ only; rate set not validated at rocket conditions) |
 | Two-phase flow | Partial | Condensed-fraction coupling band only; no particle-resolved flow |
+| Real-fluid propellant properties | Implemented | Reference Helmholtz EOS for H2 (para/normal), O2, N2, CH4, He within 11 ppm of NIST; PR/SRK cubic fallback; no melting line or mixtures |
+| Transport properties | Implemented | NASA CEA trans.inp fits and mixture rules (CEA 3.3.4 reproduced); Sutherland and Chapman–Enskog fallbacks |
+| Equilibrium derivatives | Implemented | Frozen/equilibrium cp, cv, γs, sound speed per RP-1311 Part I; matches CEA to ~1e-8 |
 
 ## Geometry and visualization
 
@@ -42,11 +48,51 @@ and what would require a higher-fidelity model.
 | Rao optimum / MOC contour | Implemented | Rao/TOP approximation plus MOC mesh and refinement evidence |
 | CAD/mesh export | Implemented | CSV/SVG/DXF/STL; preliminary engineering exchange only |
 
+## External aerodynamics
+
+| Capability | Status | Current boundary |
+|---|---|---|
+| Thermally perfect gas flow | Implemented | Isentropic, normal and oblique shocks with vibrational excitation; no dissociation |
+| Cone flow | Implemented | Taylor–Maccoll, zero incidence, matches NASA SP-3004 |
+| Supersonic airfoils | Implemented | Shock-expansion, Ackeret and Busemann; attached shocks |
+| Compressibility corrections | Implemented | Prandtl–Glauert, Kármán–Tsien, Laitone, critical Mach |
+| Hypersonic inviscid | Implemented | Newtonian, modified Newtonian, strong-shock limits |
+| Subsonic airfoils and wings | Implemented | Thin airfoil, lifting panel method, lifting line; inviscid (≈14 % above measured section lift) |
+| Boundary layers and heating | Implemented | Blasius, reference temperature, Van Driest II, Couette, Tauber and Sutton–Graves; no transition prediction, no Fay–Riddell, no radiative heating |
+| Atmospheric entry | Implemented | Allen–Eggers and planar point-mass integration below 86 km |
+| Launch-vehicle aerodynamics | Implemented | Barrowman, Allen–Perkins crossflow, fin–body interference, SP-8035 loads, SLS-style database and uncertainty structure; vehicle coefficients from CFD/wind tunnel are user data |
+| CFD-level flow fields | Open | Out of scope; supply CFD or wind-tunnel databases to `aero_database` |
+
+## Propellant data and propulsion system
+
+| Capability | Status | Current boundary |
+|---|---|---|
+| Propellant catalogue | Implemented | Seven families; four linked to computable pairs, three state why they are not computed (condensed products, HTPB and paraffin absent from NASA data) |
+| Turbopump | Implemented | Affinity laws, specific/suction speed, NPSH margin and a homologous head–flow map; coefficients are caller data |
+| Distributed water hammer | Implemented | Single-pipe MOC with friction, Joukowsky check; no column separation or fluid–structure interaction |
+| Line priming | Open | Sources read give only qualitative priming guidance |
+| Regulator hysteresis | Implemented | Quasi-static force balance with Coulomb-friction band and lockup |
+| Ullage stratification | Implemented | Layered ullage with natural-convection wall/interface heat transfer; no condensation |
+| Calibration fields | Implemented | Hot-fire calibrations interpolated over the operating-condition surface with a conservative uncertainty envelope |
+| Transient HTTP/UI surfaces | Implemented | Ten routes and five browser modules |
+
+## Heat transfer and combustion
+
+| Capability | Status | Current boundary |
+|---|---|---|
+| Conduction | Implemented | 1-D steady and transient (finite-volume θ-method) multilayer walls with k(T), contact resistance, generation, convective and radiative boundaries; fins with exact Bessel functions; no 2-D ribs or axial conduction |
+| Convection | Implemented | Internal, entry, rough, liquid-metal, external and natural convection; Taylor and Hess–Kunz hydrogen, RTE coolant form with curvature; boiling, peak flux and film condensation; Hatch–Papell film cooling; no transpiration cooling, no propellant burnout correlation |
+| Radiation | Implemented | Planck, band fractions, closed-form view factors, gray enclosures, radiation-cooled extensions; H₂O–CO₂ WSGG (Bordbar 2020) and soot WSGG (Sadeghi 2021) by superposition, fitted at 1 atm; no alumina particle radiation, no spectral line-by-line model |
+| Regenerative cooling | Implemented (quasi-1-D) | Coupled station march verified against its components and conservation; not validated against hot-fire data |
+| Combustion products and dissociation | Implemented | Composition to 1e-14, radicals, dissociation energy and recombination heat, within 2.5e-4 of CEA down to 1e-10 mole fraction |
+| Finite-area combustor | Implemented | RP-1311 FAC within 1.3e-4 of CEA; gas phase only |
+| Combustion efficiency | Implemented | Measured efficiencies, vaporisation-limited c*, Rupe mixing and JANNAF ERE bookkeeping, SP-8089 mixing, L*; no Priem–Heidmann vaporisation length (NASA TR R-67 not found) |
+| Finite-rate kinetics | Implemented (H₂–O₂) | GRI-Mech 3.0 subset with RODAS; LOX/LH₂ only; chamber-start mode does not resolve fast throat chemistry; no published ODK/TDK case compared |
+| Combustion instability | Open | No acoustic or response-function model |
+
 ## Highest-value next steps
 
-1. Add temperature-dependent species and mixture properties.
-2. Integrate a NASA CEA-compatible equilibrium adapter.
-3. Add back-pressure nozzle regimes, internal shocks, and separation warnings.
-4. Replace the bell approximation with an MOC/Rao contour option.
-5. Add study comparison, export, and uncertainty propagation.
-
+1. Hot-fire wall-temperature or heat-flux data to validate the regenerative solver.
+2. Sourced HTPB and paraffin thermochemistry to compute the hybrid families.
+3. Line priming once a primary model source is available.
+4. Clean-machine (not only clean-environment) package smoke test for the 1.0 tag.

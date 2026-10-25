@@ -81,6 +81,10 @@ ICONS = [
     "i-work-energy", "i-entropy", "i-mixture-ratio", "i-propellant-tank",
     "i-nozzle-expansion", "i-nozzle-throat", "i-regenerative-cooling", "i-delta-v-burn",
     "i-thrust-curve", "i-rocket-stages",
+    "i-specific-impulse", "i-pressure-fed", "i-feed-system", "i-hall-thruster",
+    "i-hot-fire-test", "i-satellite-bus", "i-launch-trajectory",
+    "i-molecule", "i-force-vector", "i-angle-theta", "i-heat-flow", "i-reentry", "i-max-q",
+    "i-combustion-chamber",
 ]
 SERIES_TOKENS = ("data1", "data2", "data3", "data4", "data5", "data6")
 

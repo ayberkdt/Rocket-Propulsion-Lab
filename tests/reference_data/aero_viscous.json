@@ -1,0 +1,153 @@
+{
+  "description": "Reference values for rocket_propulsion.aerodynamics boundary_layer, couette, aerothermal and entry. Every value was read from the cited page in this work package; 'pdf_page' is the page index of the cited PDF file, 'printed_page' the page number printed on it.",
+  "sources": {
+    "ANDERSON-FOA-2017": "J. D. Anderson, Fundamentals of Aerodynamics, 6th ed., McGraw-Hill, 2017, ISBN 978-1-259-12991-9 (printed page = PDF page - 23 in the user's copy)",
+    "SUTTON-GRAVES-1971-TRR376": "https://ntrs.nasa.gov/citations/19720003329",
+    "TAUBER-1989-TP2914": "https://ntrs.nasa.gov/citations/19890017745",
+    "HOPKINS-1972-TND6945": "https://ntrs.nasa.gov/citations/19730001588",
+    "ALLEN-EGGERS-NACA-R1381": "https://ntrs.nasa.gov/citations/19930091020",
+    "USSA-1976": "https://ntrs.nasa.gov/citations/19770009539"
+  },
+  "blasius": {
+    "source": "ANDERSON-FOA-2017",
+    "locator": "Sec. 18.2, f''(0) = 0.332 and Eqs. (18.20), (18.23), (18.26), (18.28); printed pp. 1018-1020 (PDF 1041-1043)",
+    "expected": {
+      "wall_curvature": 0.332,
+      "eta_99": 5.0,
+      "displacement_coefficient": 1.72,
+      "momentum_coefficient": 0.664
+    },
+    "relative_tolerance": {
+      "wall_curvature": 0.0005,
+      "eta_99": 0.02,
+      "displacement_coefficient": 0.001,
+      "momentum_coefficient": 0.001
+    },
+    "note": "The book rounds values read from a figure/table; eta_99 = 5.0 is stated as 'approximately'. The computed value is 4.910."
+  },
+  "anderson_flat_plate_examples": [
+    {
+      "id": "example_18_1a_laminar_incompressible",
+      "locator": "Example 18.1(a), printed p. 1031 (PDF 1054)",
+      "inputs": {"density": 1.22, "velocity": 100.0, "chord": 2.0, "viscosity": 1.7894e-5, "area": 40.0},
+      "expected": {"reynolds": 1.36e7, "average_skin_friction": 3.60e-4, "total_drag_n": 175.6},
+      "relative_tolerance": 0.005
+    },
+    {
+      "id": "example_18_2_eckert_reference_temperature",
+      "locator": "Example 18.2, printed pp. 1034-1036 (PDF 1057-1059)",
+      "inputs": {"edge_temperature_k": 288.0, "edge_pressure_pa": 1.01e5, "edge_velocity_m_s": 1000.0, "x_m": 2.0, "gas_constant_j_kg_k": 287.0, "gamma": 1.4, "prandtl": 0.71, "regime": "laminar", "method": "eckert", "area": 40.0, "mu0": 1.7894e-5, "t0": 288.0},
+      "expected": {"total_drag_n": 4976.0, "reference_temperature_k": 612.7},
+      "relative_tolerance": 0.005,
+      "note": "The book reads T0/Te = 2.74 from Appendix A for Me = 2.94; the formula gives 2.728, so T* differs by 0.3 percent."
+    },
+    {
+      "id": "example_18_3_meador_smart_laminar",
+      "locator": "Example 18.3, printed pp. 1036-1037 (PDF 1059-1060)",
+      "inputs": {"edge_temperature_k": 288.0, "edge_pressure_pa": 1.01e5, "edge_velocity_m_s": 1000.0, "x_m": 2.0, "gas_constant_j_kg_k": 287.0, "gamma": 1.4, "prandtl": 0.71, "regime": "laminar", "method": "meador_smart", "area": 40.0, "mu0": 1.7894e-5, "t0": 288.0},
+      "expected": {"total_drag_n": 5008.0, "reference_temperature_k": 587.5},
+      "relative_tolerance": 0.005,
+      "note": "The book's Re* line prints rho* = 0.500 (typo for 0.599); its final drag uses 0.599."
+    },
+    {
+      "id": "example_19_1a_turbulent_incompressible",
+      "locator": "Example 19.1(a), printed p. 1054 (PDF 1077)",
+      "inputs": {"density": 1.22, "velocity": 100.0, "reynolds": 1.36e7, "area": 40.0},
+      "expected": {"average_skin_friction": 2.77e-3, "total_drag_n": 1352.0},
+      "relative_tolerance": 0.005
+    },
+    {
+      "id": "example_19_2_eckert_turbulent",
+      "locator": "Example 19.2, printed p. 1055 (PDF 1078)",
+      "inputs": {"edge_temperature_k": 288.0, "edge_pressure_pa": 1.01e5, "edge_velocity_m_s": 1000.0, "x_m": 2.0, "gas_constant_j_kg_k": 287.0, "gamma": 1.4, "prandtl": 0.71, "regime": "turbulent", "method": "eckert", "recovery_factor": 0.8426149773176359, "area": 40.0, "mu0": 1.7894e-5, "t0": 288.0},
+      "expected": {"total_drag_n": 51890.0},
+      "relative_tolerance": 0.005,
+      "note": "The example deliberately reuses the laminar recovery factor sqrt(0.71)."
+    },
+    {
+      "id": "example_19_3_meador_smart_turbulent",
+      "locator": "Example 19.3, printed pp. 1056-1057 (PDF 1079-1080)",
+      "inputs": {"edge_temperature_k": 288.0, "edge_pressure_pa": 1.01e5, "edge_velocity_m_s": 1000.0, "x_m": 2.0, "gas_constant_j_kg_k": 287.0, "gamma": 1.4, "prandtl": 0.71, "regime": "turbulent", "method": "meador_smart", "area": 40.0, "mu0": 1.7894e-5, "t0": 288.0},
+      "expected": {"total_drag_n": 56140.0},
+      "relative_tolerance": 0.01,
+      "note": "The book prints mu* = 2.05e-5 but uses 2.95e-5 in Re*; result rounded through Re* = 4.1e7."
+    }
+  ],
+  "anderson_couette_examples": [
+    {
+      "id": "example_16_1_incompressible",
+      "locator": "Example 16.1, printed pp. 979-980 (PDF 1002-1003)",
+      "inputs_english": {"ue_ft_s": 200.0, "gap_in": 0.01, "mu_slug_ft_s": 3.7373e-7, "temperature_R": 519.0, "prandtl": 0.71, "cp_ft_lb_slug_R": 6006.0},
+      "expected_english": {"u_mid_ft_s": 100.0, "shear_lb_ft2": 0.09, "max_temperature_R": 519.6, "wall_heat_flux_ft_lb_ft2_s": 8.97, "adiabatic_wall_temperature_R": 521.36},
+      "relative_tolerance": {"u_mid_ft_s": 1e-9, "shear_lb_ft2": 0.005, "max_temperature_R": 0.0002, "wall_heat_flux_ft_lb_ft2_s": 0.002, "adiabatic_wall_temperature_R": 0.0001},
+      "conversion_factors": {"ft_m": 0.3048, "in_m": 0.0254, "lbf_n": 4.4482216152605, "slug_kg": 14.59390293720636, "R_K": 0.5555555555555556}
+    },
+    {
+      "id": "example_16_2_compressible_reynolds_analogy",
+      "locator": "Example 16.2, printed pp. 994-995 (PDF 1017-1018)",
+      "inputs": {"mach": 3.0, "temperature_k": 288.0, "gas_constant_j_kg_k": 287.0, "gamma": 1.4, "prandtl": 0.71, "pressure_pa": 1.01e5, "gap_m": 0.000254, "given_shear_pa": 72.0},
+      "expected": {"upper_velocity_m_s": 1020.0, "wall_heat_flux_w_m2": 3.68e4, "adiabatic_wall_temperature_k": 656.0},
+      "relative_tolerance": 0.005,
+      "note": "The book states tau_w = 72 N/m^2 as given (from White's solution). Our Sutherland-law quadrature gives tau_w = 83.1 N/m^2 for the same gap; heat flux is checked through q_w/tau_w = u_e/2 (Eq. (16.95) with equal wall temperatures), which is independent of the viscosity law."
+    }
+  ],
+  "stagnation_heating": [
+    {
+      "id": "anderson_example_14_2_tauber",
+      "source": "ANDERSON-FOA-2017",
+      "locator": "Example 14.2, printed pp. 907-908 (PDF 930-931); equation = Tauber TP-2914 Eq. (40)",
+      "inputs": {"freestream_density_kg_m3": 1.075e-4, "velocity_m_s": 6610.0, "nose_radius_m": 1.29, "wall_temperature_k": 1110.0, "cp_j_kg_k": 1004.5},
+      "expected": {"heat_flux_w_cm2": 45.78, "flight_measurement_w_cm2_zoby": 45.0},
+      "relative_tolerance": 0.001
+    }
+  ],
+  "sutton_graves": {
+    "source": "SUTTON-GRAVES-1971-TRR376",
+    "locator": "Eq. (42) printed p. 15 (PDF 17); Table I printed p. 38 (PDF 40); Table II printed p. 39 (PDF 41)",
+    "cases": [
+      {"gas": "air (0.2320 O2-0.7680 N2)", "mass_fractions": {"O2": 0.232, "N2": 0.768}, "table_ii_K": 0.1113, "table_ii_average_error_percent": 3.3, "table_ii_max_error_percent": 9.8},
+      {"gas": "CO2", "mass_fractions": {"CO2": 1.0}, "table_ii_K": 0.1210, "table_ii_average_error_percent": 3.4, "table_ii_max_error_percent": 8.4},
+      {"gas": "N2", "mass_fractions": {"N2": 1.0}, "table_ii_K": 0.1112, "table_ii_average_error_percent": 3.6, "table_ii_max_error_percent": 10.0}
+    ],
+    "eq42_vs_table_ii_relative_tolerance": 0.04
+  },
+  "van_driest_ii_hopkins_table_2": {
+    "source": "HOPKINS-1972-TND6945",
+    "locator": "Table 2 'Effects of changes in viscosity and temperature recovery-factor on Cf', printed p. 5 (PDF 10)",
+    "interpretation": "Wall temperature held fixed at Tw = (Tw/Taw) Taw(r = 0.88) when the recovery factor is changed to 1.0; this reproduces the table to <= 1.6 percent, whereas re-deriving Tw from r = 1.0 does not.",
+    "columns": ["r088_keyes_over_r1_keyes_Re1e5", "r088_keyes_over_r1_keyes_Re1e9", "r088_keyes_over_r1_power076_Re1e5", "r088_keyes_over_r1_power076_Re1e9"],
+    "rows": [
+      {"mach": 5, "tw_taw": 0.2, "te_k": 55.6, "ratios": [1.039, 1.046, 1.044, 1.049]},
+      {"mach": 5, "tw_taw": 1.0, "te_k": 55.6, "ratios": [1.020, 1.019, 1.089, 1.054]},
+      {"mach": 5, "tw_taw": 0.2, "te_k": 222.0, "ratios": [1.040, 1.046, 1.040, 1.046]},
+      {"mach": 5, "tw_taw": 1.0, "te_k": 222.0, "ratios": [1.021, 1.027, 0.994, 1.013]},
+      {"mach": 10, "tw_taw": 0.2, "te_k": 55.6, "ratios": [1.051, 1.066, 1.117, 1.100]},
+      {"mach": 10, "tw_taw": 1.0, "te_k": 55.6, "ratios": [1.026, 1.032, 1.078, 1.057]},
+      {"mach": 10, "tw_taw": 0.2, "te_k": 222.0, "ratios": [1.053, 1.067, 1.044, 1.061]},
+      {"mach": 10, "tw_taw": 1.0, "te_k": 222.0, "ratios": [1.028, 1.033, 0.934, 0.984]}
+    ],
+    "relative_tolerance": 0.02
+  },
+  "allen_eggers": {
+    "source": "ALLEN-EGGERS-NACA-R1381",
+    "locator": "Eqs. (16), (39), (48), printed pp. 4, 6, 7 (PDF 6, 8, 9); example atmosphere Eq. (7), printed p. 2 (PDF 4)",
+    "expected_velocity_ratios": {"peak_deceleration": 0.61, "peak_average_heating": 0.72, "peak_stagnation_heating": 0.85},
+    "absolute_tolerance": 0.005,
+    "example_atmosphere_english": {"rho0_slug_ft3": 0.0034, "beta_1_per_ft": 4.545454545454545e-05, "entry_altitude_miles": 40.0, "sphere_diameter_ft": 1.0, "drag_coefficient": 1.0, "entry_speed_ft_s": 30000.0}
+  },
+  "ussa1976_density": {
+    "source": "USSA-1976",
+    "locator": "Table I, geometric altitude, metric units: Z = 0 on PDF p. 68, 38 km on PDF p. 80, 60-85.5 km on PDF p. 82",
+    "points": [
+      {"z_m": 0.0, "density_kg_m3": 1.2250, "geopotential_m": 0.0},
+      {"z_m": 38000.0, "density_kg_m3": 5.3666e-3, "geopotential_m": 37774.0},
+      {"z_m": 60000.0, "density_kg_m3": 3.0968e-4, "geopotential_m": 59439.0},
+      {"z_m": 70000.0, "density_kg_m3": 8.2829e-5, "geopotential_m": 69238.0},
+      {"z_m": 80000.0, "density_kg_m3": 1.8458e-5, "geopotential_m": 79006.0},
+      {"z_m": 85500.0, "density_kg_m3": 7.5641e-6, "geopotential_m": 84365.0}
+    ],
+    "relative_tolerance": 5e-5,
+    "geopotential_absolute_tolerance_m": 1.0,
+    "note": "Z = 0 row read on PDF p. 68 (rho = 1.2250 kg/m^3, T = 288.150 K)."
+  }
+}

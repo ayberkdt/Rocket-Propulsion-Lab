@@ -1,0 +1,1139 @@
+{
+ "_about": "Reference values for tests/test_heat_conduction.py. Every value names its source and locator. AHTT-V6 = J. H. Lienhard IV and J. H. Lienhard V, A Heat Transfer Textbook, 6th ed., version 6.00 (19 April 2024), https://ahtt.mit.edu/wp-content/uploads/2024/04/AHTTv600.pdf (printed page = PDF page - 14). YOVANOVICH-1988 = M. M. Yovanovich, J. R. Culham, T. F. Lemczyk, J. Thermophysics 2(2):152-157, 1988, https://uwaterloo.ca/microelectronics-heat-transfer-laboratory/sites/default/files/2024-03/mhtl88-1.pdf. DLMF = NIST Digital Library of Mathematical Functions, https://dlmf.nist.gov. Values were read from the sources in the session that created this file (2026-10-25). Table 5.2 and 5.3 rows were extracted from the PDF text layer and spot-checked against the rendered page. Example values are printed to the digits shown; chart read-offs carry an explicit read tolerance. Examples 1.5-1.6 convert with T(K) = T(degC) + 273 as printed.",
+ "one_term_coefficients": {
+  "source": "AHTT-V6 Table 5.2, One-term coefficients for transient conduction with surface convection, printed p. 219 (PDF p. 233)",
+  "columns": "bi (null = infinity), then [lambda_1, A_1, D_1] for slab, cylinder, sphere",
+  "digits": "lambda_1 to 5 decimals, A_1 and D_1 to 4 decimals",
+  "lambda_tolerance": 6e-06,
+  "coefficient_tolerance": 6e-05,
+  "rows": [
+   {
+    "bi": 0.01,
+    "slab": [
+     0.09983,
+     1.0017,
+     1.0
+    ],
+    "cylinder": [
+     0.14124,
+     1.0025,
+     1.0
+    ],
+    "sphere": [
+     0.17303,
+     1.003,
+     1.0
+    ]
+   },
+   {
+    "bi": 0.02,
+    "slab": [
+     0.14095,
+     1.0033,
+     1.0
+    ],
+    "cylinder": [
+     0.1995,
+     1.005,
+     1.0
+    ],
+    "sphere": [
+     0.24446,
+     1.006,
+     1.0
+    ]
+   },
+   {
+    "bi": 0.03,
+    "slab": [
+     0.17234,
+     1.0049,
+     1.0
+    ],
+    "cylinder": [
+     0.24403,
+     1.0075,
+     1.0
+    ],
+    "sphere": [
+     0.2991,
+     1.009,
+     1.0
+    ]
+   },
+   {
+    "bi": 0.04,
+    "slab": [
+     0.19868,
+     1.0066,
+     1.0
+    ],
+    "cylinder": [
+     0.28143,
+     1.0099,
+     1.0
+    ],
+    "sphere": [
+     0.34503,
+     1.012,
+     1.0
+    ]
+   },
+   {
+    "bi": 0.05,
+    "slab": [
+     0.22176,
+     1.0082,
+     0.9999
+    ],
+    "cylinder": [
+     0.31426,
+     1.0124,
+     0.9999
+    ],
+    "sphere": [
+     0.38537,
+     1.015,
+     1.0
+    ]
+   },
+   {
+    "bi": 0.06,
+    "slab": [
+     0.24253,
+     1.0098,
+     0.9999
+    ],
+    "cylinder": [
+     0.34383,
+     1.0148,
+     0.9999
+    ],
+    "sphere": [
+     0.42173,
+     1.0179,
+     0.9999
+    ]
+   },
+   {
+    "bi": 0.07,
+    "slab": [
+     0.26153,
+     1.0114,
+     0.9999
+    ],
+    "cylinder": [
+     0.37092,
+     1.0173,
+     0.9999
+    ],
+    "sphere": [
+     0.45506,
+     1.0209,
+     0.9999
+    ]
+   },
+   {
+    "bi": 0.08,
+    "slab": [
+     0.27913,
+     1.013,
+     0.9999
+    ],
+    "cylinder": [
+     0.39603,
+     1.0197,
+     0.9999
+    ],
+    "sphere": [
+     0.486,
+     1.0239,
+     0.9999
+    ]
+   },
+   {
+    "bi": 0.09,
+    "slab": [
+     0.29557,
+     1.0145,
+     0.9998
+    ],
+    "cylinder": [
+     0.41954,
+     1.0222,
+     0.9998
+    ],
+    "sphere": [
+     0.51497,
+     1.0268,
+     0.9999
+    ]
+   },
+   {
+    "bi": 0.1,
+    "slab": [
+     0.31105,
+     1.0161,
+     0.9998
+    ],
+    "cylinder": [
+     0.44168,
+     1.0246,
+     0.9998
+    ],
+    "sphere": [
+     0.54228,
+     1.0298,
+     0.9998
+    ]
+   },
+   {
+    "bi": 0.15,
+    "slab": [
+     0.37788,
+     1.0237,
+     0.9995
+    ],
+    "cylinder": [
+     0.53761,
+     1.0365,
+     0.9995
+    ],
+    "sphere": [
+     0.66086,
+     1.0445,
+     0.9996
+    ]
+   },
+   {
+    "bi": 0.2,
+    "slab": [
+     0.43284,
+     1.0311,
+     0.9992
+    ],
+    "cylinder": [
+     0.61697,
+     1.0483,
+     0.9992
+    ],
+    "sphere": [
+     0.75931,
+     1.0592,
+     0.9993
+    ]
+   },
+   {
+    "bi": 0.25,
+    "slab": [
+     0.48009,
+     1.0382,
+     0.9988
+    ],
+    "cylinder": [
+     0.68559,
+     1.0598,
+     0.9988
+    ],
+    "sphere": [
+     0.84473,
+     1.0737,
+     0.999
+    ]
+   },
+   {
+    "bi": 0.3,
+    "slab": [
+     0.52179,
+     1.045,
+     0.9983
+    ],
+    "cylinder": [
+     0.74646,
+     1.0712,
+     0.9983
+    ],
+    "sphere": [
+     0.92079,
+     1.088,
+     0.9985
+    ]
+   },
+   {
+    "bi": 0.4,
+    "slab": [
+     0.59324,
+     1.058,
+     0.9971
+    ],
+    "cylinder": [
+     0.85158,
+     1.0931,
+     0.997
+    ],
+    "sphere": [
+     1.05279,
+     1.1164,
+     0.9974
+    ]
+   },
+   {
+    "bi": 0.5,
+    "slab": [
+     0.65327,
+     1.0701,
+     0.9956
+    ],
+    "cylinder": [
+     0.94077,
+     1.1143,
+     0.9954
+    ],
+    "sphere": [
+     1.16556,
+     1.1441,
+     0.996
+    ]
+   },
+   {
+    "bi": 0.6,
+    "slab": [
+     0.70507,
+     1.0814,
+     0.994
+    ],
+    "cylinder": [
+     1.01844,
+     1.1345,
+     0.9936
+    ],
+    "sphere": [
+     1.2644,
+     1.1713,
+     0.9944
+    ]
+   },
+   {
+    "bi": 0.7,
+    "slab": [
+     0.75056,
+     1.0918,
+     0.9922
+    ],
+    "cylinder": [
+     1.08725,
+     1.1539,
+     0.9916
+    ],
+    "sphere": [
+     1.35252,
+     1.1978,
+     0.9925
+    ]
+   },
+   {
+    "bi": 0.8,
+    "slab": [
+     0.79103,
+     1.1016,
+     0.9903
+    ],
+    "cylinder": [
+     1.14897,
+     1.1724,
+     0.9893
+    ],
+    "sphere": [
+     1.43203,
+     1.2236,
+     0.9904
+    ]
+   },
+   {
+    "bi": 0.9,
+    "slab": [
+     0.8274,
+     1.1107,
+     0.9882
+    ],
+    "cylinder": [
+     1.20484,
+     1.1902,
+     0.9869
+    ],
+    "sphere": [
+     1.50442,
+     1.2488,
+     0.988
+    ]
+   },
+   {
+    "bi": 1.0,
+    "slab": [
+     0.86033,
+     1.1191,
+     0.9861
+    ],
+    "cylinder": [
+     1.25578,
+     1.2071,
+     0.9843
+    ],
+    "sphere": [
+     1.5708,
+     1.2732,
+     0.9855
+    ]
+   },
+   {
+    "bi": 1.1,
+    "slab": [
+     0.89035,
+     1.127,
+     0.9839
+    ],
+    "cylinder": [
+     1.30251,
+     1.2232,
+     0.9815
+    ],
+    "sphere": [
+     1.63199,
+     1.297,
+     0.9828
+    ]
+   },
+   {
+    "bi": 1.2,
+    "slab": [
+     0.91785,
+     1.1344,
+     0.9817
+    ],
+    "cylinder": [
+     1.34558,
+     1.2387,
+     0.9787
+    ],
+    "sphere": [
+     1.68868,
+     1.3201,
+     0.98
+    ]
+   },
+   {
+    "bi": 1.3,
+    "slab": [
+     0.94316,
+     1.1412,
+     0.9794
+    ],
+    "cylinder": [
+     1.38543,
+     1.2533,
+     0.9757
+    ],
+    "sphere": [
+     1.7414,
+     1.3424,
+     0.977
+    ]
+   },
+   {
+    "bi": 1.4,
+    "slab": [
+     0.96655,
+     1.1477,
+     0.9771
+    ],
+    "cylinder": [
+     1.42246,
+     1.2673,
+     0.9727
+    ],
+    "sphere": [
+     1.79058,
+     1.364,
+     0.9739
+    ]
+   },
+   {
+    "bi": 1.5,
+    "slab": [
+     0.98824,
+     1.1537,
+     0.9748
+    ],
+    "cylinder": [
+     1.45695,
+     1.2807,
+     0.9696
+    ],
+    "sphere": [
+     1.8366,
+     1.385,
+     0.9707
+    ]
+   },
+   {
+    "bi": 1.6,
+    "slab": [
+     1.00842,
+     1.1593,
+     0.9726
+    ],
+    "cylinder": [
+     1.48917,
+     1.2934,
+     0.9665
+    ],
+    "sphere": [
+     1.87976,
+     1.4052,
+     0.9674
+    ]
+   },
+   {
+    "bi": 1.8,
+    "slab": [
+     1.04486,
+     1.1695,
+     0.968
+    ],
+    "cylinder": [
+     1.54769,
+     1.317,
+     0.9601
+    ],
+    "sphere": [
+     1.95857,
+     1.4436,
+     0.9605
+    ]
+   },
+   {
+    "bi": 2.0,
+    "slab": [
+     1.07687,
+     1.1785,
+     0.9635
+    ],
+    "cylinder": [
+     1.59945,
+     1.3384,
+     0.9537
+    ],
+    "sphere": [
+     2.02876,
+     1.4793,
+     0.9534
+    ]
+   },
+   {
+    "bi": 2.2,
+    "slab": [
+     1.10524,
+     1.1864,
+     0.9592
+    ],
+    "cylinder": [
+     1.64557,
+     1.3578,
+     0.9472
+    ],
+    "sphere": [
+     2.09166,
+     1.5125,
+     0.9462
+    ]
+   },
+   {
+    "bi": 2.4,
+    "slab": [
+     1.13056,
+     1.1934,
+     0.9549
+    ],
+    "cylinder": [
+     1.68691,
+     1.3754,
+     0.9408
+    ],
+    "sphere": [
+     2.14834,
+     1.5433,
+     0.9389
+    ]
+   },
+   {
+    "bi": 3.0,
+    "slab": [
+     1.19246,
+     1.2102,
+     0.9431
+    ],
+    "cylinder": [
+     1.78866,
+     1.4191,
+     0.9224
+    ],
+    "sphere": [
+     2.28893,
+     1.6227,
+     0.9171
+    ]
+   },
+   {
+    "bi": 4.0,
+    "slab": [
+     1.26459,
+     1.2287,
+     0.9264
+    ],
+    "cylinder": [
+     1.90808,
+     1.4698,
+     0.895
+    ],
+    "sphere": [
+     2.45564,
+     1.7202,
+     0.883
+    ]
+   },
+   {
+    "bi": 5.0,
+    "slab": [
+     1.31384,
+     1.2402,
+     0.913
+    ],
+    "cylinder": [
+     1.98981,
+     1.5029,
+     0.8721
+    ],
+    "sphere": [
+     2.57043,
+     1.787,
+     0.8533
+    ]
+   },
+   {
+    "bi": 6.0,
+    "slab": [
+     1.34955,
+     1.2479,
+     0.9021
+    ],
+    "cylinder": [
+     2.04901,
+     1.5253,
+     0.8532
+    ],
+    "sphere": [
+     2.65366,
+     1.8338,
+     0.8281
+    ]
+   },
+   {
+    "bi": 8.0,
+    "slab": [
+     1.39782,
+     1.257,
+     0.8858
+    ],
+    "cylinder": [
+     2.12864,
+     1.5526,
+     0.8244
+    ],
+    "sphere": [
+     2.76536,
+     1.892,
+     0.7889
+    ]
+   },
+   {
+    "bi": 10.0,
+    "slab": [
+     1.42887,
+     1.262,
+     0.8743
+    ],
+    "cylinder": [
+     2.1795,
+     1.5677,
+     0.8039
+    ],
+    "sphere": [
+     2.8363,
+     1.9249,
+     0.7607
+    ]
+   },
+   {
+    "bi": 20.0,
+    "slab": [
+     1.49613,
+     1.2699,
+     0.8464
+    ],
+    "cylinder": [
+     2.28805,
+     1.5919,
+     0.7542
+    ],
+    "sphere": [
+     2.98572,
+     1.9781,
+     0.6922
+    ]
+   },
+   {
+    "bi": 50.0,
+    "slab": [
+     1.54001,
+     1.2727,
+     0.826
+    ],
+    "cylinder": [
+     2.35724,
+     1.6002,
+     0.7183
+    ],
+    "sphere": [
+     3.07884,
+     1.9962,
+     0.6434
+    ]
+   },
+   {
+    "bi": 100.0,
+    "slab": [
+     1.55525,
+     1.2731,
+     0.8185
+    ],
+    "cylinder": [
+     2.3809,
+     1.6015,
+     0.7052
+    ],
+    "sphere": [
+     3.11019,
+     1.999,
+     0.6259
+    ]
+   },
+   {
+    "bi": null,
+    "slab": [
+     1.5708,
+     1.2732,
+     0.8106
+    ],
+    "cylinder": [
+     2.40483,
+     1.602,
+     0.6917
+    ],
+    "sphere": [
+     3.14159,
+     2.0,
+     0.6079
+    ]
+   }
+  ]
+ },
+ "error_function": {
+  "source": "AHTT-V6 Table 5.3, printed p. 224 (PDF p. 238)",
+  "columns": "[zeta/2, erf(zeta/2), erfc(zeta/2)]",
+  "tolerance": 1.1e-05,
+  "rows": [
+   [
+    0.0,
+    0.0,
+    1.0
+   ],
+   [
+    1.1,
+    0.88021,
+    0.1198
+   ],
+   [
+    0.05,
+    0.05637,
+    0.94363
+   ],
+   [
+    1.2,
+    0.91031,
+    0.08969
+   ],
+   [
+    0.1,
+    0.11246,
+    0.88754
+   ],
+   [
+    1.3,
+    0.93401,
+    0.06599
+   ],
+   [
+    0.15,
+    0.168,
+    0.832
+   ],
+   [
+    1.4,
+    0.95229,
+    0.04771
+   ],
+   [
+    0.2,
+    0.2227,
+    0.7773
+   ],
+   [
+    1.5,
+    0.96611,
+    0.03389
+   ],
+   [
+    0.3,
+    0.32863,
+    0.67137
+   ],
+   [
+    1.6,
+    0.97635,
+    0.02365
+   ],
+   [
+    0.4,
+    0.42839,
+    0.57161
+   ],
+   [
+    1.7,
+    0.98379,
+    0.01621
+   ],
+   [
+    0.5,
+    0.5205,
+    0.4795
+   ],
+   [
+    1.8,
+    0.98909,
+    0.01091
+   ],
+   [
+    0.6,
+    0.60386,
+    0.39614
+   ],
+   [
+    1.8214,
+    0.99,
+    0.01
+   ],
+   [
+    0.7,
+    0.6778,
+    0.3222
+   ],
+   [
+    1.9,
+    0.99279,
+    0.00721
+   ],
+   [
+    0.8,
+    0.7421,
+    0.2579
+   ],
+   [
+    2.0,
+    0.99532,
+    0.00468
+   ],
+   [
+    0.9,
+    0.79691,
+    0.20309
+   ],
+   [
+    2.5,
+    0.99959,
+    0.00041
+   ],
+   [
+    1.0,
+    0.8427,
+    0.1573
+   ],
+   [
+    3.0,
+    0.99998,
+    2e-05
+   ]
+  ]
+ },
+ "slab_first_kind_series": {
+  "source": "AHTT-V6 eqn. (5.33) and the bracketed values printed beneath it, printed p. 206 (PDF p. 220)",
+  "note": "Theta(centre, Fo) = (4/pi)[t1 - t3 + t5 - ...] with t_n = (1/n) exp(-(n pi/2)^2 Fo); printed under the braces: t1 = 0.085, 0.781, 0.976; t3 ~ 1e-10, 0.036, 0.267; t5 ~ 1e-27, 0.0004, 0.108 at Fo = 1, 0.1, 0.01 (the printed t3 and t5 include the 1/n factor: exp(-(3 pi/2)^2 0.1) = 0.109 and 0.109/3 = 0.036)",
+  "fourier_numbers": [
+   1.0,
+   0.1,
+   0.01
+  ],
+  "t1": [
+   0.085,
+   0.781,
+   0.976
+  ],
+  "t3": [
+   null,
+   0.036,
+   0.267
+  ],
+  "t5": [
+   null,
+   0.0004,
+   0.108
+  ],
+  "tolerance": 0.0006
+ },
+ "lumped": {
+  "example_1_4": {
+   "source": "AHTT-V6 Example 1.4, printed pp. 24-26",
+   "diameter_m": 0.001,
+   "h_w_m2_k": 250.0,
+   "k_w_m_k": 45.0,
+   "density_kg_m3": 9300.0,
+   "specific_heat_j_kg_k": 180.0,
+   "initial_c": 20.0,
+   "gas_c": 200.0,
+   "time_constant_s": 1.116,
+   "biot_with_radius": 0.00278,
+   "tolerance_s": 0.0005
+  },
+  "example_2_8": {
+   "source": "AHTT-V6 Example 2.8, printed pp. 74-75",
+   "diameter_m": 0.0036,
+   "length_m": 0.01,
+   "area_m2": 0.000133,
+   "h_eff_w_m2_k": 20.17,
+   "k_w_m_k": 10.0,
+   "density_kg_m3": 2000.0,
+   "specific_heat_j_kg_k": 700.0,
+   "time_constant_s": 53.1,
+   "biot_with_radius": 0.0036,
+   "tolerance_s": 0.05
+  }
+ },
+ "steady": {
+  "example_1_5": {
+   "source": "AHTT-V6 Example 1.5, printed pp. 32-33",
+   "h_w_m2_k": 75.0,
+   "air_c": 20.0,
+   "wall_c": 100.0,
+   "emissivity": 1.0,
+   "thermocouple_c": 28.4,
+   "kelvin_offset_used_in_book": 273.0,
+   "tolerance_c": 0.05
+  },
+  "example_1_6": {
+   "source": "AHTT-V6 Example 1.6, printed p. 33",
+   "h_w_m2_k": 75.0,
+   "air_c": 20.0,
+   "wall_c": 100.0,
+   "emissivity": 0.4,
+   "thermocouple_c": 23.5,
+   "kelvin_offset_used_in_book": 273.0,
+   "tolerance_c": 0.05
+  },
+  "example_2_6": {
+   "source": "AHTT-V6 Example 2.6 and Fig. 2.14, printed pp. 69-71",
+   "outer_diameter_m": 0.005,
+   "k_insulation_w_m_k": 0.074,
+   "h_w_m2_k": 20.0,
+   "critical_radius_m": 0.0037,
+   "critical_ratio": 1.48,
+   "break_even_ratio": 2.32,
+   "break_even_radius_m": 0.0058,
+   "ratio_tolerance": 0.006
+  },
+  "example_2_7": {
+   "source": "AHTT-V6 Example 2.7, printed pp. 72-74",
+   "power_w": 0.1,
+   "area_m2": 0.000133,
+   "h_w_m2_k": 13.0,
+   "emissivity": 0.9,
+   "air_c": 35.0,
+   "h_rad_at_316_k": 6.44,
+   "h_rad_at_327_k": 7.17,
+   "resistor_c": 72.3,
+   "note": "the book linearizes radiation (eqn. 2.29) and iterates once; the exact quartic balance is expected within 0.3 K. The printed h_rad = 7.17 at Tm = 327 K is not reproduced by eqn. (2.31): 4 sigma (327)^3 (0.9) = 7.14, a 0.45 percent difference (the book does not state more digits of Tm)",
+   "h_rad_327_discrepancy_tolerance": 0.035,
+   "tolerance_c": 0.3
+  },
+  "example_2_9": {
+   "source": "AHTT-V6 Example 2.9, printed p. 77",
+   "k_w_m_k": 18.0,
+   "contact_conductance_w_m2_k": 3000.0,
+   "thickness_m": 0.03,
+   "contact_share_printed": 0.1,
+   "note": "printed: if L = 3 cm the error (contact share of the total resistance) is about 10 percent"
+  },
+  "example_2_10": {
+   "source": "AHTT-V6 Example 2.10, printed pp. 79-80",
+   "h_gas_w_m2_k": 200.0,
+   "thickness_m": 0.001,
+   "k_aluminium_w_m_k": 160.0,
+   "h_boiling_w_m2_k": 5000.0,
+   "overall_u_w_m2_k": 192.1,
+   "tolerance": 0.05
+  },
+  "problem_2_15": {
+   "source": "AHTT-V6 Problem 2.15 (printed answer), printed p. 89",
+   "diameter_m": 0.03,
+   "sphere_c": 80.0,
+   "far_c": 10.0,
+   "k_w_m_k": 1.28,
+   "heat_rate_w": 16.9,
+   "tolerance_w": 0.05
+  },
+  "problem_2_20": {
+   "source": "AHTT-V6 Problem 2.20 (printed answer), printed p. 90",
+   "generation_w_m3": 800.0,
+   "diameter_m": 0.1,
+   "k_w_m_k": 10.0,
+   "fluid_c": 20.0,
+   "h_w_m2_k": 10.0,
+   "centre_c": 21.37,
+   "tolerance_c": 0.005
+  },
+  "example_2_1": {
+   "source": "AHTT-V6 Example 2.1, eqn. (2.15), printed pp. 58-60",
+   "note": "(T - Tw)/(q L^2/k) = (x/L - (x/L)^2)/2; wall flux q L/2 on each side"
+  }
+ },
+ "semi_infinite": {
+  "example_5_4": {
+   "source": "AHTT-V6 Example 5.4, eqn. (5.51), printed pp. 224-225",
+   "half_thickness_m": 0.003,
+   "diffusivity_m2_s": 1.5e-05,
+   "time_s": 0.045,
+   "tolerance_s": 0.0005
+  },
+  "example_5_5": {
+   "source": "AHTT-V6 Example 5.5, printed pp. 226-228",
+   "theta_surface": 0.963,
+   "h_w_m2_k": 100.0,
+   "k_w_m_k": 0.63,
+   "diffusivity_m2_s": 1.35e-07,
+   "beta_squared_per_s": 0.0034,
+   "time_s": 0.33,
+   "small_beta_estimate": 0.03279,
+   "tolerance_s": 0.01
+  },
+  "example_5_7": {
+   "source": "AHTT-V6 Example 5.7, eqn. (5.62), printed pp. 234-235",
+   "diffusivity_m2_s": 1.39e-07,
+   "xi_first_minimum": 2.356,
+   "depth_m": 2.783,
+   "tolerance_m": 0.001
+  },
+  "penetration": {
+   "source": "AHTT-V6 eqn. (5.51), printed p. 224",
+   "erf_argument_for_0_99": 1.8214,
+   "delta_99_coefficient": 3.64
+  }
+ },
+ "series_examples": {
+  "example_5_2": {
+   "source": "AHTT-V6 Example 5.2, printed pp. 214-215 (Fig. 5.9 and 5.10 read-offs)",
+   "diameter_m": 0.1,
+   "k_w_m_k": 0.603,
+   "density_kg_m3": 997.6,
+   "specific_heat_j_kg_k": 4180.0,
+   "h_w_m2_k": 6.0,
+   "time_s": 3600.0,
+   "fourier": 0.208,
+   "biot": 0.498,
+   "theta_centre_chart": 0.84,
+   "chart_read_tolerance": 0.03,
+   "theta_target": 0.2,
+   "fourier_to_target_chart": 1.3,
+   "fourier_read_tolerance": 0.1,
+   "phi_chart": 0.82,
+   "phi_read_tolerance": 0.03
+  }
+ },
+ "fins": {
+  "example_4_8": {
+   "source": "AHTT-V6 Example 4.8, printed p. 172",
+   "diameter_m": 0.02,
+   "length_m": 0.08,
+   "k_w_m_k": 205.0,
+   "h_w_m2_k": 120.0,
+   "wall_c": 150.0,
+   "air_c": 26.0,
+   "mL": 0.8656,
+   "bi_axial": 0.0468,
+   "theta_tip_convective": 0.6886,
+   "theta_tip_adiabatic": 0.715,
+   "tip_c_convective": 111.4,
+   "tip_c_adiabatic": 114.7,
+   "note": "the printed 0.6886 is 1/(1.3986 + 0.0529) = 0.6889 to four digits; the test allows 5e-4"
+  },
+  "example_4_9": {
+   "source": "AHTT-V6 Example 4.9, printed pp. 175-176",
+   "diameter_m": 0.00062,
+   "k_w_m_k": 16.0,
+   "h_eff_w_m2_k": 23.0,
+   "fin_resistance_k_w": 2150.0,
+   "area_m2": 0.000133,
+   "h_rad_w_m2_k": 7.17,
+   "h_conv_w_m2_k": 13.0,
+   "equivalent_resistance_k_w": 276.8,
+   "power_w": 0.1,
+   "air_c": 35.0,
+   "resistor_c": 62.68
+  },
+  "example_4_10": {
+   "source": "AHTT-V6 Example 4.10 (Fig. 4.13a read-off), printed p. 180",
+   "tube_diameter_m": 0.03,
+   "fin_diameter_m": 0.08,
+   "thickness_m": 0.0008,
+   "spacing_m": 0.02,
+   "k_w_m_k": 125.0,
+   "h_fin_w_m2_k": 15.0,
+   "h_tube_w_m2_k": 20.0,
+   "water_c": 85.0,
+   "air_c": 22.0,
+   "chart_parameter": 0.306,
+   "efficiency_chart": 0.89,
+   "chart_read_tolerance": 0.03,
+   "heat_rate_bare_w_m": 119.0,
+   "heat_rate_finned_w_m": 478.0,
+   "finned_tolerance_w_m": 12.0
+  },
+  "yovanovich_limits": {
+   "source": "YOVANOVICH-1988 eqns. (33) (insulated end) and (39)-(41) (efficiency definition), printed pp. 154-155",
+   "note": "large-radius limit must recover the straight-fin tanh(mL)/mL of AHTT eqn. (4.53)"
+  }
+ },
+ "bessel": {
+  "source": "DLMF 10.28.2 (Wronskian I_nu K_{nu+1} + I_{nu+1} K_nu = 1/z), 10.29.3 (I_0' = I_1, K_0' = -K_1), 10.6.3 (J_0' = -J_1); AHTT-V6 Table 5.2 Bi = infinity row (first zero of J_0 = 2.40483, A_1 = 2/(lambda J_1(lambda)) = 1.6020)",
+  "first_zero_j0": 2.40483,
+  "cylinder_a1_infinite_biot": 1.602,
+  "note": "A&S tables were not used: the public PDF obtained (personal.math.ubc.ca/~cbm/aands/abramowitz_and_stegun.pdf) omits the numerical tables of Ch. 9, so values are checked through exact DLMF identities, two independent DLMF representations, and Table 5.2."
+ }
+}

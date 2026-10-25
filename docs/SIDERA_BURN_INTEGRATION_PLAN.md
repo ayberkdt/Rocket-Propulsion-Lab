@@ -83,8 +83,10 @@ Still open before the broader B1 evidence target is complete: expanded
 reference fixtures/property grids. The B2 analytic and exchange foundation is
 implemented in Rocket Propulsion Lab; its API/CLI/UI product surfaces and the
 future Sidera-side consumer remain intentionally open. The preliminary
-pressure-fed blowdown provider has started B3; coupled regulator/feed-line and
-thermal-pressurant dynamics remain open.
+pressure-fed blowdown provider has started B3; the regulated six-state feed,
+dynamic feed line, regulator hysteresis, layered ullage and distributed water
+hammer have since been implemented (see ROADMAP Milestone 8); priming remains
+open.
 
 ### 1.1 Product modes
 

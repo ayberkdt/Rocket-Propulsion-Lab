@@ -57,9 +57,61 @@ from .rocket_equilibrium import (
     get_propellant_pair,
     reactants_for_mass_ratio,
 )
-from .species import Species, SpeciesProperties, get_species, species_catalog
+from .cea_library import CeaLibraryInfo, cea_library_info, solve_cea_rocket
+from .equilibrium_derivatives import EquilibriumDerivatives, equilibrium_derivatives
+from .transport import (
+    MixtureTransportProperties,
+    equilibrium_transport_properties,
+    mixture_transport_properties,
+    species_transport_catalog,
+)
+from .rocket_performance import (
+    RocketExit,
+    RocketPerformance,
+    RocketStation,
+    solve_rocket_performance,
+)
+from .species import (
+    CondensedReactant,
+    Species,
+    SpeciesProperties,
+    condensed_reactant_catalog,
+    get_reactant,
+    get_species,
+    species_catalog,
+)
+
+# Higher-level submodules import the names above, so they load last.
+from . import (  # noqa: E402
+    combustion_efficiency,
+    condensed_equilibrium,
+    finite_area_combustor,
+    kinetics,
+    nozzle_kinetics,
+)
 
 __all__ = [
+    "nozzle_kinetics",
+    "kinetics",
+    "finite_area_combustor",
+    "condensed_equilibrium",
+    "combustion_efficiency",
+    "species_transport_catalog",
+    "mixture_transport_properties",
+    "equilibrium_transport_properties",
+    "MixtureTransportProperties",
+    "equilibrium_derivatives",
+    "EquilibriumDerivatives",
+    "solve_rocket_performance",
+    "solve_cea_rocket",
+    "get_reactant",
+    "condensed_reactant_catalog",
+    "cea_library_info",
+    "RocketStation",
+    "RocketPerformance",
+    "RocketExit",
+    "CondensedReactant",
+    "CeaLibraryInfo",
     "CEA_MANUAL_URL",
     "PROPELLANT_PAIRS",
     "UNIVERSAL_GAS_CONSTANT_J_MOL_K",

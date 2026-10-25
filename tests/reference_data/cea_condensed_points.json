@@ -1,0 +1,725 @@
+{
+ "schema_version": 1,
+ "generated": "2026-10-25",
+ "generator": "scripts/generate_cea_condensed_points.py",
+ "reference": {
+  "program": "NASA CEA (cea Python package)",
+  "version": "3.3.4",
+  "url": "https://pypi.org/project/cea/",
+  "repository": "https://github.com/nasa/cea",
+  "thermo_lib_sha256": "8e5df1cca92d4a48663d1ee5a1372e6508c59cddc2247ceeca32f041a03ec52a",
+  "product_set": "products_from_reactants=True (full CEA database for the reactant elements)",
+  "units_note": "CEA enthalpy and entropy are converted from kJ/kg and kJ/(kg K)"
+ },
+ "local_data": {
+  "thermo_inp_sha256": "fa7746572952d74e249e818a82a35c113829742fb421a308e167185528884363",
+  "nasa_cea_condensed_json_sha256": "587503fa1b30f0462a43f5f73421ad9114eda4a6cce5a5a1bae5bf78095002c2"
+ },
+ "conditions": {
+  "combustor": "infinite area (IAC)",
+  "expansion": "shifting equilibrium, zero velocity and thermal lag",
+  "standard_gravity_m_s2": 9.80665,
+  "gas_mole_fraction_floor": 0.0001
+ },
+ "rocket_points": [
+  {
+   "id": "lox-ch4-of-0.8",
+   "reactants": [
+    "CH4(L)",
+    "O2(L)"
+   ],
+   "mass_fractions": [
+    26.68958871213072,
+    21.35167128786927
+   ],
+   "oxidizer_fuel_ratio": 0.8,
+   "reactant_temperature_k": [
+    111.643,
+    90.17
+   ],
+   "chamber_pressure_pa": 6894759.999999999,
+   "characteristic_velocity_m_s": 1324.4041479235175,
+   "stations": [
+    {
+     "name": "chamber",
+     "area_ratio": null,
+     "temperature_k": 1211.1595337916144,
+     "pressure_pa": 6894760.1318359375,
+     "molecular_mass_g_mol": 14.110064935987017,
+     "mixture_molecular_mass_g_mol": 13.252740793715825,
+     "condensed_mass_fractions": {
+      "C(gr)": 0.055065382052767696
+     },
+     "condensed_mass_fraction": 0.055065382052767696,
+     "gas_mole_fractions": {
+      "CH4": 0.18825155095557247,
+      "CO": 0.1738494954318268,
+      "CO2": 0.03590652257363067,
+      "H2": 0.418663856333571,
+      "H2O": 0.12247700245758615
+     }
+    },
+    {
+     "name": "throat",
+     "area_ratio": 1.0,
+     "temperature_k": 1144.4276282887674,
+     "pressure_pa": 3969884.1081533544,
+     "molecular_mass_g_mol": 14.30725426938566,
+     "mixture_molecular_mass_g_mol": 13.119107314799676,
+     "condensed_mass_fractions": {
+      "C(gr)": 0.07602875675001562
+     },
+     "condensed_mass_fraction": 0.07602875675001562,
+     "gas_mole_fractions": {
+      "CH4": 0.18137911577248644,
+      "CO": 0.14864318530957826,
+      "CO2": 0.04114716639504723,
+      "H2": 0.4122395435200899,
+      "H2O": 0.13349256591483416
+     }
+    },
+    {
+     "name": "exit",
+     "area_ratio": 10.000000029362852,
+     "temperature_k": 817.87982115431,
+     "pressure_pa": 103984.34121348348,
+     "molecular_mass_g_mol": 15.7271548680555,
+     "mixture_molecular_mass_g_mol": 12.789546623703671,
+     "condensed_mass_fractions": {
+      "C(gr)": 0.17541102361444105
+     },
+     "condensed_mass_fraction": 0.17541102361444105,
+     "gas_mole_fractions": {
+      "CH4": 0.16435526120059987,
+      "CO": 0.029481519373526527,
+      "CO2": 0.06227965358030391,
+      "H2": 0.3558582018274608,
+      "H2O": 0.20123763874027742
+     },
+     "vacuum_specific_impulse_s": 241.11053276460282
+    },
+    {
+     "name": "exit",
+     "area_ratio": 40.000000432451635,
+     "temperature_k": 702.4297011188564,
+     "pressure_pa": 18748.3038541657,
+     "molecular_mass_g_mol": 16.512246913081405,
+     "mixture_molecular_mass_g_mol": 13.118021245136758,
+     "condensed_mass_fractions": {
+      "C(gr)": 0.1882064598534726
+     },
+     "condensed_mass_fraction": 0.1882064598534726,
+     "gas_mole_fractions": {
+      "CH4": 0.18142097285945163,
+      "CO": 0.00829266147400674,
+      "CO2": 0.0590086154798282,
+      "H2": 0.3076259339817217,
+      "H2O": 0.23809325268982295
+     },
+     "vacuum_specific_impulse_s": 265.06341037683666
+    }
+   ]
+  },
+  {
+   "id": "lox-ch4-of-1.2",
+   "reactants": [
+    "CH4(L)",
+    "O2(L)"
+   ],
+   "mass_fractions": [
+    21.836935890333525,
+    26.204324109666477
+   ],
+   "oxidizer_fuel_ratio": 1.2,
+   "reactant_temperature_k": [
+    111.643,
+    90.17
+   ],
+   "chamber_pressure_pa": 6894759.999999999,
+   "characteristic_velocity_m_s": 1434.1199673320955,
+   "stations": [
+    {
+     "name": "chamber",
+     "area_ratio": null,
+     "temperature_k": 1358.1239913732734,
+     "pressure_pa": 6894760.1318359375,
+     "molecular_mass_g_mol": 13.092304489505798,
+     "mixture_molecular_mass_g_mol": 13.092304489505798,
+     "condensed_mass_fractions": {},
+     "condensed_mass_fraction": 0,
+     "gas_mole_fractions": {
+      "CH4": 0.056391451143071786,
+      "CO": 0.2862831048642055,
+      "CO2": 0.02822951305725229,
+      "H2": 0.5254714232158874,
+      "H2O": 0.10359482019967721
+     }
+    },
+    {
+     "name": "throat",
+     "area_ratio": 1.0,
+     "temperature_k": 1263.6992297785096,
+     "pressure_pa": 3909326.8144685277,
+     "molecular_mass_g_mol": 13.368973692109217,
+     "mixture_molecular_mass_g_mol": 13.368973692109217,
+     "condensed_mass_fractions": {},
+     "condensed_mass_fraction": 0,
+     "gas_mole_fractions": {
+      "CH4": 0.06815973530094137,
+      "CO": 0.27450016717964076,
+      "CO2": 0.03609669509126691,
+      "H2": 0.5121428986342316,
+      "H2O": 0.10907923205246807
+     }
+    },
+    {
+     "name": "exit",
+     "area_ratio": 40.00000036987896,
+     "temperature_k": 783.7604606895073,
+     "pressure_pa": 18809.849443717067,
+     "molecular_mass_g_mol": 15.758368618881676,
+     "mixture_molecular_mass_g_mol": 13.479986157691071,
+     "condensed_mass_fractions": {
+      "C(gr)": 0.128823245528593
+     },
+     "condensed_mass_fraction": 0.128823245528593,
+     "gas_mole_fractions": {
+      "CH4": 0.07291045748605633,
+      "CO": 0.05442779350647541,
+      "CO2": 0.1100195359993636,
+      "H2": 0.4329642682763922,
+      "H2O": 0.18509535013974032
+     },
+     "vacuum_specific_impulse_s": 285.4073823351423
+    }
+   ]
+  },
+  {
+   "id": "lox-rp1-of-1.0",
+   "reactants": [
+    "RP-1",
+    "O2(L)"
+   ],
+   "mass_fractions": [
+    22.9874915,
+    22.9874915
+   ],
+   "oxidizer_fuel_ratio": 1.0,
+   "reactant_temperature_k": [
+    298.15,
+    90.17
+   ],
+   "chamber_pressure_pa": 6894759.999999999,
+   "characteristic_velocity_m_s": 1384.50223105053,
+   "stations": [
+    {
+     "name": "chamber",
+     "area_ratio": null,
+     "temperature_k": 1566.1296073712192,
+     "pressure_pa": 6894760.1318359375,
+     "molecular_mass_g_mol": 15.920832864973832,
+     "mixture_molecular_mass_g_mol": 14.958508278016687,
+     "condensed_mass_fractions": {
+      "C(gr)": 0.04853285411692768
+     },
+     "condensed_mass_fraction": 0.04853285411692768,
+     "gas_mole_fractions": {
+      "CH4": 0.028354681636135696,
+      "CO": 0.4407814902247261,
+      "CO2": 0.005424595986286188,
+      "H2": 0.4490879983512276,
+      "H2O": 0.015829812854490376
+     }
+    },
+    {
+     "name": "throat",
+     "area_ratio": 1.0,
+     "temperature_k": 1428.6884417867507,
+     "pressure_pa": 3877977.470129506,
+     "molecular_mass_g_mol": 16.14757310673509,
+     "mixture_molecular_mass_g_mol": 15.007605937613327,
+     "condensed_mass_fractions": {
+      "C(gr)": 0.05649915784719193
+     },
+     "condensed_mass_fraction": 0.05649915784719193,
+     "gas_mole_fractions": {
+      "CH4": 0.030144766669202513,
+      "CO": 0.42632068772644804,
+      "CO2": 0.009779454428205247,
+      "H2": 0.4400059223174438,
+      "H2O": 0.023120368002852106
+     }
+    },
+    {
+     "name": "exit",
+     "area_ratio": 40.000001384571235,
+     "temperature_k": 867.966318496764,
+     "pressure_pa": 18611.96043654038,
+     "molecular_mass_g_mol": 19.01221876259485,
+     "mixture_molecular_mass_g_mol": 14.667673998962522,
+     "condensed_mass_fractions": {
+      "C(gr)": 0.18711928046541731
+     },
+     "condensed_mass_fraction": 0.18711928046541731,
+     "gas_mole_fractions": {
+      "CH4": 0.018178863612568295,
+      "CO": 0.1782538608133323,
+      "CO2": 0.09979205690344452,
+      "H2": 0.3947178431628478,
+      "H2O": 0.08054401265012912
+     },
+     "vacuum_specific_impulse_s": 274.16056789259574
+    }
+   ]
+  },
+  {
+   "id": "al-ap-20-80",
+   "reactants": [
+    "AL(cr)",
+    "NH4CLO4(I)"
+   ],
+   "mass_fractions": [
+    0.2,
+    0.8
+   ],
+   "oxidizer_fuel_ratio": null,
+   "reactant_temperature_k": [
+    298.15,
+    298.15
+   ],
+   "chamber_pressure_pa": 6894759.999999999,
+   "characteristic_velocity_m_s": 1445.552818593959,
+   "stations": [
+    {
+     "name": "chamber",
+     "area_ratio": null,
+     "temperature_k": 3802.119978161932,
+     "pressure_pa": 6894760.1318359375,
+     "molecular_mass_g_mol": 38.05259058534559,
+     "mixture_molecular_mass_g_mol": 33.49996321914804,
+     "condensed_mass_fractions": {
+      "AL2O3(L)": 0.3641403520781105
+     },
+     "condensed_mass_fraction": 0.3641403520781105,
+     "gas_mole_fractions": {
+      "AL(OH)2": 0.0004524138980130054,
+      "AL(OH)2CL": 0.0009290318702195249,
+      "AL(OH)3": 0.0005486822686229711,
+      "ALCL": 0.0010358042280954063,
+      "ALCL2": 0.00022021599636429378,
+      "ALCL3": 0.00011799089408292239,
+      "ALO": 0.0004131814913599596,
+      "ALO2": 0.00013840288046910703,
+      "ALOCL": 0.0012246864860791624,
+      "ALOH": 0.0017708893869051137,
+      "ALOHCL": 0.0007030096178011359,
+      "ALOHCL2": 0.0012663765174574222,
+      "CL": 0.06089357287040556,
+      "CL2": 0.00036228617168556477,
+      "CLO": 0.0010004853045985898,
+      "H": 0.026573618363109536,
+      "H2": 0.04478293386986678,
+      "H2O": 0.26913241310314584,
+      "HALO2": 0.00011018465629382877,
+      "HCL": 0.15793790018683154,
+      "HO2": 0.000279944382277203,
+      "HOCL": 0.00025087450664744817,
+      "N2": 0.10358786742770429,
+      "NO": 0.020801095978430183,
+      "O": 0.028787497381962804,
+      "O2": 0.06562558739599107,
+      "OH": 0.09117619379152574
+     }
+    },
+    {
+     "name": "throat",
+     "area_ratio": 1.0,
+     "temperature_k": 3635.431402950769,
+     "pressure_pa": 4016915.536187983,
+     "molecular_mass_g_mol": 38.39268371099876,
+     "mixture_molecular_mass_g_mol": 33.71350390595664,
+     "condensed_mass_fractions": {
+      "AL2O3(L)": 0.36859770961020805
+     },
+     "condensed_mass_fraction": 0.36859770961020805,
+     "gas_mole_fractions": {
+      "AL(OH)2": 0.00027085421727214906,
+      "AL(OH)2CL": 0.0006374893667951146,
+      "AL(OH)3": 0.00037460135288602776,
+      "ALCL": 0.0007147362362296545,
+      "ALCL2": 0.00014122548730501254,
+      "ALO": 0.0002571137473166905,
+      "ALOCL": 0.0009221410109648195,
+      "ALOH": 0.0012001467575148618,
+      "ALOHCL": 0.0004359558540532063,
+      "ALOHCL2": 0.0008992502874802256,
+      "CL": 0.06101517914945963,
+      "CL2": 0.0003083476219143865,
+      "CLO": 0.0008066342312690451,
+      "H": 0.02395984845769462,
+      "H2": 0.04157565951476838,
+      "H2O": 0.2791447390990683,
+      "HCL": 0.1618298862930605,
+      "HO2": 0.00020879234676937563,
+      "HOCL": 0.00019564332114779378,
+      "N2": 0.10540059429229263,
+      "NO": 0.0186721866521588,
+      "O": 0.02630269492043381,
+      "O2": 0.06748048571926862,
+      "OH": 0.08498350081380958
+     }
+    },
+    {
+     "name": "exit",
+     "area_ratio": 10.00000008389165,
+     "temperature_k": 2725.678112819834,
+     "pressure_pa": 112009.00040169914,
+     "molecular_mass_g_mol": 40.65991784908635,
+     "mixture_molecular_mass_g_mol": 35.34000847590436,
+     "condensed_mass_fractions": {
+      "AL2O3(L)": 0.377490778567764
+     },
+     "condensed_mass_fraction": 0.377490778567764,
+     "gas_mole_fractions": {
+      "CL": 0.05387498950017187,
+      "CL2": 0.0001156177327626562,
+      "CLO": 0.00017331313891173528,
+      "H": 0.007257127381025876,
+      "H2": 0.01728665868860375,
+      "H2O": 0.3463479255286623,
+      "HCL": 0.18601217848826243,
+      "N2": 0.116351996629246,
+      "NO": 0.007924992709149297,
+      "O": 0.010117843868464411,
+      "O2": 0.08167458233824741,
+      "OH": 0.04167729890961753
+     },
+     "vacuum_specific_impulse_s": 265.9696011509746
+    },
+    {
+     "name": "exit",
+     "area_ratio": 40.00016006284635,
+     "temperature_k": 2372.1893476245064,
+     "pressure_pa": 20867.987114743948,
+     "molecular_mass_g_mol": 41.529178269184506,
+     "mixture_molecular_mass_g_mol": 35.990603744433656,
+     "condensed_mass_fractions": {
+      "AL2O3(L)": 0.3778250912313247
+     },
+     "condensed_mass_fraction": 0.3778250912313247,
+     "gas_mole_fractions": {
+      "CL": 0.045525803377548066,
+      "H": 0.0025104960630928166,
+      "H2": 0.007815327111373567,
+      "H2O": 0.36974901290709966,
+      "HCL": 0.1992163861226247,
+      "N2": 0.12022565383339781,
+      "NO": 0.004612006585814878,
+      "O": 0.004531134728246062,
+      "O2": 0.0888835330415883,
+      "OH": 0.02333136112720588
+     },
+     "vacuum_specific_impulse_s": 294.574964043554
+    },
+    {
+     "name": "exit",
+     "area_ratio": 60.00105586150255,
+     "temperature_k": 2327.0000124146245,
+     "pressure_pa": 13267.17352556536,
+     "molecular_mass_g_mol": 41.539774718015174,
+     "mixture_molecular_mass_g_mol": 35.99834042335086,
+     "condensed_mass_fractions": {
+      "AL2O3(L)": 0.25733545573713873,
+      "AL2O3(a)": 0.12050706825567657
+     },
+     "condensed_mass_fraction": 0.3778425239928153,
+     "gas_mole_fractions": {
+      "CL": 0.04616117300068606,
+      "H": 0.002489933588497798,
+      "H2": 0.007658902134521329,
+      "H2O": 0.3707777152148451,
+      "HCL": 0.1986936960574749,
+      "N2": 0.12044524561981824,
+      "NO": 0.00422595921928692,
+      "O": 0.0044242043210459235,
+      "O2": 0.08917283161474464,
+      "OH": 0.022360479299029234
+     },
+     "vacuum_specific_impulse_s": 301.59349355155166
+    },
+    {
+     "name": "exit",
+     "area_ratio": 80.000169221885,
+     "temperature_k": 2327.0000124146245,
+     "pressure_pa": 9804.813642006464,
+     "molecular_mass_g_mol": 41.413689269504644,
+     "mixture_molecular_mass_g_mol": 35.903587904417165,
+     "condensed_mass_fractions": {
+      "AL2O3(L)": 0.0955339813667454,
+      "AL2O3(a)": 0.2823104964979725
+     },
+     "condensed_mass_fraction": 0.3778444778647179,
+     "gas_mole_fractions": {
+      "CL": 0.04894482631300861,
+      "H": 0.0031245860543537922,
+      "H2": 0.008909663865482365,
+      "H2O": 0.36880336293164945,
+      "HCL": 0.19530084273816753,
+      "N2": 0.12013640287982938,
+      "NO": 0.00419866822649181,
+      "O": 0.005120781882721418,
+      "O2": 0.08825109619533342,
+      "OH": 0.023992322129475302
+     },
+     "vacuum_specific_impulse_s": 306.4529231467853
+    },
+    {
+     "name": "exit",
+     "area_ratio": 100.00000118110958,
+     "temperature_k": 2314.033314786307,
+     "pressure_pa": 7701.73410649106,
+     "molecular_mass_g_mol": 41.368558887426694,
+     "mixture_molecular_mass_g_mol": 35.86960197879071,
+     "condensed_mass_fractions": {
+      "AL2O3(a)": 0.3778493061525197
+     },
+     "condensed_mass_fraction": 0.3778493061525197,
+     "gas_mole_fractions": {
+      "CL": 0.05016836194168151,
+      "H": 0.003380728810876313,
+      "H2": 0.00934835482937816,
+      "H2O": 0.3683402376425487,
+      "HCL": 0.19387044888513408,
+      "N2": 0.1200789980782673,
+      "NO": 0.004082218862238289,
+      "O": 0.005357892617795137,
+      "O2": 0.08800017074749975,
+      "OH": 0.024296310757606732
+     },
+     "vacuum_specific_impulse_s": 310.1711516330278
+    }
+   ]
+  }
+ ],
+ "equilibrium_points": [
+  {
+   "id": "h2-o2-tp-250",
+   "problem_type": "TP",
+   "reactants": [
+    "H2",
+    "O2"
+   ],
+   "mass_fractions": [
+    6.04764,
+    31.9988
+   ],
+   "reactant_temperature_k": [
+    298.15,
+    298.15
+   ],
+   "pressure_pa": 100000.0,
+   "temperature_k": 250.0,
+   "molecular_mass_g_mol": 38.01746560902775,
+   "mixture_molecular_mass_g_mol": 12.682146666666656,
+   "enthalpy_j_kg": -15520039.175084697,
+   "entropy_j_kg_k": 5309.298843201612,
+   "condensed_mass_fractions": {
+    "H2O(cr)": 0.9466544031019929
+   },
+   "condensed_mass_fraction": 0.9466544031019929,
+   "gas_mole_fractions": {
+    "H2": 0.3333333333333333,
+    "H2O": 0.00025404456002931674
+   }
+  },
+  {
+   "id": "h2-o2-tp-300",
+   "problem_type": "TP",
+   "reactants": [
+    "H2",
+    "O2"
+   ],
+   "mass_fractions": [
+    6.04764,
+    31.9988
+   ],
+   "reactant_temperature_k": [
+    298.15,
+    298.15
+   ],
+   "pressure_pa": 100000.0,
+   "temperature_k": 300.0,
+   "molecular_mass_g_mol": 36.702022362674875,
+   "mixture_molecular_mass_g_mol": 12.68214666666667,
+   "enthalpy_j_kg": -14974303.598236721,
+   "entropy_j_kg_k": 7289.477076728461,
+   "condensed_mass_fractions": {
+    "H2O(L)": 0.9296704033507577
+   },
+   "condensed_mass_fraction": 0.9296704033507577,
+   "gas_mole_fractions": {
+    "H2": 0.3333333333333327,
+    "H2O": 0.012210204876815817
+   }
+  },
+  {
+   "id": "h2-o2-tp-350",
+   "problem_type": "TP",
+   "reactants": [
+    "H2",
+    "O2"
+   ],
+   "mass_fractions": [
+    6.04764,
+    31.9988
+   ],
+   "reactant_temperature_k": [
+    298.15,
+    298.15
+   ],
+   "pressure_pa": 100000.0,
+   "temperature_k": 350.0,
+   "molecular_mass_g_mol": 22.32299253169401,
+   "mixture_molecular_mass_g_mol": 12.682146666585911,
+   "enthalpy_j_kg": -14005729.102315096,
+   "entropy_j_kg_k": 10198.673983351007,
+   "condensed_mass_fractions": {
+    "H2O(L)": 0.6134949195931793
+   },
+   "condensed_mass_fraction": 0.6134949195931793,
+   "gas_mole_fractions": {
+    "H2": 0.33333333333272624,
+    "H2O": 0.23478703173839494
+   }
+  },
+  {
+   "id": "al-o2-tp-2000",
+   "problem_type": "TP",
+   "reactants": [
+    "AL(cr)",
+    "O2"
+   ],
+   "mass_fractions": [
+    0.5,
+    0.5
+   ],
+   "reactant_temperature_k": [
+    298.15,
+    298.15
+   ],
+   "pressure_pa": 100000.0,
+   "temperature_k": 2000.0,
+   "molecular_mass_g_mol": 578.7803629302776,
+   "mixture_molecular_mass_g_mol": 90.96395048915393,
+   "enthalpy_j_kg": -13473067.68896643,
+   "entropy_j_kg_k": 2980.3184236738443,
+   "condensed_mass_fractions": {
+    "AL2O3(a)": 0.9447318755503922
+   },
+   "condensed_mass_fraction": 0.9447318755503922,
+   "gas_mole_fractions": {
+    "O": 0.00010506688614112367,
+    "O2": 0.1570598110848475
+   }
+  },
+  {
+   "id": "al-o2-tp-3000",
+   "problem_type": "TP",
+   "reactants": [
+    "AL(cr)",
+    "O2"
+   ],
+   "mass_fractions": [
+    0.5,
+    0.5
+   ],
+   "reactant_temperature_k": [
+    298.15,
+    298.15
+   ],
+   "pressure_pa": 100000.0,
+   "temperature_k": 3000.0,
+   "molecular_mass_g_mol": 547.9656906486389,
+   "mixture_molecular_mass_g_mol": 90.1676616017973,
+   "enthalpy_j_kg": -10873414.07056758,
+   "entropy_j_kg_k": 4053.8577933959327,
+   "condensed_mass_fractions": {
+    "AL2O3(L)": 0.944724126004962
+   },
+   "condensed_mass_fraction": 0.944724126004962,
+   "gas_mole_fractions": {
+    "O": 0.017595016051369445,
+    "O2": 0.14694101526676917
+   }
+  },
+  {
+   "id": "al-o2-hp-20bar",
+   "problem_type": "HP",
+   "reactants": [
+    "AL(cr)",
+    "O2"
+   ],
+   "mass_fractions": [
+    0.5,
+    0.5
+   ],
+   "reactant_temperature_k": [
+    298.15,
+    298.15
+   ],
+   "pressure_pa": 2000000.0,
+   "temperature_k": 4743.901914283024,
+   "molecular_mass_g_mol": 64.5189088476933,
+   "mixture_molecular_mass_g_mol": 49.893543188771126,
+   "enthalpy_j_kg": 0.0005645139437269005,
+   "entropy_j_kg_k": 6468.344848873009,
+   "condensed_mass_fractions": {
+    "AL2O3(L)": 0.4632448868804891
+   },
+   "condensed_mass_fraction": 0.4632448868804891,
+   "gas_mole_fractions": {
+    "AL": 0.058741615347302434,
+    "AL2O": 0.053530410288993094,
+    "AL2O2": 0.04358983159059639,
+    "AL2O3": 0.0013672360076446557,
+    "ALO": 0.1927543622252955,
+    "ALO2": 0.022556924830727968,
+    "O": 0.3048624864406348,
+    "O2": 0.09581409976004909
+   }
+  },
+  {
+   "id": "ch4-o2-of-1.0-tp-1000",
+   "problem_type": "TP",
+   "reactants": [
+    "CH4(L)",
+    "O2(L)"
+   ],
+   "mass_fractions": [
+    24.020629999999997,
+    24.020629999999997
+   ],
+   "reactant_temperature_k": [
+    111.643,
+    90.17
+   ],
+   "pressure_pa": 1000000.0,
+   "temperature_k": 1000.0,
+   "molecular_mass_g_mol": 15.558543043576025,
+   "mixture_molecular_mass_g_mol": 14.0141787595318,
+   "enthalpy_j_kg": -5136227.336592994,
+   "entropy_j_kg_k": 13244.710459310978,
+   "condensed_mass_fractions": {
+    "C(gr)": 0.08507099063454734
+   },
+   "condensed_mass_fraction": 0.08507099063454734,
+   "gas_mole_fractions": {
+    "CH4": 0.15515190441445914,
+    "CO": 0.10837326706963972,
+    "CO2": 0.07397249722306652,
+    "H2": 0.38158773878818236,
+    "H2O": 0.18164041124104277
+   }
+  }
+ ]
+}
