@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from unittest.mock import patch
 
 from rocket_propulsion.api.routes import ROUTE_METADATA, dispatch_calculation
 from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError, InputError
@@ -44,10 +45,15 @@ class RocketPerformanceRouteTests(unittest.TestCase):
             dispatch_calculation("/api/v1/rocket-performance", {"chamber_pressure_pa": True})
 
     def test_cea_provider_without_package_is_a_feature_error(self) -> None:
-        if cea_library_info().available:
-            self.skipTest("NASA cea package installed")
-        with self.assertRaises(FeatureUnavailableError):
-            dispatch_calculation("/api/v1/rocket-performance", {"provider": "compare"})
+        cea_library_info.cache_clear()
+        try:
+            with patch('rocket_propulsion.thermochemistry.cea_library._import_cea',
+                       side_effect=ModuleNotFoundError('deliberately unavailable CEA')):
+                self.assertFalse(cea_library_info().available)
+                with self.assertRaises(FeatureUnavailableError):
+                    dispatch_calculation("/api/v1/rocket-performance", {"provider": "compare"})
+        finally:
+            cea_library_info.cache_clear()
 
 
 class ChemistryNozzleRouteTests(unittest.TestCase):

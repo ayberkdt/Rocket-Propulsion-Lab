@@ -55,6 +55,7 @@ References
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass
 from math import atan, exp, isfinite, log, log10, pi, sqrt, tanh
 from typing import Literal
@@ -80,9 +81,9 @@ __all__ = [
     "churchill_chu_vertical_plate_nusselt",
     "corrected_latent_heat",
     "curvature_heat_transfer_factor",
-    "filonenko_friction_factor",
     "film_condensation_vertical_plate_nusselt",
     "film_cooled_wall_temperature",
+    "filonenko_friction_factor",
     "flat_plate_laminar_nusselt",
     "flat_plate_turbulent_nusselt",
     "flat_plate_turbulent_power_law_nusselt",
@@ -1616,7 +1617,7 @@ def hess_kunz_cl_factor(bulk_temperature_k: float, geometry: Literal["straight",
     _check_range(t_r * _RANKINE_TO_KELVIN, lo * _RANKINE_TO_KELVIN, hi * _RANKINE_TO_KELVIN,
                  "bulk_temperature_k", f"CR-678 C_L table ({geometry})", extrapolate, warnings)
     t_r = min(max(t_r, lo), hi)
-    for (t0, c0), (t1, c1) in zip(points, points[1:], strict=False):
+    for (t0, c0), (t1, c1) in itertools.pairwise(points):
         if t0 <= t_r <= t1:
             value = c0 + (c1 - c0) * (t_r - t0) / (t1 - t0)
             break

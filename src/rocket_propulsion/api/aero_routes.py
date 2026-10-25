@@ -36,7 +36,11 @@ from rocket_propulsion.compressible.off_design_nozzle import standard_atmosphere
 from rocket_propulsion.core.constants import AIR_SPECIFIC_GAS_CONSTANT_J_KG_K
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.metadata import ModelMetadata
-from rocket_propulsion.thermodynamics.real_fluids import REFERENCE_FLUID_KEYS, cubic_counterpart, reference_fluid
+from rocket_propulsion.thermodynamics.real_fluids import (
+    REFERENCE_FLUID_KEYS,
+    cubic_counterpart,
+    reference_fluid,
+)
 
 AIR_GAMMA = 1.4  # calorically perfect air, Anderson Ch. 7
 TAUBER_STAGNATION_CONSTANT = 1.83e-4  # TAUBER-1989-TP2914 Eq. (40), SI, hemisphere, cold wall
@@ -53,7 +57,7 @@ def _clean(value: Any) -> Any:
     if isinstance(value, float) and not isfinite(value):
         return None
     if hasattr(value, "value") and type(value).__module__ != "builtins" and not isinstance(value, (int, float, str)):
-        return getattr(value, "value")
+        return value.value
     return value
 
 

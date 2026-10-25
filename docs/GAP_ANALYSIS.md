@@ -16,7 +16,7 @@ and what would require a higher-fidelity model.
 | Off-design with chemistry | Implemented | Perfect gas calibrated to the equilibrium design point; exact mass flow and design exit pressure |
 | Shock trains / nozzle separation | Partial | Internal normal shock and Summerfield screen; no shock train or viscous separation field |
 | Boundary layer / heat transfer | Implemented (1-D) | Coupled gas/wall/coolant regenerative solve (Bartz at the local wall temperature, fin lands, Taylor or Gnielinski coolant side, real-fluid coolant, optional WSGG gas radiation); transient multilayer conduction; convection and radiation libraries (see the heat-transfer section); no axial or circumferential wall conduction, no two-phase coolant, no CFD |
-| Method of characteristics | Implemented | Planar compatibility with first-order axisymmetric area mapping |
+| Method of characteristics | Partial | Local interior, boundary, axis-departure and straight-wall field processes have targeted checks; the legacy full-nozzle generator uses axisymmetric area mapping and has unresolved characteristic-geometry defects (`GEOMETRY_REVIEW.md`) |
 
 ## Thermodynamics
 
@@ -45,7 +45,7 @@ and what would require a higher-fidelity model.
 | Smooth bell-like nozzle | Implemented | Hermite preliminary approximation |
 | Station-by-station flow | Implemented | Isentropic branch selected from geometry |
 | Engineering plots | Implemented | Responsive SVG, local and dependency-free |
-| Rao optimum / MOC contour | Implemented | Rao/TOP approximation plus MOC mesh and refinement evidence |
+| Rao optimum / MOC contour | Partial | Rao/TOP approximation and legacy mapped mesh; no verified optimized full-nozzle characteristic field; mesh self-refinement is not independent validation |
 | CAD/mesh export | Implemented | CSV/SVG/DXF/STL; preliminary engineering exchange only |
 
 ## External aerodynamics

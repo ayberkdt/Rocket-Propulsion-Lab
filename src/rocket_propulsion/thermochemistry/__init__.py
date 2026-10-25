@@ -19,6 +19,14 @@ References
        https://ntrs.nasa.gov/citations/20020085330
 """
 
+# Higher-level submodules import the names above, so they load last.
+from . import (
+    combustion_efficiency,
+    condensed_equilibrium,
+    finite_area_combustor,
+    kinetics,
+    nozzle_kinetics,
+)
 from .cea import (
     CEA_MANUAL_URL,
     CeaEquilibriumProvider,
@@ -33,6 +41,7 @@ from .cea import (
     render_cea_equilibrium_input,
     render_cea_rocket_input,
 )
+from .cea_library import CeaLibraryInfo, cea_library_info, solve_cea_rocket
 from .equilibrium import (
     EquilibriumConvergence,
     EquilibriumProblem,
@@ -43,6 +52,7 @@ from .equilibrium import (
     LocalEquilibriumProvider,
     ReactantAmount,
 )
+from .equilibrium_derivatives import EquilibriumDerivatives, equilibrium_derivatives
 from .mixtures import Mixture, MixtureComponent, MixtureProperties
 from .nasa_polynomials import UNIVERSAL_GAS_CONSTANT_J_MOL_K, NasaPolynomialInterval
 from .rocket_equilibrium import (
@@ -56,14 +66,6 @@ from .rocket_equilibrium import (
     generate_oxidizer_fuel_sweep,
     get_propellant_pair,
     reactants_for_mass_ratio,
-)
-from .cea_library import CeaLibraryInfo, cea_library_info, solve_cea_rocket
-from .equilibrium_derivatives import EquilibriumDerivatives, equilibrium_derivatives
-from .transport import (
-    MixtureTransportProperties,
-    equilibrium_transport_properties,
-    mixture_transport_properties,
-    species_transport_catalog,
 )
 from .rocket_performance import (
     RocketExit,
@@ -80,49 +82,28 @@ from .species import (
     get_species,
     species_catalog,
 )
-
-# Higher-level submodules import the names above, so they load last.
-from . import (  # noqa: E402
-    combustion_efficiency,
-    condensed_equilibrium,
-    finite_area_combustor,
-    kinetics,
-    nozzle_kinetics,
+from .transport import (
+    MixtureTransportProperties,
+    equilibrium_transport_properties,
+    mixture_transport_properties,
+    species_transport_catalog,
 )
 
 __all__ = [
-    "nozzle_kinetics",
-    "kinetics",
-    "finite_area_combustor",
-    "condensed_equilibrium",
-    "combustion_efficiency",
-    "species_transport_catalog",
-    "mixture_transport_properties",
-    "equilibrium_transport_properties",
-    "MixtureTransportProperties",
-    "equilibrium_derivatives",
-    "EquilibriumDerivatives",
-    "solve_rocket_performance",
-    "solve_cea_rocket",
-    "get_reactant",
-    "condensed_reactant_catalog",
-    "cea_library_info",
-    "RocketStation",
-    "RocketPerformance",
-    "RocketExit",
-    "CondensedReactant",
-    "CeaLibraryInfo",
     "CEA_MANUAL_URL",
     "PROPELLANT_PAIRS",
     "UNIVERSAL_GAS_CONSTANT_J_MOL_K",
     "CeaEquilibriumProvider",
+    "CeaLibraryInfo",
     "CeaPlotTable",
     "CeaReactant",
     "CeaRocketProblem",
     "CeaRunArtifact",
     "CeaSubprocessAdapter",
     "ChemistryNozzleComparison",
+    "CondensedReactant",
     "EquilibriumConvergence",
+    "EquilibriumDerivatives",
     "EquilibriumExpansionResult",
     "EquilibriumProblem",
     "EquilibriumProvider",
@@ -133,22 +114,40 @@ __all__ = [
     "Mixture",
     "MixtureComponent",
     "MixtureProperties",
+    "MixtureTransportProperties",
     "NasaPolynomialInterval",
     "OxidizerFuelSweep",
     "OxidizerFuelSweepPoint",
     "PropellantPair",
     "ReactantAmount",
+    "RocketExit",
+    "RocketPerformance",
+    "RocketStation",
     "Species",
     "SpeciesProperties",
+    "cea_library_info",
     "cea_output_warnings",
+    "combustion_efficiency",
     "compare_nozzle_chemistry",
+    "condensed_equilibrium",
+    "condensed_reactant_catalog",
+    "equilibrium_derivatives",
+    "equilibrium_transport_properties",
+    "finite_area_combustor",
     "generate_oxidizer_fuel_sweep",
     "get_propellant_pair",
+    "get_reactant",
     "get_species",
+    "kinetics",
+    "mixture_transport_properties",
+    "nozzle_kinetics",
     "parse_cea_plot",
     "parse_fortran_number",
     "reactants_for_mass_ratio",
     "render_cea_equilibrium_input",
     "render_cea_rocket_input",
+    "solve_cea_rocket",
+    "solve_rocket_performance",
     "species_catalog",
+    "species_transport_catalog",
 ]

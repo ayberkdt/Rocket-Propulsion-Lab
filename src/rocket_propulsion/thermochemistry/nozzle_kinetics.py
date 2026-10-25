@@ -264,7 +264,7 @@ class BrayFreezingResult:
     warnings: tuple[WarningMessage, ...]
 
 
-class _Choked(StepRejected):  # noqa: N818 - control-flow signal
+class _Choked(StepRejected):
     """The target mass flux exceeds the local frozen choking flux."""
 
     def __init__(self, excess_flux: float) -> None:
@@ -272,7 +272,7 @@ class _Choked(StepRejected):  # noqa: N818 - control-flow signal
         self.local_maximum = excess_flux
 
 
-class _MarchComplete(Exception):  # noqa: N818 - control-flow signal
+class _MarchComplete(Exception):
     """The subsonic march has passed its minimum choking margin."""
 
 
@@ -417,7 +417,7 @@ class _Expansion:
         log_target = log(flux)
 
         def log_flux(temperature):
-            cp, log_p, v2, gamma, gas_constant, h_rt, s_r = self._evaluate(
+            cp, log_p, v2, gamma, gas_constant, _h_rt, _s_r = self._evaluate(
                 temperature, sigma, total, mixing, entropy)
             if v2 <= 0.0:
                 return None
@@ -476,7 +476,7 @@ class _Expansion:
                     temperature = sonic_temperature
                 else:
                     temperature = _illinois(residual, low, high, f_low, f_high, 1.0e-13)
-        cp, log_p, v2, gamma, gas_constant, h_rt, s_r = self._evaluate(
+        _cp, log_p, v2, gamma, gas_constant, h_rt, s_r = self._evaluate(
             temperature, sigma, total, mixing, entropy)
         self.last_temperature[branch] = temperature
         pressure = REFERENCE_PRESSURE_PA * exp(log_p)
@@ -740,7 +740,7 @@ def solve_nozzle_kinetics(
         path = _EquilibriumPath(expansion)
         throat_pressure, flux = path.throat(chamber_pressure_pa)
         log_start = path.log_pressure_at_area(log(throat_pressure), flux, start_area_ratio)
-        temperature, density, velocity, sigma = path.isentrope(exp(log_start))
+        _temperature, _density, _velocity, sigma = path.isentrope(exp(log_start))
         x_switch = nozzle.position(start_area_ratio, divergent=True)
         y_switch = tuple(sigma) + (expansion.s0,)
         expansion.last_temperature.clear()
@@ -1041,7 +1041,7 @@ class _EquilibriumPath:
         return value
 
     def flux(self, pressure):
-        temperature, density, velocity, _ = self.isentrope(pressure)
+        _temperature, density, velocity, _ = self.isentrope(pressure)
         return density * velocity
 
     def throat(self, chamber_pressure_pa, tolerance=1.0e-6):

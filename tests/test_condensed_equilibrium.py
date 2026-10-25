@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 import unittest
-from functools import lru_cache
+from functools import cache
 from math import log
 from pathlib import Path
 
@@ -60,7 +60,7 @@ def _moles(names: list[str], mass_fractions: list[float]) -> dict[str, float]:
             for name, fraction in zip(names, mass_fractions, strict=True)}
 
 
-@lru_cache(maxsize=None)
+@cache
 def _rocket(identifier: str):
     point = ROCKETS[identifier]
     ratios = tuple(station["area_ratio"] for station in point["stations"] if station["name"] == "exit")
@@ -79,7 +79,7 @@ def _problem(point: dict, **overrides) -> CondensedEquilibriumProblem:
     return CondensedEquilibriumProblem.hp(reactants, pressure_pa=point["pressure_pa"], **overrides)
 
 
-@lru_cache(maxsize=None)
+@cache
 def _equilibrium(identifier: str):
     return CondensedEquilibriumProvider().solve_detailed(_problem(EQUILIBRIA[identifier]))
 
@@ -124,7 +124,7 @@ class BundledDataTests(unittest.TestCase):
             temperature = transition["temperature_k"]
             self.assertEqual(lower.maximum_temperature_k, upper.minimum_temperature_k)
 
-            def gibbs(species) -> float:
+            def gibbs(species, *, upper=upper, temperature=temperature) -> float:
                 interval = species.intervals[0] if species is upper else species.intervals[-1]
                 return (interval.enthalpy_molar_j_mol(temperature)
                         - temperature * interval.entropy_molar_j_mol_k(temperature))

@@ -34,6 +34,7 @@ References
 
 from __future__ import annotations
 
+import itertools
 from collections.abc import Callable
 from dataclasses import dataclass
 from math import atan2, cos, degrees, exp, log, radians, sin, sqrt
@@ -718,7 +719,7 @@ def integrate_planar_entry(
     if heating is not None:
         peak_heat = max(samples, key=lambda item: item.stagnation_heating_w_m2)
         load = sum(0.5 * (a.stagnation_heating_w_m2 + b.stagnation_heating_w_m2) * (b.time_s - a.time_s)
-                   for a, b in zip(samples, samples[1:]))
+                   for a, b in itertools.pairwise(samples))
     warnings = [WarningMessage(
         "point_mass_planar_model",
         "Non-rotating spherical planet, constant C_D and mass, no winds, no ablation.",

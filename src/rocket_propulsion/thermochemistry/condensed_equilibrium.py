@@ -995,7 +995,7 @@ class CondensedEquilibriumProvider:
             # Condensed rows, eq. (2.25).
             for position, c in enumerate(active):
                 row = elements + position
-                cp_c, h_c, s_c = cond_props[position]
+                _cp_c, h_c, s_c = cond_props[position]
                 for i, aic in enumerate(system.condensed_dense[c]):
                     matrix[row][i] = aic
                 if variable_t:

@@ -23,6 +23,7 @@ Oracles and sources
 
 from __future__ import annotations
 
+import itertools
 import time
 import unittest
 from dataclasses import replace
@@ -84,7 +85,7 @@ class CorrelationTests(unittest.TestCase):
             surface_temperature_k=t_wall, length_scale_m=length, acceleration_m_s2=g) / value, 0.5)
 
     def test_no_buoyancy_or_no_temperature_difference_gives_zero(self) -> None:
-        common = dict(gas=GAS, transport=TRANSPORT, pressure_pa=3e5, length_scale_m=1.0)
+        common = {"gas": GAS, "transport": TRANSPORT, "pressure_pa": 3e5, "length_scale_m": 1.0}
         self.assertEqual(natural_convection_coefficient_w_m2_k(
             ULLAGE_WALL_CORRELATION, gas_temperature_k=200.0, surface_temperature_k=90.0,
             acceleration_m_s2=0.0, **common), 0.0)
@@ -132,9 +133,9 @@ class AdiabaticLimitTests(unittest.TestCase):
         # First order in dt: halving the step halves both the pressure error and
         # the energy residual (the parcel enters at the end-of-step pressure).
         self.assertLess(errors[-1], 1e-3)
-        for coarse, fine in zip(errors, errors[1:], strict=False):
+        for coarse, fine in itertools.pairwise(errors):
             self.assertAlmostEqual(fine / coarse, 0.5, delta=0.02)
-        for coarse, fine in zip(residuals, residuals[1:], strict=False):
+        for coarse, fine in itertools.pairwise(residuals):
             self.assertAlmostEqual(fine / coarse, 0.5, delta=0.02)
 
 
@@ -223,11 +224,11 @@ class ComparisonTests(unittest.TestCase):
 class UllageErrorTests(unittest.TestCase):
     def test_invalid_configurations_fail_closed(self) -> None:
         for changes in (
-            dict(initial_ullage_height_m=3.0), dict(initial_pressure_pa=0.0),
-            dict(liquid_outflow_m3_s=-1.0), dict(step_count=0), dict(duration_s=float("nan")),
-            dict(prescribed_inflow_kg_s=1.0), dict(wall_heat_transfer_coefficient_w_m2_k=5.0),
-            dict(liquid_outflow_m3_s=1.0), dict(maximum_layer_count=2), dict(schema="x"),
-            dict(wall_correlation="0.54"), dict(acceleration_m_s2=-1.0), dict(gas=None),
+            {"initial_ullage_height_m": 3.0}, {"initial_pressure_pa": 0.0},
+            {"liquid_outflow_m3_s": -1.0}, {"step_count": 0}, {"duration_s": float("nan")},
+            {"prescribed_inflow_kg_s": 1.0}, {"wall_heat_transfer_coefficient_w_m2_k": 5.0},
+            {"liquid_outflow_m3_s": 1.0}, {"maximum_layer_count": 2}, {"schema": "x"},
+            {"wall_correlation": "0.54"}, {"acceleration_m_s2": -1.0}, {"gas": None},
         ):
             with self.subTest(changes=changes), self.assertRaises(DomainError):
                 configuration(**changes)

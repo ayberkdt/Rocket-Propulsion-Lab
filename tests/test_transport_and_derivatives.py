@@ -38,7 +38,10 @@ from rocket_propulsion.core.constants import (
     USSA1976_SEA_LEVEL_TEMPERATURE,
 )
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.thermochemistry.equilibrium import EquilibriumProblem, LocalEquilibriumProvider
+from rocket_propulsion.thermochemistry.equilibrium import (
+    EquilibriumProblem,
+    LocalEquilibriumProvider,
+)
 from rocket_propulsion.thermochemistry.equilibrium_derivatives import (
     derivatives_from_composition,
     equilibrium_derivatives,

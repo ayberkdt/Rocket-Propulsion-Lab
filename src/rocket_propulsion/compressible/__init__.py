@@ -14,8 +14,8 @@ References
        Elements", 9th ed., Wiley, 2017.
 """
 
-from .duct_flow import FannoResult, RayleighResult, calculate_fanno, calculate_rayleigh
 from . import cone_flow, hypersonic_inviscid, linearized_flow, shock_expansion, thermally_perfect
+from .duct_flow import FannoResult, RayleighResult, calculate_fanno, calculate_rayleigh
 from .isentropic import IsentropicResult, calculate_isentropic, mach_from_isentropic
 from .normal_shock import NormalShockResult, calculate_normal_shock
 from .nozzle import NozzleResult, calculate_ideal_nozzle
@@ -36,11 +36,6 @@ from .off_design_nozzle import (
 from .sweeps import IsentropicSweepPoint, generate_isentropic_sweep
 
 __all__ = [
-    "thermally_perfect",
-    "shock_expansion",
-    "linearized_flow",
-    "hypersonic_inviscid",
-    "cone_flow",
     "FannoResult",
     "IsentropicResult",
     "IsentropicSweepPoint",
@@ -62,10 +57,15 @@ __all__ = [
     "calculate_oblique_shock",
     "calculate_off_design_nozzle",
     "calculate_rayleigh",
+    "cone_flow",
     "generate_isentropic_sweep",
     "generate_nozzle_altitude_sweep",
+    "hypersonic_inviscid",
+    "linearized_flow",
     "mach_from_isentropic",
     "nozzle_regime_thresholds",
+    "shock_expansion",
     "standard_atmosphere_pressure_pa",
+    "thermally_perfect",
 ]
 

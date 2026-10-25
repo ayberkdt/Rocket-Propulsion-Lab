@@ -42,6 +42,7 @@ References
 
 from __future__ import annotations
 
+import itertools
 from collections.abc import Sequence
 from dataclasses import dataclass
 from math import atan2, cos, degrees, exp, isfinite, log10, pi, radians, sin, sqrt
@@ -848,7 +849,7 @@ def integrate_line_load(
     loads = tuple(_number(value, "line_load_n_m") for value in line_load_n_m)
     if len(stations) < 2 or len(stations) != len(loads):
         raise InputError("Need at least two stations and one load per station.", field="stations_m")
-    if any(b <= a for a, b in zip(stations, stations[1:], strict=False)):
+    if any(b <= a for a, b in itertools.pairwise(stations)):
         raise InputError("Stations must be strictly increasing.", field="stations_m")
     shear = [0.0]
     bending = [0.0]

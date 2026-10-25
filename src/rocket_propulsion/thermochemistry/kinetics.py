@@ -47,6 +47,7 @@ References
 
 from __future__ import annotations
 
+import itertools
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -886,7 +887,7 @@ class StiffSolution:
     last_step: float
 
 
-class StepRejected(Exception):  # noqa: N818 - control-flow signal, not an error
+class StepRejected(Exception):
     """Raised by a right-hand side to reject the current trial step.
 
     The integrator halves the step, like the singular-matrix branch of
@@ -996,7 +997,7 @@ def solve_stiff(
     targets = [t_end] if t_eval is None else [float(value) for value in t_eval]
     if any((target - t0) * direction <= 0.0 for target in targets[:1]) and t_eval is not None:
         raise InputError("t_eval must lie after t0 in the integration direction.", field="t_eval")
-    for previous, current in zip(targets, targets[1:], strict=False):
+    for previous, current in itertools.pairwise(targets):
         if (current - previous) * direction <= 0.0:
             raise InputError("t_eval must be strictly monotonic.", field="t_eval")
     if (targets[-1] - t_end) * direction > 0.0:

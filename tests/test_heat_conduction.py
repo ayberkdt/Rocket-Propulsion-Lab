@@ -21,6 +21,7 @@ multilayer wall. Energy conservation of the solver is audited in every run.
 
 from __future__ import annotations
 
+import itertools
 import json
 import math
 import unittest
@@ -184,7 +185,7 @@ class SeriesSolutionTests(unittest.TestCase):
     def test_eigenvalues_are_ordered_and_satisfy_table_5_1(self) -> None:
         for biot in (0.05, 1.0, 30.0):
             lams = c.transient_eigenvalues("cylinder", biot, 12)
-            self.assertTrue(all(b - a > 2.0 for a, b in zip(lams, lams[1:], strict=False)))
+            self.assertTrue(all(b - a > 2.0 for a, b in itertools.pairwise(lams)))
             for lam in lams:
                 residual = lam * c.bessel_j1(lam) - biot * c.bessel_j0(lam)
                 self.assertLess(abs(residual), 1e-12 * max(1.0, biot))
@@ -213,11 +214,11 @@ class LumpedAndSemiInfiniteTests(unittest.TestCase):
     def test_example_2_8_and_biot_warning(self) -> None:
         ref = DATA["lumped"]["example_2_8"]
         volume = math.pi * ref["length_m"] * ref["diameter_m"] ** 2 / 4
-        kwargs = dict(initial_temperature_k=kelvin(72.3), ambient_temperature_k=kelvin(35.0),
-                      heat_transfer_coefficient_w_m2_k=ref["h_eff_w_m2_k"],
-                      surface_area_m2=ref["area_m2"], volume_m3=volume,
-                      density_kg_m3=ref["density_kg_m3"],
-                      specific_heat_j_kg_k=ref["specific_heat_j_kg_k"], times_s=[0.0])
+        kwargs = {"initial_temperature_k": kelvin(72.3), "ambient_temperature_k": kelvin(35.0),
+                      "heat_transfer_coefficient_w_m2_k": ref["h_eff_w_m2_k"],
+                      "surface_area_m2": ref["area_m2"], "volume_m3": volume,
+                      "density_kg_m3": ref["density_kg_m3"],
+                      "specific_heat_j_kg_k": ref["specific_heat_j_kg_k"], "times_s": [0.0]}
         result = c.lumped_capacitance_response(**kwargs)
         self.assertAlmostEqual(result.time_constant_s, ref["time_constant_s"],
                                delta=ref["tolerance_s"])
@@ -267,8 +268,8 @@ class LumpedAndSemiInfiniteTests(unittest.TestCase):
         self.assertAlmostEqual(beta, ref["small_beta_estimate"], delta=5e-6)
 
     def test_convective_solution_limits(self) -> None:
-        common = dict(depth_m=0.002, time_s=5.0, thermal_diffusivity_m2_s=1e-5,
-                      thermal_conductivity_w_m_k=20.0, initial_temperature_k=300.0)
+        common = {"depth_m": 0.002, "time_s": 5.0, "thermal_diffusivity_m2_s": 1e-5,
+                      "thermal_conductivity_w_m_k": 20.0, "initial_temperature_k": 300.0}
         step = c.semi_infinite_surface_temperature_step(surface_temperature_k=900.0, **common)
         strong = c.semi_infinite_convective_surface(heat_transfer_coefficient_w_m2_k=1e9,
                                                     fluid_temperature_k=900.0, **common)
@@ -279,8 +280,8 @@ class LumpedAndSemiInfiniteTests(unittest.TestCase):
         self.assertAlmostEqual(far.temperature_k, 300.0, delta=1e-9)
 
     def test_flux_step_profile_obeys_eqn_5_55_and_5_56(self) -> None:
-        kwargs = dict(time_s=2.0, thermal_diffusivity_m2_s=4e-6, thermal_conductivity_w_m_k=15.0,
-                      initial_temperature_k=300.0, surface_heat_flux_w_m2=2e5)
+        kwargs = {"time_s": 2.0, "thermal_diffusivity_m2_s": 4e-6, "thermal_conductivity_w_m_k": 15.0,
+                      "initial_temperature_k": 300.0, "surface_heat_flux_w_m2": 2e5}
         surface = c.semi_infinite_surface_flux_step(depth_m=0.0, **kwargs)
         self.assertAlmostEqual(surface.temperature_k, surface.surface_temperature_k, delta=1e-9)
         self.assertAlmostEqual(surface.surface_temperature_k - 300.0,
@@ -602,7 +603,7 @@ class FiniteVolumeTests(unittest.TestCase):
 
     def test_invalid_runs_fail_closed(self) -> None:
         layer = c.WallLayer(0.01, 20.0, 4e6)
-        kwargs = dict(initial_temperature_k=300.0, time_step_s=1.0, step_count=2)
+        kwargs = {"initial_temperature_k": 300.0, "time_step_s": 1.0, "step_count": 2}
         with self.assertRaises(DomainError):
             c.solve_transient_wall(layer, c.WallGeometry("plane"), c.SurfaceTemperature(300.0),
                                    theta=0.3, **kwargs)
@@ -621,11 +622,11 @@ class FiniteVolumeTests(unittest.TestCase):
 class FinTests(unittest.TestCase):
     def test_example_4_8_tip_temperatures(self) -> None:
         ref = DATA["fins"]["example_4_8"]
-        common = dict(thermal_conductivity_w_m_k=ref["k_w_m_k"],
-                      heat_transfer_coefficient_w_m2_k=ref["h_w_m2_k"],
-                      diameter_m=ref["diameter_m"], length_m=ref["length_m"],
-                      base_temperature_k=kelvin(ref["wall_c"]),
-                      fluid_temperature_k=kelvin(ref["air_c"]))
+        common = {"thermal_conductivity_w_m_k": ref["k_w_m_k"],
+                      "heat_transfer_coefficient_w_m2_k": ref["h_w_m2_k"],
+                      "diameter_m": ref["diameter_m"], "length_m": ref["length_m"],
+                      "base_temperature_k": kelvin(ref["wall_c"]),
+                      "fluid_temperature_k": kelvin(ref["air_c"])}
         tipped = c.pin_fin(tip_heat_transfer_coefficient_w_m2_k=ref["h_w_m2_k"], **common)
         insulated = c.pin_fin(**common)
         excess = ref["wall_c"] - ref["air_c"]

@@ -53,6 +53,7 @@ References
 
 from __future__ import annotations
 
+import itertools
 import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -695,7 +696,7 @@ class TabulatedProperty:
         if len(temperatures) != len(values) or len(temperatures) < 2:
             raise InputError("A tabulated property needs matching temperature and value "
                              "tuples with at least two entries.", field="values")
-        if any(b <= a for a, b in zip(temperatures, temperatures[1:], strict=False)):
+        if any(b <= a for a, b in itertools.pairwise(temperatures)):
             raise DomainError("Tabulated temperatures must increase strictly.",
                               field="temperatures_k")
         if not isinstance(self.unit, str):
@@ -2147,7 +2148,7 @@ def semi_infinite_surface_temperature_step(
     .. [2] PYTHON-3.12-MATH-ERF. Python 3.12, math.erf and math.erfc,
            https://docs.python.org/3.12/library/math.html#math.erfc
     """
-    depth, _, _, root, z = _semi_infinite_inputs(depth_m, time_s, thermal_diffusivity_m2_s)
+    _depth, _, _, root, z = _semi_infinite_inputs(depth_m, time_s, thermal_diffusivity_m2_s)
     k = _positive(thermal_conductivity_w_m_k, "thermal_conductivity_w_m_k")
     t_i = _temperature(initial_temperature_k, "initial_temperature_k")
     t_s = _temperature(surface_temperature_k, "surface_temperature_k")
@@ -3183,10 +3184,9 @@ def solve_transient_wall(
         outer_surface.append(outer_new[2])
         inner_rates.append(inner_new[0])
         outer_rates.append(-outer_new[0])
-        if (snapshot_every and step % snapshot_every == 0) or step == steps:
-            if snapshot_times[-1] != step * dt:
-                snapshot_times.append(step * dt)
-                snapshots.append(tuple(temperatures))
+        if ((snapshot_every and step % snapshot_every == 0) or step == steps) and snapshot_times[-1] != step * dt:
+            snapshot_times.append(step * dt)
+            snapshots.append(tuple(temperatures))
     stored = sum(volumes[j] * capacities[cell_layers[j]].integral(initial_field[j],
                                                                   temperatures[j])
                  for j in range(n))

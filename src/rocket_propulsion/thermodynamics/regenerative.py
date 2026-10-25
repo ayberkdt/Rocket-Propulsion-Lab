@@ -442,11 +442,10 @@ class RegenerativeCoolingResult:
         if any(getattr(self,name)!=value for name,value in _solve(source).items()):
             raise DomainError('Coolant result does not replay from owned inputs.',field='Regenerative result')
         selection=self.coolant_selection
-        if selection is not None:
-            if (selection.inlet_temperature_k!=source.coolant_inlet_temperature_k
+        if selection is not None and (selection.inlet_temperature_k!=source.coolant_inlet_temperature_k
                     or selection.outlet_temperature_k!=self.outlet_temperature_k
                     or any(getattr(source,name)!=value for name,value in selection.filled_values().items())):
-                raise DomainError('Coolant selection does not match the bulk balance inputs.',field='coolant_selection')
+            raise DomainError('Coolant selection does not match the bulk balance inputs.',field='coolant_selection')
         wall=self.wall_conduction
         if wall is not None and wall.inputs.coolant_bulk_temperature_k not in (None,self.outlet_temperature_k):
             raise DomainError('Wall step must use the bulk outlet temperature.',field='wall_conduction')

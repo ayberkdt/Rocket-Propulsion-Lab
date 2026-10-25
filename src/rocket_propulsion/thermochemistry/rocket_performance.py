@@ -368,13 +368,13 @@ def solve_rocket_performance(
     for ratio in ratios:
         states: dict[float, _State] = {}
 
-        def residual(log_pressure: float, ratio: float = ratio) -> float:
+        def residual(log_pressure: float, ratio: float = ratio, *, states=states) -> float:
             flux, state = expansion.mass_flux(exp(log_pressure))
             states[log_pressure] = state
             return log(throat_flux / flux) - log(ratio)
 
         guess = log_throat - log(ratio) * expansion.gamma
-        lo, hi, f_lo, f_hi = _bracket(lambda value: residual(value), guess, log_throat - 40.0,
+        lo, hi, f_lo, f_hi = _bracket(residual, guess, log_throat - 40.0,
                                       log_throat - 1.0e-3)
         root = _illinois(residual, lo, hi, f_lo, f_hi, 1.0e-12)
         state = states.get(root) or expansion.isentrope(exp(root))

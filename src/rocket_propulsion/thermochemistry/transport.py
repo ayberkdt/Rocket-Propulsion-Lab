@@ -37,6 +37,7 @@ References
 
 from __future__ import annotations
 
+import itertools
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -144,7 +145,7 @@ def _select_interval(
                      "maximum_temperature_k": upper},
         )
     selected = intervals[0]
-    for previous, interval in zip(intervals, intervals[1:], strict=False):
+    for previous, interval in itertools.pairwise(intervals):
         if temperature_k > previous.maximum_temperature_k:
             selected = interval
     return selected, extrapolated

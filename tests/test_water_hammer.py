@@ -19,6 +19,7 @@ Oracles and sources
 
 from __future__ import annotations
 
+import itertools
 import time
 import unittest
 from dataclasses import replace
@@ -55,7 +56,7 @@ def si_line(*, friction: float = 0.02, reaches: int = 20, closure_s: float = 0.0
 class WaveSpeedAndJoukowskyTests(unittest.TestCase):
     def test_boundary_factors_match_figure_5(self) -> None:
         mu = 0.3
-        thin = dict(poisson_ratio=mu, inner_diameter_m=0.1, wall_thickness_m=0.001)
+        thin = {"poisson_ratio": mu, "inner_diameter_m": 0.1, "wall_thickness_m": 0.001}
         self.assertAlmostEqual(pipe_boundary_factor(PipeAnchoring.UPSTREAM_ANCHORED, **thin),
                                1.0 - mu / 2.0)
         self.assertAlmostEqual(
@@ -63,7 +64,7 @@ class WaveSpeedAndJoukowskyTests(unittest.TestCase):
         self.assertEqual(pipe_boundary_factor(PipeAnchoring.EXPANSION_JOINTS, **thin), 1.0)
         self.assertEqual(pipe_boundary_factor(PipeAnchoring.RIGID, **thin), 0.0)
         d, t = 0.02, 0.002  # D/t = 10 <= 25: thick-walled forms
-        thick = dict(poisson_ratio=mu, inner_diameter_m=d, wall_thickness_m=t)
+        thick = {"poisson_ratio": mu, "inner_diameter_m": d, "wall_thickness_m": t}
         base = 2.0 * t / d * (1.0 + mu)
         self.assertAlmostEqual(pipe_boundary_factor(PipeAnchoring.UPSTREAM_ANCHORED, **thick),
                                base + d / (d + t) * (1.0 - mu / 2.0))
@@ -72,8 +73,8 @@ class WaveSpeedAndJoukowskyTests(unittest.TestCase):
         self.assertEqual(pipe_boundary_factor(PipeAnchoring.RIGID, **thick), 0.0)
 
     def test_rigid_pipe_wave_speed_is_liquid_sound_speed_and_elasticity_slows_it(self) -> None:
-        common = dict(bulk_modulus_pa=2.2e9, density_kg_m3=1000.0, inner_diameter_m=0.1,
-                      wall_thickness_m=0.002, youngs_modulus_pa=7.0e10, poisson_ratio=0.33)
+        common = {"bulk_modulus_pa": 2.2e9, "density_kg_m3": 1000.0, "inner_diameter_m": 0.1,
+                      "wall_thickness_m": 0.002, "youngs_modulus_pa": 7.0e10, "poisson_ratio": 0.33}
         rigid = pipe_wave_speed_m_s(anchoring=PipeAnchoring.RIGID, **common)
         self.assertAlmostEqual(rigid, sqrt(2.2e9 / 1000.0), places=9)
         elastic = pipe_wave_speed_m_s(anchoring=PipeAnchoring.EXPANSION_JOINTS, **common)
@@ -130,7 +131,7 @@ class MethodOfCharacteristicsTests(unittest.TestCase):
                                                    closure_s=fraction * round_trip,
                                                    duration_s=5.0 * round_trip))
             ratios.append(result.surge_to_joukowsky_ratio)
-        self.assertTrue(all(b >= a - 1e-12 for a, b in zip(ratios, ratios[1:], strict=False)),
+        self.assertTrue(all(b >= a - 1e-12 for a, b in itertools.pairwise(ratios)),
                         ratios)
         self.assertLess(ratios[0], 0.5)
         for ratio in ratios[2:]:
@@ -141,7 +142,7 @@ class MethodOfCharacteristicsTests(unittest.TestCase):
                   for n in (10, 20, 40, 80)]
         joukowsky = simulate_water_hammer(si_line(reaches=10, duration_s=0.01)).joukowsky_surge_pa
         self.assertTrue(all(v > joukowsky for v in values))
-        differences = [abs(b - a) for a, b in zip(values, values[1:], strict=False)]
+        differences = [abs(b - a) for a, b in itertools.pairwise(values)]
         self.assertLess(differences[-1], 0.6 * differences[0])
 
     def test_first_step_after_instantaneous_closure_is_exactly_joukowsky(self) -> None:
@@ -199,15 +200,15 @@ class WaterHammerErrorTests(unittest.TestCase):
     def test_invalid_inputs_fail_closed(self) -> None:
         base = si_line()
         for kwargs in (
-            dict(reach_count=0), dict(duration_s=0.0), dict(reservoir_pressure_pa=float("nan")),
-            dict(downstream_pressure_pa=-1.0), dict(valve_full_open_resistance_pa_s2_m6=0.0),
-            dict(valve_opening=1.0), dict(station_indices=(0, 0)),
-            dict(station_indices=(99,)), dict(schema="other"), dict(vapor_pressure_pa=-1.0),
+            {"reach_count": 0}, {"duration_s": 0.0}, {"reservoir_pressure_pa": float("nan")},
+            {"downstream_pressure_pa": -1.0}, {"valve_full_open_resistance_pa_s2_m6": 0.0},
+            {"valve_opening": 1.0}, {"station_indices": (0, 0)},
+            {"station_indices": (99,)}, {"schema": "other"}, {"vapor_pressure_pa": -1.0},
         ):
             with self.subTest(kwargs=kwargs), self.assertRaises(DomainError):
                 replace(base, **kwargs)
-        for kwargs in (dict(length_m=0.0), dict(darcy_friction_factor=-0.1),
-                       dict(wave_speed_m_s=float("inf")), dict(liquid_density_kg_m3=True)):
+        for kwargs in ({"length_m": 0.0}, {"darcy_friction_factor": -0.1},
+                       {"wave_speed_m_s": float("inf")}, {"liquid_density_kg_m3": True}):
             with self.subTest(kwargs=kwargs), self.assertRaises(DomainError):
                 replace(base.pipe, **kwargs)
         with self.assertRaises(DomainError):

@@ -422,7 +422,9 @@ def solve_regen_chamber(
         reynolds = mass_flux * hydraulic / properties.viscosity_pa_s
         friction = convection.chen_friction_factor(reynolds, channels.roughness_m / hydraulic).value
 
-        def coolant_coefficient(wall_temperature: float) -> float:
+        def coolant_coefficient(wall_temperature: float, *, temperature=temperature,
+                                pressure=pressure, distance=distance, properties=properties,
+                                index=index, reynolds=reynolds, friction=friction) -> float:
             if coolant_correlation == "taylor":
                 taylor = convection.taylor_hydrogen_coefficient(
                     fluid=coolant.fluid, bulk_temperature_k=temperature, wall_temperature_k=wall_temperature,
@@ -438,7 +440,7 @@ def solve_regen_chamber(
             note(gnielinski.warnings, index)
             return gnielinski.value * properties.thermal_conductivity_w_m_k / hydraulic
 
-        def radiative(wall_temperature: float) -> float:
+        def radiative(wall_temperature: float, *, station=station) -> float:
             nonlocal radiation_skipped
             if gas_radiation == "none" or (gas.h2o_mole_fraction + gas.co2_mole_fraction) <= 0.0:
                 return 0.0
@@ -462,7 +464,10 @@ def solve_regen_chamber(
                 gas_emissivity=emission.value, gas_absorptivity=absorption.value,
                 gas_temperature_k=gas_temperature, wall_temperature_k=wall_temperature)
 
-        def balance(wall_temperature: float) -> tuple[float, float, float, float, float, float]:
+        def balance(wall_temperature: float, *, station=station, temperature=temperature,
+                    land=land, circumference_per_channel=circumference_per_channel,
+                    coolant_coefficient=coolant_coefficient,
+                    radiative=radiative) -> tuple[float, float, float, float, float, float]:
             h_gas, recovery = bartz_coefficient(gas, throat_radius_m=contour.throat_radius_m,
                                                 area_ratio=station.area_ratio, mach=station.mach,
                                                 wall_temperature_k=wall_temperature)
@@ -578,14 +583,14 @@ def hot_gas_from_propellant(*, propellant_pair: str, chamber_pressure_pa: float,
            ``data/trans.inp``. https://github.com/nasa/cea
     """
 
-    from rocket_propulsion.thermochemistry import (  # noqa: PLC0415 - avoid import cycle
+    from rocket_propulsion.thermochemistry import (
         EquilibriumProblem,
         LocalEquilibriumProvider,
         get_propellant_pair,
         reactants_for_mass_ratio,
         solve_rocket_performance,
     )
-    from rocket_propulsion.thermochemistry.transport import equilibrium_transport_properties  # noqa: PLC0415
+    from rocket_propulsion.thermochemistry.transport import equilibrium_transport_properties
 
     pair = get_propellant_pair(propellant_pair)
     ratio = pair.reference_oxidizer_fuel_ratio if oxidizer_fuel_ratio is None else oxidizer_fuel_ratio

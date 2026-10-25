@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import random
 import unittest
-from functools import lru_cache
+from functools import cache
+from typing import ClassVar
 
 from rocket_propulsion.heat_transfer import conduction, radiation
 from rocket_propulsion.thermochemistry import (
@@ -29,7 +30,7 @@ from rocket_propulsion.thermochemistry.finite_area_combustor import solve_finite
 from rocket_propulsion.thermodynamics.real_fluids import reference_fluid
 
 
-@lru_cache(maxsize=None)
+@cache
 def _rocket(pair_key: str, pressure: float, chemistry: str):
     pair = PROPELLANT_PAIRS[pair_key]
     return solve_rocket_performance(
@@ -41,7 +42,7 @@ class IndependentDataSourceTests(unittest.TestCase):
     """Reference Helmholtz EOS (ideal part) against NASA Glenn polynomials."""
 
     # Largest |cp_EOS(p -> 0) / cp_NASA - 1| measured 2026-10-25 per fluid.
-    BANDS = {("nitrogen", "N2"): 1.0e-4, ("oxygen", "O2"): 1.0e-4,
+    BANDS: ClassVar = {("nitrogen", "N2"): 1.0e-4, ("oxygen", "O2"): 1.0e-4,
              ("normal_hydrogen", "H2"): 1.5e-3, ("methane", "CH4"): 2.0e-3}
 
     def test_low_density_heat_capacity_agrees_between_eos_and_nasa_polynomials(self) -> None:

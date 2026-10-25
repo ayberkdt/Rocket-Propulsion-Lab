@@ -122,10 +122,10 @@ _SUPPORTED_SCALE_NAMES = (
     "axial_efficiency_scale",
 )
 _FIELD_WARNINGS = (
-    "Between grid nodes the calibration is interpolated, not measured; interpolation "
-    "(model-form) error is not included.",
-    "Consensus standard uncertainty is the linear envelope sum_c w_c u_c, an upper bound "
-    "for any correlation between node estimates.",
+    ("Between grid nodes the calibration is interpolated, not measured; interpolation "
+    "(model-form) error is not included."),
+    ("Consensus standard uncertainty is the linear envelope sum_c w_c u_c, an upper bound "
+    "for any correlation between node estimates."),
     "Process variances are interpolated linearly in variance (library convention).",
     "Variance-component sampling uncertainty and model-form discrepancy are not included.",
 )

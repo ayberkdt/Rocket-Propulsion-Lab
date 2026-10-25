@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import json
 import unittest
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
+from unittest.mock import patch
 
 from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError, InputError
 from rocket_propulsion.thermochemistry.cea_library import cea_library_info, solve_cea_rocket
@@ -29,7 +30,7 @@ def _reactants(fuel: str, oxidizer: str, ratio: float) -> dict[str, float]:
     return {fuel: 1.0, oxidizer: ratio * fuel_mass / oxidizer_mass}
 
 
-@lru_cache(maxsize=None)
+@cache
 def _local(fuel: str, oxidizer: str, ratio: float, pressure: float, areas: tuple[float, ...]):
     return solve_rocket_performance(
         reactants=_reactants(fuel, oxidizer, ratio), chamber_pressure_pa=pressure, area_ratios=areas
@@ -129,11 +130,16 @@ class InstalledCeaTests(unittest.TestCase):
 
 class MissingCeaTests(unittest.TestCase):
     def test_missing_package_raises_feature_unavailable(self) -> None:
-        if cea_library_info().available:
-            self.skipTest("NASA cea package installed")
-        with self.assertRaises(FeatureUnavailableError):
-            solve_cea_rocket(fuel="H2(L)", oxidizer="O2(L)", oxidizer_fuel_ratio=5.5,
-                             chamber_pressure_pa=5.0e6)
+        cea_library_info.cache_clear()
+        try:
+            with patch('rocket_propulsion.thermochemistry.cea_library._import_cea',
+                       side_effect=ModuleNotFoundError('deliberately unavailable CEA')):
+                self.assertFalse(cea_library_info().available)
+                with self.assertRaises(FeatureUnavailableError):
+                    solve_cea_rocket(fuel="H2(L)", oxidizer="O2(L)", oxidizer_fuel_ratio=5.5,
+                                     chamber_pressure_pa=5.0e6)
+        finally:
+            cea_library_info.cache_clear()
 
 
 if __name__ == "__main__":

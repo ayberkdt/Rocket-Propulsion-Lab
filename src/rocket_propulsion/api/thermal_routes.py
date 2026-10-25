@@ -30,14 +30,17 @@ from rocket_propulsion.heat_transfer.regen_chamber import (
     hot_gas_from_propellant,
     solve_regen_chamber,
 )
+from rocket_propulsion.thermochemistry import combustion_efficiency as efficiency
 from rocket_propulsion.thermochemistry import (
     get_propellant_pair,
     reactants_for_mass_ratio,
     solve_rocket_performance,
 )
-from rocket_propulsion.thermochemistry import combustion_efficiency as efficiency
 from rocket_propulsion.thermochemistry.finite_area_combustor import solve_finite_area_combustor
-from rocket_propulsion.thermochemistry.nozzle_kinetics import HyperbolicNozzle, solve_nozzle_kinetics
+from rocket_propulsion.thermochemistry.nozzle_kinetics import (
+    HyperbolicNozzle,
+    solve_nozzle_kinetics,
+)
 from rocket_propulsion.thermodynamics.real_fluids.transport import transport_tp
 
 
@@ -129,9 +132,9 @@ def heat_convection_route(payload: dict[str, Any]) -> dict[str, Any]:
         reynolds = flux * diameter / properties.viscosity_pa_s
         row: dict[str, Any] = {"mass_flux_kg_m2_s": flux, "reynolds": reynolds}
         scale = properties.thermal_conductivity_w_m_k / diameter
-        for key, call in (("gnielinski", lambda: convection.gnielinski_nusselt(reynolds, properties.prandtl_number, extrapolate=True)),
-                          ("dittus_boelter", lambda: convection.power_law_nusselt(reynolds, properties.prandtl_number, "dittus_boelter", extrapolate=True)),
-                          ("colburn", lambda: convection.power_law_nusselt(reynolds, properties.prandtl_number, "colburn", extrapolate=True))):
+        for key, call in (("gnielinski", lambda reynolds=reynolds: convection.gnielinski_nusselt(reynolds, properties.prandtl_number, extrapolate=True)),
+                          ("dittus_boelter", lambda reynolds=reynolds: convection.power_law_nusselt(reynolds, properties.prandtl_number, "dittus_boelter", extrapolate=True)),
+                          ("colburn", lambda reynolds=reynolds: convection.power_law_nusselt(reynolds, properties.prandtl_number, "colburn", extrapolate=True))):
             try:
                 row[key] = call().value * scale
             except (DomainError, InputError):

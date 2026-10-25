@@ -94,6 +94,8 @@ def summarize(root: Path, regression: Path) -> dict:
 def _declared_mutations(root: Path, path: Path) -> set[str]:
     """Read fault identities from the source-bound literal registry without executing it."""
     script = {"mutations.json": "run_sass_mutations.py",
+              "root_mutations.json": "run_root_mutations.py",
+              "equilibrium_jacobian_mutations.json": "run_equilibrium_jacobian_mutations.py",
               "feed_mutations.json": "run_feed_mutations.py",
               "native_lunaris_mutations.json": "run_lunaris_impulse_mutations.py"}.get(path.name)
     if script is None:

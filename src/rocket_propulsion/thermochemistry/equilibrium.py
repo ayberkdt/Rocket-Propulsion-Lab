@@ -2,8 +2,9 @@
 
 The local provider minimizes ideal-gas Gibbs energy subject to element
 conservation [1]_ using NASA Glenn species data [2]_. It is limited to the
-bundled gas species and 200--6000 K and is not validated against NASA CEA or
-hardware data. The provider protocol also lets the NASA CEA adapter of
+bundled gas species and 200--6000 K. Bounded solver comparisons against NASA
+CEA are recorded in ``tests/test_cea_gate.py``; shared thermodynamic data do
+not independently validate the catalogue or hardware. The provider protocol also lets the NASA CEA adapter of
 :mod:`.cea` be selected without coupling the rest of the application to an
 external executable.
 
@@ -23,6 +24,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from itertools import combinations
 from math import exp, isfinite, log
+from operator import mul
 from typing import Protocol, runtime_checkable
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
@@ -744,6 +746,10 @@ class LocalEquilibriumProvider:
             for element in elements[1:]
         }
         atom_matrix = [dict(species.formula) for species in candidates]
+        atom_rows = [tuple(record.get(element, 0.0) for element in elements)
+                     for record in atom_matrix]
+        atom_columns = {element: tuple(row[column] for row in atom_rows)
+                        for column, element in enumerate(elements)}
         g_over_rt = []
         for species in candidates:
             properties = species.properties(temperature_k)
@@ -759,20 +765,14 @@ class LocalEquilibriumProvider:
             log_weights = [
                 pressure_term
                 - gibbs
-                + sum(
-                    atom_matrix[index].get(element, 0.0) * potentials[element_index]
-                    for element_index, element in enumerate(elements)
-                )
+                + sum(map(mul, atom_rows[index], potentials))
                 for index, gibbs in enumerate(g_over_rt)
             ]
             normalization = _logsumexp(log_weights)
             fractions = [exp(value - normalization) for value in log_weights]
             atoms_per_mole = {
-                element: sum(
-                    fraction * atom_matrix[index].get(element, 0.0)
-                    for index, fraction in enumerate(fractions)
-                )
-                for element in elements
+                element: sum(map(mul, fractions, counts))
+                for element, counts in atom_columns.items()
             }
             values = [normalization]
             reference_atoms = atoms_per_mole[reference_element]
@@ -801,14 +801,17 @@ class LocalEquilibriumProvider:
                     solved_potentials[0] = potentials
                     return fractions, iteration, norm
                 step_size = 1.0e-5
-                jacobian: list[list[float]] = []
-                for row in range(len(elements)):
-                    jacobian.append([])
-                    for column in range(len(elements)):
-                        shifted = potentials[:]
-                        shifted[column] += step_size
-                        shifted_values, _ = residuals(shifted)
-                        jacobian[row].append((shifted_values[row] - values[row]) / step_size)
+                # One residual vector supplies every row of a difference column.
+                # Re-evaluating that identical vector per row adds no information.
+                shifted_columns: list[list[float]] = []
+                for column in range(len(elements)):
+                    shifted = potentials[:]
+                    shifted[column] += step_size
+                    shifted_values, _ = residuals(shifted)
+                    shifted_columns.append(shifted_values)
+                jacobian = [[(shifted_columns[column][row] - values[row]) / step_size
+                             for column in range(len(elements))]
+                            for row in range(len(elements))]
                 try:
                     delta = _solve_linear(jacobian, [-value for value in values])
                 except ConvergenceError:
@@ -865,11 +868,8 @@ class LocalEquilibriumProvider:
         self._last_potentials[elements] = solved_potentials[0]
 
         atoms_per_mole = {
-            element: sum(
-                fraction * atom_matrix[index].get(element, 0.0)
-                for index, fraction in enumerate(fractions)
-            )
-            for element in elements
+            element: sum(map(mul, fractions, counts))
+            for element, counts in atom_columns.items()
         }
         total_moles = inventory[reference_element] / atoms_per_mole[reference_element]
         amounts = {

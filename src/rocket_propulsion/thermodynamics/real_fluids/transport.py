@@ -662,15 +662,15 @@ _VALIDITY = {
         "nitrogen", True, 63.151, 1000.0, 2200.0 * _MPA, 63.151, 1000.0, 2200.0 * _MPA,
         "LEMMON-JACOBSEN-2004-TRANSPORT Eqs. (1)-(3)",
         "LEMMON-JACOBSEN-2004-TRANSPORT Eqs. (4)-(11)",
-        ("The paper states validity over all liquid and vapor states (abstract); the range "
+        (("The paper states validity over all liquid and vapor states (abstract); the range "
          "of the Span et al. (2000) equation of state is used. Uncertainties above 100 MPa "
-         "are stated as unknown (p. 62).",)),
+         "are stated as unknown (p. 62)."),)),
     "oxygen": TransportValidity(
         "oxygen", True, 54.361, 300.0, 80.0 * _MPA, 54.361, 300.0, 80.0 * _MPA,
         "LEMMON-JACOBSEN-2004-TRANSPORT Eqs. (1)-(3)",
         "LEMMON-JACOBSEN-2004-TRANSPORT Eqs. (4)-(11)",
-        ("Limited by the Schmidt-Wagner equation of state used for the density "
-         "(triple point to 300 K, 80 MPa).",)),
+        (("Limited by the Schmidt-Wagner equation of state used for the density "
+         "(triple point to 300 K, 80 MPa)."),)),
     "parahydrogen": TransportValidity(
         "parahydrogen", True, 13.8033, 1000.0, 200.0 * _MPA,
         13.8033, 1000.0, 100.0 * _MPA, _MUZNY_MODEL,
@@ -687,17 +687,17 @@ _VALIDITY = {
         "methane", True, 90.6941, 400.0, 55.0 * _MPA, 90.6941, 625.0, 100.0 * _MPA,
         "FRIEND-ELY-INGHAM-1989-CH4 Eqs. (10a), (12), (15a)",
         "FRIEND-ELY-INGHAM-1989-CH4 Eqs. (13a), (14), (17a), (18a)-(22)",
-        ("Abstract of Friend et al. (1989): viscosity about 91-400 K below 55 MPa, "
+        (("Abstract of Friend et al. (1989): viscosity about 91-400 K below 55 MPa, "
          "conductivity about 91-700 K below 100 MPa; the upper temperature of the "
-         "conductivity is capped at 625 K by the Setzmann-Wagner equation of state.",
-         "Above the viscosity range the conductivity critical term uses the extrapolated "
-         "Friend-Ely-Ingham viscosity.")),
+         "conductivity is capped at 625 K by the Setzmann-Wagner equation of state."),
+         ("Above the viscosity range the conductivity critical term uses the extrapolated "
+         "Friend-Ely-Ingham viscosity."))),
     "helium": TransportValidity(
         "helium", True, 2.5, 1500.0, 100.0 * _MPA, 3.5, 1500.0, 100.0 * _MPA,
         "ARP-MCCARTY-FRIEND-1998-HE Eqs. (1)-(9)",
         "Hands and Arp (1981) via COOLPROP-TRANSPORT-C00300E (paper not opened)",
-        ("TN 1334, Sec. 1: the helium I code is valid from 2.5 to 1500 K to 100 MPa; "
-         "Sec. 4.1: the conductivity validity is unknown below 3.5 K or above 100 MPa.",)),
+        (("TN 1334, Sec. 1: the helium I code is valid from 2.5 to 1500 K to 100 MPa; "
+         "Sec. 4.1: the conductivity validity is unknown below 3.5 K or above 100 MPa."),)),
 }
 
 

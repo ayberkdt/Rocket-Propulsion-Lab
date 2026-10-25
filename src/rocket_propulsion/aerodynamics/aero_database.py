@@ -52,6 +52,7 @@ References
 
 from __future__ import annotations
 
+import itertools
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from math import ceil, isfinite, sqrt
@@ -267,7 +268,7 @@ class AeroDatabase:
             if not isinstance(points, tuple) or len(points) < 2:
                 raise InputError(f"Axis {name!r} needs at least two breakpoints.", field="breakpoints")
             values = [_finite(v, "breakpoints") for v in points]
-            if any(b <= a for a, b in zip(values, values[1:], strict=False)):
+            if any(b <= a for a, b in itertools.pairwise(values)):
                 raise InputError(f"Axis {name!r} breakpoints must increase.", field="breakpoints")
             size *= len(points)
         if not self.coefficients:

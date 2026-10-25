@@ -57,8 +57,11 @@ normal force is 22–24 % above the TR 1048 measured point.
 - Documented scaling requirements from that test article to flight.
 
 No software change can supply these; they come from hardware tests. Until
-they exist, no claim of zero modelling error is possible: every model here
-carries a stated validity range, and outside it the code refuses to answer.
+they exist, no claim of zero modelling error is possible. Individual models
+state validity ranges; refusal behavior needs verification at each public
+boundary. A passing suite does not prove that every out-of-range or malformed
+input is rejected. The current upstream reconciliation and remaining software
+review are tracked in [CURRENT_UPSTREAM_REVIEW.md](CURRENT_UPSTREAM_REVIEW.md).
 
 ## References
 

@@ -85,12 +85,12 @@ from rocket_propulsion.studies import (
 )
 from rocket_propulsion.thermochemistry import (
     PROPELLANT_PAIRS,
-    cea_library_info,
     CeaEquilibriumProvider,
     CeaSubprocessAdapter,
     EquilibriumProblem,
     LocalEquilibriumProvider,
     Mixture,
+    cea_library_info,
     generate_oxidizer_fuel_sweep,
     get_species,
     species_catalog,
@@ -104,8 +104,8 @@ from rocket_propulsion.thermodynamics import (
     complete_ideal_gas_state,
 )
 
-from .capabilities import SideraCapabilityProbe
 from .aero_routes import AERO_ROUTE_METADATA, AERO_ROUTES
+from .capabilities import SideraCapabilityProbe
 from .chemistry_routes import CHEMISTRY_ROUTE_METADATA, CHEMISTRY_ROUTES
 from .thermal_routes import THERMAL_ROUTE_METADATA, THERMAL_ROUTES
 
@@ -3212,7 +3212,7 @@ def dispatch_calculation(path: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 # --- Transient-core and SASS routes (defined in transient_routes.py) ---------
-from .transient_routes import TRANSIENT_ROUTE_METADATA, TRANSIENT_ROUTES  # noqa: E402
+from .transient_routes import TRANSIENT_ROUTE_METADATA, TRANSIENT_ROUTES
 
 ROUTES.update(TRANSIENT_ROUTES)
 ROUTE_METADATA.update(TRANSIENT_ROUTE_METADATA)

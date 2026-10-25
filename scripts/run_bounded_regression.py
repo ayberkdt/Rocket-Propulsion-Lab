@@ -33,9 +33,11 @@ COLLECTION_TIMEOUT_SECONDS = 30
 
 def verification_inputs(root=ROOT):
     """Hash executable sources, tests and their repository data/document inputs."""
-    suffixes = {".py", ".json", ".csv", ".txt", ".md", ".html", ".css", ".js", ".toml", ".patch"}
+    suffixes = {".py", ".json", ".csv", ".txt", ".md", ".html", ".css", ".js",
+                ".mjs", ".cjs", ".yml", ".yaml", ".toml", ".patch"}
     files = {root / "pyproject.toml", root / "README.md"}
-    for folder in ("src", "tests", "scripts", "docs", "examples"):
+    files.update(p for name in ('app.cmd', 'LICENSE') if (p := root / name).is_file())
+    for folder in ("src", "tests", "scripts", "docs", "examples", ".github/workflows"):
         files.update(p for p in (root / folder).rglob("*") if p.is_file() and p.suffix in suffixes)
     return {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in sorted(files)}

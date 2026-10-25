@@ -6,6 +6,7 @@ transcription spot check and NASA CEA 3.3.4 frozen and shifting-equilibrium
 bounds for the nozzle case (``scripts/generate_finite_rate_cea_bounds.py``).
 """
 
+import itertools
 import json
 import unittest
 from math import exp, log10
@@ -308,7 +309,7 @@ class NozzleKineticsTests(unittest.TestCase):
             self.assertLess(exit_[key], start[key])
         self.assertGreater(exit_["H2O"], start["H2O"])
         temperatures = [station.temperature_k for station in self.baseline.stations]
-        self.assertTrue(all(b < a for a, b in zip(temperatures, temperatures[1:], strict=False)))
+        self.assertTrue(all(b < a for a, b in itertools.pairwise(temperatures)))
 
     def test_bray_estimate_brackets(self) -> None:
         early = bray_sudden_freezing(reactants=self.reactants, chamber_pressure_pa=self.pc,

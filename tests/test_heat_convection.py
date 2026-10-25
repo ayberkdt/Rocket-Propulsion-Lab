@@ -189,13 +189,13 @@ class LienhardExternalAndPhaseChange(unittest.TestCase):
 
     def test_example_9_2_rohsenow(self) -> None:
         e = EX["example_9_2"]
-        props = dict(specific_heat_j_kg_k=e["specific_heat_j_kg_k"],
-                     latent_heat_j_kg=e["latent_heat_j_kg"], prandtl=e["prandtl"],
-                     viscosity_pa_s=e["viscosity_pa_s"],
-                     liquid_density_kg_m3=e["density_difference_kg_m3"] + 1.0,
-                     vapor_density_kg_m3=1.0, surface_tension_n_m=e["surface_tension_n_m"],
-                     surface_constant=e["surface_constant"], prandtl_exponent=1.0,
-                     gravity_m_s2=e["gravity_m_s2"])
+        props = {"specific_heat_j_kg_k": e["specific_heat_j_kg_k"],
+                     "latent_heat_j_kg": e["latent_heat_j_kg"], "prandtl": e["prandtl"],
+                     "viscosity_pa_s": e["viscosity_pa_s"],
+                     "liquid_density_kg_m3": e["density_difference_kg_m3"] + 1.0,
+                     "vapor_density_kg_m3": 1.0, "surface_tension_n_m": e["surface_tension_n_m"],
+                     "surface_constant": e["surface_constant"], "prandtl_exponent": 1.0,
+                     "gravity_m_s2": e["gravity_m_s2"]}
         q = cv.rohsenow_heat_flux(e["wall_superheat_k"], **props).value
         self.assertLess(rel(q, e["heat_flux_w_m2"]), e["rel_tol"])
         dt = cv.rohsenow_wall_superheat(q, **props).value
@@ -222,10 +222,10 @@ class LienhardExternalAndPhaseChange(unittest.TestCase):
         lam = cv.taylor_wavelength(w["liquid_density_kg_m3"], w["vapor_density_kg_m3"],
                                    w["surface_tension_n_m"], w["gravity_m_s2"])
         self.assertLess(rel(lam, w["wavelength_m"]), w["printed_rel_tol"])
-        kwargs = dict(vapor_density_kg_m3=w["vapor_density_kg_m3"], latent_heat_j_kg=2.257e6,
-                      surface_tension_n_m=w["surface_tension_n_m"],
-                      liquid_density_kg_m3=w["liquid_density_kg_m3"],
-                      gravity_m_s2=w["gravity_m_s2"])
+        kwargs = {"vapor_density_kg_m3": w["vapor_density_kg_m3"], "latent_heat_j_kg": 2.257e6,
+                      "surface_tension_n_m": w["surface_tension_n_m"],
+                      "liquid_density_kg_m3": w["liquid_density_kg_m3"],
+                      "gravity_m_s2": w["gravity_m_s2"]}
         with self.assertRaises(DomainError):
             cv.peak_pool_boiling_heat_flux(heater_width_m=2.0 * lam, **kwargs)
         ok = cv.peak_pool_boiling_heat_flux(heater_width_m=4.0 * lam, **kwargs)
@@ -262,9 +262,9 @@ class TaylorHydrogen(unittest.TestCase):
         self.assertEqual(warned.warnings[0].code, "correlation_extrapolated")
 
     def test_real_fluid_coefficient_is_consistent_with_eos(self) -> None:
-        kw = dict(bulk_temperature_k=60.0, wall_temperature_k=400.0, pressure_pa=6.0e6,
-                  mass_flux_kg_m2_s=4000.0, diameter_m=0.004, distance_from_entrance_m=0.2,
-                  bulk_viscosity_pa_s=4.0e-6, bulk_conductivity_w_m_k=0.09)
+        kw = {"bulk_temperature_k": 60.0, "wall_temperature_k": 400.0, "pressure_pa": 6.0e6,
+                  "mass_flux_kg_m2_s": 4000.0, "diameter_m": 0.004, "distance_from_entrance_m": 0.2,
+                  "bulk_viscosity_pa_s": 4.0e-6, "bulk_conductivity_w_m_k": 0.09}
         result = cv.taylor_hydrogen_coefficient(fluid="parahydrogen", **kw)
         state = reference_fluid("parahydrogen").state_tp(60.0, 6.0e6)
         re = 4000.0 * 0.004 / 4.0e-6
@@ -422,15 +422,15 @@ class HatchPapellFilmCooling(unittest.TestCase):
     def setUp(self) -> None:
         e = DATA["hatch_papell_example"]
         self.e = e
-        self.common = dict(
-            heat_transfer_coefficient_w_m2_k=e["h_btu_ft2_s_r"] * BTU / (FT ** 2 * RANKINE),
-            slot_length_m=e["slot_length_ft"] * FT, distance_m=e["distance_ft"] * FT,
-            coolant_specific_heat_j_kg_k=e["coolant_cp_btu_lb_r"] * BTU / (LB * RANKINE),
-            slot_height_m=e["slot_height_ft"] * FT, gas_velocity_m_s=e["gas_velocity_ft_s"] * FT,
-            coolant_velocity_m_s=e["coolant_velocity_ft_s"] * FT,
-            coolant_thermal_diffusivity_m2_s=e["coolant_diffusivity_ft2_s"] * FT ** 2,
-            gas_temperature_k=e["gas_temperature_r"] * RANKINE,
-            coolant_temperature_k=e["coolant_temperature_r"] * RANKINE)
+        self.common = {
+            "heat_transfer_coefficient_w_m2_k": e["h_btu_ft2_s_r"] * BTU / (FT ** 2 * RANKINE),
+            "slot_length_m": e["slot_length_ft"] * FT, "distance_m": e["distance_ft"] * FT,
+            "coolant_specific_heat_j_kg_k": e["coolant_cp_btu_lb_r"] * BTU / (LB * RANKINE),
+            "slot_height_m": e["slot_height_ft"] * FT, "gas_velocity_m_s": e["gas_velocity_ft_s"] * FT,
+            "coolant_velocity_m_s": e["coolant_velocity_ft_s"] * FT,
+            "coolant_thermal_diffusivity_m2_s": e["coolant_diffusivity_ft2_s"] * FT ** 2,
+            "gas_temperature_k": e["gas_temperature_r"] * RANKINE,
+            "coolant_temperature_k": e["coolant_temperature_r"] * RANKINE}
 
     def test_velocity_function_and_limits(self) -> None:
         e = self.e

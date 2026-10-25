@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import subprocess
@@ -52,7 +53,7 @@ class BundledSubsetTests(unittest.TestCase):
     def test_intervals_are_contiguous(self) -> None:
         for record in DOCUMENT["species"]:
             intervals = record["intervals"]
-            for left, right in zip(intervals, intervals[1:], strict=False):
+            for left, right in itertools.pairwise(intervals):
                 with self.subTest(species=record["key"]):
                     self.assertEqual(left["maximum_temperature_k"], right["minimum_temperature_k"])
                     self.assertEqual(len(left["coefficients"]), 9)

@@ -384,8 +384,8 @@ _HE_TERMS = (
 )
 _HE_IDEAL = IdealHelmholtz(a1=0.1733487932835764, a2=0.4674522201550815, log_tau=1.5)
 
-_PROVENANCE = ("Coefficients read from the primary source and cross-checked digit-for-digit "
-               "against CoolProp fluid JSON at commit c00300e.",)
+_PROVENANCE = (("Coefficients read from the primary source and cross-checked digit-for-digit "
+               "against CoolProp fluid JSON at commit c00300e."),)
 
 
 def _para_hydrogen() -> FluidModel:
@@ -434,8 +434,8 @@ def _oxygen() -> FluidModel:
                                (0.19035504, 3.0)), "linear", "STEWART-1991-O2 Eq. (10)"),
         references=("SCHMIDT-WAGNER-1985-O2", "STEWART-1991-O2 Table 4, Eqs. (11), (15)"),
         notes=_PROVENANCE + (
-            "Validity is the range of the Stewart et al. (1991) title: triple point to 300 K, "
-            "pressures to 80 MPa.",))
+            ("Validity is the range of the Stewart et al. (1991) title: triple point to 300 K, "
+            "pressures to 80 MPa."),))
 
 
 def _nitrogen() -> FluidModel:
@@ -473,10 +473,10 @@ def _methane() -> FluidModel:
             "SETZMANN-WAGNER-1991-CH4 Eq. (3.4), Table 26"),
         references=("SETZMANN-WAGNER-1991-CH4 Tables 33, 35, Eqs. (5.1)-(5.3)",),
         notes=_PROVENANCE + (
-            "The paper's nomenclature (p. 1064) prints p_c = 4.5922 MPa; Eq. (2.3), Table 26 "
-            "and p. 1091 give 4.5992 MPa, which is used.",
-            "Validity is 90.6941 K <= T < 625 K, p <= 1000 MPa (p. 1091); the melting "
-            "line is not checked."))
+            ("The paper's nomenclature (p. 1064) prints p_c = 4.5922 MPa; Eq. (2.3), Table 26 "
+            "and p. 1091 give 4.5992 MPa, which is used."),
+            ("Validity is 90.6941 K <= T < 625 K, p <= 1000 MPa (p. 1091); the melting "
+            "line is not checked.")))
 
 
 def _helium() -> FluidModel:
@@ -489,10 +489,10 @@ def _helium() -> FluidModel:
         ideal=_HE_IDEAL, residual=ResidualHelmholtz(_HE_TERMS), ancillary=None,
         references=("ORTIZVEGA-2023-HE Tables 1-2, Eqs. (3)-(4)",),
         notes=_PROVENANCE + (
-            "NIST IR 8474 describes this as a preliminary equation; no vapor-pressure "
-            "ancillary is given, so saturation starts from the spinodal loop.",
-            "Valid for helium I only (above the lambda line); the lambda line and melting "
-            "line are not checked."))
+            ("NIST IR 8474 describes this as a preliminary equation; no vapor-pressure "
+            "ancillary is given, so saturation starts from the spinodal loop."),
+            ("Valid for helium I only (above the lambda line); the lambda line and melting "
+            "line are not checked.")))
 
 
 _BUILDERS = {

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import unittest
-from functools import lru_cache
+from functools import cache
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.geometry import generate_nozzle_contour
@@ -22,13 +22,13 @@ CHANNELS = CoolingChannels(count=100, width_m=1.5e-3, height_m=3.0e-3, hot_wall_
                            roughness_m=1.0e-6)
 
 
-@lru_cache(maxsize=None)
+@cache
 def _gas():
     return hot_gas_from_propellant(propellant_pair="LOX_CH4", chamber_pressure_pa=PRESSURE,
                                    throat_radius_of_curvature_m=0.05)
 
 
-@lru_cache(maxsize=None)
+@cache
 def _contour(stations: int = 41):
     return generate_nozzle_contour(contour="conical", throat_area_m2=0.01, area_ratio=10.0,
                                    gamma=_gas().gamma, chamber_radius_ratio=2.0, station_count=stations)
@@ -38,7 +38,7 @@ def _fuel_flow() -> float:
     return PRESSURE * 0.01 / _gas().characteristic_velocity_m_s / 4.4
 
 
-@lru_cache(maxsize=None)
+@cache
 def _solve(stations: int = 41, flow_scale: float = 1.0, material: str = "grcop-84"):
     return solve_regen_chamber(
         contour=_contour(stations), gas=_gas(), channels=CHANNELS, wall_material=material,

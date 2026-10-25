@@ -71,7 +71,12 @@ from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
 
-from .equilibrium import EquilibriumProblem, EquilibriumProvider, EquilibriumResult, LocalEquilibriumProvider
+from .equilibrium import (
+    EquilibriumProblem,
+    EquilibriumProvider,
+    EquilibriumResult,
+    LocalEquilibriumProvider,
+)
 from .rocket_equilibrium import PropellantPair, get_propellant_pair, reactants_for_mass_ratio
 from .rocket_performance import solve_rocket_performance
 from .species import get_reactant, get_species
@@ -1390,7 +1395,7 @@ def jannaf_isp_loss_chain(*, ode_specific_impulse_s: float, kinetic_efficiency: 
            pp. 1-4. https://ntrs.nasa.gov/citations/19870010946
     """
 
-    from rocket_propulsion.propulsion.losses import calculate_loss_budget  # noqa: PLC0415 - avoids import cycle
+    from rocket_propulsion.propulsion.losses import calculate_loss_budget
 
     ode = _positive(ode_specific_impulse_s, "ode_specific_impulse_s")
     kinetic = _fraction(kinetic_efficiency, "kinetic_efficiency", allow_zero=False)

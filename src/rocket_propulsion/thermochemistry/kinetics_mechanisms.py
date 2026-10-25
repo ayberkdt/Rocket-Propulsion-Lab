@@ -184,7 +184,7 @@ def gri30_h2o2_mechanism() -> Mechanism:
             "Reverse rates from the NASA Glenn polynomials, not GRI-Mech thermo30.dat.",
             "Efficiencies of CH4, CO, CO2, C2H6, N2 and AR dropped (species absent).",
             "Lines 62 (H+O2+N2) and 63 (H+O2+AR) omitted (colliders absent).",
-            "GRI-Mech 3.0 targets natural-gas combustion; rocket-nozzle use is an "
-            "extrapolation beyond its optimization targets.",
+            ("GRI-Mech 3.0 targets natural-gas combustion; rocket-nozzle use is an "
+            "extrapolation beyond its optimization targets."),
         ),
     )

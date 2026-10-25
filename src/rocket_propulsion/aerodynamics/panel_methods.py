@@ -44,6 +44,7 @@ References
 
 from __future__ import annotations
 
+import itertools
 from collections.abc import Sequence
 from dataclasses import dataclass
 from math import atan, atan2, cos, degrees, hypot, isfinite, log, pi, sin, sqrt
@@ -131,7 +132,7 @@ def panel_geometry(nodes: Sequence[Sequence[float]]) -> PanelGeometry:
         raise DomainError("The panel contour must be closed (first node equal to last).", field="nodes")
     lengths, angles, controls = [], [], []
     signed_area = 0.0
-    for (x0, y0), (x1, y1) in zip(points[:-1], points[1:], strict=True):
+    for (x0, y0), (x1, y1) in itertools.pairwise(points):
         length = hypot(x1 - x0, y1 - y0)
         if length == 0.0:
             raise DomainError("Panels must have nonzero length.", field="nodes")

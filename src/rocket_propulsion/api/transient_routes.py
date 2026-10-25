@@ -790,8 +790,8 @@ def evaluate_regulated_feed_route(payload: dict[str, Any]) -> dict[str, Any]:
             "NASA-GRC-MASS-FLOW-CHOKING",
         ],
         "warnings": [
-            "State evaluation only: the library returns the feed ODE right-hand side; "
-            "no time history is integrated.",
+            ("State evaluation only: the library returns the feed ODE right-hand side; "
+            "no time history is integrated."),
             "Performance grid and burn profile are synthetic example data.",
         ],
     }
@@ -948,8 +948,8 @@ def evaluate_feed_line_route(payload: dict[str, Any]) -> dict[str, Any]:
         "series": {"line_flow_sweep": _series("line_mass_flow_kg_s", sweep, MAX_SERIES_POINTS)},
         "reference_ids": ["NASA-19740028545", "NASA-20220006583", "NASA-20240003493"],
         "warnings": [
-            "State evaluation only: the library returns the line ODE right-hand side; "
-            "no time history is integrated.",
+            ("State evaluation only: the library returns the line ODE right-hand side; "
+            "no time history is integrated."),
             "First inertance/compliance mode only; not a water-hammer solver.",
             "Performance grid and burn profile are synthetic example data.",
         ],
@@ -1189,8 +1189,8 @@ def evaluate_electric_route(payload: dict[str, Any]) -> dict[str, Any]:
         "series": {"power_sweep": _series("available_power_w", sweep, MAX_SERIES_POINTS)},
         "reference_ids": ["NASA-20090004685", "OREKIT-13.1.5-PROPULSION-MODEL"],
         "warnings": [
-            "Throttle-table values are caller-supplied; the model is not validated against "
-            "thruster hardware.",
+            ("Throttle-table values are caller-supplied; the model is not validated against "
+            "thruster hardware."),
         ],
     }
 
@@ -1411,10 +1411,10 @@ def plan_pulse_mode_route(payload: dict[str, Any]) -> dict[str, Any]:
         "series": series,
         "reference_ids": list(thruster.reference_ids),
         "warnings": [
-            "The impulse-bit and propellant tables are caller-supplied; the default table is "
-            "synthetic.",
-            "Pulse-train segments are rectangles over the electrical on-time; rise and tail-off "
-            "are not represented.",
+            ("The impulse-bit and propellant tables are caller-supplied; the default table is "
+            "synthetic."),
+            ("Pulse-train segments are rectangles over the electrical on-time; rise and tail-off "
+            "are not represented."),
         ],
     }
 
@@ -2763,8 +2763,8 @@ def size_sass_mission_route(payload: dict[str, Any]) -> dict[str, Any]:
         },
         "reference_ids": sorted(_cited_source_ids(document)),
         "warnings": [
-            "Preliminary design screening only: no hardware readiness, experimental "
-            "validation or qualification evidence.",
+            ("Preliminary design screening only: no hardware readiness, experimental "
+            "validation or qualification evidence."),
             f"Catalogue extrapolation: {document['extrapolation_policy']}.",
         ],
     }

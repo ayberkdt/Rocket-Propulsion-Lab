@@ -125,8 +125,8 @@ class AndersonFlatPlateExampleTests(unittest.TestCase):
                 self.assertAlmostEqual(result.wall_heat_flux_w_m2, 0.0, delta=1.0e-9)
 
     def test_cold_wall_heats_and_hot_wall_cools(self) -> None:
-        base = dict(edge_temperature_k=220.0, edge_pressure_pa=2000.0, edge_velocity_m_s=1500.0, x_m=1.0,
-                    gas_constant_j_kg_k=287.0)
+        base = {"edge_temperature_k": 220.0, "edge_pressure_pa": 2000.0, "edge_velocity_m_s": 1500.0, "x_m": 1.0,
+                    "gas_constant_j_kg_k": 287.0}
         cold = compressible_flat_plate_reference_temperature(wall_temperature_k=300.0, **base)
         hot = compressible_flat_plate_reference_temperature(wall_temperature_k=2.0 * cold.adiabatic_wall_temperature_k,
                                                             **base)
@@ -160,8 +160,8 @@ class VanDriestIITests(unittest.TestCase):
             wall = row["tw_taw"] * taw_088
             computed = []
             for reynolds in (1.0e5, 1.0e9):
-                common = dict(mach=row["mach"], edge_temperature_k=row["te_k"], reynolds_x=reynolds,
-                              wall_temperature_k=wall)
+                common = {"mach": row["mach"], "edge_temperature_k": row["te_k"], "reynolds_x": reynolds,
+                              "wall_temperature_k": wall}
                 reference = van_driest_ii(recovery_factor=0.88, **common).local_skin_friction
                 computed.append((reference, van_driest_ii(recovery_factor=1.0, **common).local_skin_friction,
                                  van_driest_ii(recovery_factor=1.0, viscosity_law="power", viscosity_exponent=0.76,
@@ -257,8 +257,8 @@ class CouetteTests(unittest.TestCase):
         self.assertTrue(result.warnings)
 
     def test_quadrature_converged(self) -> None:
-        kwargs = dict(upper_plate_velocity_m_s=3000.0, gap_m=1.0e-3, pressure_pa=1.0e5, upper_wall_temperature_k=250.0,
-                      lower_wall_temperature_k=300.0, gas_constant_j_kg_k=287.0)
+        kwargs = {"upper_plate_velocity_m_s": 3000.0, "gap_m": 1.0e-3, "pressure_pa": 1.0e5, "upper_wall_temperature_k": 250.0,
+                      "lower_wall_temperature_k": 300.0, "gas_constant_j_kg_k": 287.0}
         default = compressible_couette(**kwargs).shear_stress_pa
         fine = compressible_couette(intervals=1600, **kwargs).shear_stress_pa
         self.assertLess(_relative(default, fine), 1.0e-9)
@@ -295,8 +295,8 @@ class StagnationHeatingTests(unittest.TestCase):
     def test_boundary_layer_stagnation_forms(self) -> None:
         gradient = newtonian_stagnation_velocity_gradient(0.5, 2.0e4, 1.0e3, 0.05)
         self.assertAlmostEqual(gradient, math.sqrt(2.0 * 1.9e4 / 0.05) / 0.5)
-        common = dict(prandtl=0.71, edge_density_kg_m3=0.05, edge_viscosity_pa_s=1.0e-4,
-                      velocity_gradient_1_s=gradient, adiabatic_wall_enthalpy_j_kg=5.0e6, wall_enthalpy_j_kg=3.0e5)
+        common = {"prandtl": 0.71, "edge_density_kg_m3": 0.05, "edge_viscosity_pa_s": 1.0e-4,
+                      "velocity_gradient_1_s": gradient, "adiabatic_wall_enthalpy_j_kg": 5.0e6, "wall_enthalpy_j_kg": 3.0e5}
         sphere = stagnation_point_heating_boundary_layer(geometry="sphere", **common)
         cylinder = stagnation_point_heating_boundary_layer(geometry="cylinder", **common)
         self.assertAlmostEqual(sphere / cylinder, 0.763 / 0.57)
@@ -307,7 +307,7 @@ class StagnationHeatingTests(unittest.TestCase):
                                1.0 / math.sqrt(2.0))
 
     def test_tauber_closed_forms(self) -> None:
-        common = dict(freestream_density_kg_m3=1.0e-3, velocity_m_s=3000.0)
+        common = {"freestream_density_kg_m3": 1.0e-3, "velocity_m_s": 3000.0}
         cone = tauber_laminar_cone_heating(distance_m=1.0, cone_half_angle_deg=10.0, wall_enthalpy_j_kg=3.0e5,
                                            freestream_enthalpy_j_kg=2.0e5, **common)
         plate = tauber_laminar_flat_plate_heating(distance_m=1.0, plate_angle_deg=10.0, wall_enthalpy_j_kg=3.0e5,
