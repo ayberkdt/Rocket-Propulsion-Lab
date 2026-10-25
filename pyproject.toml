@@ -8,13 +8,14 @@ version = "0.9.0"
 description = "Rocket propulsion analysis and propagation-ready propulsion models for astrodynamics."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = { text = "Proprietary. All rights reserved." }
 authors = [{ name = "Ayberk Demirkanat" }]
 keywords = ["rocket", "propulsion", "nozzle", "compressible-flow", "thermodynamics", "astrodynamics", "orbit-propagation", "electric-propulsion"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
+    "License :: Other/Proprietary License",
+    "Private :: Do Not Upload",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
