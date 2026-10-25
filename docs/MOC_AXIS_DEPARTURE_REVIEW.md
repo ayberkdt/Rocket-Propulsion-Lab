@@ -7,6 +7,11 @@ wall result, free gradient or arbitrary epsilon radius cannot replace it.
 This supplies a missing local marching process, not a sonic starting line,
 complete nozzle field, optimized wall or hardware validation.
 
+The [supersonic field process](MOC_FIELD_REVIEW.md) now uses this departure
+in a connected axis-to-straight-wall mesh. Its complete cell and mass audits
+retain the unenforced C+ defect separately; sonic initialization and complete
+nozzle design/validation remain open.
+
 ## Retained failure and the resulting method
 
 The first implementation used endpoint-averaged Cartesian compatibility for

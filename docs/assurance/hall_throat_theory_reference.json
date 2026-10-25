@@ -1,0 +1,28 @@
+{
+  "scope": "Printed Hall theory comparisons only; not measured engine, cold-flow or hardware validation data",
+  "source_url": "https://ntrs.nasa.gov/api/citations/19670009614/downloads/19670009614.pdf",
+  "source_sha256": "c086816518314dcee1c5febd88d1b86a8f785cdcabe6a0bac494b8481556635b",
+  "tables": "4-1 through 4-3, printed pp.4-4 through 4-6 / PDF pp.33 through 35; Hall's Results column",
+  "visual_review": true,
+  "rounding_half_width": 0.00005,
+  "rows": [
+    {"gamma": 1.2, "inverse_curvature_ratio": 0.1, "order": 1, "axis_sonic_x_over_rt": 0.0829, "status": "equation_comparison"},
+    {"gamma": 1.2, "inverse_curvature_ratio": 0.2, "order": 1, "axis_sonic_x_over_rt": 0.1173, "status": "equation_comparison"},
+    {"gamma": 1.4, "inverse_curvature_ratio": 0.1, "order": 1, "axis_sonic_x_over_rt": 0.0856, "status": "inconsistent_with_equation_4_1"},
+    {"gamma": 1.4, "inverse_curvature_ratio": 0.2, "order": 1, "axis_sonic_x_over_rt": 0.1225, "status": "equation_comparison"},
+    {"gamma": 1.67, "inverse_curvature_ratio": 0.1, "order": 1, "axis_sonic_x_over_rt": 0.0913, "status": "equation_comparison"},
+    {"gamma": 1.67, "inverse_curvature_ratio": 0.2, "order": 1, "axis_sonic_x_over_rt": 0.1292, "status": "equation_comparison"},
+    {"gamma": 1.2, "inverse_curvature_ratio": 0.1, "order": 2, "axis_sonic_x_over_rt": 0.0798, "status": "equation_comparison"},
+    {"gamma": 1.2, "inverse_curvature_ratio": 0.2, "order": 2, "axis_sonic_x_over_rt": 0.1078, "status": "equation_comparison"},
+    {"gamma": 1.4, "inverse_curvature_ratio": 0.1, "order": 2, "axis_sonic_x_over_rt": 0.0832, "status": "equation_comparison"},
+    {"gamma": 1.4, "inverse_curvature_ratio": 0.2, "order": 2, "axis_sonic_x_over_rt": 0.1122, "status": "equation_comparison"},
+    {"gamma": 1.67, "inverse_curvature_ratio": 0.1, "order": 2, "axis_sonic_x_over_rt": 0.0876, "status": "equation_comparison"},
+    {"gamma": 1.67, "inverse_curvature_ratio": 0.2, "order": 2, "axis_sonic_x_over_rt": 0.1178, "status": "equation_comparison"}
+  ],
+  "anomaly": {
+    "printed_value": 0.0856,
+    "equation_4_1_value": 0.08660254037844387,
+    "difference_exceeds_printed_rounding_cell": true,
+    "handling": "Retain and flag the printed value; compare the implementation to the actual equation and do not fit coefficients or broaden tolerance to match the anomalous cell"
+  }
+}

@@ -228,7 +228,28 @@ rocket-propulsion burn export burn-result.json --target sidera `
   --output sidera-plan.json --start 100 --direction 1 0 0 --frame inertial
 ```
 
+## Near-throat Hall approximation (Python only)
+
+`HallThroatModel(throat_radius_m=..., throat_curvature_radius_m=..., gamma=...,
+axisymmetric=...)` supplies geometry/gas assumptions for
+`evaluate_hall_throat(model=..., axial_parameter=..., radius_fraction=...,
+radial_basis='throat', order=2)`.
+`locate_hall_sonic_point(model=..., wall_fraction=..., order=2)` returns the
+retained polynomial's sonic root with outward parameter, function, x and
+radius bounds. Results retain nonlinear PDE/slip defects and explicit display
+loss. This is an approximation with no physical error bound or complete
+sonic-to-MOC startup; see [Hall review](HALL_THROAT_REVIEW.md).
+
 ## Interior characteristic intersection (Python only)
+
+`solve_moc_field(axis_result=..., inlet_points=..., wall_segment=...,
+marching_steps=...)` now assembles the local kernels across a vertical
+supersonic inlet from axis to finite straight wall. `MocFieldInputs` and
+`MocFieldResult` retain both staggered fronts, complete cell audits, relative
+mass flux, cell imbalance and separate solved/unenforced residual diagnostics.
+It needs existing supersonic axis history; it supplies no sonic initialization
+or nozzle optimization and is not wired to the HTTP designer. See the
+[field review](MOC_FIELD_REVIEW.md).
 
 `solve_moc_axis_departure(axis_result=..., minus_parent=...)` carries an owned
 axis-boundary result into the first off-axis point. Gamma and geometry mode

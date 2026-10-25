@@ -1,5 +1,11 @@
 # Engineering references
 
+- **HALL-MCCABE-RM3440**: McCabe, planar Hall coefficients and nozzle-design context, ARC R&M3440 (report 1964, issued 1967). <https://reports.aerade.cranfield.ac.uk/handle/1826.2/4023>
+- **KLIEGEL-QUAN-1966**: Full potential equations, Cartesian Hall coefficients and comparison of transonic approximations, 02874-6002-R000. Theory context only. <https://ntrs.nasa.gov/api/citations/19670009614/downloads/19670009614.pdf>
+- **SAUER-NACA-TM1147**: Historical near-critical-flow and curved-sonic-line theory, 1947. <https://ntrs.nasa.gov/api/citations/20050019415/downloads/20050019415.pdf>
+
+- **NASA-GLENN-MASS-FLOW**: Isentropic mass-flow conservation and density/velocity context. Used as theory context, not a validation dataset or hardware evidence. Accessed 2026-10-24. <https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/mass-flow-rate-equations/>
+
 - **PYTHON-3.12-JSON**: Python JSON encoder/decoder hooks, duplicate-member and nonstandard numeric token behavior. Accessed 2026-10-19. <https://docs.python.org/3.12/library/json.html>
 
 - **SCIPY-1.14.1-REGULAR-GRID**: SciPy, RegularGridInterpolator, rectilinear grids and linear interpolation. Accessed 2026-10-18. <https://docs.scipy.org/doc/scipy-1.14.1/reference/generated/scipy.interpolate.RegularGridInterpolator.html>

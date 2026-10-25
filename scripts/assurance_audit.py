@@ -178,6 +178,19 @@ MOC_DEPARTURE_REVIEW = {
         '_parents','_axis_expansion','_rows','_metrics','_private_topology','_stored_topology','_pack','_solve',
         'MocAxisDepartureResult','MocAxisDepartureResult.__post_init__','solve_moc_axis_departure'},
 }
+MOC_FIELD_REVIEW = {
+    'geometry/moc_field.py': {'_bounded', 'MocFieldInputs', 'MocFieldInputs.__post_init__',
+        '_cross', '_check_cell', '_cells', '_check_front', '_flux_state', '_edge_flux',
+        '_mass_metrics', '_solve', 'MocFieldResult', 'MocFieldResult.__post_init__', 'solve_moc_field'},
+}
+HALL_THROAT_REVIEW = {
+    'geometry/hall_throat.py': {'HallThroatModel', 'HallThroatModel.__post_init__', '_coefficients',
+        'HallThroatInputs', 'HallThroatInputs.__post_init__', '_upper', '_signed_root', '_optional',
+        '_ledgers', '_evaluate', 'HallThroatResult', 'HallThroatResult.__post_init__', 'evaluate_hall_throat',
+        '_add', '_scale', '_multiply', '_at', '_sonic_polynomial', '_positive_on_interval',
+        'HallSonicInputs', 'HallSonicInputs.__post_init__', '_float_bounds', '_root_bounds', '_radial_bounds',
+        '_locate', 'HallSonicResult', 'HallSonicResult.__post_init__', 'locate_hall_sonic_point'},
+}
 BARTZ_REVIEW = {
     'thermodynamics/heat_transfer.py': {'_owned','BartzContourStation','BartzContourStation.__post_init__',
         '_rounding_cell','BartzContour','BartzContour.__post_init__','_contour','BartzInputs','BartzInputs.__post_init__',
@@ -446,6 +459,10 @@ def _review_scopes(path, name):
     scopes = (["source_trace_and_software_verification_only"]
               if "studies/sass/" in path.as_posix() else [])
     groups = (
+        (HALL_THROAT_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_constant_gamma_Hall_order1_order2_polynomial_primary_equations_full_PDE_defects_and_bracketed_sonic_curve_only_no_complete_initializer_or_physical_qualification'),
+        (MOC_FIELD_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_supersonic_axis_to_straight_wall_staggered_field_complete_cell_tessellation_signed_radial_refinement_and_polyline_mass_audit_only_no_sonic_start_nozzle_design_or_hardware_qualification'),
         (MOC_DEPARTURE_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
          'targeted_owned_axis_departure_second_order_radial_regularity_signed_oracles_and_coupled_stencil_stability_only_no_full_field_or_hardware_qualification'),
         (MOC_BOUNDARY_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),

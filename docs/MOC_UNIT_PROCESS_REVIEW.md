@@ -12,6 +12,11 @@ Separate [axis and prescribed-wall processes](MOC_BOUNDARY_REVIEW.md) now
 provide software-checked local boundaries. Their assembly with the interior
 kernel, a sonic starting field and complete nozzle validation remains open.
 
+A [connected supersonic strip](MOC_FIELD_REVIEW.md) now assembles these
+processes from an existing inlet to a finite straight wall, with complete
+cell coverage and mass diagnostics. It still needs a precomputed supersonic
+axis history and does not close sonic initialization or full-nozzle design.
+
 ## Equations and scope
 
 With velocity components u,v and sound speed a, the characteristic slope is
