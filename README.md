@@ -96,7 +96,7 @@ solved.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/media/workbench-regen.png" alt="Regenerative cooling view: LOX/CH4 at 7 MPa with a GRCop-84 wall; hot-wall, cold-wall and coolant temperature along the chamber peak at the throat at 796 K against a 973 K limit"><br><sub><b>Regenerative cooling</b> — Bartz gas side, wall conduction and real-fluid methane solved together at every station.</sub></td>
+    <td width="50%"><img src="docs/media/workbench-regen.png" alt="Regenerative cooling view: LOX/CH4 at 7 MPa with a GRCop-84 wall; hot-wall, cold-wall and coolant temperature along the chamber peak at the throat at 886 K against a 973 K limit"><br><sub><b>Regenerative cooling</b> — Bartz gas side, wall conduction and real-fluid methane solved together at every station.</sub></td>
     <td width="50%"><img src="docs/media/workbench-combustion.png" alt="Combustion products view: LOX/LH2 chamber composition as bars (H2O 0.64, H2 0.30, OH 0.032, H 0.031) with the dissociation fraction and recombination heat"><br><sub><b>Combustion products</b> — chamber composition, radicals and the energy held in dissociation.</sub></td>
   </tr>
   <tr>
@@ -303,7 +303,7 @@ verification, and the regenerative-cooling solver couples them:
 | Conduction | Steady multilayer slab, cylinder and sphere walls with k(T) by the Kirchhoff transform, contact resistance and heat generation; lumped capacitance; semi-infinite and one-term/series transient solutions; a finite-volume θ-method transient solver with convective and radiative boundaries and an energy audit; straight and annular fins with exact Bessel functions | `heat_transfer.conduction` |
 | Convection | Gnielinski, Dittus–Boelter and Colburn pipe flow, laminar entry (Graetz), Chen, Haaland and Filonenko friction; Taylor's hydrogen correlation for heated supercritical H₂ (TN D-4332); Hess–Kunz; the NASA RTE coolant Nusselt form with curvature factor; SP-125 supercritical film coefficient; flat-plate, Churchill–Bernstein and Churchill–Chu external and natural convection; Rohsenow boiling, peak heat flux, film condensation; subcooled flow-boiling burnout for ethanol (NASA/TM-1998-206612) and MMH (NASA CR-134282) with the SP-8087 margin screen; Hatch–Papell film cooling | `heat_transfer.convection` |
 | Radiation | Planck spectrum and band fractions, thirteen view-factor closed forms (Lienhard Tables 10.2–10.3, Howell catalogue), frustum enclosures, gray N-surface enclosures, radiation-cooled nozzle-extension equilibrium temperature, and H₂O–CO₂ and soot emissivity and absorptivity by WSGG models (Bordbar 2020, Sadeghi 2021) | `heat_transfer.radiation` |
-| Regenerative cooling | At every station: Bartz gas-side coefficient at the local wall temperature, conduction through the hot wall, channel fin efficiency, coolant h from Taylor (hydrogen) or Gnielinski, real-fluid coolant properties, an enthalpy march with Chen-friction pressure drop, optional WSGG gas radiation and a material-limit margin. The gas side is compared with a NASA hot firing (TN D-6396) | `heat_transfer.regen_chamber` |
+| Regenerative cooling | At every station: Bartz gas-side coefficient at the local wall temperature, conduction through the hot wall, channel fin efficiency, coolant h from Taylor (hydrogen) or Gnielinski, real-fluid coolant properties, an enthalpy march with the RTE friction and momentum pressure drop over constant, axially varying or helical channels, optional WSGG gas radiation and a material-limit margin. The gas side is compared with a NASA hot firing (TN D-6396) | `heat_transfer.regen_chamber` |
 | Transpiration cooling | Film-theory blowing correction (Mickley, NACA TN 3208), the coolant flux for a target wall temperature and its inverse with wall efficiency and radiation, Eckert–Livingood turbulent ratios, Rannie's porous-pipe relation, and the two-temperature solution through the porous wall (NASA CR-107268) | `heat_transfer.transpiration` |
 
 The coolant properties come from reference equations of state (Leachman H₂,
@@ -334,7 +334,9 @@ correlations (Lemmon–Jacobsen, Assael, Muzny, Friend–Ely–Ingham, Arp), all
   regenerative coolant balance and two-phase performance bands.
 - **Systems:** Tsiolkovsky sizing, multi-stage optimisation, pressure-fed,
   gas-generator and staged-combustion power balances with turbopump models,
-  Latin-hypercube and Monte Carlo uncertainty.
+  Latin-hypercube and Monte Carlo uncertainty with global sensitivity
+  (Spearman, PRCC and SRRC with rank R², and Sobol first-order and total
+  indices with bootstrap intervals).
 - **Finite burns:** constant and profiled burns with explicit propellant-stream
   accounting, pressure-fed blowdown, regulator hysteresis, ullage
   stratification, water hammer, clusters, imported test traces, seeded
@@ -362,7 +364,7 @@ made; the measured value is the largest deviation over all reference points.
 | Transient finite-volume solver | Series solution, 10/20/40 cells | order 1.98–2.01 | order 2 | same |
 | Pipe-flow convection | Lienhard Examples 7.2–7.8, 8.1, 9.5 | printed digits | printed digits | [HEAT_CONVECTION](docs/HEAT_CONVECTION.md) |
 | Radiation exchange | Lienhard Examples 10.1–10.10 (book σ = 5.67e-8) | 0.22 % | — | [HEAT_RADIATION](docs/HEAT_RADIATION.md) |
-| Regenerative cooling, energy balance | Coolant enthalpy rise vs absorbed heat, LOX/CH₄ 7 MPa | 9.3e-10 W on 7.6 MW | 1e-9 of the load | [REGENERATIVE_COOLING](docs/REGENERATIVE_COOLING.md) |
+| Regenerative cooling, energy balance | Coolant enthalpy rise vs absorbed heat, LOX/CH₄ 7 MPa | 2.8e-9 W on 7.35 MW | 1e-9 of the load | [REGENERATIVE_COOLING](docs/REGENERATIVE_COOLING.md) |
 | Regenerative cooling, Bartz | Profile implementation at uniform wall T | < 1e-12 | 1e-12 | same |
 | Gas-side h against a hot firing | NASA TN D-6396, LOX/GH₂, 5 readings × 6 plugs, chamber and throat | Bartz high by 7–30 % (chamber), 13–61 % (throat) | regression band | same |
 | Total heat load against a hot firing | NASA TN D-3532, LOX/GH₂ with LH₂ coolant, firings 8–10, coolant enthalpy rise | 0.93–1.35 × for walls of 1500–1100 K | bracket | same |
@@ -415,9 +417,8 @@ python scripts/sync_sunumatik_presets.py --check
 python scripts/package_smoke_test.py      # build, install in a clean venv, import
 ```
 
-2287 tests in 162 files, with 13 569 subtests; the last full run (pytest,
-2026-10-26, Python 3.12) passed 2274 with 12 skipped; its one failure, a
-constant-volume equilibrium test, was fixed and re-run afterwards. CI runs
+2314 tests in 165 files, with 13 930 subtests; the last full run (pytest,
+2026-10-26, Python 3.12) passed 2302 with 12 skipped and no failures. CI runs
 ruff, mypy, the full suite (with `RPL_SLOW_TESTS=1`) and a package build on
 Python 3.11 and 3.12. The tests for the newest areas:
 
@@ -426,7 +427,7 @@ Python 3.11 and 3.12. The tests for the newest areas:
 | Conduction | `test_heat_conduction.py` | 46 | Textbook tables and worked examples, Bessel identities, observed convergence orders, energy audits |
 | Convection | `test_heat_convection.py` | 35 | Worked examples to printed digits, correlation overlaps, Taylor exponent read-off |
 | Radiation | `test_heat_radiation.py` | 28 | NIST constants, quadrature of Planck's law, worked examples, enclosure identities |
-| Regenerative cooling | `test_regen_chamber.py` | 10 | Conservation, resistance network, trends, refinement, hydrogen with Taylor |
+| Regenerative cooling | `test_regen_chamber.py`, `test_regen_channel_geometry.py` | 10 + 9 | Conservation, resistance network, trends, refinement, hydrogen with Taylor; every segment's pressure drop recomputed with Wadel eqs. (14)-(16), varying and helical channels, near-choking flag |
 | Hot-fire comparison | `test_hotfire_validation.py`, `test_hotfire_heat_load.py` | 5 + 6 | Measured coefficients of NASA TN D-6396 against Bartz; TN D-3532 coolant heat load against integrated Bartz |
 | Burnout | `test_burnout.py` | 7 | Ethanol Table III within the stated band, MMH constants, SP-8087 screen |
 | Feed-coupled chugging | `test_feed_coupled_instability.py` | 11 | Closed form against the component chain, resonances, Example 5.5.1.1 by Nyquist count |
@@ -449,6 +450,8 @@ Python 3.11 and 3.12. The tests for the newest areas:
 | Performance oracle | `test_oracle_rocket_performance.py` | 5 | Energy, entropy, continuity, c* and C_F identities at every station; frozen composition |
 | Aerodynamics oracle | `test_oracle_aerodynamics.py` | 10 | Elliptic wing exact, Kutta–Joukowski = pressure lift, d'Alembert, Hess–Smith cross-check |
 | Nozzle separation | `test_nozzle_separation.py` | 6 | Schmucker criterion against `brentq`, first crossing, trends, M = 5 limit |
+| Global sensitivity | `test_global_sensitivity.py` | 12 | Rank measures against numpy/SciPy, Sobol indices against Ishigami and rocket-equation closed forms, estimator mutants detected |
+| Performance numerics | `test_rocket_performance_numerics.py` | 5 | Brent throat search against SciPy `fminbound`, warm-started isentropes equal cold solves, throat is a flux maximum |
 | Hostile HTTP input | `test_api_adversarial_fuzz.py` | 123 | Every field of every route: type garbage refused, extremes refused or answered in strict JSON |
 
 Elsewhere the suite has central finite-difference checks of every analytic

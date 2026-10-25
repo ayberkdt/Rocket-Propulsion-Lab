@@ -1,5 +1,21 @@
 # Release notes
 
+Raised three simplified parts to engineering models. The regenerative-cooling
+solver accepts channels that vary along the chamber (`ChannelProfile`) and
+helical channels, and its coolant pressure drop now carries the RTE momentum
+term next to friction (Wadel, NASA/TM-1998-206313, eqs. (14)-(16)); for the
+methane example the momentum term is half of the 2.86 MPa drop, and the
+earlier 3 mm default channel was found to choke, so the default depth is now
+5 mm. Stations report coolant velocity and Mach number, with a warning above
+Mach 0.5. A new `studies.global_sensitivity` module adds rank-based measures
+(Spearman, PRCC, SRRC, rank R²; Helton and Davis, SAND2001-0417) and Sobol
+first-order and total indices with bootstrap intervals (Saltelli et al. 2010),
+returned by the Δv uncertainty route; the persisted burn-uncertainty documents
+keep their Pearson records. Rocket performance finds the throat with a bounded
+Brent search and warm-starts each isentrope, cutting equilibrium solves per
+call from 481 to 268 with c* and Isp unchanged to 3e-9; a non-finite mass
+flux now fails closed instead of returning a point.
+
 Hardened the existing systems against independent oracles and hostile input.
 Eight new oracle suites check compressible flow, conduction, real-fluid
 equations of state, Gibbs equilibrium, finite-rate kinetics, radiation,

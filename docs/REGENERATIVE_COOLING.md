@@ -15,10 +15,18 @@ Tests: `tests/test_regen_chamber.py` (10 tests). HTTP route:
 
 ```python
 from rocket_propulsion.heat_transfer.regen_chamber import (
-    Coolant, CoolingChannels, HotGas, bartz_coefficient,
+    ChannelProfile, Coolant, CoolingChannels, HotGas, bartz_coefficient,
     hot_gas_from_propellant, solve_regen_chamber,
 )
 ```
+
+- `CoolingChannels(count, width_m, height_m, hot_wall_thickness_m,
+  roughness_m=0, helix_angle_deg=0)` describes constant channels;
+  `ChannelProfile(x_m, width_m, height_m, hot_wall_thickness_m, count,
+  roughness_m=0, helix_angle_deg=0)` tabulates width, depth and hot-wall
+  thickness along the chamber (linear in x; the contour must lie inside the
+  table), for example channels narrowed at the throat. Helix angles from 0 to
+  75° are accepted.
 
 - `hot_gas_from_propellant(propellant_pair, chamber_pressure_pa,
   oxidizer_fuel_ratio=None, throat_radius_of_curvature_m)` builds the frozen
@@ -52,12 +60,30 @@ from rocket_propulsion.heat_transfer.regen_chamber import (
    reference equations of state and transport correlations in
    `thermodynamics.real_fluids`.
 4. **Closure.** The series resistance
-   `t/k + s/(h_c (w + 2 η_f h))` per channel pitch `s` is equated with the gas
+   `t/k + s/(h_c (w + 2 η_f h))` per channel-normal pitch
+   `s = 2π (r + t) cos β / N` (β the helix angle; w, h, t the local channel
+   values) is equated with the gas
    heat flux; the hot-wall temperature is found by bisection between the
    coolant and recovery temperatures to 1e-9 relative.
-5. **March.** The coolant enthalpy rises by `q dA/ṁ` and its pressure falls by
-   the Darcy loss; temperature is recovered from enthalpy by Newton iteration
-   on cₚ with a bisection fallback.
+5. **March.** The coolant enthalpy rises by `q dA/ṁ` over each meridional
+   segment and the coolant travels `ds/cos β` along its channel. Its static
+   pressure falls by the viscous and momentum drops of RTE (Wadel,
+   NASA/TM-1998-206313, eqs. (14)-(16)): the Darcy loss with the two
+   stations' mean density, velocity `G/ρ` and hydraulic diameter, plus
+   `G₂²/ρ₂ − G₁²/ρ₁`, the pressure spent accelerating the coolant as it heats
+   and as the flow area changes. The downstream state is found by fixed-point
+   iteration on the pressure to 1e-12 (`coolant_pressure_not_converged` if it
+   does not contract, which happens only near choking). Temperature is
+   recovered from enthalpy by Newton iteration on cₚ with a bisection
+   fallback. Each station reports the coolant velocity and Mach number and
+   the local channel geometry; a Mach number above 0.5 gives a critical
+   `coolant_high_mach` warning.
+
+   The momentum term matters: in the methane example (5 mm channels,
+   G = 11 528 kg/m²s, density falling from 424 to 77 kg/m³, peak coolant Mach
+   0.31) it is 1.42 MPa, half of the 2.86 MPa drop, and the earlier friction-only march accepted a 3 mm channel
+   design that in fact chokes. The route default channel depth is therefore
+   5 mm.
 
 ## Verification
 
@@ -152,6 +178,8 @@ still developing, which Bartz does not model.
 - Quasi-one-dimensional: no axial conduction in the wall, no circumferential
   variation between land and channel centre, no curvature or entrance
   enhancement and frozen chamber gas properties.
+- The channel count is constant along the chamber; bifurcated channels and
+  the losses of sudden area changes are not modelled (RTE omits them too).
 - Coolant boiling is refused (`coolant_boiling`); two-phase flow is not
   modelled. A coolant state outside a transport correlation's range stops the
   march with `DomainError`.

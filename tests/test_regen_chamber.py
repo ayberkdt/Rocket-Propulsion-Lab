@@ -18,7 +18,7 @@ from rocket_propulsion.thermodynamics import calculate_bartz_heat_transfer
 from rocket_propulsion.thermodynamics.materials import get_wall_material
 
 PRESSURE = 7.0e6
-CHANNELS = CoolingChannels(count=100, width_m=1.5e-3, height_m=3.0e-3, hot_wall_thickness_m=1.0e-3,
+CHANNELS = CoolingChannels(count=100, width_m=1.5e-3, height_m=5.0e-3, hot_wall_thickness_m=1.0e-3,
                            roughness_m=1.0e-6)
 
 
@@ -116,18 +116,25 @@ class RefinementTests(unittest.TestCase):
 
 
 
+# Hydrogen design: 4 mm channels at a 20 MPa inlet keep the coolant Mach number near 0.4 (with
+# the momentum pressure drop, 3 mm channels at 15 MPa choke), and its short channels exercise
+# Taylor's out-of-range reporting for the entrance distance.
+HYDROGEN_CHANNELS = CoolingChannels(count=100, width_m=1.5e-3, height_m=4.0e-3, hot_wall_thickness_m=1.0e-3,
+                                    roughness_m=1.0e-6)
+
+
 class HydrogenCoolantTests(unittest.TestCase):
     def test_taylor_is_the_default_for_hydrogen_and_runs_hotter_than_uncorrected_gnielinski(self) -> None:
         gas = hot_gas_from_propellant(propellant_pair="LOX_LH2", chamber_pressure_pa=PRESSURE,
                                       throat_radius_of_curvature_m=0.05)
         contour = generate_nozzle_contour(contour="conical", throat_area_m2=0.01, area_ratio=10.0,
                                           gamma=gas.gamma, chamber_radius_ratio=2.0, station_count=41)
-        coolant = Coolant(fluid="parahydrogen", inlet_temperature_k=40.0, inlet_pressure_pa=1.5e7,
+        coolant = Coolant(fluid="parahydrogen", inlet_temperature_k=40.0, inlet_pressure_pa=2.0e7,
                           mass_flow_kg_s=PRESSURE * 0.01 / gas.characteristic_velocity_m_s / 6.55157)
-        auto = solve_regen_chamber(contour=contour, gas=gas, channels=CHANNELS, coolant=coolant)
-        taylor = solve_regen_chamber(contour=contour, gas=gas, channels=CHANNELS, coolant=coolant,
+        auto = solve_regen_chamber(contour=contour, gas=gas, channels=HYDROGEN_CHANNELS, coolant=coolant)
+        taylor = solve_regen_chamber(contour=contour, gas=gas, channels=HYDROGEN_CHANNELS, coolant=coolant,
                                      coolant_correlation="taylor")
-        gnielinski = solve_regen_chamber(contour=contour, gas=gas, channels=CHANNELS, coolant=coolant,
+        gnielinski = solve_regen_chamber(contour=contour, gas=gas, channels=HYDROGEN_CHANNELS, coolant=coolant,
                                          coolant_correlation="gnielinski")
         self.assertEqual(auto.maximum_hot_wall_temperature_k, taylor.maximum_hot_wall_temperature_k)
         # Taylor's (Tw/Tb) exponent lowers h for strongly heated supercritical hydrogen.

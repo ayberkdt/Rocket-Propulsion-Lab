@@ -83,6 +83,7 @@ from rocket_propulsion.studies import (
     workspace_from_json,
     workspace_to_json,
 )
+from rocket_propulsion.studies.global_sensitivity import rank_sensitivity, sobol_indices
 from rocket_propulsion.thermochemistry import (
     PROPELLANT_PAIRS,
     CeaEquilibriumProvider,
@@ -2050,6 +2051,10 @@ def _study_request_integer(payload, key, default):
         raise InputError(f'{key} must be an integer.', field=key) from error
 
 
+#: Largest Sobol base sample the HTTP route accepts (library choice: a few seconds).
+_MAXIMUM_ROUTE_SOBOL_BASE = 8192
+
+
 def _uncertainty_delta_v(sample):
     """Return ``g_n Isp ln(MR)`` for one uncertainty sample, rounded once.
 
@@ -2117,8 +2122,12 @@ def calculate_uncertainty_route(payload: dict[str, Any]) -> dict[str, Any]:
     -----
     Independent uniform marginals sampled by Latin hypercube [1]_ through
     ``dv = g_n Isp ln(MR)`` [2]_; Pearson coefficients [3]_ are linear
-    screening only. Summaries are empirical, without qualified confidence
-    coverage.
+    screening only. ``global_sensitivity`` adds rank measures (Spearman, PRCC,
+    SRRC and rank-regression R^2) of the same samples [4]_ and first-order and
+    total Sobol indices with 95 % bootstrap intervals from a separate
+    ``N (k + 2)`` Saltelli design, ``N = sobol_base_samples`` (default 1024,
+    at most 8192) [5]_. Summaries are empirical, without qualified
+    confidence coverage.
 
     References
     ----------
@@ -2130,6 +2139,9 @@ def calculate_uncertainty_route(payload: dict[str, Any]) -> dict[str, Any]:
            https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
     .. [3] NIST-PEARSON. NIST Dataplot, centered-product correlation definition,
            https://www.itl.nist.gov/div898/software/dataplot/refman2/auxillar/correlat.htm
+    .. [4] SAND2001-0417. Helton and Davis, Sect. 6, https://doi.org/10.2172/806696
+    .. [5] SALTELLI-2010-CPC. Saltelli et al., Computer Physics Communications
+           181(2), 259-270, 2010, doi:10.1016/j.cpc.2009.09.018
     """
 
     raw_parameters = payload.get("parameters")
@@ -2171,14 +2183,30 @@ def calculate_uncertainty_route(payload: dict[str, Any]) -> dict[str, Any]:
             field="parameters",
         )
     _validate_uncertainty_physical_ranges(parameters)
+    seed = _study_request_integer(payload, "seed", 42)
+    sobol_base = _study_request_integer(payload, "sobol_base_samples", 1024)
+    if not 8 <= sobol_base <= _MAXIMUM_ROUTE_SOBOL_BASE:
+        raise InputError(f"sobol_base_samples must be in [8, {_MAXIMUM_ROUTE_SOBOL_BASE}].",
+                         field="sobol_base_samples")
     result = propagate_uncertainty(
         parameters,
         evaluator=_uncertainty_delta_v,
         sample_count=_study_request_integer(payload, "sample_count", 200),
-        seed=_study_request_integer(payload, "seed", 42),
+        seed=seed,
         method=payload.get("method", "latin-hypercube"),
     )
-    return asdict(result)
+    document = asdict(result)
+    names = [parameter.name for parameter in parameters]
+    rank = None
+    if len(result.samples) >= len(names) + 3:
+        rank = asdict(rank_sensitivity({name: [point.inputs[name] for point in result.samples] for name in names},
+                                       [point.output for point in result.samples], output_name="delta_v_m_s"))
+    document["global_sensitivity"] = {
+        "rank": rank,
+        "sobol": asdict(sobol_indices(_uncertainty_delta_v, parameters, base_samples=sobol_base, seed=seed,
+                                      bootstrap_resamples=200)),
+    }
+    return document
 
 
 def validate_workspace_route(payload: dict[str, Any]) -> dict[str, Any]:

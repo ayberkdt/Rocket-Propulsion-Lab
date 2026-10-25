@@ -63,12 +63,12 @@ from .nasa_polynomials import (
     interval_from_record,
 )
 from .rocket_performance import (
-    _GOLDEN,
     RocketExit,
     RocketPerformance,
     RocketStation,
     _bracket,
     _illinois,
+    _maximize_bounded,
 )
 from .species import CondensedReactant, Species, get_reactant, species_catalog
 
@@ -1578,20 +1578,7 @@ def solve_condensed_rocket_performance(
         solution = station(log_pressure)
         return density(solution) * velocity(solution)
 
-    low, high = log(pc / 2.5), log(pc / 1.2)
-    first = high - _GOLDEN * (high - low)
-    second = low + _GOLDEN * (high - low)
-    flux_first, flux_second = flux(first), flux(second)
-    while high - low > 1.0e-5:
-        if flux_first > flux_second:
-            high, second, flux_second = second, first, flux_first
-            first = high - _GOLDEN * (high - low)
-            flux_first = flux(first)
-        else:
-            low, first, flux_first = first, second, flux_second
-            second = low + _GOLDEN * (high - low)
-            flux_second = flux(second)
-    log_throat = 0.5 * (low + high)
+    log_throat = _maximize_bounded(flux, log(pc / 2.5), log(pc / 1.2), 1.0e-5)
     throat = station(log_throat)
     throat_velocity = velocity(throat)
     throat_flux = density(throat) * throat_velocity

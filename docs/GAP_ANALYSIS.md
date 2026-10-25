@@ -75,6 +75,7 @@ and what would require a higher-fidelity model.
 | Ullage stratification | Implemented | Layered ullage with natural-convection wall/interface heat transfer; no condensation |
 | Calibration fields | Implemented | Hot-fire calibrations interpolated over the operating-condition surface with a conservative uncertainty envelope |
 | Transient HTTP/UI surfaces | Implemented | Ten routes and five browser modules |
+| Global sensitivity | Implemented | Spearman, PRCC, SRRC with rank-regression R² and Sobol first-order/total indices (Saltelli design, bootstrap intervals) in `studies.global_sensitivity`, exposed on the Δv uncertainty route; the persisted burn-uncertainty documents keep their Pearson screening records; correlated-input Sobol indices and quasi-random designs open |
 
 ## Heat transfer and combustion
 
@@ -84,7 +85,7 @@ and what would require a higher-fidelity model.
 | Convection | Implemented | Internal, entry, rough, liquid-metal, external and natural convection; Taylor and Hess–Kunz hydrogen, RTE coolant form with curvature; boiling, peak flux and film condensation; Hatch–Papell film cooling; SP-8087 burnout-margin screen with subcooled flow-boiling burnout for ethanol and MMH; no free RP-1, N₂O₄ or hydrazine burnout correlation found |
 | Transpiration cooling | Implemented | Film theory (TN 3208) with the wall energy balance, wall efficiency and radiation; Eckert–Livingood and Rannie relations; two-temperature porous wall; inside the spread of four published methods on Kelley's case; no rocket-firing comparison, no foreign-gas diffusion term |
 | Radiation | Implemented | Planck, band fractions, closed-form view factors, gray enclosures, radiation-cooled extensions; H₂O–CO₂ WSGG (Bordbar 2020) and soot WSGG (Sadeghi 2021) by superposition, fitted at 1 atm; no alumina particle radiation, no spectral line-by-line model |
-| Regenerative cooling | Implemented (quasi-1-D) | Coupled station march verified against its components and conservation; gas side compared with NASA TN D-6396 firings (Bartz 7–30 % high in the chamber, 13–61 % at the throat) and total heat load with TN D-3532 (bracketed for 1100–1500 K walls); station-by-station coolant side not compared with a firing |
+| Regenerative cooling | Implemented (quasi-1-D) | Coupled station march with axially varying or helical channels and the RTE viscous plus momentum pressure drop (Wadel eqs. (14)-(16)), verified against its components and conservation; gas side compared with NASA TN D-6396 firings (Bartz 7–30 % high in the chamber, 13–61 % at the throat) and total heat load with TN D-3532 (bracketed for 1100–1500 K walls); station-by-station coolant side not compared with a firing |
 | Combustion products and dissociation | Implemented | Composition to 1e-14, radicals, dissociation energy and recombination heat, within 2.5e-4 of CEA down to 1e-10 mole fraction |
 | Finite-area combustor | Implemented | RP-1311 FAC within 1.3e-4 of CEA; gas phase only |
 | Combustion efficiency | Implemented | Measured efficiencies, vaporisation-limited c*, Rupe mixing and JANNAF ERE bookkeeping, SP-8089 mixing, L*; Priem–Heidmann generalized length and curve as tabulated in NASA CR-168066 (TR R-67 itself not on NTRS) |

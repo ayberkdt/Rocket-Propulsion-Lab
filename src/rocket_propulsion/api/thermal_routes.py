@@ -196,7 +196,8 @@ def regen_chamber_route(payload: dict[str, Any]) -> dict[str, Any]:
         chamber_pressure_pa, throat_area_m2, area_ratio : float, default 7 MPa, 0.01, 10
         coolant : str, default "methane"; coolant_inlet_temperature_k, coolant_inlet_pressure_pa
         coolant_mass_flow_kg_s : float, optional (default: the fuel flow)
-        channel_count, channel_width_m, channel_height_m, hot_wall_thickness_m
+        channel_count, channel_width_m, channel_height_m, hot_wall_thickness_m : default
+            100, 1.5 mm, 5 mm, 1 mm; channel_helix_angle_deg : float, default 0
         wall_material : str, default "grcop-84"
 
     Returns
@@ -226,9 +227,10 @@ def regen_chamber_route(payload: dict[str, Any]) -> dict[str, Any]:
         contour=contour, gas=gas,
         channels=CoolingChannels(count=_integer(payload, "channel_count", 100, 4, 1000),
                                  width_m=_number(payload, "channel_width_m", 1.5e-3),
-                                 height_m=_number(payload, "channel_height_m", 3.0e-3),
+                                 height_m=_number(payload, "channel_height_m", 5.0e-3),
                                  hot_wall_thickness_m=_number(payload, "hot_wall_thickness_m", 1.0e-3),
-                                 roughness_m=_number(payload, "roughness_m", 1.0e-6)),
+                                 roughness_m=_number(payload, "roughness_m", 1.0e-6),
+                                 helix_angle_deg=_number(payload, "channel_helix_angle_deg", 0.0)),
         coolant=Coolant(fluid=_text(payload, "coolant", "methane"),
                         inlet_temperature_k=_number(payload, "coolant_inlet_temperature_k", 120.0),
                         inlet_pressure_pa=_number(payload, "coolant_inlet_pressure_pa", 1.5e7),
