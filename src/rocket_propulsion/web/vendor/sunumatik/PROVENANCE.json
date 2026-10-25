@@ -98,8 +98,8 @@
         "a8cf240a597f317f2a7e26764942b1f65fbed5a69a454a9b3620d3503f2d365d",
         "c7d807017768443e28f5a29cb3c04e04ba0173e3f2bd9e6e72d9e55306ab65fa"
       ],
-      "sha256": "b55ebce65560444e2650022b9a842e72a9fd3438c72e984a4784266a21e1790e",
-      "transform": "symbol subset: i-rocket, i-fluid-flow, i-shock-diamonds, i-friction, i-pressure, i-work-energy, i-entropy, i-mixture-ratio, i-propellant-tank, i-nozzle-expansion, i-nozzle-throat, i-regenerative-cooling, i-delta-v-burn, i-thrust-curve, i-rocket-stages"
+      "sha256": "47388c84cbcd5de738dd38bef3aae72d9a37dfd543bdd3e401f5622e0de3b389",
+      "transform": "symbol subset: i-rocket, i-fluid-flow, i-shock-diamonds, i-friction, i-pressure, i-work-energy, i-entropy, i-mixture-ratio, i-propellant-tank, i-nozzle-expansion, i-nozzle-throat, i-regenerative-cooling, i-delta-v-burn, i-thrust-curve, i-rocket-stages, i-specific-impulse, i-pressure-fed, i-feed-system, i-hall-thruster, i-hot-fire-test, i-satellite-bus, i-launch-trajectory, i-molecule, i-force-vector, i-angle-theta, i-heat-flow, i-reentry, i-max-q, i-combustion-chamber"
     }
   ]
 }

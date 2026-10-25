@@ -22,6 +22,11 @@ function formatValue(value, key) {
       tank_reserve: "tank rezervi",
       dry_mass_floor: "kuru kütle sınırı",
       maximum_duration: "maksimum süre",
+      minimum_supply_pressure: "en düşük besleme basıncı",
+      liquid: "sıvı",
+      vapor: "buhar",
+      supercritical: "süperkritik",
+      propellant_reserve: "itici rezervi",
     };
     return labels[value] || value;
   }
@@ -379,6 +384,11 @@ function renderNozzleThermal(data) {
   document.getElementById("coolant-outlet-temperature").textContent = formatValue(cooling.outlet_temperature_k, "temperature_k");
   document.getElementById("coolant-pressure-drop").textContent = formatValue(cooling.pressure_drop_pa, "pressure_pa");
   document.getElementById("coolant-energy-residual").textContent = formatValue(cooling.displayed_temperature_energy_residual_w, "residual_w");
+  const wall = cooling.wall_conduction;
+  document.getElementById("wall-hot-temperature").textContent = wall ? formatValue(wall.hot_wall_temperature_k, "temperature_k") : "duvar seçilmedi";
+  document.getElementById("wall-limit-temperature").textContent = wall
+    ? `${formatValue(wall.wall_limit_temperature_k, "temperature_k")} · ${wall.wall_limit_exceeded ? "AŞILDI" : "aşılmadı"}`
+    : "—";
   const limit = cooling.temperature_limit_exceeded === true
     ? "Verilen soğutucu sıcaklık sınırı tam hesapta AŞILDI; gösterilen çıkış sıcaklığı sınırla aynı yuvarlanabilir."
     : cooling.temperature_limit_exceeded === false ? "Tam hesapta verilen sıcaklık sınırı aşılmadı; bu karar kaynama veya donanım yeterliliğini doğrulamaz." : "Soğutucu sıcaklık sınırı kararı mevcut değil.";
@@ -396,7 +406,10 @@ function renderNozzleThermal(data) {
     [{ data: data.stations, x: "x_m", y: "adiabatic_wall_temperature_k", className: "series-1" }],
     { xLabel: "x (m)", yLabel: "Taw (K)" },
   );
-  const warnings = [...(data.warnings || []), ...(cooling.warnings || [])];
+  const warnings = [
+    ...(data.warnings || []), ...(cooling.warnings || []),
+    ...(cooling.coolant_selection?.warnings || []), ...(cooling.wall_conduction?.warnings || []),
+  ];
   const signed = data.contains_negative_heat_flux
     ? " Bazı noktalarda ısı duvardan gaza geçiyor; negatif akı ve toplam yük korunur." : "";
   document.getElementById("thermal-warning").textContent = `Bartz hesabı verilen duvar sıcaklığını ve gaz özelliklerini kullanır; eşlenik duvar/soğutucu çözümü yapılmaz.${signed} Sıfır bakiye integral defterinin özdeşliğidir; ölçülmüş enerji kapanışı değildir. Sürekli profil hatası ve fiziksel/donanım yeterliliği doğrulanmadı. ${warnings.map((warning) => warning.message).join(" ")}`;
@@ -882,6 +895,68 @@ async function loadIsentropicCharts() {
   );
 }
 
+function renderRocketPerformance(data) {
+  const module = document.querySelector('[data-module="rocket-performance"]');
+  const result = data.result;
+  const exits = result.exits.map((item) => ({
+    area_ratio: item.area_ratio,
+    vacuum_specific_impulse_s: item.vacuum_specific_impulse_s,
+    exit_temperature_k: item.station.temperature_k,
+  }));
+  const near40 = result.exits.reduce((best, item) => (
+    Math.abs(item.area_ratio - 40) < Math.abs(best.area_ratio - 40) ? item : best
+  ));
+  const percent = (value) => `${(value * 100).toFixed(4).replace(".", ",")} %`;
+  renderResults(module, {
+    isp_40: near40.vacuum_specific_impulse_s,
+    chamber_temperature_k: result.chamber.temperature_k,
+    chamber_molecular_mass_g_mol: result.chamber.molecular_mass_kg_mol * 1000,
+    characteristic_velocity_m_s: result.characteristic_velocity_m_s,
+    throat_pressure_ratio: result.throat.pressure_pa / result.chamber_pressure_pa,
+    throat_temperature_k: result.throat.temperature_k,
+    cea_isp_difference: data.differences
+      ? data.differences.vacuum_specific_impulse.map(percent).join(" · ")
+      : (data.cea.available ? "karşılaştırma seçilmedi" : "CEA paketi kurulu değil"),
+    provider_label: `${result.provider} · ${result.provider_version} · ${result.chemistry === "frozen" ? "donmuş" : "kayan denge"}`,
+  });
+  renderLineChart(
+    document.getElementById("performance-isp-chart"),
+    [{ data: exits, x: "area_ratio", y: "vacuum_specific_impulse_s", className: "series-1", points: true }],
+    { xLabel: "Aₑ/A*", yLabel: "Isp,vac (s)" },
+  );
+  renderLineChart(
+    document.getElementById("performance-temperature-chart"),
+    [{ data: exits, x: "area_ratio", y: "exit_temperature_k", className: "series-2", points: true }],
+    { xLabel: "Aₑ/A*", yLabel: "Tₑ (K)" },
+  );
+}
+
+function renderNozzleChemistry(data) {
+  const module = document.querySelector('[data-module="nozzle-chemistry"]');
+  const gas = data.equivalent_gas;
+  renderResults(module, {
+    regime: data.off_design.regime,
+    equivalent_gamma: gas.gamma,
+    equivalent_gas_constant: gas.gas_constant_j_kg_k,
+    chamber_temperature_k: gas.chamber_temperature_k,
+    specific_impulse_s: data.off_design.specific_impulse_s,
+    thrust_n: data.off_design.thrust_n,
+    separation_status: data.off_design.separation.predicted ? "olası ayrılma" : "eşik aşılmadı",
+    calibration_residual: `${(gas.vacuum_isp_relative_residual * 100).toFixed(2).replace(".", ",")} %`,
+  });
+  const altitude = data.altitude_sweep.points;
+  renderLineChart(
+    document.getElementById("chemistry-altitude-thrust-chart"),
+    [{ data: altitude, x: "altitude_m", y: "thrust_n", className: "series-1" }],
+    { xLabel: "İrtifa (m)", yLabel: "F (N)" },
+  );
+  renderLineChart(
+    document.getElementById("chemistry-altitude-isp-chart"),
+    [{ data: altitude, x: "altitude_m", y: "specific_impulse_s", className: "series-3" }],
+    { xLabel: "İrtifa (m)", yLabel: "Isp (s)" },
+  );
+}
+
 async function calculate(form, endpoint, onSuccess = null) {
   const module = form.closest("[data-module]");
   const message = form.querySelector(".form-message");
@@ -918,6 +993,8 @@ const calculators = [
   ["thermo-form", "/api/v1/ideal-gas"],
   ["thermal-properties-form", "/api/v1/thermal-properties", renderThermalProperties],
   ["equilibrium-sweep-form", "/api/v1/of-sweep", renderEquilibriumSweep],
+  ["rocket-performance-form", "/api/v1/rocket-performance", renderRocketPerformance],
+  ["nozzle-chemistry-form", "/api/v1/nozzle-chemistry", renderNozzleChemistry],
   ["stagnation-form", "/api/v1/stagnation"],
   ["process-form", "/api/v1/thermo-process"],
   ["polytropic-form", "/api/v1/polytropic", renderPolytropicCharts],
@@ -934,6 +1011,17 @@ const calculators = [
   ["rocket-form", "/api/v1/rocket-equation"],
   ["thrust-form", "/api/v1/thrust"],
 ];
+
+// A catalog coolant supplies cp, density and viscosity: the hand-entry fields are disabled
+// so the form omits them and the API fills them from the cited catalog record.
+const thermalCoolant = document.getElementById("thermal-coolant");
+thermalCoolant.addEventListener("change", () => {
+  const catalog = thermalCoolant.value !== "";
+  const form = thermalCoolant.form;
+  form.elements.coolant_density_kg_m3.disabled = catalog;
+  form.elements.coolant_dynamic_viscosity_pa_s.disabled = catalog && thermalCoolant.value !== "rp-1";
+  form.elements.coolant_specific_heat_j_kg_k.disabled = catalog && thermalCoolant.value !== "rp-1";
+});
 
 const cycleForm = document.getElementById("engine-cycle-form");
 cycleForm.addEventListener("change", () => updateCycleControls(cycleForm));
@@ -1121,11 +1209,51 @@ equilibriumPair.addEventListener("change", () => {
   const ranges = {
     LOX_LH2: [4, 8],
     LOX_CH4: [2, 5],
+    LOX_RP1: [2, 3.5],
+    NTO_MMH: [1.2, 2.6],
   };
   const [minimum, maximum] = ranges[equilibriumPair.value];
   form.elements.minimum_ratio.value = minimum;
   form.elements.maximum_ratio.value = maximum;
 });
+
+const pairReferences = {};
+
+async function loadChemistryCapabilities() {
+  try {
+    const response = await fetch("/api/v1/chemistry-capabilities", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const payload = await response.json();
+    if (!response.ok) return;
+    for (const pair of payload.data.propellant_pairs) pairReferences[pair.key] = pair.reference_oxidizer_fuel_ratio;
+    const library = payload.data.providers.find((item) => item.key === "cea-library");
+    const option = document.querySelector('#performance-provider option[value="compare"]');
+    if (library && library.available && option) {
+      option.disabled = false;
+      option.textContent = `Yerel + NASA CEA ${library.version}`;
+    }
+  } catch (error) {
+    console.warn("Kimya yetenekleri okunamadı:", error);
+  }
+}
+loadChemistryCapabilities();
+
+document.getElementById("performance-pair").addEventListener("change", (event) => {
+  const reference = pairReferences[event.target.value];
+  if (reference) event.target.form.elements.oxidizer_fuel_ratio.value = reference;
+});
+
+function openPerformance(pairKey) {
+  const form = document.getElementById("rocket-performance-form");
+  form.elements.propellant_pair.value = pairKey;
+  const reference = pairReferences[pairKey];
+  if (reference) form.elements.oxidizer_fuel_ratio.value = reference;
+  window.location.hash = "#performance";
+  form.requestSubmit();
+}
 
 const categoryLabels = { liquid: "Sıvı–sıvı", solid: "Katı", hybrid: "Hibrit" };
 
@@ -1175,13 +1303,32 @@ function propellantCard(record) {
     details.append(row);
   }
 
+  if (record.published_isp_s !== null) {
+    const row = document.createElement("div");
+    row.append(
+      textElement("dt", "NASA KSC örnek Isp"),
+      textElement("dd", `${record.published_isp_s} s · ${record.published_isp_source}`),
+    );
+    details.append(row);
+  }
+
   const trades = document.createElement("div");
   trades.className = "trade-list";
   trades.append(
     tradeColumn("Güçlü yönler", record.strengths),
     tradeColumn("Sınırlamalar", record.limitations),
   );
-  card.append(header, isp, details, trades);
+
+  const chemistry = document.createElement("div");
+  chemistry.className = "computability";
+  chemistry.append(textElement("p", record.computability_note));
+  if (record.thermochemistry_pair) {
+    const action = textElement("button", "Performansı hesapla", "btn-secondary");
+    action.type = "button";
+    action.addEventListener("click", () => openPerformance(record.thermochemistry_pair));
+    chemistry.append(action);
+  }
+  card.append(header, isp, details, trades, chemistry);
   return card;
 }
 

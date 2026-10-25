@@ -85,6 +85,7 @@ from rocket_propulsion.studies import (
 )
 from rocket_propulsion.thermochemistry import (
     PROPELLANT_PAIRS,
+    cea_library_info,
     CeaEquilibriumProvider,
     CeaSubprocessAdapter,
     EquilibriumProblem,
@@ -104,6 +105,9 @@ from rocket_propulsion.thermodynamics import (
 )
 
 from .capabilities import SideraCapabilityProbe
+from .aero_routes import AERO_ROUTE_METADATA, AERO_ROUTES
+from .chemistry_routes import CHEMISTRY_ROUTE_METADATA, CHEMISTRY_ROUTES
+from .thermal_routes import THERMAL_ROUTE_METADATA, THERMAL_ROUTES
 
 
 def _number(payload: dict[str, Any], key: str, *, default: float | None = None) -> float:
@@ -1705,18 +1709,19 @@ def calculate_nozzle_thermal_route(payload: dict[str, Any]) -> dict[str, Any]:
         if heat.total_heat_load_w <= 0:
             raise DomainError("The current bulk coolant model requires positive net absorbed heat; signed gas-side heat is not rectified.",
                               code="unsupported_nonpositive_bulk_heat", field="include_cooling")
+        wall_material = _catalog_key(payload, "wall_material")
         result["cooling"] = asdict(
             calculate_regenerative_cooling(
                 absorbed_heat_w=heat.total_heat_load_w,
                 coolant_mass_flow_kg_s=_number(payload, "coolant_mass_flow_kg_s"),
-                coolant_specific_heat_j_kg_k=_number(
+                coolant_specific_heat_j_kg_k=_optional_number(
                     payload, "coolant_specific_heat_j_kg_k"
                 ),
                 coolant_inlet_temperature_k=_number(
                     payload, "coolant_inlet_temperature_k"
                 ),
-                coolant_density_kg_m3=_number(payload, "coolant_density_kg_m3"),
-                coolant_dynamic_viscosity_pa_s=_number(
+                coolant_density_kg_m3=_optional_number(payload, "coolant_density_kg_m3"),
+                coolant_dynamic_viscosity_pa_s=_optional_number(
                     payload, "coolant_dynamic_viscosity_pa_s"
                 ),
                 channel_count=_integer(payload, "channel_count", default=100),
@@ -1730,9 +1735,28 @@ def calculate_nozzle_thermal_route(payload: dict[str, Any]) -> dict[str, Any]:
                 laminar_darcy_poiseuille_number=_number(
                     payload, "laminar_darcy_poiseuille_number", default=64.0
                 ),
+                coolant=_catalog_key(payload, "coolant"),
+                wall_material=wall_material,
+                wall_thickness_m=_optional_number(payload, "wall_thickness_m") if wall_material else None,
+                wall_heat_flux_w_m2=heat.peak_heat_flux_w_m2 if wall_material else None,
+                coolant_side_heat_transfer_coefficient_w_m2_k=(
+                    _optional_number(payload, "coolant_side_heat_transfer_coefficient_w_m2_k")
+                    if wall_material else None
+                ),
             )
         )
     return result
+
+
+def _catalog_key(payload: dict[str, Any], key: str) -> str | None:
+    """Read an optional catalog key; absent, ``None`` or blank text means none."""
+
+    raw = payload.get(key)
+    if raw in (None, ""):
+        return None
+    if not isinstance(raw, str):
+        raise InputError(f"Field {key} must be a catalog key.", field=key)
+    return raw.strip()
 
 
 def calculate_two_phase_band_route(payload: dict[str, Any]) -> dict[str, Any]:
@@ -2619,6 +2643,7 @@ def list_chemistry_capabilities_route(payload: dict[str, Any]) -> dict[str, Any]
 
     del payload
     cea_path = os.environ.get("RPLAB_CEA_EXECUTABLE")
+    library = cea_library_info()
     return {
         "providers": [
             {
@@ -2633,6 +2658,15 @@ def list_chemistry_capabilities_route(payload: dict[str, Any]) -> dict[str, Any]
                 "status": "validated external adapter",
                 "supports": ["TP", "HP", "UV", "rocket"],
                 "configuration": "RPLAB_CEA_EXECUTABLE",
+            },
+            {
+                "key": "cea-library",
+                "available": library.available,
+                "status": "NASA CEA Python package (optional)",
+                "supports": ["rocket"],
+                "version": library.version,
+                "thermo_sha256": library.thermo_sha256,
+                "configuration": 'pip install "rocket-propulsion-lab[cea]"',
             },
         ],
         "propellant_pairs": [asdict(pair) for pair in PROPELLANT_PAIRS.values()],
@@ -3071,7 +3105,7 @@ ROUTE_METADATA = {
     ),
     "/api/v1/equilibrium": ModelMetadata(
         model="provider-neutral ideal-gas chemical equilibrium",
-        version="0.1-experimental",
+        version="0.2-experimental",
         assumptions=(
             "element conservation",
             "ideal-gas products",
@@ -3096,7 +3130,7 @@ ROUTE_METADATA = {
     ),
     "/api/v1/of-sweep": ModelMetadata(
         model="experimental equilibrium chamber with frozen/equilibrium nozzle comparison",
-        version="0.1-experimental",
+        version="0.2-experimental",
         assumptions=(
             "gas reactants at 298.15 K for local provider",
             "ideal-gas equilibrium chamber",
@@ -3139,6 +3173,13 @@ def calculation_metadata(path: str) -> dict[str, Any]:
     except KeyError as error:
         raise KeyError(path) from error
 
+ROUTES.update(CHEMISTRY_ROUTES)
+ROUTE_METADATA.update(CHEMISTRY_ROUTE_METADATA)
+ROUTES.update(AERO_ROUTES)
+ROUTE_METADATA.update(AERO_ROUTE_METADATA)
+ROUTES.update(THERMAL_ROUTES)
+ROUTE_METADATA.update(THERMAL_ROUTE_METADATA)
+
 
 def dispatch_calculation(path: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Dispatch a versioned API path to its calculation adapter.
@@ -3168,4 +3209,12 @@ def dispatch_calculation(path: str, payload: dict[str, Any]) -> dict[str, Any]:
     if route is None:
         raise KeyError(path)
     return route(payload)
+
+
+# --- Transient-core and SASS routes (defined in transient_routes.py) ---------
+from .transient_routes import TRANSIENT_ROUTE_METADATA, TRANSIENT_ROUTES  # noqa: E402
+
+ROUTES.update(TRANSIENT_ROUTES)
+ROUTE_METADATA.update(TRANSIENT_ROUTE_METADATA)
+# --- End of transient-core and SASS routes -----------------------------------
 

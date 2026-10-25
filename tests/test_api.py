@@ -257,7 +257,7 @@ class ApiRouteTests(unittest.TestCase):
                 "point_count": 41,
             },
         )
-        self.assertEqual(catalog["count"], 10)
+        self.assertEqual(catalog["count"], 36)
         self.assertEqual(result["model"]["kind"], "species")
         self.assertEqual(len(result["curve"]), 41)
         self.assertGreater(result["properties"]["cp_j_kg_k"], 2_000.0)

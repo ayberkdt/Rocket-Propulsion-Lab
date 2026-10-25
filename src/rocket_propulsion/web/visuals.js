@@ -19,6 +19,9 @@
 
   const el = (tag, attributes = {}, text = "") => svgElement(tag, attributes, text);
   const fmt = (value) => formatValue(value, "value");
+  // On-chart labels: four significant digits (datawiz: no excess digits); tooltips keep fmt.
+  const shortNumber = new Intl.NumberFormat("tr-TR", { maximumSignificantDigits: 4 });
+  const short = (value) => shortNumber.format(value);
   const linspace = (a, b, n) => Array.from({ length: n }, (_, i) => a + (b - a) * i / (n - 1));
 
   async function post(url, body) {
@@ -281,7 +284,7 @@
         }));
       }
       const end = plot.left + xAxis.fraction(positive) * plot.width;
-      svg.append(el("text", { x: end + 6, y: cy + 4, class: "bar-value" }, `${fmt(positive + negative)} ${unit}`));
+      svg.append(el("text", { x: end + 6, y: cy + 4, class: "bar-value" }, `${short(positive + negative)} ${unit}`.trim()));
     });
     svg.append(el("line", { x1: zero, x2: zero, y1: plot.top, y2: plot.top + plot.height, class: "chart-axis" }));
   }
@@ -338,7 +341,7 @@
         el("line", { x1: x0, x2: x1, y1: cy, y2: cy, class: `range-line series-${row.slot}`, "data-series-slot": row.slot, "data-tip": tipText }),
         el("circle", { cx: x0, cy, r: 6, class: `range-end series-${row.slot}`, "data-series-slot": row.slot, "data-tip": tipText }),
         el("circle", { cx: x1, cy, r: 6, class: `range-end series-${row.slot}`, "data-series-slot": row.slot, "data-tip": tipText }),
-        el("text", { x: x1 + 10, y: cy + 4, class: "bar-value" }, `${fmt(row.min)}–${fmt(row.max)}`),
+        el("text", { x: x1 + 10, y: cy + 4, class: "bar-value" }, `${short(row.min)}–${short(row.max)}`),
       );
     });
   }
@@ -561,6 +564,14 @@
       })), { unit: "kg", xLabel: "Tank kütlesi (kg)" });
     },
 
+    "rocket-performance-form"(data) {
+      const chamber = data.result.chamber.mole_fractions.slice(0, 8);
+      renderBars(byId("performance-species-chart"), chamber.map(([species, fraction]) => ({
+        label: species,
+        segments: [{ value: fraction, slot: 1, name: "mol kesri" }],
+      })), { unit: "", xLabel: "Mol kesri" });
+    },
+
     "propellant-form"(data) {
       const slots = { liquid: 1, solid: 2, hybrid: 3 };
       const groups = { liquid: "Sıvı–sıvı", solid: "Katı", hybrid: "Hibrit" };
@@ -608,4 +619,7 @@
     }
   }
   overviewHero();
+
+  // transient.js draws its bar, range and histogram charts with the same renderers.
+  window.labCharts = { renderBars, renderRanges, renderHistogram };
 })();
