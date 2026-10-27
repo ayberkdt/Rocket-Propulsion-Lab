@@ -202,11 +202,28 @@ load. This is a bracketing check, not an accuracy figure. The authors also
 measured a depressed heat flux over the first 3 in., where combustion is
 still developing, which Bartz does not model.
 
+The 2-D hot-face boundary eliminates the gas film and the half-cell
+conduction resistance together. For an imposed flux `q_s` (radiation plus
+the axial share), `R = dz/(2k)` and `G = A/(R + 1/h_g)`, heat into a cell is
+`G*(T_aw + q_s/h_g - T_cell)` and its physical surface temperature is
+`T_cell + R*q`. Adding `q_s*A` directly to a cell would bypass `R`.
+The regression oracle instead keeps the hot-surface temperatures as
+separate unknowns, and also checks Fourier's law against the local surface
+energy balance for positive and negative sources. A small global energy
+residual alone does not verify this boundary condition.
+
 ## Limits
 
-- Quasi-one-dimensional: no axial conduction in the wall, no circumferential
-  variation between land and channel centre, no curvature or entrance
-  enhancement and frozen chamber gas properties.
+- The coolant march is quasi-one-dimensional. The fin wall approximates
+  variation across the pitch; the optional 2-D section resolves land/channel
+  variation and an optional axial network couples the sections. These are
+  reduced wall models, not a resolved three-dimensional conjugate flow
+  solution. Curvature and entrance enhancement are absent, with frozen
+  chamber gas properties.
+- The 2-D solver refuses grids above its geometric, band-storage or
+  factorization work budgets. Finite input scalars do not guarantee a
+  representable solve; range errors and nonpositive/nonfinite absolute wall
+  temperatures are refused.
 - At a bifurcation the sudden-area-change loss is modelled; the splitter's
   own loss is not, because no verified loss data for milled-channel
   splitters was found (a pipe-tee coefficient would be an unsupported

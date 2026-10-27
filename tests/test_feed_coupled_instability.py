@@ -22,7 +22,9 @@ Checks:
 from __future__ import annotations
 
 import unittest
-from math import atan, pi, sqrt, tan
+from math import atan, ceil, floor, pi, sqrt, tan
+
+import mpmath as mp
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.thermochemistry import feed_coupled_instability as fc
@@ -44,12 +46,14 @@ def gain(ox_drop: float) -> float:
             + (1 - R * (1 + R) / CSTAR * SLOPE) / (1 + R) / (2 * 0.8))
 
 
-def stability(tau: float, ox_drop: float) -> fc.FeedCoupledStability:
+def stability(tau: float, ox_drop: float, points: int = 40000) -> fc.FeedCoupledStability:
     g_ox, g_f = rigid(ox_drop)
     return fc.feed_coupled_stability(
         mixture_ratio=R, characteristic_velocity_m_s=CSTAR, cstar_mixture_ratio_derivative_m_s=SLOPE,
         chamber_pressure_pa=PC, gas_residence_time_s=THETA, combustion_time_lag_s=tau,
-        oxidizer_admittance=g_ox, fuel_admittance=g_f)
+        oxidizer_admittance=g_ox, fuel_admittance=g_f,
+        oxidizer_admittance_bounds=fc.AdmittanceBounds(g_ox(0), 0.0),
+        fuel_admittance_bounds=fc.AdmittanceBounds(g_f(0), 0.0), points=points)
 
 
 class Admittances(unittest.TestCase):
@@ -127,6 +131,116 @@ class ExampleNyquist(unittest.TestCase):
         self.assertFalse(stability(1.01 * limit, 0.3).stable)
 
 
+class NumericalResolution(unittest.TestCase):
+    def test_unstable_pair_below_the_old_first_frequency(self) -> None:
+        base_ox, base_fuel = rigid(0.3)
+        scale = 1.0001 / gain(0.3)
+        tau = 0.36
+        # Independent characteristic root, not another phase-grid implementation.
+        actual_gain = ((1 + (1 + R) / CSTAR * SLOPE) * base_ox(0) * scale
+                       + (1 - R * (1 + R) / CSTAR * SLOPE) * base_fuel(0) * scale)
+        with mp.workdps(80):
+            k, delay, theta = mp.mpf(actual_gain), mp.mpf(tau), mp.mpf(THETA)
+            root = mp.lambertw(-k * delay / theta * mp.exp(delay / theta), 0) / delay - 1 / theta
+            self.assertGreater(mp.re(root), 0)
+            self.assertLess(abs(1 + theta * root + k * mp.exp(-delay * root)), mp.mpf('1e-65'))
+        result = fc.feed_coupled_stability(
+            mixture_ratio=R, characteristic_velocity_m_s=CSTAR, cstar_mixture_ratio_derivative_m_s=SLOPE,
+            chamber_pressure_pa=PC, gas_residence_time_s=THETA, combustion_time_lag_s=tau,
+            oxidizer_admittance=lambda s: base_ox(s) * scale, fuel_admittance=lambda s: base_fuel(s) * scale,
+            oxidizer_admittance_bounds=fc.AdmittanceBounds(base_ox(0) * scale, 0.0),
+            fuel_admittance_bounds=fc.AdmittanceBounds(base_fuel(0) * scale, 0.0))
+        self.assertFalse(result.stable)
+        self.assertEqual(result.right_half_plane_zeros, 2)
+
+    def test_long_lag_counts_against_all_analytic_crossings(self) -> None:
+        k = gain(0.3)
+        omega = sqrt(k * k - 1) / THETA
+        for tau in (0.1, 0.5, 1.0, 5.0, 10.0):
+            expected = 2 * max(0, ceil((tau * omega + atan(THETA * omega) - pi) / (2 * pi)))
+            with self.subTest(tau=tau):
+                self.assertEqual(stability(tau, 0.3, points=200000).right_half_plane_zeros, expected)
+
+    def test_insufficient_budget_does_not_return_a_verdict(self) -> None:
+        with self.assertRaises(DomainError) as raised:
+            stability(10.0, 0.3, points=1000)
+        self.assertEqual(raised.exception.code, "nyquist_resolution")
+
+    def test_neutral_mode_does_not_get_rounded_to_stable(self) -> None:
+        k = gain(0.3)
+        omega = sqrt(k * k - 1) / THETA
+        tau = (pi - atan(THETA * omega)) / omega
+        with self.assertRaises(DomainError) as raised:
+            stability(tau, 0.3)
+        self.assertIn(raised.exception.code, {"nyquist_resolution", "nyquist_boundary_unresolved"})
+
+
+class BoundContracts(unittest.TestCase):
+    def solve(self, response, bounds, **changes):
+        p = {"mixture_ratio": 1.0, "characteristic_velocity_m_s": 1.0,
+             "cstar_mixture_ratio_derivative_m_s": 0.0, "chamber_pressure_pa": PC,
+             "gas_residence_time_s": 0.001, "combustion_time_lag_s": 0.0,
+             "oxidizer_admittance": response, "fuel_admittance": lambda s: 0.0,
+             "oxidizer_admittance_bounds": bounds, "fuel_admittance_bounds": fc.AdmittanceBounds(0.0, 0.0)}
+        return fc.feed_coupled_stability(**{**p, **changes})
+
+    def test_callbacks_require_bounds_and_real_finite_response(self) -> None:
+        for response, bounds, code in ((lambda s: 0.5, None, "admittance_bounds_required"),
+                                       (lambda s: 2.0, fc.AdmittanceBounds(1.0, 0.0), "nyquist_invalid_bound"),
+                                       (lambda s: complex('nan'), fc.AdmittanceBounds(1.0, 0.0), "nyquist_response"),
+                                       (lambda s: 1j, fc.AdmittanceBounds(1.0, 0.0), "nyquist_response")):
+            with self.subTest(code=code), self.assertRaises(DomainError) as raised:
+                self.solve(response, bounds)
+            self.assertEqual(raised.exception.code, code)
+
+    def test_understated_slope_is_refused(self) -> None:
+        with self.assertRaises(DomainError) as raised:
+            self.solve(lambda s: 2 / (1 + 100 * s), fc.AdmittanceBounds(2.0, 0.0))
+        self.assertEqual(raised.exception.code, "nyquist_invalid_bound")
+
+    def test_small_terminal_value_is_not_a_tail_bound(self) -> None:
+        omega, damping, amplitude = 1000.0, 0.01, 10.0
+
+        def resonance(s):
+            return amplitude * 2 * damping * omega * s / (s * s + 2 * damping * omega * s + omega * omega)
+
+        self.assertLess(abs(resonance(2j * pi * 10) / (1 + 2j * pi * 10 * 0.001)), 0.05)
+        self.assertGreater(abs(resonance(1j * omega) / (1 + 1j * omega * 0.001)), 1)
+        with self.assertRaises(DomainError) as raised:
+            self.solve(resonance, fc.AdmittanceBounds(amplitude, 1e6), maximum_frequency_hz=10.0)
+        self.assertEqual(raised.exception.code, "nyquist_tail_unresolved")
+
+    def test_negative_dc_gain_can_have_an_odd_real_root(self) -> None:
+        # F(s)=1-1.5/(1+0.001s), so the only closed-loop root is +500/s.
+        result = self.solve(lambda s: 0.5, fc.AdmittanceBounds(0.5, 0.0),
+                            cstar_mixture_ratio_derivative_m_s=-2.0)
+        self.assertFalse(result.stable)
+        self.assertEqual(result.right_half_plane_zeros, 1)
+
+    def test_small_gain_margin_is_a_bound_over_all_frequencies(self) -> None:
+        result = self.solve(lambda s: 0.5, fc.AdmittanceBounds(0.5, 0.0))
+        self.assertTrue(result.stable)
+        self.assertEqual(result.minimum_distance_to_minus_one, 0.5)
+
+    def test_signed_gains_and_time_scale_invariance(self) -> None:
+        for k in (-2.0, -1.01, -0.5, 0.5, 1.0, 1.0001, 1.372, 3.0):
+            for theta in (1e-6, 0.0007, 0.3):
+                for lag_ratio in (0.2, 2.0, 50.0):
+                    expected = 0
+                    if abs(k) > 1:
+                        frequency = sqrt(k * k - 1)
+                        angle = lag_ratio * frequency + atan(frequency)
+                        expected = (2 * max(0, ceil((angle - pi) / (2 * pi))) if k > 0
+                                    else 1 + 2 * floor(angle / (2 * pi)))
+                    with self.subTest(gain=k, theta=theta, lag_ratio=lag_ratio):
+                        result = self.solve(lambda s: 1.0, fc.AdmittanceBounds(1.0, 0.0),
+                                            cstar_mixture_ratio_derivative_m_s=(k - 1) / 2,
+                                            gas_residence_time_s=theta, combustion_time_lag_s=lag_ratio * theta)
+                        self.assertEqual(result.right_half_plane_zeros, expected)
+                        self.assertEqual(result.stable, expected == 0)
+                        self.assertGreater(result.minimum_distance_to_minus_one, 0)
+
+
 class PhysicalFeeds(unittest.TestCase):
     def feeds(self, line_length: float, manifold: float, ox_drop: float) -> tuple[fc.FeedSystem, fc.FeedSystem]:
         m_total = 10.0
@@ -157,6 +271,49 @@ class PhysicalFeeds(unittest.TestCase):
                                          frequencies_hz=(50.0, 112.5))
         self.assertEqual(sweep[1].admittance,
                          ox.admittance(2j * pi * 112.5, total_mass_flow_kg_s=10.0, chamber_pressure_pa=PC))
+
+    def test_finite_tank_zero_length_line_against_polynomial_roots(self) -> None:
+        # G_ox=G_f=0.01*s/(1+0.01*s), including the finite tank DC limit.
+        # With zero combustion lag the closed-loop equation is quadratic.
+        common = {"line_area_m2": 1e-3, "liquid_sound_speed_m_s": 1000.0, "liquid_density_kg_m3": 1000.0,
+                  "liquid_bulk_modulus_pa": 1e9, "manifold_volume_m3": 0.0, "line_length_m": 0.0,
+                  "tank_volume_m3": 0.03}
+        ox = fc.FeedSystem(propellant_mass_flow_kg_s=2.0, injector_pressure_drop_pa=PC / 3, **common)
+        fu = fc.FeedSystem(propellant_mass_flow_kg_s=1.0, injector_pressure_drop_pa=PC / 6, **common)
+        for slope in (1.0, 1.2):
+            with self.subTest(slope=slope), mp.workdps(60):
+                roots = mp.polyroots([mp.mpf('0.00001'), mp.mpf('0.011') + (2 - 3 * mp.mpf(slope)) * mp.mpf('0.01'), 1])
+                expected = sum(mp.re(root) > 0 for root in roots)
+                result = fc.feed_coupled_stability(
+                    mixture_ratio=2.0, characteristic_velocity_m_s=1.0,
+                    cstar_mixture_ratio_derivative_m_s=slope, chamber_pressure_pa=PC,
+                    gas_residence_time_s=0.001, combustion_time_lag_s=0.0,
+                    oxidizer_feed=ox, fuel_feed=fu)
+                self.assertEqual(result.right_half_plane_zeros, expected)
+
+    def test_derived_slope_envelopes_bound_high_precision_derivatives(self) -> None:
+        # Independent high-precision differentiation of the original transfer
+        # function, including intervals around acoustic resonances.
+        p = {"injector_impedance": 0.9, "line_impedance": 0.35, "line_time_s": 0.004,
+             "manifold_capacitance_s": 0.0012}
+        for tank in (None, 0.05):
+            normalized = {**p, "tank_capacitance_s": tank}
+            envelope = fc._feed_admittance_bounds(normalized)
+            for lower, upper in ((0.0, 1.0), (390.0, 396.0), (780.0, 790.0), (1e3, 1e4)):
+                with self.subTest(tank=tank, lower=lower), mp.workdps(60):
+                    def g(w, tank=tank):
+                        s = mp.j * w
+                        zi, zl, tl, cm = map(mp.mpf, (0.9, 0.35, 0.004, 0.0012))
+                        th = mp.tanh(s * tl)
+                        if tank is None:
+                            return (1 + s * cm * zl * th) / (zi * (1 + (zl / zi + s * cm * zl) * th))
+                        ct = mp.mpf(tank)
+                        num = s * (ct + cm) + (1 / zl + s**2 * cm * ct * zl) * th
+                        den = 1 + s * zi * (ct + cm) + (zi / zl + s * ct * zl + s**2 * cm * ct * zl * zi) * th
+                        return num / den
+                    bound = envelope.slope(lower, upper)
+                    for w in (lower, (lower + upper) / 2, upper):
+                        self.assertLessEqual(abs(mp.diff(g, mp.mpf(w))), bound)
 
     def test_inconsistent_inputs_are_refused(self) -> None:
         ox, fu = self.feeds(2.0, 1e-3, 0.5)

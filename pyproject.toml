@@ -67,9 +67,12 @@ check_untyped_defs = true
 show_error_codes = true
 
 [[tool.mypy.overrides]]
-# The optional NASA CEA provider ships without type information.
+# CEA 3.3.4 includes a libcea.pyi with an invalid parameter ordering.
+# Treat this optional third-party boundary as untyped; keep checking our adapter.
 module = ["cea", "cea.*"]
 ignore_missing_imports = true
+follow_imports = "skip"
+follow_imports_for_stubs = true
 
 [tool.ruff]
 line-length = 100

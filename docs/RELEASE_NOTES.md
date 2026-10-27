@@ -1,5 +1,18 @@
 # Release notes
 
+Repair two numerical defects found on `bd449cb`: imposed radiation/axial
+surface heat is now eliminated through the 2-D wall's half-cell resistance,
+and Nyquist winding starts at zero with interval slope bounds and a global
+tail envelope. Unresolved contours raise errors rather than a stability
+verdict; custom admittance callbacks now require explicit
+`AdmittanceBounds`. New regressions use explicit surface unknowns,
+local Fourier/Robin balances, Lambert W roots, analytic delay crossings
+and finite-tank polynomial roots. Wall solves also refuse malformed scalars,
+unrepresentable temperatures and excessive banded-grid work/storage.
+The optional CEA 3.3.4 boundary is excluded from following malformed vendor
+stubs while the project's adapter remains type checked. Scope and remaining
+issues: [NYQUIST_AND_WALL_BOUNDARY_REVIEW.md](NYQUIST_AND_WALL_BOUNDARY_REVIEW.md).
+
 The 2-D channel wall gains a closeout layer bonded to the lands (cooled
 underside, adiabatic or convective outer face), and the march can couple
 its stations through axial wall conduction, solved implicitly from each

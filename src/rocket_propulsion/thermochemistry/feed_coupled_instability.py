@@ -29,7 +29,8 @@ decided by the Nyquist criterion SP-194 describes in Sect. 5.5.1: with no
 open-loop poles in the right half-plane, the number of right-half-plane zeros
 of ``F`` equals the number of clockwise encirclements of the origin by
 ``F(i omega)``. The encirclements are counted from the unwrapped phase of
-``F(i omega)`` on a dense frequency grid.
+``F(i omega)`` on a contour resolved with amplitude and derivative bounds.
+An unresolved contour raises an error and has no stability verdict.
 
 Limits: linear (small-amplitude) theory; one combustion time lag per
 propellant, constant in time; low Mach number in the feed lines (Eq. 5.4.1-2,
@@ -48,15 +49,17 @@ References
 from __future__ import annotations
 
 import cmath
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from math import log10, pi, sqrt
+from math import cos, hypot, pi, sin, sqrt
 from typing import TypedDict
 
 from rocket_propulsion.core.errors import DomainError
-from rocket_propulsion.core.validation import real
+from rocket_propulsion.core.validation import numeric_range_guard, real
+from rocket_propulsion.thermochemistry.nyquist_numerics import resolve_contour
 
 __all__ = [
+    "AdmittanceBounds",
     "FeedCoupledStability",
     "FeedSystem",
     "FeedSystemResponse",
@@ -421,14 +424,17 @@ class FeedCoupledStability:
         Count from the clockwise encirclements of the origin (complex
         roots come in conjugate pairs, so an unstable mode counts 2).
     gain_crossover_hz : tuple of float
-        Frequencies where ``|f(i omega)| = 1``.
+        Refined gain crossovers bracketed by the resolved contour samples.
+        Tangencies and unbracketed crossings are not enumerated.
     phase_margins_deg : tuple of float
         ``arg f(i omega) - (-180 deg)`` at each crossover, wrapped to
         (-180, 180]; positive is stable at a single crossover (SP-194 p. 251).
     minimum_distance_to_minus_one : float
-        ``min |1 + f(i omega)|`` over the grid, a robustness margin.
+        Conservative lower bound on ``|1 + f(i omega)|`` over the contour
+        and its entire omitted tail, conditional on the admittance bounds.
     frequencies_hz : tuple of float
-        Grid used.
+        Evaluated frequencies, including zero. The final frequency starts
+        a tail whose global envelope excludes any further encirclement.
 
     References
     ----------
@@ -444,17 +450,86 @@ class FeedCoupledStability:
     frequencies_hz: tuple[float, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class AdmittanceBounds:
+    """Caller-supplied bounds for a real, stable custom injection admittance.
+
+    ``maximum_magnitude`` bounds |G(i omega)| for every omega >= 0.
+    ``derivative_bound`` is a nonnegative constant, or a function (a,b)
+    bounding |dG(i omega)/domega| throughout [a,b], in seconds. The callback
+    must also have no RHP poles, be finite on the imaginary axis and obey
+    conjugate symmetry. These are caller obligations, not facts inferred
+    from a finite set of samples. Built-in physical feeds derive their
+    bounds automatically. A constant rigid admittance uses a zero slope.
+    """
+
+    maximum_magnitude: float
+    derivative_bound: float | Callable[[float, float], float]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "maximum_magnitude", _nonnegative(self.maximum_magnitude, "maximum_magnitude"))
+        if not callable(self.derivative_bound):
+            object.__setattr__(self, "derivative_bound", _nonnegative(self.derivative_bound, "derivative_bound"))
+
+    def slope(self, lower: float, upper: float) -> float:
+        value = self.derivative_bound(lower, upper) if callable(self.derivative_bound) else self.derivative_bound
+        return _nonnegative(value, "derivative_bound")
+
+
+def _feed_admittance_bounds(feed: NormalizedFeed) -> AdmittanceBounds:
+    """Bounds for the passive lossless line/capacitance plus resistive injector.
+
+    On the imaginary axis G = A/(Zi*A +/- i*B), with real A,B, hence
+    |G| <= 1/Zi and |dG/domega| = |A'B-AB'|/|D|^2. The line transfer
+    matrix's determinant bounds |D| away from zero; a local midpoint
+    Lipschitz bound sharpens it as intervals shrink. No resonance is
+    excluded merely because it lies between frequency samples.
+    """
+    zi, zl = feed["injector_impedance"], feed["line_impedance"]
+    tl, cm, ct = feed["line_time_s"], feed["manifold_capacitance_s"], feed["tank_capacitance_s"]
+
+    def derivative(lower: float, upper: float) -> float:
+        mid = lower + (upper - lower) / 2
+        c, s = cos(mid * tl), sin(mid * tl)
+        if ct is None:
+            a, b = c - mid * cm * zl * s, zl * s
+            frobenius = hypot(zi, zi * upper * cm * zl, zl)
+            determinant = zi * zl
+            a_prime = tl + cm * zl + upper * cm * zl * tl
+            b_prime = zl * tl
+            numerator = zl * (tl + cm * zl)
+        else:
+            coefficient = max(abs(1 / zl - lower**2 * cm * ct * zl),
+                              abs(1 / zl - upper**2 * cm * ct * zl))
+            a = mid * (ct + cm) * c + (1 / zl - mid**2 * cm * ct * zl) * s
+            b = c - mid * ct * zl * s
+            frobenius = hypot(zi * upper * (ct + cm), zi * coefficient, 1, upper * ct * zl)
+            determinant = zi * (1 / zl + lower**2 * ct**2 * zl)
+            a_prime = ct + cm + upper * (ct + cm) * tl + 2 * upper * cm * ct * zl + coefficient * tl
+            b_prime = tl + ct * zl + upper * ct * zl * tl
+            # Exact Wronskian: tl*(1/Zl + omega^2*Ct^2*Zl) + Ct + Cm*B^2.
+            numerator = tl * (1 / zl + upper**2 * ct**2 * zl) + ct + cm * (1 + upper * ct * zl)**2
+        denominator = max(determinant / frobenius,
+                          hypot(zi * a, b) - hypot(zi * a_prime, b_prime) * ((upper - lower) / 2))
+        return numerator / denominator**2 * (1 + 1e-12)
+
+    return AdmittanceBounds(1 / zi, derivative)
+
+
 def _open_loop(s: complex, *, k_ox: float, k_f: float, g_ox, g_f, tau_m: float,
                tau_vox: float, tau_vf: float, theta: float) -> complex:
     return cmath.exp(-s * tau_m) / (1.0 + s * theta) * (
         k_ox * g_ox(s) * cmath.exp(-s * tau_vox) + k_f * g_f(s) * cmath.exp(-s * tau_vf))
 
 
+@numeric_range_guard("feed_coupled_stability")
 def feed_coupled_stability(*, mixture_ratio: float, characteristic_velocity_m_s: float,
                            cstar_mixture_ratio_derivative_m_s: float, chamber_pressure_pa: float,
                            gas_residence_time_s: float, combustion_time_lag_s: float,
                            oxidizer_feed: FeedSystem | None = None, fuel_feed: FeedSystem | None = None,
                            oxidizer_admittance=None, fuel_admittance=None,
+                           oxidizer_admittance_bounds: AdmittanceBounds | None = None,
+                           fuel_admittance_bounds: AdmittanceBounds | None = None,
                            maximum_frequency_hz: float | None = None,
                            points: int = 40000) -> FeedCoupledStability:
     """Nyquist stability of the single- or double-time-lag chamber with dynamic feeds.
@@ -478,10 +553,17 @@ def feed_coupled_stability(*, mixture_ratio: float, characteristic_velocity_m_s:
         Physical feeds; the total flow is the sum of the two propellant flows.
     oxidizer_admittance, fuel_admittance : callable, optional
         ``G(s)`` used instead of a feed (both needed when no feeds are given).
+    oxidizer_admittance_bounds, fuel_admittance_bounds : AdmittanceBounds, optional
+        Required for custom admittances. Global amplitude and interval
+        derivative bounds cannot be established from sampling a callback.
     maximum_frequency_hz : float, optional
-        Upper end of the log-spaced grid; default 50 / theta_c.
+        Maximum frequency available to close the contour. Must place its
+        entire remaining tail in |f| < 1 by the global amplitude envelope.
+        Defaults to at least 50 / theta_c; the solve stops earlier when
+        that envelope is <= 1/2.
     points : int, optional
-        Grid size (log-spaced from 1e-3 / theta_c).
+        Maximum response evaluations, 1000 to 1000000 (default 40000).
+        Exhaustion raises ``nyquist_resolution`` rather than a verdict.
 
     Returns
     -------
@@ -503,6 +585,9 @@ def feed_coupled_stability(*, mixture_ratio: float, characteristic_velocity_m_s:
     k_f = 1.0 - r * (1.0 + r) / cstar * slope
     tau_vox = tau_vf = 0.0
     if oxidizer_feed is not None or fuel_feed is not None:
+        if any(value is not None for value in (oxidizer_admittance, fuel_admittance,
+                                               oxidizer_admittance_bounds, fuel_admittance_bounds)):
+            raise DomainError("Give physical feeds or bounded callbacks, not both.", field="oxidizer_feed")
         if oxidizer_feed is None or fuel_feed is None:
             raise DomainError("Give both feeds or neither.", field="fuel_feed")
         total = oxidizer_feed.propellant_mass_flow_kg_s + fuel_feed.propellant_mass_flow_kg_s
@@ -514,6 +599,7 @@ def feed_coupled_stability(*, mixture_ratio: float, characteristic_velocity_m_s:
         tau_vf = _nonnegative(fuel_feed.vaporization_lag_s, "vaporization_lag_s")
         ox_norm = oxidizer_feed.normalized(total_mass_flow_kg_s=total, chamber_pressure_pa=pc)
         fu_norm = fuel_feed.normalized(total_mass_flow_kg_s=total, chamber_pressure_pa=pc)
+        ox_bounds, fu_bounds = _feed_admittance_bounds(ox_norm), _feed_admittance_bounds(fu_norm)
 
         def g_ox(s):
             return pressurized_tank_injection_admittance(s, **ox_norm)
@@ -523,52 +609,33 @@ def feed_coupled_stability(*, mixture_ratio: float, characteristic_velocity_m_s:
     else:
         if oxidizer_admittance is None or fuel_admittance is None:
             raise DomainError("Give feeds or both admittance functions.", field="oxidizer_admittance")
+        if not (callable(oxidizer_admittance) and callable(fuel_admittance)):
+            raise DomainError("Admittances must be callable.", field="oxidizer_admittance")
+        if not (isinstance(oxidizer_admittance_bounds, AdmittanceBounds)
+                and isinstance(fuel_admittance_bounds, AdmittanceBounds)):
+            raise DomainError("Custom admittances require global amplitude and derivative bounds.",
+                              code="admittance_bounds_required", field="oxidizer_admittance_bounds")
+        ox_bounds, fu_bounds = oxidizer_admittance_bounds, fuel_admittance_bounds
         g_ox, g_f = oxidizer_admittance, fuel_admittance
-    f_max = (50.0 / theta) if maximum_frequency_hz is None else _positive(
-        maximum_frequency_hz, "maximum_frequency_hz")
-    if isinstance(points, bool) or not isinstance(points, int) or points < 1000:
-        raise DomainError("points must be an integer of at least 1000.", field="points")
-    f_min = 1e-3 / theta
-    lo, hi = log10(f_min), log10(f_max)
-    freqs = [10.0 ** (lo + (hi - lo) * k / (points - 1)) for k in range(points)]
+    f_max = None if maximum_frequency_hz is None else _positive(maximum_frequency_hz, "maximum_frequency_hz")
+
     def open_loop(s: complex) -> complex:
         return _open_loop(s, k_ox=k_ox, k_f=k_f, g_ox=g_ox, g_f=g_f, tau_m=tau_m,
                           tau_vox=tau_vox, tau_vf=tau_vf, theta=theta)
 
-    values = [open_loop(2j * pi * f) for f in freqs]
-    # Unwrapped phase of F = 1 + f from omega = 0 (where F is real) upward.
-    f0 = open_loop(0j)
-    previous = cmath.phase(1.0 + f0)
-    total_phase = 0.0
-    distance = abs(1.0 + f0)
-    crossings: list[float] = []
-    margins: list[float] = []
-    prev_mag = abs(f0)
-    prev_f = 0.0
-    for f, v in zip(freqs, values):
-        phase = cmath.phase(1.0 + v)
-        step = phase - previous
-        while step > pi:
-            step -= 2.0 * pi
-        while step < -pi:
-            step += 2.0 * pi
-        total_phase += step
-        previous = phase
-        distance = min(distance, abs(1.0 + v))
-        mag = abs(v)
-        if (prev_mag - 1.0) * (mag - 1.0) < 0.0:
-            crossings.append(f if prev_f == 0.0 else sqrt(f * prev_f))
-            margin = cmath.phase(v) * 180.0 / pi + 180.0
-            margins.append(margin - 360.0 if margin > 180.0 else margin)
-        prev_mag, prev_f = mag, f
-    # The tail beyond f_max must not hide encirclements: |f| must have decayed.
-    if abs(values[-1]) > 0.05:
-        raise DomainError("|f| has not decayed at the top of the frequency grid; raise "
-                          "maximum_frequency_hz.", field="maximum_frequency_hz",
-                          details={"f_at_max": abs(values[-1])})
-    zeros = round(-2.0 * total_phase / (2.0 * pi))
-    return FeedCoupledStability(zeros == 0, zeros, tuple(crossings), tuple(margins), distance,
-                                tuple(freqs))
+    amplitude = _nonnegative(abs(k_ox) * ox_bounds.maximum_magnitude + abs(k_f) * fu_bounds.maximum_magnitude,
+                             "admittance_amplitude_bound")
+
+    def slope_bound(lower: float, upper: float) -> float:
+        denominator = hypot(1, lower * theta)
+        return sum(abs(k) * ((bounds.slope(lower, upper) + (tau_m + lag) * bounds.maximum_magnitude) / denominator
+                             + theta * bounds.maximum_magnitude / denominator**2)
+                   for k, bounds, lag in ((k_ox, ox_bounds, tau_vox), (k_f, fu_bounds, tau_vf)))
+
+    zeros, crossings, margins, distance, freqs = resolve_contour(
+        response=open_loop, slope_bound=slope_bound, amplitude_bound=amplitude,
+        residence_time_s=theta, maximum_frequency_hz=f_max, maximum_evaluations=points)
+    return FeedCoupledStability(zeros == 0, zeros, crossings, margins, distance, freqs)
 
 
 def feed_admittance_sweep(feed: FeedSystem, *, total_mass_flow_kg_s: float,

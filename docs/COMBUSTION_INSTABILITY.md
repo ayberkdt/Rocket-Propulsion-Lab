@@ -42,7 +42,27 @@ criterion of Sect. 5.5.1 to the single- or double-time-lag characteristic
 equation (5.2.2-6 or 5.2.3-3), counting right-half-plane zeros from the
 encirclements of the origin by `1 + f(iω)`.
 
-| Check (`tests/test_feed_coupled_instability.py`, 11 tests) | Result |
+The contour starts at zero frequency. A local derivative envelope bounds
+each interval's image by a disk that excludes zero; unresolved intervals
+are subdivided. The uncomputed tail is closed only when a global amplitude
+envelope places all of it in `|f| < 1`, rather than testing one terminal
+sample. The final phase increment includes that closure. `points` is now
+the evaluation budget (1000–1000000); exhaustion or an unresolved boundary
+root raises an error and supplies no stability verdict.
+
+Physical `FeedSystem` inputs derive envelopes from their passive component
+model. Custom callbacks now require `AdmittanceBounds(maximum_magnitude,
+derivative_bound)` for both feeds: the first bounds `|G|` at every
+nonnegative frequency; the second bounds `|dG/dω|` on each requested
+interval, or is a global constant. A rigid feed uses its constant magnitude
+and zero derivative. Finite sampling cannot prove these caller-supplied
+bounds or absence of RHP poles. The result is conditional floating-point
+numerical evidence, not an interval-arithmetic certificate or hardware
+stability validation. `minimum_distance_to_minus_one` is a conservative
+lower bound; reported gain crossovers are refined bracketed crossings and
+do not enumerate unbracketed crossings or tangencies.
+
+| Check (`tests/test_feed_coupled_instability.py`) | Result/criterion |
 |---|---|
 | Closed form against the composed component ratios | equal to 1e-12 |
 | Large tank capacitance | tends to Eq. (5.4.2-2) to 1e-9 |
@@ -50,6 +70,10 @@ encirclements of the origin by `1 + f(iω)`.
 | No manifold: quarter-wave and half-wave line resonances | admittance 0 and `1/Z_i`, as p. 244 states |
 | Example 5.5.1.1 with rigid feeds | 0 zeros at K = 0.894; 2 (a conjugate pair, "two zeros" on p. 253) at K = 1.372 and 2.75 ms; the count changes across 1.78 ms; crossover at the neutral frequency |
 | Short line, empty manifold | reduces to the rigid result |
+| Unstable pair below the former first frequency | count 2, independently witnessed by a high-precision Lambert W root |
+| Long lag, signed gain, rescaled residence times | counts agree with analytic delay crossing formulas; insufficient budget refuses a verdict |
+| Finite tank, zero line length and zero combustion lag | counts agree with the independent quadratic characteristic roots |
+| Imaginary-axis boundary; hidden high-frequency resonance | unresolved contour/tail is refused |
 
 The scan of Eq. (5.4.2-1) shows the last denominator term as
 `s² C_m Z_l Z_i`; that form does not reduce to Eq. (5.4.2-2) as `C_t → ∞`.

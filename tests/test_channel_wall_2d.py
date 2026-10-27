@@ -17,12 +17,14 @@ from __future__ import annotations
 import itertools
 import math
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import spsolve
 
 from rocket_propulsion.core.errors import DomainError, InputError
+from rocket_propulsion.heat_transfer import channel_wall
 from rocket_propulsion.heat_transfer.channel_wall import solve_channel_wall_section
 
 BASE = {"pitch_m": 4e-3, "channel_width_m": 1.5e-3, "channel_height_m": 5e-3, "hot_wall_thickness_m": 1e-3,
@@ -30,10 +32,16 @@ BASE = {"pitch_m": 4e-3, "channel_width_m": 1.5e-3, "channel_height_m": 5e-3, "h
         "coolant_coefficient_w_m2_k": 6.0e4, "coolant_temperature_k": 200.0}
 
 
-def independent_heat(p: dict, cell: float) -> float:
-    """Uniform square cells of size ``cell``; geometry must be a multiple of it (closeout in the same k)."""
+def independent_section(p: dict, cell: float) -> tuple[float, np.ndarray]:
+    """Sparse solve with explicit hot-surface unknowns, not an eliminated Robin source.
+
+    Uniform square cells; geometry must be a multiple of ``cell`` and the
+    closeout has the same conductivity. At each hot face, the two equations
+    separately impose Fourier conduction and the surface heat balance.
+    """
     k, hg, hc = p["thermal_conductivity_w_m_k"], p["gas_coefficient_w_m2_k"], p["coolant_coefficient_w_m2_k"]
     taw, tb, qr = p["recovery_temperature_k"], p["coolant_temperature_k"], p.get("radiative_heat_flux_w_m2", 0.0)
+    source = qr + p.get("imposed_heat_flux_w_m2", 0.0)
     ny = round(p["pitch_m"] / 2 / cell)
     nch = round(p["channel_width_m"] / 2 / cell)
     nw = round(p["hot_wall_thickness_m"] / cell)
@@ -45,9 +53,10 @@ def independent_heat(p: dict, cell: float) -> float:
     solid[nw + nh:, :] = True
     ids = -np.ones(solid.shape, dtype=int)
     ids[solid] = np.arange(solid.sum())
-    a = lil_matrix((solid.sum(), solid.sum()))
-    b = np.zeros(solid.sum())
-    g_in = 1.0 / (cell / (2 * k) + 1 / hg) * cell
+    size = int(solid.sum())
+    a = lil_matrix((size + ny, size + ny))
+    b = np.zeros(size + ny)
+    g_half = 2 * k  # k * face area / half-cell distance
     g_cool = 1.0 / (cell / (2 * k) + 1 / hc) * cell
     for j, i in zip(*np.nonzero(solid), strict=True):
         n = ids[j, i]
@@ -57,8 +66,12 @@ def independent_heat(p: dict, cell: float) -> float:
                 a[n, n] += k
                 a[n, ids[jj, ii]] -= k
         if j == 0:
-            a[n, n] += g_in
-            b[n] += g_in * taw + qr * cell
+            face = size + i
+            a[n, n] += g_half
+            a[n, face] -= g_half
+            a[face, n] -= g_half
+            a[face, face] += g_half + hg * cell
+            b[face] += (hg * taw + source) * cell
         if j == nw - 1 and i < nch:
             a[n, n] += g_cool
             b[n] += g_cool * tb
@@ -69,8 +82,61 @@ def independent_heat(p: dict, cell: float) -> float:
             a[n, n] += g_cool
             b[n] += g_cool * tb
     temps = spsolve(a.tocsr(), b)
-    hot = ids[0, :]
-    return float(np.sum(g_in * (taw - temps[hot]) + qr * cell))
+    surface = temps[size:]
+    return float(np.sum((hg * (taw - surface) + source) * cell)), surface
+
+
+def independent_heat(p: dict, cell: float) -> float:
+    return independent_section(p, cell)[0]
+
+
+class ImposedSurfaceFlux(unittest.TestCase):
+    def test_local_fourier_and_surface_balances_with_signed_sources(self) -> None:
+        # Finite Biot number and one wall cell make a missing half-cell
+        # source attenuation visible. A global energy ledger alone cannot.
+        base = {**BASE, "channel_width_m": 2e-3, "channel_height_m": 3e-3,
+                "thermal_conductivity_w_m_k": 30.0, "recovery_temperature_k": 2500.0,
+                "coolant_temperature_k": 300.0, "coolant_coefficient_w_m2_k": 1e4,
+                "cells_channel": 2, "cells_land": 1, "cells_wall": 1, "cells_height": 2}
+        for radiation, imposed in ((0.0, 0.0), (2e6, 0.0), (0.0, 2e6), (0.0, -2e6), (3e6, -1e6)):
+            captured = []
+            original = channel_wall._banded_cholesky_solve
+
+            def capture(diagonal, bands, rhs, original=original, captured=captured):
+                temperatures = original(diagonal, bands, rhs)
+                captured.extend(temperatures)
+                return temperatures
+
+            with self.subTest(radiation=radiation, imposed=imposed):
+                with patch.object(channel_wall, "_banded_cholesky_solve", side_effect=capture):
+                    result = solve_channel_wall_section(**base, radiative_heat_flux_w_m2=radiation,
+                                                        imposed_heat_flux_w_m2=imposed)
+                face_fluxes = []
+                for i, (_, surface) in enumerate(result.hot_surface):
+                    film = base["gas_coefficient_w_m2_k"] * (base["recovery_temperature_k"] - surface)
+                    conduction = base["thermal_conductivity_w_m_k"] * (surface - captured[i]) / (
+                        base["hot_wall_thickness_m"] / 2)
+                    self.assertAlmostEqual(film + radiation + imposed, conduction, delta=1e-6)
+                    face_fluxes.append(conduction)
+                # The public heat result must represent those same physical faces.
+                widths = [0.5e-3, 0.5e-3, 1e-3]
+                self.assertAlmostEqual(result.heat_per_length_w_m,
+                                       math.fsum(q * w for q, w in zip(face_fluxes, widths, strict=True)),
+                                       delta=1e-8)
+
+    def test_explicit_surface_unknown_oracle(self) -> None:
+        for radiation, imposed, closeout in ((2e6, 0.0, 0.0), (0.0, -2e6, 0.0),
+                                              (3e6, -1e6, 1e-3), (0.0, 0.0, 1e-3)):
+            p = {**BASE, "channel_width_m": 2e-3, "channel_height_m": 3e-3,
+                 "thermal_conductivity_w_m_k": 30.0, "radiative_heat_flux_w_m2": radiation,
+                 "imposed_heat_flux_w_m2": imposed, "closeout_thickness_m": closeout}
+            with self.subTest(radiation=radiation, imposed=imposed, closeout=closeout):
+                heat, surfaces = independent_section(p, 0.5e-3)
+                result = solve_channel_wall_section(**p, cells_channel=2, cells_land=2, cells_wall=2,
+                                                    cells_height=6, cells_closeout=2)
+                self.assertAlmostEqual(result.heat_per_length_w_m, heat, delta=1e-8)
+                for (_, actual), expected in zip(result.hot_surface, surfaces, strict=True):
+                    self.assertAlmostEqual(actual, expected, delta=1e-8)
 
 
 class LimitsAndOracles(unittest.TestCase):
@@ -180,6 +246,30 @@ class ConservationAndTrends(unittest.TestCase):
 
 
 class HostileInputs(unittest.TestCase):
+    def test_wide_grid_attack_is_refused_before_matrix_solution(self) -> None:
+        # Only 20,000 rectangular-grid cells, but ~100 million entries per
+        # band matrix and ~10^12 factorization work units without a guard.
+        with patch.object(channel_wall, "_banded_cholesky_solve") as solve:
+            with self.assertRaises(InputError) as raised:
+                solve_channel_wall_section(**BASE, cells_channel=9999, cells_land=1,
+                                           cells_wall=1, cells_height=1)
+            self.assertEqual(raised.exception.code, "wall_grid_budget")
+            solve.assert_not_called()
+
+    def test_malformed_scalars_are_not_coerced(self) -> None:
+        for field in BASE:
+            for value in (True, "1", None, [1.0]):
+                with self.subTest(field=field, value=value), self.assertRaises(DomainError):
+                    solve_channel_wall_section(**{**BASE, field: value})
+
+    def test_unrepresentable_or_nonphysical_sourced_wall_is_refused(self) -> None:
+        for change in ({"gas_coefficient_w_m2_k": 1e-308, "radiative_heat_flux_w_m2": 1e308},
+                       {"thermal_conductivity_w_m_k": 1e-320},
+                       {"hot_wall_thickness_m": 5e-324},
+                       {"imposed_heat_flux_w_m2": -1e12}):
+            with self.subTest(change=change), self.assertRaises(DomainError):
+                solve_channel_wall_section(**{**BASE, **change})
+
     def test_refused(self) -> None:
         for change in ({"channel_width_m": 4e-3}, {"channel_width_m": 5e-3}, {"pitch_m": 0.0},
                        {"thermal_conductivity_w_m_k": -1.0}, {"gas_coefficient_w_m2_k": math.nan},

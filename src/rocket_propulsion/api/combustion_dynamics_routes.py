@@ -169,7 +169,9 @@ def combustion_stability_route(payload: dict[str, Any]) -> dict[str, Any]:
     nyquist = feed.feed_coupled_stability(
         mixture_ratio=ratio, characteristic_velocity_m_s=c0, cstar_mixture_ratio_derivative_m_s=slope,
         chamber_pressure_pa=pressure, gas_residence_time_s=theta, combustion_time_lag_s=lag,
-        oxidizer_admittance=lambda s: g_ox, fuel_admittance=lambda s: g_f, points=4000)
+        oxidizer_admittance=lambda s: g_ox, fuel_admittance=lambda s: g_f,
+        oxidizer_admittance_bounds=feed.AdmittanceBounds(g_ox, 0.0),
+        fuel_admittance_bounds=feed.AdmittanceBounds(g_f, 0.0), points=4000)
     curve = []
     k_ox = 1.0 + (1.0 + ratio) / c0 * slope
     k_f = 1.0 - ratio * (1.0 + ratio) / c0 * slope
