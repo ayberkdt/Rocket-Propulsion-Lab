@@ -77,6 +77,14 @@ def real(value: object, label: str) -> float:
            classes", https://docs.python.org/3.12/library/numbers.html
     """
 
+    # A native float is already normalized: no conversion can erase a
+    # nonzero value. Keep checking finiteness on *every* call. Subclasses
+    # must take the protocol path below so their declared errors/conversion
+    # behavior are preserved instead of being bypassed by this fast path.
+    if type(value) is float:
+        if not isfinite(value):
+            raise DomainError(f"{label} is outside the nonzero finite float range.", field=label)
+        return value
     if isinstance(value, bool) or not isinstance(value, Real):
         raise DomainError(f"{label} must be a real number.", field=label)
     try:

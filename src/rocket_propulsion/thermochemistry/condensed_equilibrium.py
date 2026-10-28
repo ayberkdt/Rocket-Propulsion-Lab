@@ -46,7 +46,9 @@ from typing import TypedDict
 from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
+from rocket_propulsion.core.validation import coerce_fields, real, text
 
+from ._records import _owned_catalog, _owned_formula
 from .equilibrium import (
     EquilibriumConvergence,
     EquilibriumProblem,
@@ -60,6 +62,7 @@ from .nasa_polynomials import (
     UNIVERSAL_GAS_CONSTANT_J_MOL_K,
     NasaIntervalRecord,
     NasaPolynomialInterval,
+    _owned_intervals,
     interval_from_record,
 )
 from .rocket_performance import (
@@ -134,6 +137,15 @@ class CondensedSpecies:
     source: str
     source_url: str
 
+    def __post_init__(self) -> None:
+        coerce_fields(self, 'Condensed species')
+        if self.molecular_mass_kg_mol <= 0 or self.phase_index < 1:
+            raise DomainError('A condensed species needs positive molar mass and phase index.')
+        object.__setattr__(self, 'key', self.key.strip())
+        object.__setattr__(self, 'phase_group', self.phase_group.strip())
+        object.__setattr__(self, 'formula', _owned_formula(self.formula))
+        object.__setattr__(self, 'intervals', _owned_intervals(self.intervals))
+
     @property
     def minimum_temperature_k(self) -> float:
         """Lower bound of the phase's data range, K."""
@@ -146,12 +158,17 @@ class CondensedSpecies:
 
     def covers(self, temperature_k: float) -> bool:
         """Return whether ``temperature_k`` lies in the phase's data range."""
+        temperature_k = real(temperature_k, 'temperature_k')
         return self.minimum_temperature_k <= temperature_k <= self.maximum_temperature_k
 
 
 @dataclass(frozen=True, slots=True)
 class CondensedCatalog:
-    """Products and reactants available to the condensed-phase provider.
+    """Owned snapshot of products and reactants for the condensed-phase provider.
+
+    Its dictionaries may be edited locally; no edit changes a subsequent
+    catalogue or the provider's internal data. Species/phase records own
+    immutable nested formulae and intervals.
 
     Attributes
     ----------
@@ -169,6 +186,16 @@ class CondensedCatalog:
     condensed: dict[str, CondensedSpecies]
     reactants: dict[str, CondensedReactant]
 
+    def __post_init__(self) -> None:
+        gases = _owned_catalog(self.gases, Species, 'gases')
+        condensed = _owned_catalog(self.condensed, CondensedSpecies, 'condensed')
+        reactants = _owned_catalog(self.reactants, CondensedReactant, 'reactants')
+        if gases.keys() & condensed.keys():
+            raise DomainError('Gas and condensed product keys must be disjoint.')
+        object.__setattr__(self, 'gases', dict(gases))
+        object.__setattr__(self, 'condensed', dict(condensed))
+        object.__setattr__(self, 'reactants', dict(reactants))
+
 
 class _PhaseRecord(TypedDict):
     """Fields shared by every species record of ``nasa_cea_condensed.json``."""
@@ -182,17 +209,18 @@ def _intervals(record: _PhaseRecord) -> tuple[NasaPolynomialInterval, ...]:
 
 
 def _formula(record: _PhaseRecord) -> tuple[tuple[str, float], ...]:
-    return tuple((str(key), float(value)) for key, value in record["formula"].items())
+    return _owned_formula(tuple(record["formula"].items()))
 
 
 @lru_cache(maxsize=1)
-def condensed_catalog() -> CondensedCatalog:
+def _condensed_catalog_tables() -> tuple[Mapping[str, Species], Mapping[str, CondensedSpecies], Mapping[str, CondensedReactant]]:
     """Load the gas, condensed-product and reactant records once [1]_.
 
     Returns
     -------
-    CondensedCatalog
-        Cached catalog; gas keys of the base catalog
+    tuple of mappings
+        Private immutable gas, condensed-product and reactant tables;
+        gas keys of the base catalog
         (:func:`~rocket_propulsion.thermochemistry.species.species_catalog`)
         and of ``nasa_cea_condensed.json`` are disjoint.
 
@@ -209,18 +237,18 @@ def condensed_catalog() -> CondensedCatalog:
 
     document = json.loads(CONDENSED_DATA_FILE.read_text(encoding="utf-8"))
     source = document["source"]
-    title, url = str(source["title"]), str(source["url"])
+    title, url = source["title"], source["url"]
     gases = dict(species_catalog())
     for record in document["gas_species"]:
         key = record["key"].upper()
         if key in gases:
             raise RuntimeError(f"Gas species {key} is defined twice.")
         gases[key] = Species(
-            key=str(record["key"]),
-            name=str(record["name"]),
+            key=record["key"],
+            name=record["name"],
             formula=_formula(record),
-            molecular_mass_kg_mol=float(record["molecular_mass_g_mol"]) / 1000.0,
-            heat_of_formation_j_mol_298=float(record["heat_of_formation_j_mol_298"]),
+            molecular_mass_kg_mol=real(record["molecular_mass_g_mol"], 'molecular_mass_g_mol') / 1000.0,
+            heat_of_formation_j_mol_298=record["heat_of_formation_j_mol_298"],
             intervals=_intervals(record),
             source=title,
             source_url=url,
@@ -231,30 +259,51 @@ def condensed_catalog() -> CondensedCatalog:
         if key in condensed or key in gases:
             raise RuntimeError(f"Condensed species {key} is defined twice.")
         condensed[key] = CondensedSpecies(
-            key=str(record["key"]),
+            key=record["key"],
             formula=_formula(record),
-            molecular_mass_kg_mol=float(record["molecular_mass_g_mol"]) / 1000.0,
-            heat_of_formation_j_mol_298=float(record["heat_of_formation_j_mol_298"]),
-            phase_group=str(record["phase_group"]),
-            phase_index=int(record["phase_index"]),
+            molecular_mass_kg_mol=real(record["molecular_mass_g_mol"], 'molecular_mass_g_mol') / 1000.0,
+            heat_of_formation_j_mol_298=record["heat_of_formation_j_mol_298"],
+            phase_group=record["phase_group"],
+            phase_index=record["phase_index"],
             intervals=_intervals(record),
             source=title,
             source_url=url,
         )
-    reactants = {
-        record["key"].upper(): CondensedReactant(
-            key=str(record["key"]),
-            name=str(record["name"]),
+    reactants: dict[str, CondensedReactant] = {}
+    for record in document['reactants']:
+        parsed = CondensedReactant(
+            key=record["key"],
+            name=record["name"],
             formula=_formula(record),
-            molecular_mass_kg_mol=float(record["molecular_mass_g_mol"]) / 1000.0,
-            enthalpy_j_mol=float(record["assigned_enthalpy_j_mol"]),
-            temperature_k=float(record["assigned_temperature_k"]),
+            molecular_mass_kg_mol=real(record["molecular_mass_g_mol"], 'molecular_mass_g_mol') / 1000.0,
+            enthalpy_j_mol=record["assigned_enthalpy_j_mol"],
+            temperature_k=record["assigned_temperature_k"],
             source=title,
             source_url=url,
         )
-        for record in document["reactants"]
-    }
-    return CondensedCatalog(gases=gases, condensed=condensed, reactants=reactants)
+        key = parsed.key.upper()
+        if key in reactants:
+            raise RuntimeError('Duplicate condensed-reactant keys.')
+        reactants[key] = parsed
+    return (_owned_catalog(gases, Species, 'gases'),
+            _owned_catalog(condensed, CondensedSpecies, 'condensed'),
+            _owned_catalog(reactants, CondensedReactant, 'reactants'))
+
+
+def condensed_catalog() -> CondensedCatalog:
+    """Return an independent, serializable snapshot of the cached data [1]_.
+
+    All three dictionaries are owned copies. Edits cannot change later
+    callers or thermodynamic calculations; source-labelled records are
+    immutable. ``dataclasses.asdict`` remains supported.
+
+    References
+    ----------
+    .. [1] NASA-CEA-THERMO. NASA Glenn Research Center, CEA thermodynamic
+           database ``data/thermo.inp``. https://github.com/nasa/cea
+    """
+    gases, condensed, reactants = _condensed_catalog_tables()
+    return CondensedCatalog(gases=dict(gases), condensed=dict(condensed), reactants=dict(reactants))
 
 
 def get_condensed_reactant(key: str) -> Species | CondensedReactant:
@@ -283,7 +332,7 @@ def get_condensed_reactant(key: str) -> Species | CondensedReactant:
            database ``data/thermo.inp``. https://github.com/nasa/cea
     """
 
-    reactant = condensed_catalog().reactants.get(key.strip().upper())
+    reactant = condensed_catalog().reactants.get(text(key, 'species').strip().upper())
     return reactant if reactant is not None else get_reactant(key)
 
 

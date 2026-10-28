@@ -1,5 +1,16 @@
 # Release notes
 
+Thermodynamic records now own their coefficient, formula, interval and
+component inputs and reject malformed/nonfinite or inconsistent values at
+construction. Gas, assigned-enthalpy and extended condensed catalogues
+expose independent dictionary snapshots backed by private immutable cached
+tables. Lookup identity is case-insensitive while NASA's printed phase and
+isomer names are retained. Mixture aliases coalesce before mixing entropy;
+accepted composition roundoff is normalized and conflicting mass/mole
+fractions are refused. Pressure entropy uses a stable logarithmic ratio.
+See [THERMODYNAMIC_RECORD_REVIEW.md](THERMODYNAMIC_RECORD_REVIEW.md) for
+contracts, independent checks and the remaining data/fit/inverse scope.
+
 Repair two numerical defects found on `bd449cb`: imposed radiation/axial
 surface heat is now eliminated through the 2-D wall's half-cell resistance,
 and Nyquist winding starts at zero with interval slope bounds and a global
