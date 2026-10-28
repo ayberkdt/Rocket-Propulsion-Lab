@@ -91,6 +91,17 @@ signed zero; float subclasses still take the conversion/error protocol.
 The existing adversarial core tests guard this distinction. No value check
 is memoized or dropped and no cross-campaign runtime guarantee is inferred.
 
+Scalar normalization also avoids rewriting finite native floats that are
+already normalized, while checking their finiteness on every call. Common
+literal annotations take a direct classification path. Field metadata is
+still read each time; no schema or field value is cached. Nonfinite floats,
+float subclasses and other numeric types retain their original conversion
+and structured-error path. Tests exercise a value becoming NaN on a later
+call, failure without partial writes, changed field annotations, subtype
+conversion, declared error identity and unexpected application exceptions.
+This reduces normalization overhead; only completed end-to-end checks can
+establish whether the concurrent API timeout has been resolved.
+
 The first expanded run caught an implementation regression that uppercased
 printed phase names, and an unnecessary restriction on raw reference
 polynomial evaluation. Those failures were retained and the behavior was

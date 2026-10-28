@@ -438,6 +438,8 @@ def _scalar_kind(annotation):
         return 'int'
     if annotation is str:
         return 'str'
+    if type(annotation) is str and annotation in ('float', 'int', 'str'):
+        return annotation
     if isinstance(annotation, str):
         name = annotation.replace(' ', '')
         while len(name) >= 2 and name[0] in ('\"', "'") and name[-1] == name[0]:
@@ -495,6 +497,10 @@ def coerce_fields(instance: object, label: str) -> None:
         if annotation is None:
             continue
         value = getattr(instance, item.name)
+        if annotation == 'float' and type(value) is float and isfinite(value):
+            # Already normalized; finiteness is checked on every visit.
+            # Subclasses and nonfinite values retain real()'s protocol.
+            continue
         name = f"{label} {item.name}"
         if annotation == "float":
             value = real(value, name)

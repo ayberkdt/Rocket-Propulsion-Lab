@@ -48,6 +48,77 @@ class OpaqueAnnotation:
 
 
 class CoreValidationAttacks(unittest.TestCase):
+    def test_native_scalar_normalization_rechecks_values_without_partial_writes(self):
+        pair = make_dataclass('Pair', [('first', float), ('second', float)], frozen=True)
+        for value in (0.0, -0.0, nextafter(0.0, 1.0), float.fromhex('0x1.fffffffffffffp+1023')):
+            with self.subTest(value=value):
+                record = pair(1, value)
+                v.coerce_fields(record, 'record')
+                self.assertIs(type(record.first), float)
+                self.assertEqual(record.second, value)
+                self.assertEqual(copysign(1.0, record.second), copysign(1.0, value))
+                for bad in (float('nan'), inf, -inf):
+                    object.__setattr__(record, 'first', 1)
+                    object.__setattr__(record, 'second', bad)
+                    with self.subTest(bad=bad), self.assertRaises(DomainError) as raised:
+                        v.coerce_fields(record, 'record')
+                    self.assertEqual(raised.exception.field, 'record second')
+                    self.assertIs(type(record.first), int)
+
+    def test_dataclass_float_subclasses_keep_conversion_and_error_protocols(self):
+        calls = []
+
+        class Converted(float):
+            def __float__(self):
+                calls.append(True)
+                return 42.0
+
+        expected = DomainError('declared conversion failure', field='supplier',
+                               details={'retained': True})
+
+        class DeclaredFailure(float):
+            def __float__(self):
+                raise expected
+
+        class UnexpectedFailure(float):
+            def __float__(self):
+                raise RuntimeError('application failure')
+
+        class ErasedNonzero(float):
+            def __float__(self):
+                return 0.0
+
+        for annotation in (float, 'float', "'float'", 'typing.Optional[float]'):
+            scalar = make_dataclass('Scalar', [('value', annotation)], frozen=True)
+            calls.clear()
+            record = scalar(Converted(1.0))
+            v.coerce_fields(record, 'record')
+            self.assertEqual(calls, [True])
+            self.assertIs(type(record.value), float)
+            self.assertEqual(record.value, 42.0)
+            with self.assertRaises(DomainError) as raised:
+                v.coerce_fields(scalar(DeclaredFailure(1.0)), 'record')
+            self.assertIs(raised.exception, expected)
+            with self.assertRaisesRegex(RuntimeError, 'application failure'):
+                v.coerce_fields(scalar(UnexpectedFailure(1.0)), 'record')
+            with self.assertRaises(DomainError):
+                v.coerce_fields(scalar(ErasedNonzero(1.0)), 'record')
+
+    def test_dataclass_field_type_changes_are_observed_on_each_call(self):
+        scalar = make_dataclass('Scalar', [('value', float)], frozen=True)
+        first = scalar(1.0)
+        v.coerce_fields(first, 'record')
+        scalar.__dataclass_fields__['value'].type = int
+        second = scalar(1)
+        v.coerce_fields(second, 'record')
+        self.assertIs(type(second.value), int)
+        with self.assertRaises(DomainError):
+            v.coerce_fields(scalar(1.0), 'record')
+        scalar.__dataclass_fields__['value'].type = 'float'
+        third = scalar(1)
+        v.coerce_fields(third, 'record')
+        self.assertIs(type(third.value), float)
+
     def test_stream_metadata_uses_literal_normalization_for_non_depleting_paths(self):
         from dataclasses import replace
 

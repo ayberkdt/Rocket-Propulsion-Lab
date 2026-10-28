@@ -502,9 +502,12 @@ whose bibliographic record has been verified are cited. The main foundations:
   are mapped in [docs/TRL_ASSESSMENT.md](docs/TRL_ASSESSMENT.md). Software
   alone cannot reach TRL 5. Motor and feed evidence and the open gates are in
   [docs/PROPULSION_ASSURANCE.md](docs/PROPULSION_ASSURANCE.md).
-- **Heat transfer:** the regenerative solver is quasi-one-dimensional (no axial
-  wall conduction, no curvature or entrance enhancement in the default path,
-  frozen chamber gas properties) and refuses coolant boiling. Coolant
+- **Heat transfer:** the regenerative solver marches a quasi-one-dimensional
+  coolant stream with frozen chamber gas properties and refuses coolant boiling.
+  Its default wall path has no axial conduction; optional 2-D cross-sections,
+  a closeout layer and coupled axial wall conduction are available. Curvature
+  and entrance enhancement are absent from the default path. These added
+  wall models have numerical checks, not hardware qualification. Coolant
   correlations used outside their stated range are reported per parameter.
   WSGG gas radiation is fitted at 1 atm and 300–2400 K: it is applied at
   chamber pressure only with a pressure-extrapolation warning, and stations
