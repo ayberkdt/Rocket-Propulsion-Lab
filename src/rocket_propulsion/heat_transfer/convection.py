@@ -18,8 +18,9 @@ covers
   Helmholtz equations of state for density and heat capacity;
 * external flat-plate and cylinder correlations, natural convection on a
   vertical plate, pool boiling (Rohsenow, peak heat flux), laminar film
-  condensation [1]_, a burnout-margin screen [6]_ and the Hatch-Papell
-  slot film-cooling effectiveness [7]_.
+  condensation [1]_, a burnout-margin screen [6]_, subcooled flow-boiling
+  burnout fluxes for ethanol [8]_ and MMH [9]_, and the Hatch-Papell slot
+  film-cooling effectiveness [7]_.
 
 Conventions: SI units throughout; Darcy friction factors; temperature ratios
 in kelvin. Correlations are empirical. Outside the validity range stated by
@@ -51,18 +52,25 @@ References
 .. [7] NASA-TN-D-130-HATCH-PAPELL-1959. J. E. Hatch and S. S. Papell, NASA
        TN D-130, 1959, Eqs. (10)-(13), pp. 1-12,
        https://ntrs.nasa.gov/citations/19890068390
+.. [8] NASA-TM-1998-206612-MEYER. M. L. Meyer, D. L. Linne and D. C. Rousar,
+       NASA/TM-1998-206612, 1998, Eqs. (1)-(3) and Table III, pp. 5-8,
+       https://ntrs.nasa.gov/citations/19980017166
+.. [9] NASA-CR-134282-TOBIN-1974. R. D. Tobin, NASA CR-134282, 1974, Eq.
+       (A-1) and Fig. A1, pp. A1-A3,
+       https://ntrs.nasa.gov/citations/19740018134
 """
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass
 from math import atan, exp, isfinite, log, log10, pi, sqrt, tanh
-from typing import Literal
+from typing import Literal, TypeVar
 
 from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
-from rocket_propulsion.core.validation import real
+from rocket_propulsion.core.validation import numeric_range_guard, real
 from rocket_propulsion.thermochemistry.transport import prandtl_number
 from rocket_propulsion.thermodynamics.real_fluids import (
     FluidState,
@@ -80,9 +88,10 @@ __all__ = [
     "churchill_chu_vertical_plate_nusselt",
     "corrected_latent_heat",
     "curvature_heat_transfer_factor",
-    "filonenko_friction_factor",
+    "ethanol_burnout_heat_flux",
     "film_condensation_vertical_plate_nusselt",
     "film_cooled_wall_temperature",
+    "filonenko_friction_factor",
     "flat_plate_laminar_nusselt",
     "flat_plate_turbulent_nusselt",
     "flat_plate_turbulent_power_law_nusselt",
@@ -105,6 +114,7 @@ __all__ = [
     "laminar_thermal_entry_length",
     "liquid_metal_nusselt",
     "mass_flux_reynolds_number",
+    "mmh_burnout_heat_flux",
     "nusselt_number",
     "peak_pool_boiling_heat_flux",
     "peclet_number",
@@ -147,6 +157,10 @@ _SP125 = "Huzel & Huang, NASA SP-125 (1971)"
 _WADEL = "Wadel, NASA/TM-1998-206313"
 _SP8087 = "NASA SP-8087 (1972)"
 _HATCH = "Hatch & Papell, NASA TN D-130 (1959)"
+_MEYER = "Meyer, Linne & Rousar, NASA/TM-1998-206612"
+_TOBIN = "Tobin, NASA CR-134282 (1974)"
+#: One Btu/(in^2 s) in W/m^2 (IT Btu 1055.05585262 J over (0.0254 m)^2).
+_BTU_IN2_S = 1055.05585262 / 0.0254 ** 2
 
 # Exact unit conversions used to restate the source ranges in SI.
 _RANKINE_TO_KELVIN = 5.0 / 9.0
@@ -268,6 +282,9 @@ def _positive(value: object, label: str) -> float:
     return number
 
 
+_Option = TypeVar("_Option", bound=str)
+
+
 def _nonnegative(value: object, label: str) -> float:
     """Return ``value`` as a finite nonnegative float or raise :class:`DomainError`."""
     number = real(value, label)
@@ -276,11 +293,11 @@ def _nonnegative(value: object, label: str) -> float:
     return number
 
 
-def _choice(value: object, options: tuple[str, ...], label: str) -> str:
+def _choice(value: object, options: tuple[_Option, ...], label: str) -> _Option:
     """Return ``value`` if it is one of ``options``; raise :class:`InputError` otherwise."""
     if not isinstance(value, str) or value not in options:
         raise InputError(f"{label} must be one of {', '.join(options)}.", field=label)
-    return value
+    return options[options.index(value)]
 
 
 def _check_range(value: float, lo: float | None, hi: float | None, label: str,
@@ -750,6 +767,7 @@ def haaland_friction_factor(reynolds: float, relative_roughness: float, *,
                    warnings)
 
 
+@numeric_range_guard("reynolds")
 def chen_friction_factor(reynolds: float, relative_roughness: float) -> CorrelationResult:
     """Explicit Colebrook form (Chen) used by NASA's RTE code, Wadel Eq. (12).
 
@@ -1616,7 +1634,7 @@ def hess_kunz_cl_factor(bulk_temperature_k: float, geometry: Literal["straight",
     _check_range(t_r * _RANKINE_TO_KELVIN, lo * _RANKINE_TO_KELVIN, hi * _RANKINE_TO_KELVIN,
                  "bulk_temperature_k", f"CR-678 C_L table ({geometry})", extrapolate, warnings)
     t_r = min(max(t_r, lo), hi)
-    for (t0, c0), (t1, c1) in zip(points, points[1:], strict=False):
+    for (t0, c0), (t1, c1) in itertools.pairwise(points):
         if t0 <= t_r <= t1:
             value = c0 + (c1 - c0) * (t_r - t0) / (t1 - t0)
             break
@@ -2616,6 +2634,117 @@ def burnout_margin_screen(heat_flux_w_m2: float, burnout_heat_flux_w_m2: float, 
             "(NASA SP-8087 p. 61 recommends below 0.8).", "critical", "heat_flux_w_m2"))
     return _result(ratio, "burnout_heat_flux_ratio", "SP-8087 burnout margin",
                    f"{_SP8087}, p. 61", warnings)
+
+
+def _velocity_subcooling(velocity_m_s: float, subcooling_k: float) -> float:
+    """``V dT_sub`` in the sources' unit, F ft/s."""
+    return (_positive(velocity_m_s, "velocity_m_s") / _FOOT_M) * (
+        _positive(subcooling_k, "subcooling_k") / _RANKINE_TO_KELVIN)
+
+
+def ethanol_burnout_heat_flux(velocity_m_s: float, subcooling_k: float, *,
+                              pressure_pa: float | None = None,
+                              extrapolate: bool = False) -> CorrelationResult:
+    """Critical (burnout) heat flux of subcooled ethanol in forced flow (NASA/TM-1998-206612).
+
+    ``CHF(200) = 0.1003 + 0.05264 sqrt(V dT_sub)`` (Eq. 1, Btu/(in^2 s) with
+    ``V dT_sub`` in F ft/s), fitted near 200 psia and quoted within +/-20 %;
+    with ``pressure_pa`` the factor ``F_P = 1.17 - 8.56e-4 P`` (P in psia,
+    Eq. 2) is applied, ``CHF = CHF(200) F_P`` (Eq. 3). ``dT_sub = T_sat -
+    T_bulk`` and ``V`` are local values at the transition.
+
+    The tests used SDA-3C alcohol (95 % ethyl, 5 % isopropyl) in 0.125 in.
+    OD, 0.016 in. wall 304 stainless tubes; the stated range is checked from
+    Table III: ``V dT_sub`` 667-24 230 F ft/s and 144-703 psia. Above 250
+    psia, or below it at more than 60 ft/s, the authors observed a small
+    50-200 F excursion rather than film boiling at the "CHF" (p. 5); the
+    result carries a note in that regime.
+
+    Parameters
+    ----------
+    velocity_m_s : float
+        Local coolant velocity.
+    subcooling_k : float
+        Local ``T_sat - T_bulk``.
+    pressure_pa : float, optional
+        Local pressure for the Eq. (2) correction; None returns Eq. (1).
+    extrapolate : bool, optional
+        Warn instead of raising outside the tested range.
+
+    Returns
+    -------
+    CorrelationResult
+        Burnout heat flux in W/m^2.
+
+    References
+    ----------
+    .. [1] NASA-TM-1998-206612-MEYER. Meyer, Linne and Rousar, NASA/TM-1998-
+           206612, 1998, Eqs. (1)-(3), Table III and Fig. 9, pp. 5-8,
+           https://ntrs.nasa.gov/citations/19980017166
+    """
+    product = _velocity_subcooling(velocity_m_s, subcooling_k)
+    warnings: list[WarningMessage] = []
+    _check_range(product, 667.0 * (1 - 1e-9), 24230.0 * (1 + 1e-9), "velocity_subcooling",
+                 "Meyer-Linne-Rousar ethanol CHF (V dT_sub, F ft/s)", extrapolate, warnings)
+    value = 0.1003 + 0.05264 * sqrt(product)
+    equation = "Eq. (1)"
+    if pressure_pa is not None:
+        psia = _positive(pressure_pa, "pressure_pa") / _PSI_PA
+        _check_range(psia, 144.0 * (1 - 1e-9), 703.0 * (1 + 1e-9), "pressure_pa", "Meyer-Linne-Rousar pressure factor (psia)",
+                     extrapolate, warnings)
+        value *= 1.17 - 8.56e-4 * psia
+        equation = "Eqs. (1)-(3)"
+        velocity_fps = velocity_m_s / _FOOT_M
+        if psia > 250.0 or velocity_fps > 60.0:
+            warnings.append(WarningMessage(
+                "mild_transition_regime",
+                "Above 250 psia or 60 ft/s the tests showed a small 50-200 F excursion at this "
+                "flux rather than film boiling (NASA/TM-1998-206612 p. 5).", "info", "pressure_pa"))
+    return _result(value * _BTU_IN2_S, "heat_flux_w_m2", "ethanol subcooled burnout",
+                   f"{_MEYER}, {equation}", warnings)
+
+
+def mmh_burnout_heat_flux(velocity_m_s: float, subcooling_k: float, *,
+                          extrapolate: bool = False) -> CorrelationResult:
+    """Burnout heat flux of subcooled monomethylhydrazine in a heated tube (NASA CR-134282).
+
+    ``(Q/A)_BO = 0.025 (V dT_sub)^0.633`` (Eq. A-1; Btu/(in^2 s), V in ft/s,
+    ``dT_sub`` in F), from uniformly electrically heated circular tubes; the
+    source calls it somewhat conservative (zero flux at zero velocity or
+    subcooling). The data of Fig. A1 cover 10-56 ft/s and 31-226 F of
+    subcooling; both are checked. At ``V dT_sub = 11 000`` the equation gives
+    9.0 Btu/(in^2 s) while the drawn design curve of Fig. A1 ends near 8.2,
+    so the printed equation and curve differ at the top of the range.
+
+    Parameters
+    ----------
+    velocity_m_s : float
+        Local coolant velocity.
+    subcooling_k : float
+        ``T_sat - T_local``.
+    extrapolate : bool, optional
+        Warn instead of raising outside the tested range.
+
+    Returns
+    -------
+    CorrelationResult
+        Burnout heat flux in W/m^2.
+
+    References
+    ----------
+    .. [1] NASA-CR-134282-TOBIN-1974. R. D. Tobin, NASA CR-134282, 1974,
+           Eq. (A-1), p. A1; Fig. A1, p. A2; p. A3,
+           https://ntrs.nasa.gov/citations/19740018134
+    """
+    # Ranges are the tested ones; the 1e-9 slack absorbs unit round-off at the ends.
+    velocity_fps = _positive(velocity_m_s, "velocity_m_s") / _FOOT_M
+    subcooling_f = _positive(subcooling_k, "subcooling_k") / _RANKINE_TO_KELVIN
+    warnings: list[WarningMessage] = []
+    _check_range(velocity_fps, 10.0 * (1 - 1e-9), 56.0 * (1 + 1e-9), "velocity_m_s", "Tobin MMH burnout (ft/s)", extrapolate, warnings)
+    _check_range(subcooling_f, 31.0 * (1 - 1e-9), 226.0 * (1 + 1e-9), "subcooling_k", "Tobin MMH burnout (F)", extrapolate, warnings)
+    value = 0.025 * (velocity_fps * subcooling_f) ** 0.633
+    return _result(value * _BTU_IN2_S, "heat_flux_w_m2", "MMH subcooled burnout", f"{_TOBIN}, Eq. (A-1)",
+                   warnings)
 
 
 def corrected_latent_heat(latent_heat_j_kg: float, liquid_specific_heat_j_kg_k: float,

@@ -528,6 +528,20 @@ Model details and verification: [HEAT_CONDUCTION.md](HEAT_CONDUCTION.md),
 [COMBUSTION_EFFICIENCY.md](COMBUSTION_EFFICIENCY.md) and
 [FINITE_RATE_KINETICS.md](FINITE_RATE_KINETICS.md).
 
+Three more routes cover transpiration cooling, combustion stability and
+propellant vaporization (`api/combustion_dynamics_routes.py`); `{}` again
+returns a worked case.
+
+| Route | Main inputs (defaults) | Returns |
+|---|---|---|
+| `/api/v1/transpiration-cooling` | `unblown_heat_transfer_coefficient_w_m2_k` (2e4), `recovery_temperature_k` (3300), `target_wall_temperature_k` (900), `coolant_temperature_k` (100), `coolant_specific_heat_j_kg_k` (14300), `wall_efficiency` (1), `radiative_heat_flux_w_m2` (0) | Required coolant flux and wall state; wall temperature and h/h* over 0-2.5 × that flux |
+| `/api/v1/combustion-stability` | `propellant_pair` (LOX_CH4), `oxidizer_fuel_ratio`, `chamber_pressure_pa` (7e6), `chamber_radius_m` (0.10), `chamber_length_m` (0.30), `contraction_ratio` (3), `oxidizer_drop_fraction`, `fuel_drop_fraction` (0.2), `combustion_time_lag_s` (8e-4) | Chamber state, acoustic modes, chugging gain and limit, Nyquist verdict and the f(iω) curve |
+| `/api/v1/propellant-vaporization` | `propellant_pair` (LOX_CH4 or LOX_LH2), `chamber_pressure_pa`, `chamber_length_m` (0.25), `contraction_ratio` (3), `drop_radius_m` (7.62e-5), `injection_velocity_m_s` (30.48) | Liquid properties, generalized lengths, percent vaporized, c* efficiency and a chamber-length sweep |
+
+Details: [TRANSPIRATION_COOLING.md](TRANSPIRATION_COOLING.md),
+[COMBUSTION_INSTABILITY.md](COMBUSTION_INSTABILITY.md) and
+[PROPELLANT_VAPORIZATION.md](PROPELLANT_VAPORIZATION.md).
+
 The aerodynamics and real-fluid routes are `/api/v1/real-fluid`,
 `/api/v1/airfoil`, `/api/v1/wing`, `/api/v1/supersonic-body`,
 `/api/v1/flat-plate`, `/api/v1/entry` and `/api/v1/launch-vehicle-aero`; their

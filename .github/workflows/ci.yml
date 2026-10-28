@@ -7,6 +7,9 @@ on:
 jobs:
   verify:
     runs-on: windows-latest
+    env:
+      RPL_SLOW_TESTS: "1"
+      RPLAB_THERMO_INP: ${{ github.workspace }}/output/assurance/sources/thermo.inp
     strategy:
       fail-fast: false
       matrix:
@@ -18,9 +21,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install package and development tools
-        run: python -m pip install -e ".[dev]"
+        run: python -m pip install -e ".[dev,cea]"
       - name: Lint
         run: python -m ruff check .
+      - name: Type check
+        run: python -m mypy
+      - name: Verify the pinned NASA thermodynamic source
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force (Split-Path -Parent $env:RPLAB_THERMO_INP) | Out-Null
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nasa/cea/2f79a647e85737742fb08a127da00d1ea1d069da/data/thermo.inp" -OutFile $env:RPLAB_THERMO_INP
+          python scripts/sync_nasa_thermo.py --source "$env:RPLAB_THERMO_INP" --check
       - name: Test
         run: python -m unittest discover -s tests -v
       - name: Build source and wheel distributions

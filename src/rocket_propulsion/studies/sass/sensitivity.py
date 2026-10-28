@@ -128,8 +128,11 @@ def design_sensitivity(request: dict[str, object], cases: tuple[DesignCase, ...]
             mass, case.bus_dry_mass_scale,
             methods, f"Design sensitivity case {case.name}; not measured hardware scaling.",
         ))
-        for item in variant["items"]:
-            value = scalar_from_dict(item["nominal_delta_v"])
+        items = variant["items"]
+        if not isinstance(items, list):  # already enforced by project_from_dict above
+            raise DomainError("items must be a JSON array.")
+        for item in items:
+            value =scalar_from_dict(item["nominal_delta_v"])
             item["nominal_delta_v"] = asdict(_scaled_quantity(
                 value, case.delta_v_scale,
                 methods, f"Design sensitivity case {case.name}; mission requirement change.",

@@ -202,11 +202,12 @@ def _values(inputs):
         Fraction(result['outlet_temperature_k'])-Fraction(inputs.coolant_inlet_temperature_k)))
     exported_margin=_optional_output(margin,'Temperature limit margin')
     exported_display_residual=_optional_output(display_residual,'Displayed-temperature energy discrepancy')
-    result.update(inlet_temperature_k=inputs.coolant_inlet_temperature_k,absorbed_heat_w=inputs.absorbed_heat_w,
+    exported:dict[str,object]=dict(result)
+    exported.update(inlet_temperature_k=inputs.coolant_inlet_temperature_k,absorbed_heat_w=inputs.absorbed_heat_w,
         darcy_friction_factor=friction,pressure_drop_pa=pressure,flow_regime=regime,
         temperature_limit_exceeded=margin<0,temperature_limit_margin_k=exported_margin,
         temperature_limit_margin_unrepresentable=exported_margin is None,
         displayed_temperature_energy_residual_w=exported_display_residual,
         displayed_temperature_energy_residual_unrepresentable=exported_display_residual is None,
         energy_balance_residual_w=0.,swamee_argument_side=argument_side)
-    return result
+    return exported

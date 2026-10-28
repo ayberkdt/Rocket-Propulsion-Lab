@@ -484,11 +484,13 @@ class UllageConfiguration:
             _positive(self.set_pressure_pa, "Set pressure")
             if self.prescribed_inflow_kg_s != 0.0:
                 raise DomainError("Give either a set pressure or a prescribed inflow.")
-        for value, label in (
+        for correlation, label in (
             (self.wall_correlation, "wall_correlation"),
             (self.interface_correlation, "interface_correlation"),
         ):
-            if value is not None and not isinstance(value, NaturalConvectionCorrelation):
+            if correlation is not None and not isinstance(
+                correlation, NaturalConvectionCorrelation
+            ):
                 raise DomainError(f"{label} must be a NaturalConvectionCorrelation or None.",
                                   field=label)
         if self.wall_heat_transfer_coefficient_w_m2_k is not None:

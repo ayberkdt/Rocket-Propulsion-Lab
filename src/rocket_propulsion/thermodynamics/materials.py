@@ -56,39 +56,39 @@ ACCESSED = "2026-10-25"
 
 MATERIAL_SOURCES = MappingProxyType({
     "NIST-WEBBOOK-FLUID": (
-        "E. W. Lemmon, M. O. McLinden and D. G. Friend, Thermophysical Properties of Fluid "
-        "Systems, NIST Chemistry WebBook SRD 69", "https://webbook.nist.gov/chemistry/fluid/"),
+        ("E. W. Lemmon, M. O. McLinden and D. G. Friend, Thermophysical Properties of Fluid "
+        "Systems, NIST Chemistry WebBook SRD 69"), "https://webbook.nist.gov/chemistry/fluid/"),
     "NISTIR-6646-RP1": (
-        "J. W. Magee et al., Thermophysical Properties Measurements and Models for Rocket "
-        "Propellant RP-1: Phase I, NISTIR 6646, 2007",
+        ("J. W. Magee et al., Thermophysical Properties Measurements and Models for Rocket "
+        "Propellant RP-1: Phase I, NISTIR 6646, 2007"),
         "https://nvlpubs.nist.gov/nistpubs/Legacy/IR/nistir6646.pdf"),
     "AURUBIS-C10200": (
         "Aurubis, Technical Datasheet C10200 (Cu-OF), revision 18 08 US",
-        "https://www.aurubis.be/en/dam/jcr:90029b00-b968-486e-bde0-ce56f16022cd/"
-        "c10200-cu-of-us.pdf"),
+        ("https://www.aurubis.be/en/dam/jcr:90029b00-b968-486e-bde0-ce56f16022cd/"
+        "c10200-cu-of-us.pdf")),
     "NASA-TM-2005-213566": (
-        "D. L. Ellis, GRCop-84: A High-Temperature Copper Alloy for High-Heat-Flux "
-        "Applications, NASA/TM-2005-213566",
+        ("D. L. Ellis, GRCop-84: A High-Temperature Copper Alloy for High-Heat-Flux "
+        "Applications, NASA/TM-2005-213566"),
         "https://ntrs.nasa.gov/api/citations/20050123582/downloads/20050123582.pdf"),
     "NASA-CR-2000-210055": (
-        "D. L. Ellis and D. J. Keller, Thermophysical Properties of GRCop-84, "
-        "NASA/CR-2000-210055",
+        ("D. L. Ellis and D. J. Keller, Thermophysical Properties of GRCop-84, "
+        "NASA/CR-2000-210055"),
         "https://ntrs.nasa.gov/api/citations/20000064095/downloads/20000064095.pdf"),
     "SMC-045-INCONEL-718": (
         "Special Metals Corporation, INCONEL alloy 718, Publication SMC-045, 2007",
-        "https://www.specialmetals.com/documents/technical-bulletins/inconel/"
-        "inconel-alloy-718.pdf"),
+        ("https://www.specialmetals.com/documents/technical-bulletins/inconel/"
+        "inconel-alloy-718.pdf")),
     "AKSTEEL-304-PDB": (
         "AK Steel, Type 304/304L Stainless Steel product data bulletin, 2018",
         "https://Protolabs.com/media/1020110/304-304l-stainless.pdf"),
     "NIST-SP811-B8": (
         "NIST SP 811, Appendix B.8: Factors for Units Listed Alphabetically",
-        "https://www.nist.gov/pml/special-publication-811/"
-        "nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b8"),
+        ("https://www.nist.gov/pml/special-publication-811/"
+        "nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b8")),
     "NIST-SP811-B9": (
         "NIST SP 811, Appendix B.9: Factors for Units Listed by Kind of Quantity",
-        "https://www.nist.gov/pml/special-publication-811/"
-        "nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9"),
+        ("https://www.nist.gov/pml/special-publication-811/"
+        "nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9")),
 })
 
 _COOLANT_UNITS = {
@@ -477,22 +477,22 @@ def _nist_fluid(fluid_id, temperature, density, cp, viscosity, conductivity, cri
         return CitedProperty(name, value, unit, _cite("NIST-WEBBOOK-FLUID", row), printed,
                              condition, t, p)
 
-    return dict(
-        density=liquid("density", _exact(density), "kg/m^3", f"{density} kg/m3"),
-        specific_heat=liquid("specific_heat", _exact(cp, "1000"), "J/(kg K)", f"{cp} J/g*K"),
-        dynamic_viscosity=liquid("dynamic_viscosity", _exact(viscosity), "Pa s",
+    return {
+        "density": liquid("density", _exact(density), "kg/m^3", f"{density} kg/m3"),
+        "specific_heat": liquid("specific_heat", _exact(cp, "1000"), "J/(kg K)", f"{cp} J/g*K"),
+        "dynamic_viscosity": liquid("dynamic_viscosity", _exact(viscosity), "Pa s",
                                  f"{viscosity} Pa*s"),
-        kinematic_viscosity=None,
-        thermal_conductivity=liquid("thermal_conductivity", _exact(conductivity), "W/(m K)",
+        "kinematic_viscosity": None,
+        "thermal_conductivity": liquid("thermal_conductivity", _exact(conductivity), "W/(m K)",
                                     f"{conductivity} W/m*K"),
-        critical_temperature=CitedProperty(
+        "critical_temperature": CitedProperty(
             "critical_temperature", _exact(critical_t), "K", _cite("NIST-WEBBOOK-FLUID", sat),
             f"{critical_t} K", "critical point of the WebBook equation of state"),
-        critical_pressure=CitedProperty(
+        "critical_pressure": CitedProperty(
             "critical_pressure", _exact(critical_p, "1000000"), "Pa",
             _cite("NIST-WEBBOOK-FLUID", sat), f"{critical_p} MPa",
             "critical point of the WebBook equation of state"),
-    )
+    }
 
 
 COOLANTS = (
@@ -501,10 +501,10 @@ COOLANTS = (
         **_nist_fluid("B5000001", "20.000", "72.292", "9.1868", "1.4779e-05", "0.10243",
                       "32.938", "1.2858", "compressed liquid parahydrogen"),
         limitations=(
-            "Parahydrogen equation-of-state values; ortho/para composition of a real load "
-            "is not represented.",
-            "Single compressed-liquid point at 20 K and 1 MPa; properties vary strongly with "
-            "temperature near the critical point.",
+            ("Parahydrogen equation-of-state values; ortho/para composition of a real load "
+            "is not represented."),
+            ("Single compressed-liquid point at 20 K and 1 MPa; properties vary strongly with "
+            "temperature near the critical point."),
         ),
     ),
     CoolantRecord(
@@ -578,8 +578,8 @@ WALL_MATERIALS = (
         maximum_service_temperature=None,
         limitations=(
             "Manufacturer typical values, not specification minima.",
-            "No maximum service temperature is published in the source; the limit check "
-            "falls back to the melting point, which is not a strength limit.",
+            ("No maximum service temperature is published in the source; the limit check "
+            "falls back to the melting point, which is not a strength limit."),
         ),
     ),
     WallMaterialRecord(
@@ -600,8 +600,8 @@ WALL_MATERIALS = (
                   "of 100 MPa as the criterion, GRCop-84 can be used up to 973 K"),
             "973 K", "maximum operating temperature at a 100 MPa yield-strength criterion"),
         limitations=(
-            "Conductivity is a published range without a stated temperature; the catalog "
-            "value is its lower end (larger wall temperature drop).",
+            ("Conductivity is a published range without a stated temperature; the catalog "
+            "value is its lower end (larger wall temperature drop)."),
             "Density and solidus were not verified from a primary source and are absent.",
         ),
     ),

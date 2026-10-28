@@ -39,6 +39,7 @@ References
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import TypedDict
 
 from .kinetics import ArrheniusRate, Mechanism, Reaction, ThirdBody, TroeFalloff
 
@@ -106,7 +107,18 @@ _GRI30_H2O2_ROWS: tuple[tuple, ...] = (
 
 # Falloff reaction, lines 152-155: 2OH(+M)<=>H2O2(+M); high-pressure limit,
 # LOW, TROE (alpha, T***, T*, T**) and efficiencies.
-_GRI30_FALLOFF = {
+class _FalloffRow(TypedDict):
+    """CHEMKIN fields of one Troe falloff reaction (``A``, ``b``, ``E`` per limit)."""
+
+    lines: str
+    equation: str
+    high: tuple[float, float, float]
+    low: tuple[float, float, float]
+    troe: tuple[float, float, float, float]
+    efficiencies: tuple[tuple[str, float], ...]
+
+
+_GRI30_FALLOFF: _FalloffRow = {
     "lines": "152-155",
     "equation": "2OH(+M)<=>H2O2(+M)",
     "high": (7.400e13, -0.370, 0.00),
@@ -184,7 +196,7 @@ def gri30_h2o2_mechanism() -> Mechanism:
             "Reverse rates from the NASA Glenn polynomials, not GRI-Mech thermo30.dat.",
             "Efficiencies of CH4, CO, CO2, C2H6, N2 and AR dropped (species absent).",
             "Lines 62 (H+O2+N2) and 63 (H+O2+AR) omitted (colliders absent).",
-            "GRI-Mech 3.0 targets natural-gas combustion; rocket-nozzle use is an "
-            "extrapolation beyond its optimization targets.",
+            ("GRI-Mech 3.0 targets natural-gas combustion; rocket-nozzle use is an "
+            "extrapolation beyond its optimization targets."),
         ),
     )

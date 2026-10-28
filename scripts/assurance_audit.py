@@ -551,14 +551,25 @@ def main():
         tree = ast.parse(data.decode("utf-8"))
         for name, node in symbols(tree.body):
             doc = '' if isinstance(node, ast.Lambda) else ast.get_docstring(node) or ''
-            scopes = _review_scopes(path, name)
+            historical_scopes = _review_scopes(path, name)
+            scopes = (['targeted_sampled_callback_bisection_protocol_only_no_root_or_physical_enclosure']
+                      if path.relative_to(ROOT / 'src/rocket_propulsion').as_posix() == 'core/numerics.py'
+                      else ['targeted_element_potential_residual_and_finite_difference_reuse_only_no_global_solver_or_physical_qualification']
+                      if path.relative_to(ROOT / 'src/rocket_propulsion').as_posix() == 'thermochemistry/equilibrium.py'
+                      and name in ('LocalEquilibriumProvider._composition_at_tp.newton',
+                                   'LocalEquilibriumProvider._composition_at_tp.residuals')
+                      else [])
             inventory.append({"file": path.relative_to(ROOT).as_posix(), "line": node.lineno,
                               "symbol": name, "kind": type(node).__name__, "column": node.col_offset,
                               "source_sha256": hashlib.sha256(data).hexdigest(),
                               "registered_sass_references": [r.key for r in REFERENCES
                                                             if r.key in doc],
-                              "review_status": scopes[0] if scopes else "not_reaudited_in_this_change",
+                              "review_status": scopes[0] if scopes else (
+                                  "historical_review_requires_revalidation_on_current_tree"
+                                  if historical_scopes else "not_reaudited_in_this_change"),
                               "review_scopes": scopes,
+                              "historical_review_scopes": historical_scopes,
+                              "current_test_evidence": "not_inferred_by_inventory",
                               "empirical_validation": "not_demonstrated"})
     catalog = []
     for item in list_thrusters():
@@ -575,6 +586,7 @@ def main():
         "scope": "motor and feed system; design and mission requirements undefined (user-confirmed)",
         "hardware_readiness": "not_assessed", "trl5_achieved": False,
         "qualification_evidence": False,
+        "review_policy": "Named historical scopes are retained as history, not renewed evidence. Only the documented shared-root protocol and element-potential finite-difference column reuse have current scoped reviews; run status is separate.",
         "runtime": {"python": sys.version, "platform": platform.platform()},
         "inventory_summary": {"symbols_total": len(inventory),
                               "scope": "Explicit Python AST class/function/async-function/lambda declarations under src/rocket_propulsion, including control-flow bodies and signatures. Lambda identities use static containment plus line/column; generated/runtime callables, scripts outside this source tree and other languages are not enumerated.",

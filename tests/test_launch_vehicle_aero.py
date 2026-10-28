@@ -106,12 +106,12 @@ class Tr1048Tests(unittest.TestCase):
         body = tr1048_body(DATA["tr1048_bodies"]["inputs_in"]["cylinder_body_I"])
         geometry = body_geometry(body)
         crossflow = ref["inputs"]["cdc"] * ref["inputs"]["eta"]
-        kwargs = dict(
-            angle_of_attack_deg=ref["inputs"]["angle_of_attack_deg"],
-            crossflow_drag_coefficient=crossflow,
-            reference_area_m2=geometry.base_area_m2,
-            reference_length_m=DATA["tr1048_bodies"]["inputs_in"]["diameter"] * INCH,
-        )
+        kwargs = {
+            "angle_of_attack_deg": ref["inputs"]["angle_of_attack_deg"],
+            "crossflow_drag_coefficient": crossflow,
+            "reference_area_m2": geometry.base_area_m2,
+            "reference_length_m": DATA["tr1048_bodies"]["inputs_in"]["diameter"] * INCH,
+        }
         full = viscous_crossflow_coefficients(body, **kwargs)
         small = viscous_crossflow_coefficients(body, small_angle=True, **kwargs)
         tolerance = ref["reading_tolerance_abs"]
@@ -300,8 +300,8 @@ class DragTests(unittest.TestCase):
 
     def test_base_drag_sonic_values_and_branches(self) -> None:
         ref = DATA["barrowman"]["base_drag_sonic"]
-        common = dict(base_area_m2=1.0, reference_area_m2=1.0, wetted_area_m2=40.0,
-                      compressible_skin_friction=0.003, sonic_skin_friction=0.003)
+        common = {"base_area_m2": 1.0, "reference_area_m2": 1.0, "wetted_area_m2": 40.0,
+                      "compressible_skin_friction": 0.003, "sonic_skin_friction": 0.003}
         sonic = barrowman_base_drag(mach=1.0, **common)
         self.assertAlmostEqual(sonic.sonic_base_drag_coefficient, ref["expected_no_fins"], places=12)
         self.assertAlmostEqual(sonic.base_drag_coefficient, ref["expected_no_fins"], places=12)
@@ -317,9 +317,9 @@ class DragTests(unittest.TestCase):
 
     def test_forebody_pressure_drag_matches_sonic_fit(self) -> None:
         # K is chosen so that equation 4-41 at M = 1 equals the fit 4-43.
-        common = dict(nose_shape="tangent_ogive", nose_fineness_ratio=3.0, body_fineness_ratio=15.0,
-                      wetted_area_m2=30.0, reference_area_m2=0.5,
-                      compressible_skin_friction=0.0025, sonic_skin_friction=0.0025)
+        common = {"nose_shape": "tangent_ogive", "nose_fineness_ratio": 3.0, "body_fineness_ratio": 15.0,
+                      "wetted_area_m2": 30.0, "reference_area_m2": 0.5,
+                      "compressible_skin_friction": 0.0025, "sonic_skin_friction": 0.0025}
         near = subsonic_forebody_pressure_drag_coefficient(mach=1.0 - 1.0e-12, **common)
         # 6.82 in equations 4-45/4-46 is 6/0.88 = 6.818 rounded: 0.03% offset.
         self.assertAlmostEqual(near / (0.88 / (3.0 + 1.0) ** 2.22), 1.0, delta=5.0e-4)

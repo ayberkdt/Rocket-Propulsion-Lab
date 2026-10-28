@@ -191,7 +191,7 @@ def _cutoff(segments, scale, target, offset):
     if binding is None:
         return None
     end = _fraction(segments[binding].end_time_s)
-    primary = {}
+    primary: dict[float, Fraction] = {}
     for boundary in (0.0,) + tuple(s.end_time_s for s in segments[:binding+1]):
         try:
             date = float(offset+_fraction(boundary))

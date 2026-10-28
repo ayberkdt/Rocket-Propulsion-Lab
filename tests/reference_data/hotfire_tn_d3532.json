@@ -1,0 +1,83 @@
+{
+  "_about": "NASA TN D-3532 dump-cooled LOX/GH2 engine, copied from page images on 2026-10-25.",
+  "source": "Pavli, Curley, Masters & Schwartz, NASA TN D-3532 (1966): Fig. 3 contour p. 3; Table I p. 9; Eq. (1) p. 11; Fig. 15 p. 20; Table II p. 44. https://ntrs.nasa.gov/citations/19660022898",
+  "geometry_in": {
+    "chamber_diameter": 3.762,
+    "throat_diameter": 2.176,
+    "exit_diameter": 3.442,
+    "injector_to_throat": 8.0,
+    "injector_to_exit": 10.94,
+    "wall_arc_radius": 4.352,
+    "exit_half_angle_deg": 15.0,
+    "note": "Convergence half-angle not printed; any value from 15 to 24.7 deg fits the two 4.352 in. arcs."
+  },
+  "nominal_chamber_pressure_psig": 100.0,
+  "ambient_pressure_note": "psia = psig + 14.7 assumed; the report does not state the ambient pressure.",
+  "coolant": "liquid hydrogen; parahydrogen assumed (normal hydrogen gives about 13 % less enthalpy rise)",
+  "wall_temperature_note": "Fig. 15 (firing 9) shows the calculated flame-side wall between about 1600 and 2900 R (900-1600 K) along the engine (visual reading).",
+  "firings": {
+    "8": {
+      "oxidizer_fuel_ratio": 4.84,
+      "coolant_flow_lb_s": 0.142,
+      "calculated_chamber_temperature_r": 5235,
+      "inlet_temperature_r": [
+        74.5,
+        74.5
+      ],
+      "inlet_pressure_psig": [
+        114.4,
+        114.8
+      ],
+      "outlet_temperature_r": [
+        552.4,
+        546.3
+      ],
+      "outlet_pressure_psig": [
+        18.4,
+        17.9
+      ]
+    },
+    "9": {
+      "oxidizer_fuel_ratio": 5.01,
+      "coolant_flow_lb_s": 0.142,
+      "calculated_chamber_temperature_r": 5290,
+      "inlet_temperature_r": [
+        77.0,
+        77.2
+      ],
+      "inlet_pressure_psig": [
+        121.4,
+        119.8
+      ],
+      "outlet_temperature_r": [
+        526.0,
+        525.0
+      ],
+      "outlet_pressure_psig": [
+        20.6,
+        19.9
+      ]
+    },
+    "10": {
+      "oxidizer_fuel_ratio": 4.97,
+      "coolant_flow_lb_s": 0.137,
+      "calculated_chamber_temperature_r": 5280,
+      "inlet_temperature_r": [
+        73.5,
+        74.5
+      ],
+      "inlet_pressure_psig": [
+        110.4,
+        110.8
+      ],
+      "outlet_temperature_r": [
+        567.0,
+        571.5
+      ],
+      "outlet_pressure_psig": [
+        17.3,
+        16.9
+      ]
+    }
+  }
+}

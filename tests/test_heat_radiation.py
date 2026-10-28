@@ -9,6 +9,7 @@ algebraic identities of view factors, and energy conservation.
 
 from __future__ import annotations
 
+import itertools
 import json
 import math
 import unittest
@@ -80,7 +81,7 @@ class BandFractionTests(unittest.TestCase):
         self.assertEqual(rad.blackbody_fraction(math.inf), 1.0)
         self.assertLess(rad.blackbody_fraction(1e-5), 1e-200)
         values = [rad.blackbody_fraction(x * 1e-6) for x in range(200, 100_000, 997)]
-        self.assertTrue(all(b >= a for a, b in zip(values, values[1:], strict=False)))
+        self.assertTrue(all(b >= a for a, b in itertools.pairwise(values)))
         with self.assertRaises(DomainError):
             rad.blackbody_fraction(0.0)
 

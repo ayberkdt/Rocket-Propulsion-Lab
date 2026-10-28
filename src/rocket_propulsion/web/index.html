@@ -30,7 +30,7 @@
     <script src="/visuals.js?v=4" defer></script>
     <script src="/transient.js?v=4" defer></script>
     <script src="/aero.js?v=4" defer></script>
-    <script src="/thermal.js?v=5" defer></script>
+    <script src="/thermal.js?v=6" defer></script>
     <script type="module" src="/shell.mjs?v=4"></script>
   </head>
   <body>
@@ -2173,7 +2173,7 @@
                   <div class="field-row two-columns"><label><span>Oda basıncı (Pa)</span><input name="chamber_pressure_pa" type="number" value="7000000" min="100000" step="any" required /></label><label><span>Kanal sayısı</span><input name="channel_count" type="number" value="100" min="4" max="1000" step="1" required /></label></div>
                   <label><span>Duvar malzemesi</span><select name="wall_material"><option value="grcop-84" selected>GRCop-84</option><option value="ofhc-copper">OFHC bakır</option><option value="inconel-718">Inconel 718</option><option value="stainless-304">304 paslanmaz</option></select></label>
                   <button class="btn-primary" type="submit">Soğutmayı çöz</button>
-                  <p class="form-note">NASA RTE yöntemi (Wadel, NASA/TM-1998-206313): ters akış, Chen sürtünmesi; hidrojende Taylor, diğerlerinde Gnielinski. Kanal 1,5×3 mm, duvar 1 mm, A* = 0,01 m², ε = 10, soğutucu 15 MPa.</p>
+                  <p class="form-note">NASA RTE yöntemi (Wadel, NASA/TM-1998-206313): ters akış, Chen sürtünmesi ve momentum basınç düşüşü; hidrojende Taylor, diğerlerinde Gnielinski. Kanal 1,5×5 mm, duvar 1 mm, A* = 0,01 m², ε = 10, soğutucu 15 MPa.</p>
                   <p class="form-message" role="status" aria-live="polite"></p>
                 </form>
                 <div class="results-panel">
@@ -2192,6 +2192,32 @@
                 <figure class="chart-figure"><figcaption>Sıcaklıklar – eksen</figcaption><div class="chart-legend"><span class="legend-1">sıcak duvar</span><span class="legend-2">soğuk duvar</span><span class="legend-3">soğutucu</span></div><svg class="sci-chart engineering-chart" id="regen-temperature-chart" role="img" aria-label="Eksen boyunca sıcak duvar, soğuk duvar ve soğutucu sıcaklığı"></svg></figure>
                 <figure class="chart-figure"><figcaption>Isı akısı – eksen</figcaption><div class="chart-legend"><span class="legend-4">q</span></div><svg class="sci-chart engineering-chart" id="regen-flux-chart" role="img" aria-label="Eksen boyunca ısı akısı"></svg></figure>
                 <figure class="chart-figure"><figcaption>Soğutucu basıncı – eksen</figcaption><div class="chart-legend"><span class="legend-5">p<sub>c</sub></span></div><svg class="sci-chart engineering-chart" id="regen-pressure-chart" role="img" aria-label="Eksen boyunca soğutucu basıncı"></svg></figure>
+              </div>
+            </div>
+            <div class="pane submodule" data-module="transpiration" data-pane="Transpirasyon">
+              <div class="workbench">
+                <form class="control-panel" id="transpiration-form">
+                  <div class="field-row two-columns"><label><span>Üflemesiz gaz h* (W/(m²·K))</span><input name="unblown_heat_transfer_coefficient_w_m2_k" type="number" value="20000" min="1" step="any" /></label><label><span>Geri kazanım sıcaklığı (K)</span><input name="recovery_temperature_k" type="number" value="3300" min="1" step="any" /></label></div>
+                  <div class="field-row two-columns"><label><span>Hedef duvar sıcaklığı (K)</span><input name="target_wall_temperature_k" type="number" value="900" min="1" step="any" /></label><label><span>Soğutucu giriş sıcaklığı (K)</span><input name="coolant_temperature_k" type="number" value="100" min="1" step="any" /></label></div>
+                  <div class="field-row two-columns"><label><span>Soğutucu c<sub>p</sub> (J/(kg·K))</span><input name="coolant_specific_heat_j_kg_k" type="number" value="14300" min="1" step="any" /></label><label><span>Duvar verimi η</span><input name="wall_efficiency" type="number" value="1" min="0.01" max="1" step="any" /></label></div>
+                  <button class="btn-primary" type="submit">Debiyi çöz</button>
+                  <p class="form-note">Film teorisi h/h* = φ/(e<sup>φ</sup> − 1) (Mickley, NACA TN 3208) ve duvar enerji dengesi; h* için Bartz değerini girin. Varsayılan c<sub>p</sub> hidrojen içindir.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Gereken soğutucu akısı (kg/(m²·s))</span><strong class="result-text" data-key="coolant_mass_flux_kg_m2_s">—</strong></div>
+                  <div class="result-group"><h3>Duvar</h3><dl>
+                    <div><dt>Üfleme düzeltmesi h/h*</dt><dd data-key="blowing_correction">—</dd></div>
+                    <div><dt>Hız faktörü φ</dt><dd data-key="rate_factor">—</dd></div>
+                    <div><dt>Duvara gelen ısı akısı (W/m²)</dt><dd data-key="convective_heat_flux_w_m2">—</dd></div>
+                    <div><dt>Üflemesiz ısı akısı (W/m²)</dt><dd data-key="unblown_heat_flux_w_m2">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="transpiration-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Duvar sıcaklığı – soğutucu akısı</figcaption><svg class="sci-chart engineering-chart" id="transpiration-wall-chart" role="img" aria-label="Soğutucu kütle akısına göre duvar sıcaklığı"></svg></figure>
+                <figure class="chart-figure"><figcaption>Üfleme düzeltmesi – soğutucu akısı</figcaption><svg class="sci-chart engineering-chart" id="transpiration-blowing-chart" role="img" aria-label="Soğutucu kütle akısına göre h/h* oranı"></svg></figure>
               </div>
             </div>
           </div>
@@ -2256,6 +2282,59 @@
               <div class="chart-grid">
                 <figure class="chart-figure"><figcaption>Isp kayıpları</figcaption><svg class="sci-chart engineering-chart" id="losses-chain-chart" role="img" aria-label="Kayıp kalemlerine göre özgül itki kaybı"></svg></figure>
                 <figure class="chart-figure"><figcaption>Sonlu hızlı radikaller – alan oranı</figcaption><div class="chart-legend"><span class="legend-1">H</span><span class="legend-2">OH</span></div><svg class="sci-chart engineering-chart" id="losses-radicals-chart" role="img" aria-label="Alan oranına göre H ve OH mol kesri"></svg></figure>
+              </div>
+            </div>
+            <div class="pane submodule" data-module="combustion-stability" data-pane="Kararlılık">
+              <div class="workbench">
+                <form class="control-panel" id="combustion-stability-form">
+                  <div class="field-row two-columns"><label><span>İtici çifti</span><select name="propellant_pair"><option value="LOX_CH4" selected>LOX / CH₄</option><option value="LOX_LH2">LOX / LH₂</option><option value="LOX_RP1">LOX / RP-1</option></select></label><label><span>Daralma oranı A<sub>c</sub>/A*</span><input name="contraction_ratio" type="number" value="3" min="1.05" step="any" /></label></div>
+                  <div class="field-row two-columns"><label><span>Oda yarıçapı (m)</span><input name="chamber_radius_m" type="number" value="0.1" min="0.001" step="any" /></label><label><span>Oda uzunluğu (m)</span><input name="chamber_length_m" type="number" value="0.3" min="0.001" step="any" /></label></div>
+                  <div class="field-row two-columns"><label><span>Oksitleyici Δp / p<sub>c</sub></span><input name="oxidizer_drop_fraction" type="number" value="0.2" min="0.01" step="any" /></label><label><span>Yakıt Δp / p<sub>c</sub></span><input name="fuel_drop_fraction" type="number" value="0.2" min="0.01" step="any" /></label></div>
+                  <label><span>Yanma zaman gecikmesi τ (s)</span><input name="combustion_time_lag_s" type="number" value="0.0008" min="0" step="any" /></label>
+                  <button class="btn-primary" type="submit">Kararlılığı çöz</button>
+                  <p class="form-note">NASA SP-194: tek gecikmeli model (Örnek 5.5.1.1), rijit besleme, Nyquist sayımı; oda modları Bessel kökleriyle. p<sub>c</sub> = 7 MPa, c* ve ses hızı CEA dengesinden.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Chugging</span><strong class="result-text" data-key="verdict">—</strong></div>
+                  <div class="result-group"><h3>Düşük frekans</h3><dl>
+                    <div><dt>Enjeksiyon kazancı K</dt><dd data-key="gain">—</dd></div>
+                    <div><dt>Kritik gecikme (s)</dt><dd data-key="critical_time_lag_s">—</dd></div>
+                    <div><dt>Nötr frekans (Hz)</dt><dd data-key="neutral_frequency_hz">—</dd></div>
+                    <div><dt>Gaz kalış süresi θ<sub>c</sub> (s)</dt><dd data-key="residence_time_s">—</dd></div>
+                    <div><dt>1T frekansı (Hz)</dt><dd data-key="first_tangential_hz">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="stability-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Oda akustik modları</figcaption><svg class="sci-chart engineering-chart" id="stability-modes-chart" role="img" aria-label="Akustik modların frekansları"></svg></figure>
+                <figure class="chart-figure"><figcaption>Nyquist eğrisi f(iω)</figcaption><svg class="sci-chart engineering-chart" id="stability-nyquist-chart" role="img" aria-label="Açık çevrim aktarım fonksiyonunun Nyquist eğrisi"></svg></figure>
+              </div>
+            </div>
+            <div class="pane submodule" data-module="propellant-vaporization" data-pane="Buharlaşma">
+              <div class="workbench">
+                <form class="control-panel" id="propellant-vaporization-form">
+                  <div class="field-row two-columns"><label><span>İtici çifti</span><select name="propellant_pair"><option value="LOX_CH4" selected>LOX / CH₄</option><option value="LOX_LH2">LOX / LH₂ (H₂ gaz)</option></select></label><label><span>Oda basıncı (Pa)</span><input name="chamber_pressure_pa" type="number" value="7000000" min="100000" step="any" /></label></div>
+                  <div class="field-row two-columns"><label><span>Silindirik oda uzunluğu (m)</span><input name="chamber_length_m" type="number" value="0.25" min="0.001" step="any" /></label><label><span>Daralma oranı A<sub>c</sub>/A*</span><input name="contraction_ratio" type="number" value="3" min="1" step="any" /></label></div>
+                  <div class="field-row two-columns"><label><span>Damla yarıçapı (m)</span><input name="drop_radius_m" type="number" value="0.0000762" min="0.000001" step="any" /></label><label><span>Enjeksiyon hızı (m/s)</span><input name="injection_velocity_m_s" type="number" value="30.48" min="0.1" step="any" /></label></div>
+                  <button class="btn-primary" type="submit">Buharlaşmayı çöz</button>
+                  <p class="form-note">Priem–Heidmann genelleştirilmiş uzunluğu ve TR R-67 eğrisi (NASA CR-168066 tablosu); c* verimi NACA TN 4219. T<sub>c</sub>, H<sub>v</sub> ve M referans hal denkleminden, 1 atm doymuş sıvı.</p>
+                  <p class="form-message" role="status" aria-live="polite"></p>
+                </form>
+                <div class="results-panel">
+                  <div class="results-lead"><span>Buharlaşma sınırlı c* verimi</span><strong class="result-text" data-key="cstar_efficiency">—</strong></div>
+                  <div class="result-group"><h3>Buharlaşan kütle (%)</h3><dl>
+                    <div><dt>Oksitleyici</dt><dd data-key="oxidizer_percent_vaporized">—</dd></div>
+                    <div><dt>Yakıt</dt><dd data-key="fuel_percent_vaporized">—</dd></div>
+                    <div><dt>Oksitleyici L<sub>gen</sub> (m)</dt><dd data-key="oxidizer_generalized_length_m">—</dd></div>
+                    <div><dt>Yakıt L<sub>gen</sub> (m)</dt><dd data-key="fuel_generalized_length_m">—</dd></div>
+                  </dl></div>
+                </div>
+              </div>
+              <p class="model-warning" id="vaporization-warning" role="status"></p>
+              <div class="chart-grid">
+                <figure class="chart-figure"><figcaption>Buharlaşan kütle – oda uzunluğu</figcaption><div class="chart-legend"><span class="legend-1">oksitleyici</span><span class="legend-2">yakıt</span></div><svg class="sci-chart engineering-chart" id="vaporization-length-chart" role="img" aria-label="Oda uzunluğuna göre buharlaşan kütle yüzdesi"></svg></figure>
               </div>
             </div>
           </div>

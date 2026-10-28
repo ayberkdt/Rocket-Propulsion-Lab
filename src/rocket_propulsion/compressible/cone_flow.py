@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from math import asin, atan, cos, degrees, isfinite, pi, radians, sin, sqrt, tan
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
+from rocket_propulsion.core.validation import numeric_range_guard
 
 from ._advanced_common import bracketed_root, maximize_unimodal
 from .isentropic import calculate_isentropic
@@ -196,6 +197,7 @@ def _result(
     )
 
 
+@numeric_range_guard("mach")
 def cone_flow_from_shock_angle(
     mach: float, shock_angle_deg: float, gamma: float = 1.4
 ) -> ConeFlowResult:
@@ -246,6 +248,7 @@ def cone_flow_from_shock_angle(
     return _result(mach, shock_angle, gamma, None)
 
 
+@numeric_range_guard("mach")
 def maximum_cone_half_angle(mach: float, gamma: float = 1.4) -> tuple[float, float]:
     """Largest cone angle with an attached conical shock [1]_.
 
@@ -284,6 +287,7 @@ def maximum_cone_half_angle(mach: float, gamma: float = 1.4) -> tuple[float, flo
     return degrees(cone), degrees(shock)
 
 
+@numeric_range_guard("mach")
 def solve_cone_flow(
     mach: float, cone_half_angle_deg: float, gamma: float = 1.4
 ) -> ConeFlowResult:

@@ -706,7 +706,10 @@ def sweep_regulator(
     flows = tuple(mass_flows_kg_s)
     if not flows:
         raise DomainError("At least one demand is required.", field="mass_flows_kg_s")
-    if isinstance(supply_pressures_pa, (int, float)) and not isinstance(supply_pressures_pa, bool):
+    if isinstance(supply_pressures_pa, bool):
+        raise DomainError("Supply pressures must be numbers, not booleans.",
+                          field="supply_pressures_pa")
+    if isinstance(supply_pressures_pa, (int, float)):
         supplies = (supply_pressures_pa,) * len(flows)
     else:
         supplies = tuple(supply_pressures_pa)

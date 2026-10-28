@@ -63,7 +63,10 @@ class ThermallyPerfectGas(Protocol):
            for Compressible Flow", NACA Report 1135, 1953.
     """
 
-    gas_constant_j_kg_k: float
+    @property
+    def gas_constant_j_kg_k(self) -> float:  # pragma: no cover
+        """Specific gas constant ``R``, J/(kg K)."""
+        ...
 
     @property
     def minimum_temperature_k(self) -> float:  # pragma: no cover

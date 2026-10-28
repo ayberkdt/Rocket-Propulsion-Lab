@@ -32,7 +32,7 @@ from functools import lru_cache
 from math import inf, isfinite, nextafter
 
 from rocket_propulsion.core.errors import DomainError
-from rocket_propulsion.core.metadata import WarningMessage
+from rocket_propulsion.core.metadata import WarningMessage, is_warning_severity
 from rocket_propulsion.core.validation import _ordered_items, real, text
 from rocket_propulsion.geometry import NozzleContour, NozzleStation
 
@@ -323,7 +323,7 @@ def _warnings(value):
     for item in items:
         item=_owned(item,WarningMessage,'Thermal warning')
         severity=text(item.severity,'Warning severity')
-        if severity not in ('info','warning','critical'):raise DomainError('Unknown warning severity.',field='Warning severity')
+        if not is_warning_severity(severity):raise DomainError('Unknown warning severity.',field='Warning severity')
         result.append(WarningMessage(text(item.code,'Warning code'),text(item.message,'Warning message'),
             severity,None if item.field is None else text(item.field,'Warning field')))
     return tuple(result)

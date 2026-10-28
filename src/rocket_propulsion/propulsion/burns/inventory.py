@@ -82,7 +82,7 @@ def _checked_tanks(tanks):
 
 def _group_rates(streams):
     """Sum the exact stream rates per tank before any binary64 export."""
-    result = {}
+    result: dict[str, Fraction] = {}
     for _, tank, _, _, rate in streams:
         result[tank] = result.get(tank, Fraction(0)) + rate
     return result
@@ -205,10 +205,10 @@ def tank_duration_limit(
            representable floating-point values,
            https://docs.python.org/3.12/library/math.html#math.nextafter.
     """
-    tanks, rates = _checked_inventory(tanks, operating_point)
+    inventory, rates = _checked_inventory(tanks, operating_point)
     shortest = None
     binding = None
-    for name, _, _, loaded, reserve in tanks:
+    for name, _, _, loaded, reserve in inventory:
         rate = rates.get(name, Fraction(0))
         if rate == 0:
             continue
@@ -263,9 +263,9 @@ def tank_masses_at(
     time = real(time_s, "Inventory time")
     if time < 0:
         raise DomainError("Inventory time must be non-negative.", field="Inventory time")
-    tanks, rates = _checked_inventory(tanks, operating_point)
+    inventory, rates = _checked_inventory(tanks, operating_point)
     result = []
-    for name, _, _, loaded, reserve in tanks:
+    for name, _, _, loaded, reserve in inventory:
         remaining = loaded - rates.get(name, Fraction(0)) * Fraction(time)
         if remaining < reserve:
             raise DomainError(f"Tank {name!r} crossed its protected reserve.", field="Tank inventory")

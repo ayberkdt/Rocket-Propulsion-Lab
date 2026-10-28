@@ -31,10 +31,10 @@ from fractions import Fraction
 from itertools import combinations, product
 from math import isfinite, prod
 from types import MappingProxyType
+from typing import cast
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import (
-    read_json_document,
     real,
     real_tuple,
     records,
@@ -42,7 +42,7 @@ from rocket_propulsion.core.validation import (
     text,
 )
 
-from .exchange_documents import _surface_document
+from .exchange_documents import _read_document, _surface_document
 from .interpolation import _MULTILINEAR_POLICY, _multilinear_terms, _pchip_rational_slopes
 from .numeric_outputs import _finite_rational, _fraction
 from .serialization import _require_numerical_policies, canonical_sha256
@@ -584,9 +584,9 @@ class RectilinearPerformanceSurface:
             for fixed in product(*others):
                 line = []
                 for i in range(shape[axis_index]):
-                    index = list(fixed)
-                    index.insert(axis_index, i)
-                    line.append(tuple(index))
+                    grid_index = list(fixed)
+                    grid_index.insert(axis_index, i)
+                    line.append(tuple(grid_index))
                 force = _pchip_rational_slopes(values, tuple(source[item][0] for item in line))
                 flow = _pchip_rational_slopes(values, tuple(source[item][1] for item in line))
                 for position, item in enumerate(line):
@@ -743,12 +743,13 @@ class RectilinearPerformanceSurface:
             points_payload = payload["points"]
             if not isinstance(axes_payload, list) or not isinstance(points_payload, list):
                 raise TypeError
+            # _surface_document has checked the JSON types of these members.
             surface = cls(
-                schema=payload["schema"],
-                source_id=payload["source_id"],
-                source_sha256=payload["source_sha256"],
-                reference_ids=payload["reference_ids"],
-                interpolation=payload.get("interpolation", "multilinear"),
+                schema=cast(str, payload["schema"]),
+                source_id=cast(str, payload["source_id"]),
+                source_sha256=cast(str, payload["source_sha256"]),
+                reference_ids=tuple(cast(list[str], payload["reference_ids"])),
+                interpolation=cast(str, payload.get("interpolation", "multilinear")),
                 axes=tuple(
                     PerformanceAxis(
                         name=item["name"],
@@ -807,7 +808,7 @@ class RectilinearPerformanceSurface:
                Interchange Format". https://www.rfc-editor.org/rfc/rfc8259
         """
 
-        return read_json_document(text, "Performance-surface artifact", cls.from_dict)
+        return _read_document(text, "Performance-surface artifact", cls.from_dict)
 
     def validity_surfaces(self) -> tuple[PerformanceValiditySurface, ...]:
         """Return stopping lower and upper validity events for every axis.
@@ -984,32 +985,33 @@ class RectilinearPerformanceSurface:
                 force_scale, flow_scale, force_gradient, flow_gradient,
             )
         point_by_coordinate = self._point_index
-        force_scale = Fraction(0)
-        flow_scale = Fraction(0)
-        force_gradient = [Fraction(0)] * len(self.axes)
-        flow_gradient = [Fraction(0)] * len(self.axes)
+        exact_force = Fraction(0)
+        exact_flow = Fraction(0)
+        exact_force_gradient = [Fraction(0)] * len(self.axes)
+        exact_flow_gradient = [Fraction(0)] * len(self.axes)
 
         for corner, weight, derivative_weights in _multilinear_terms(brackets):
+            # ``[:2]`` keeps the integer (lower, upper) grid indices of each bracket.
             coordinate = tuple(
-                axis.values[brackets[index][corner[index]]]
+                axis.values[brackets[index][:2][corner[index]]]
                 for index, axis in enumerate(self.axes)
             )
             point = point_by_coordinate[coordinate]
             force, flow = _fraction(point.force_scale), _fraction(point.mass_flow_scale)
-            force_scale += weight * force
-            flow_scale += weight * flow
+            exact_force += weight * force
+            exact_flow += weight * flow
             for derivative_axis, derivative_weight in enumerate(derivative_weights):
-                force_gradient[derivative_axis] += derivative_weight * force
-                flow_gradient[derivative_axis] += derivative_weight * flow
+                exact_force_gradient[derivative_axis] += derivative_weight * force
+                exact_flow_gradient[derivative_axis] += derivative_weight * flow
 
         return self._evaluation(
             normalized, brackets, boundary_axes,
-            _finite_rational(force_scale, "Multilinear force scale"),
-            _finite_rational(flow_scale, "Multilinear mass-flow scale"),
+            _finite_rational(exact_force, "Multilinear force scale"),
+            _finite_rational(exact_flow, "Multilinear mass-flow scale"),
             [_finite_rational(value, f"Multilinear force gradient: {axis.name}")
-             for axis, value in zip(self.axes, force_gradient, strict=True)],
+             for axis, value in zip(self.axes, exact_force_gradient, strict=True)],
             [_finite_rational(value, f"Multilinear mass-flow gradient: {axis.name}")
-             for axis, value in zip(self.axes, flow_gradient, strict=True)],
+             for axis, value in zip(self.axes, exact_flow_gradient, strict=True)],
         )
 
     def _evaluate_hermite(
@@ -1057,7 +1059,7 @@ class RectilinearPerformanceSurface:
         for subset, table in self._hermite.items():
             members = set(subset)
             for corner in product((0, 1), repeat=dimension):
-                index = tuple(brackets[a][corner[a]] for a in range(dimension))
+                index = tuple(brackets[a][:2][corner[a]] for a in range(dimension))
                 d_force, d_flow = table[index]
                 values = []
                 slopes = []

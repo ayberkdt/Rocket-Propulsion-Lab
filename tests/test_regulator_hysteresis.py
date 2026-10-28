@@ -230,17 +230,17 @@ class FeedCouplingAndErrorTests(unittest.TestCase):
 
     def test_invalid_regulators_and_inputs_fail_closed(self) -> None:
         base = regulator()
-        for kwargs in (dict(inlet_valve_area_m2=2.0e-3), dict(actuator_area_m2=-1.0),
-                       dict(reference_spring_rate_n_m=0.0, bias_spring_rate_n_m=0.0),
-                       dict(coulomb_friction_n=-1.0), dict(discharge_coefficient=1.2),
-                       dict(maximum_flow_area_m2=0.0), dict(model_id=" "), dict(schema="x"),
-                       dict(gas="helium"), dict(maximum_stroke_m=float("nan"))):
+        for kwargs in ({"inlet_valve_area_m2": 2.0e-3}, {"actuator_area_m2": -1.0},
+                       {"reference_spring_rate_n_m": 0.0, "bias_spring_rate_n_m": 0.0},
+                       {"coulomb_friction_n": -1.0}, {"discharge_coefficient": 1.2},
+                       {"maximum_flow_area_m2": 0.0}, {"model_id": " "}, {"schema": "x"},
+                       {"gas": "helium"}, {"maximum_stroke_m": float("nan")}):
             with self.subTest(kwargs=kwargs), self.assertRaises(DomainError):
                 replace(base, **kwargs)
-        for kwargs in (dict(mass_flow_kg_s=-1.0), dict(supply_pressure_pa=0.0),
-                       dict(supply_temperature_k=float("inf")), dict(previous_stroke_m=1.0)):
-            arguments = dict(mass_flow_kg_s=0.01, supply_pressure_pa=SUPPLY,
-                             supply_temperature_k=TEMPERATURE) | kwargs
+        for kwargs in ({"mass_flow_kg_s": -1.0}, {"supply_pressure_pa": 0.0},
+                       {"supply_temperature_k": float("inf")}, {"previous_stroke_m": 1.0}):
+            arguments = {"mass_flow_kg_s": 0.01, "supply_pressure_pa": SUPPLY,
+                             "supply_temperature_k": TEMPERATURE} | kwargs
             with self.subTest(kwargs=kwargs), self.assertRaises(DomainError):
                 regulator_operating_point(base, **arguments)
         with self.assertRaises(DomainError):  # lockup above supply

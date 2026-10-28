@@ -23,8 +23,8 @@ RPM = 2 * pi / 60
 
 
 def characteristic(**changes):
-    values = dict(design_flow_m3_s=0.1, design_head_m=1000.0, design_speed_rad_s=3000.0,
-                  shutoff_coefficient=1.2, linear_coefficient=0.1, quadratic_coefficient=-0.3)
+    values = {"design_flow_m3_s": 0.1, "design_head_m": 1000.0, "design_speed_rad_s": 3000.0,
+                  "shutoff_coefficient": 1.2, "linear_coefficient": 0.1, "quadratic_coefficient": -0.3}
     values.update(changes)
     return PumpCharacteristic(**values)
 
@@ -52,7 +52,7 @@ class SpecificSpeed(unittest.TestCase):
     def test_inputs_must_be_finite_and_positive(self):
         for name in ("shaft_speed_rad_s", "flow_m3_s", "head_m"):
             for value in (0.0, -1.0, float("inf"), True, None):
-                args = dict(shaft_speed_rad_s=1000.0, flow_m3_s=0.1, head_m=100.0)
+                args = {"shaft_speed_rad_s": 1000.0, "flow_m3_s": 0.1, "head_m": 100.0}
                 args[name] = value
                 with self.subTest(field=name, value=value), self.assertRaises(DomainError):
                     pump_specific_speed(**args)
@@ -98,7 +98,7 @@ class Suction(unittest.TestCase):
         self.assertLess(below, 0)
         for args in ({"vapor_pressure_pa": -1.0}, {"density_kg_m3": 0.0},
                      {"inlet_total_pressure_pa": 0.0}):
-            base = dict(inlet_total_pressure_pa=3e5, vapor_pressure_pa=1e5, density_kg_m3=1000.0)
+            base = {"inlet_total_pressure_pa": 3e5, "vapor_pressure_pa": 1e5, "density_kg_m3": 1000.0}
             base.update(args)
             with self.subTest(args=args), self.assertRaises(DomainError):
                 net_positive_suction_head(**base)
@@ -179,12 +179,12 @@ class PumpMap(unittest.TestCase):
 
 class CyclePoint(unittest.TestCase):
     def cycle(self, **changes):
-        values = dict(cycle="gas-generator", chamber_pressure_pa=7e6, chamber_mass_flow_kg_s=25.0,
-                      propellant_density_kg_m3=1030.0, inlet_pressure_pa=2.5e5,
-                      injector_pressure_drop_fraction=0.2, pump_efficiency=0.68,
-                      turbine_efficiency=0.65, turbine_inlet_temperature_k=900.0,
-                      turbine_specific_heat_j_kg_k=2200.0, turbine_gamma=1.25,
-                      turbine_pressure_ratio=8.0)
+        values = {"cycle": "gas-generator", "chamber_pressure_pa": 7e6, "chamber_mass_flow_kg_s": 25.0,
+                      "propellant_density_kg_m3": 1030.0, "inlet_pressure_pa": 2.5e5,
+                      "injector_pressure_drop_fraction": 0.2, "pump_efficiency": 0.68,
+                      "turbine_efficiency": 0.65, "turbine_inlet_temperature_k": 900.0,
+                      "turbine_specific_heat_j_kg_k": 2200.0, "turbine_gamma": 1.25,
+                      "turbine_pressure_ratio": 8.0}
         values.update(changes)
         return calculate_engine_cycle(**values)
 

@@ -46,6 +46,7 @@ from math import atan, cos, isfinite, pi, radians, sin, sqrt
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
+from rocket_propulsion.core.validation import numeric_range_guard
 
 _SEGMENT_KINDS = ("cone", "tangent_ogive", "cylinder", "frustum")
 _NOSE_KINDS = ("cone", "tangent_ogive")
@@ -152,6 +153,7 @@ class BodySegment:
         elif self.fore_radius_m <= 0.0 or self.aft_radius_m <= 0.0:
             raise InputError("A frustum needs positive fore and aft radii.", field="fore_radius_m")
 
+    @numeric_range_guard("local_x_m")
     def radius_at(self, local_x_m: float) -> float:
         """Return the local radius at ``local_x_m`` from the segment front, m.
 
@@ -413,6 +415,7 @@ class AxisymmetricBody:
             start += segment.length_m
         raise DomainError("Station lies outside the body.", field="x_m")  # pragma: no cover
 
+    @numeric_range_guard("x_m")
     def radius_at(self, x_m: float) -> float:
         """Return the body radius at station ``x_m`` from the nose tip, m.
 

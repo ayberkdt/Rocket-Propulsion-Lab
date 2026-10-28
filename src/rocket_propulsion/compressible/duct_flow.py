@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from math import isfinite, log, sqrt
 
 from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.validation import numeric_range_guard
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +99,7 @@ def _validate(mach: float, gamma: float) -> None:
         raise DomainError("Gamma must be finite and greater than one.")
 
 
+@numeric_range_guard("mach")
 def calculate_fanno(mach: float, gamma: float = 1.4) -> FannoResult:
     """Calculate adiabatic constant-area flow with wall friction (Fanno flow).
 
@@ -162,6 +164,7 @@ def calculate_fanno(mach: float, gamma: float = 1.4) -> FannoResult:
     )
 
 
+@numeric_range_guard("mach")
 def calculate_rayleigh(mach: float, gamma: float = 1.4) -> RayleighResult:
     """Calculate frictionless constant-area flow with heat transfer (Rayleigh flow).
 

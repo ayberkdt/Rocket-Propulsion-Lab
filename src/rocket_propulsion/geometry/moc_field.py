@@ -340,8 +340,8 @@ def _solve(inputs):
             diagnostics[2] = max(diagnostics[2], result.coordinate_rounding_allowance_max)
         diagnostics[3] = max(diagnostics[3], departure.averaged_plus_compatibility_defect)
         row = new
-    fronts, halves = tuple(fronts), tuple(halves)
-    return fronts, halves, *_mass_metrics(inputs, fronts, halves), *diagnostics
+    front_rows, half_rows = tuple(fronts), tuple(halves)
+    return front_rows, half_rows, *_mass_metrics(inputs, front_rows, half_rows), *diagnostics
 
 
 @dataclass(frozen=True, slots=True)

@@ -26,7 +26,6 @@ from math import isclose
 
 from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError, InputError
 from rocket_propulsion.core.validation import (
-    read_json_document,
     real,
     records,
     strings,
@@ -40,6 +39,7 @@ from rocket_propulsion.propulsion.burns import (
     PropagatorPropulsionBridge,
     PropulsionDynamicsEvaluation,
 )
+from rocket_propulsion.propulsion.burns.exchange_documents import _read_document
 from rocket_propulsion.propulsion.burns.serialization import canonical_sha256
 
 from .contracts import SideraCapabilities
@@ -312,13 +312,13 @@ class SideraPropulsionProviderHandoff:
         )
 
     @classmethod
-    def from_dict(cls, payload: Mapping[str, object]) -> SideraPropulsionProviderHandoff:
+    def from_dict(cls, payload: object) -> SideraPropulsionProviderHandoff:
         """Rebuild the provider from a decoded document and verify its hash.
 
         Parameters
         ----------
-        payload : mapping
-            Decoded hand-off document.
+        payload : object
+            Decoded hand-off document; it must be a mapping.
 
         Returns
         -------
@@ -384,7 +384,7 @@ class SideraPropulsionProviderHandoff:
                https://docs.python.org/3.12/library/json.html
         """
 
-        return read_json_document(document, "Sidera propulsion hand-off", cls.from_dict)  # type: ignore[return-value]
+        return _read_document(document, "Sidera propulsion hand-off", cls.from_dict)
 
     def evaluate(
         self,

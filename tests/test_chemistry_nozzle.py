@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import unittest
-from functools import lru_cache
+from functools import cache
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.thermochemistry.chemistry_nozzle import solve_chemistry_coupled_nozzle
 
 
-@lru_cache(maxsize=None)
+@cache
 def _solve(ambient: float, sweep: bool = False):
     return solve_chemistry_coupled_nozzle(
         propellant_pair="LOX_LH2", chamber_pressure_pa=7.0e6, area_ratio=40.0,

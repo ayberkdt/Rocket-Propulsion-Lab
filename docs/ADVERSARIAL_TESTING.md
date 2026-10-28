@@ -27,6 +27,13 @@ that it works. Four rules apply:
 | `test_adversarial_pulse_mode.py` | 120 random thrusters with thousands of requests, including interval end points ± 1 ulp; budget-limited trains; pulse limits; forged plans; tampered and hostile documents | Exhaustive enumeration of achievable Δv/impulse intervals per pulse count |
 | `test_adversarial_json_readers.py` | All 14 persisted-document readers: more than 1 500 generated mutants plus raw hostile texts | Rule: refuse with `DomainError`/`InputError`, or return a model identical to the original |
 | `test_constants_and_references.py` | Bare copies of physical constants, the 1976 standard atmosphere, docs without sources | Registered constants; independent RK4 integration of the hydrostatic equation |
+| `test_api_adversarial_fuzz.py` | Every field of every HTTP route (fields found in the route source by AST), one at a time: NaN, ±inf, booleans, text, lists, objects; then 0, −0, −1, 1e−300, ±1e300 and 10⁹ | Rule: type garbage is refused with `RocketPropulsionError`; extremes are refused or answered in strict JSON, never a bare `OverflowError`/`ZeroDivisionError`/`ValueError`/`TypeError` or a hang |
+| `test_oracle_compressible.py` | Normal and oblique shocks, Prandtl–Meyer, Fanno and Rayleigh, every inverse of the isentropic relations, Taylor–Maccoll cones | Rankine–Hugoniot residuals and entropy rise; quadrature of the differential relations; the area-ratio mass-flux identity; SciPy `solve_ivp` on the Taylor–Maccoll equation |
+| `test_oracle_conduction.py` | Bessel functions, erfc solutions, slab/cylinder/sphere eigenvalues and series, fins | SciPy Bessel, mpmath erfc, `brentq` eigenvalues to 1e−15, a BDF method-of-lines solution with a sparse Jacobian, `solve_bvp` fins |
+| `test_oracle_real_fluids.py` | Every Helmholtz-energy derivative property, state round trips, saturation | Richardson-extrapolated finite differences of the EOS itself; Mayer, sound-speed, Gibbs, Joule–Thomson and Z identities; equal Gibbs energy and Clausius–Clapeyron on the saturation line |
+| `test_oracle_equilibrium.py` | Gibbs-minimum composition | KKT element-potential certificate; SciPy SLSQP never finds a lower G; extensive scaling; Le Chatelier; HP/TP consistency |
+| `test_oracle_kinetics.py` | Finite-rate H₂–O₂ reactor and Jacobian | SciPy Radau; atom conservation; Kc from species data; fourth-order finite-difference Jacobian; detailed balance at the Gibbs equilibrium (slow, `RPL_SLOW_TESTS=1`) |
+| `test_oracle_aerodynamics.py` | Lifting line and the vortex-panel method | Elliptic-wing closed forms; `e ≤ 1`; Kutta–Joukowski against integrated pressure; d'Alembert; Kutta condition; refinement; thin-airfoil limit; an independent Hess–Smith code |
 
 ## Defects these tests found
 
@@ -55,6 +62,36 @@ All of the following were fixed, and each has a regression test.
 - **U.S. Standard Atmosphere 1976 used the 2019 SI gas constant.** This put a
   pressure jump of about 3·10⁻⁵ at every layer base. It now uses the model's
   own R\* = 8.31432 J/(mol K).
+- **Vortex-panel lift wrong on cambered sections.** The closed-form source and
+  vortex influence integrals used the unsigned control-point distance, which
+  is valid only on convex contours. On the concave lower surface of a NACA
+  4412 the zero-incidence lift came out as 1.44; an independent Hess–Smith
+  code gives 0.5172. The integrals are now evaluated in each panel's own
+  frame with signed coordinates (`atan2` and `log` of end-point distances).
+  Convex sections are unchanged to 4e−15.
+- **Isentropic inverses slow.** Bisection inverted the area ratio to 2e−11
+  (worst of 300 random cases) in 2.6 ms per call. Stagnation and critical ratios are now inverted
+  in closed form with `expm1`/`log`; area ratio and Prandtl–Meyer angle use a
+  bracketed Newton iteration with analytic slopes. The round trip is within
+  a few ulp of M plus the input ratio's own conditioning (8.3e−13 worst for
+  M ≥ 0.05 over 2 000 random cases), and an area-ratio inversion takes
+  0.017 ms.
+- **Equilibrium hang at absurd pressure.** A 1e300 Pa chamber pressure ran
+  the ideal-gas Gibbs solver without end. Pressures above 1e9 Pa are now
+  refused (`pressure_outside_ideal_gas_range`).
+- **41 contract breaks under extreme values.** The first extreme-value pass
+  over 2 856 route/field/value probes found 33 bare exceptions (21 `OverflowError`, 10
+  `ZeroDivisionError`, 2 `ValueError` from the square root of a negative
+  throat area) and 8 runs over 20 s. Fixes: `core.validation.numeric_range_guard` converts
+  `OverflowError`/`ZeroDivisionError` into `DomainError(code="numeric_range")`
+  on the 22 functions where they escaped; positivity checks on route lengths
+  and areas; a one-million-sample budget on response grids
+  (`sample_budget_exceeded`); loss-chain efficiencies checked before the
+  chemistry runs.
+- **Thrust rounded twice.** With no nozzle exit area the propagator subtracted
+  a float zero from an exact `Fraction`, turning the thrust into a float before
+  it was projected onto the force and acceleration axes. The zero is now a
+  `Fraction`.
 
 ## Known limits (deliberate)
 

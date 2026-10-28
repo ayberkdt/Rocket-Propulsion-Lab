@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import os
 import unittest
-from functools import lru_cache
+from functools import cache
 from math import isclose
 from pathlib import Path
 
@@ -30,7 +30,10 @@ from rocket_propulsion.thermochemistry.finite_area_combustor import (
     rp1311_stagnation_pressure_estimate,
     solve_finite_area_combustor,
 )
-from rocket_propulsion.thermochemistry.rocket_equilibrium import PROPELLANT_PAIRS, reactants_for_mass_ratio
+from rocket_propulsion.thermochemistry.rocket_equilibrium import (
+    PROPELLANT_PAIRS,
+    reactants_for_mass_ratio,
+)
 from rocket_propulsion.thermochemistry.species import get_reactant, get_species
 
 DATA = Path(__file__).parent / "reference_data"
@@ -40,7 +43,7 @@ FAC_POINTS = {point["id"]: point for point in FAC["points"]}
 CASES = {case["id"]: case for case in REF["compositions"]}
 
 
-@lru_cache(maxsize=None)
+@cache
 def _fac(point_id: str):
     point = FAC_POINTS[point_id]
     option = ({"contraction_ratio": point["option_value"]} if point["option"] == "ac_at"
@@ -53,7 +56,7 @@ def _fac(point_id: str):
     )
 
 
-@lru_cache(maxsize=None)
+@cache
 def _report(case_id: str):
     case = CASES[case_id]
     return ce.combustion_product_report(

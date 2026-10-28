@@ -16,6 +16,7 @@ References
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass
 from math import atan2, cos, degrees, isfinite, pi, radians, sin, sqrt, tan
 
@@ -77,7 +78,7 @@ class AirfoilSection:
                 if not (isfinite(x) and isfinite(y)):
                     raise DomainError(f"The {label} surface has a non-finite coordinate.",
                                       field=label)
-            for (x0, _), (x1, _) in zip(surface, surface[1:], strict=False):
+            for (x0, _), (x1, _) in itertools.pairwise(surface):
                 if x1 <= x0:
                     raise DomainError(f"x must increase strictly along the {label} surface.",
                                       field=label)
@@ -276,7 +277,7 @@ def _panels(section: AirfoilSection, surface: str) -> list[tuple[Point, Point, f
     points = section.upper if surface == "upper" else section.lower
     return [
         (a, b, atan2(b[1] - a[1], b[0] - a[0]))
-        for a, b in zip(points, points[1:], strict=False)
+        for a, b in itertools.pairwise(points)
     ]
 
 

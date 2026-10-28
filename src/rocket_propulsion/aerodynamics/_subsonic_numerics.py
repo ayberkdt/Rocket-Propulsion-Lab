@@ -14,6 +14,7 @@ References
 
 from __future__ import annotations
 
+import itertools
 from collections.abc import Callable, Sequence
 from functools import lru_cache
 from math import cos, isfinite, pi
@@ -176,7 +177,7 @@ def integrate(
 
     nodes, weights = gauss_legendre(order)
     total = 0.0
-    for start, end in zip(breakpoints[:-1], breakpoints[1:], strict=True):
+    for start, end in itertools.pairwise(breakpoints):
         if end < start:
             raise DomainError("Quadrature breakpoints must be increasing.")
         width = (end - start) / panels_per_interval

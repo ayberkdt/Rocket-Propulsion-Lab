@@ -59,16 +59,16 @@ from dataclasses import dataclass
 from math import asin, atan, exp, expm1, factorial, inf, log, pi, sin, sqrt
 from types import MappingProxyType
 
-from rocket_propulsion.core.constants import USSA1976_SEA_LEVEL_PRESSURE_PA
 from rocket_propulsion.core.constants import (
     BOLTZMANN_CONSTANT_J_K,
     PLANCK_CONSTANT_J_S,
     SPEED_OF_LIGHT_M_S,
     STEFAN_BOLTZMANN_W_M2_K4,
+    USSA1976_SEA_LEVEL_PRESSURE_PA,
 )
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
-from rocket_propulsion.core.validation import real
+from rocket_propulsion.core.validation import numeric_range_guard, real
 
 __all__ = [
     "BOLTZMANN_CONSTANT_J_K",
@@ -105,8 +105,8 @@ __all__ = [
     "radiative_equilibrium_wall_temperature",
     "reciprocal_view_factor",
     "shielded_heat_rate",
-    "soot_planck_mean_absorption_coefficient",
     "solve_gray_enclosure",
+    "soot_planck_mean_absorption_coefficient",
     "station_gas_emissivity",
     "two_surface_heat_rate",
     "view_factor_coaxial_disks",
@@ -604,6 +604,7 @@ def view_factor_perpendicular_rectangles(width_1_m: float, height_2_m: float, co
             + 0.25 * log_term) / (pi * w)
 
 
+@numeric_range_guard("radius_1_m")
 def view_factor_coaxial_disks(radius_1_m: float, radius_2_m: float, separation_m: float) -> float:
     """Return ``F1-2`` from disk 1 to a parallel coaxial disk 2.
 
@@ -762,6 +763,7 @@ class FrustumEnclosure:
     view_factors: tuple[tuple[float, float, float], ...]
 
 
+@numeric_range_guard("small_radius_m")
 def frustum_enclosure_view_factors(small_radius_m: float, large_radius_m: float,
                                    length_m: float) -> FrustumEnclosure:
     """Return the view factors among the two openings and the wall of a frustum.
@@ -1250,6 +1252,7 @@ class RadiativeEquilibrium:
     residual_w_m2: float
 
 
+@numeric_range_guard("sinks")
 def radiative_equilibrium_wall_temperature(*, sinks: Sequence[RadiativeSink],
                                            heat_transfer_coefficient_w_m2_k: float = 0.0,
                                            recovery_temperature_k: float | None = None,

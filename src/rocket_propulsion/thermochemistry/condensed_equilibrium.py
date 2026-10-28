@@ -41,11 +41,14 @@ from dataclasses import dataclass
 from functools import lru_cache
 from math import exp, isfinite, log, sqrt
 from pathlib import Path
+from typing import TypedDict
 
 from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
+from rocket_propulsion.core.validation import coerce_fields, real, text
 
+from ._records import _owned_catalog, _owned_formula
 from .equilibrium import (
     EquilibriumConvergence,
     EquilibriumProblem,
@@ -55,14 +58,20 @@ from .equilibrium import (
     ReactantAmount,
 )
 from .mixtures import REFERENCE_PRESSURE_PA
-from .nasa_polynomials import UNIVERSAL_GAS_CONSTANT_J_MOL_K, NasaPolynomialInterval
+from .nasa_polynomials import (
+    UNIVERSAL_GAS_CONSTANT_J_MOL_K,
+    NasaIntervalRecord,
+    NasaPolynomialInterval,
+    _owned_intervals,
+    interval_from_record,
+)
 from .rocket_performance import (
-    _GOLDEN,
     RocketExit,
     RocketPerformance,
     RocketStation,
     _bracket,
     _illinois,
+    _maximize_bounded,
 )
 from .species import CondensedReactant, Species, get_reactant, species_catalog
 
@@ -128,6 +137,15 @@ class CondensedSpecies:
     source: str
     source_url: str
 
+    def __post_init__(self) -> None:
+        coerce_fields(self, 'Condensed species')
+        if self.molecular_mass_kg_mol <= 0 or self.phase_index < 1:
+            raise DomainError('A condensed species needs positive molar mass and phase index.')
+        object.__setattr__(self, 'key', self.key.strip())
+        object.__setattr__(self, 'phase_group', self.phase_group.strip())
+        object.__setattr__(self, 'formula', _owned_formula(self.formula))
+        object.__setattr__(self, 'intervals', _owned_intervals(self.intervals))
+
     @property
     def minimum_temperature_k(self) -> float:
         """Lower bound of the phase's data range, K."""
@@ -140,12 +158,17 @@ class CondensedSpecies:
 
     def covers(self, temperature_k: float) -> bool:
         """Return whether ``temperature_k`` lies in the phase's data range."""
+        temperature_k = real(temperature_k, 'temperature_k')
         return self.minimum_temperature_k <= temperature_k <= self.maximum_temperature_k
 
 
 @dataclass(frozen=True, slots=True)
 class CondensedCatalog:
-    """Products and reactants available to the condensed-phase provider.
+    """Owned snapshot of products and reactants for the condensed-phase provider.
+
+    Its dictionaries may be edited locally; no edit changes a subsequent
+    catalogue or the provider's internal data. Species/phase records own
+    immutable nested formulae and intervals.
 
     Attributes
     ----------
@@ -163,30 +186,41 @@ class CondensedCatalog:
     condensed: dict[str, CondensedSpecies]
     reactants: dict[str, CondensedReactant]
 
+    def __post_init__(self) -> None:
+        gases = _owned_catalog(self.gases, Species, 'gases')
+        condensed = _owned_catalog(self.condensed, CondensedSpecies, 'condensed')
+        reactants = _owned_catalog(self.reactants, CondensedReactant, 'reactants')
+        if gases.keys() & condensed.keys():
+            raise DomainError('Gas and condensed product keys must be disjoint.')
+        object.__setattr__(self, 'gases', dict(gases))
+        object.__setattr__(self, 'condensed', dict(condensed))
+        object.__setattr__(self, 'reactants', dict(reactants))
 
-def _intervals(record: Mapping[str, object]) -> tuple[NasaPolynomialInterval, ...]:
-    return tuple(
-        NasaPolynomialInterval(
-            minimum_temperature_k=float(item["minimum_temperature_k"]),
-            maximum_temperature_k=float(item["maximum_temperature_k"]),
-            coefficients=tuple(float(value) for value in item["coefficients"]),
-        )
-        for item in record["intervals"]
-    )
+
+class _PhaseRecord(TypedDict):
+    """Fields shared by every species record of ``nasa_cea_condensed.json``."""
+
+    formula: dict[str, float]
+    intervals: list[NasaIntervalRecord]
 
 
-def _formula(record: Mapping[str, object]) -> tuple[tuple[str, float], ...]:
-    return tuple((str(key), float(value)) for key, value in record["formula"].items())
+def _intervals(record: _PhaseRecord) -> tuple[NasaPolynomialInterval, ...]:
+    return tuple(interval_from_record(item) for item in record["intervals"])
+
+
+def _formula(record: _PhaseRecord) -> tuple[tuple[str, float], ...]:
+    return _owned_formula(tuple(record["formula"].items()))
 
 
 @lru_cache(maxsize=1)
-def condensed_catalog() -> CondensedCatalog:
+def _condensed_catalog_tables() -> tuple[Mapping[str, Species], Mapping[str, CondensedSpecies], Mapping[str, CondensedReactant]]:
     """Load the gas, condensed-product and reactant records once [1]_.
 
     Returns
     -------
-    CondensedCatalog
-        Cached catalog; gas keys of the base catalog
+    tuple of mappings
+        Private immutable gas, condensed-product and reactant tables;
+        gas keys of the base catalog
         (:func:`~rocket_propulsion.thermochemistry.species.species_catalog`)
         and of ``nasa_cea_condensed.json`` are disjoint.
 
@@ -203,18 +237,18 @@ def condensed_catalog() -> CondensedCatalog:
 
     document = json.loads(CONDENSED_DATA_FILE.read_text(encoding="utf-8"))
     source = document["source"]
-    title, url = str(source["title"]), str(source["url"])
+    title, url = source["title"], source["url"]
     gases = dict(species_catalog())
     for record in document["gas_species"]:
         key = record["key"].upper()
         if key in gases:
             raise RuntimeError(f"Gas species {key} is defined twice.")
         gases[key] = Species(
-            key=str(record["key"]),
-            name=str(record["name"]),
+            key=record["key"],
+            name=record["name"],
             formula=_formula(record),
-            molecular_mass_kg_mol=float(record["molecular_mass_g_mol"]) / 1000.0,
-            heat_of_formation_j_mol_298=float(record["heat_of_formation_j_mol_298"]),
+            molecular_mass_kg_mol=real(record["molecular_mass_g_mol"], 'molecular_mass_g_mol') / 1000.0,
+            heat_of_formation_j_mol_298=record["heat_of_formation_j_mol_298"],
             intervals=_intervals(record),
             source=title,
             source_url=url,
@@ -225,30 +259,51 @@ def condensed_catalog() -> CondensedCatalog:
         if key in condensed or key in gases:
             raise RuntimeError(f"Condensed species {key} is defined twice.")
         condensed[key] = CondensedSpecies(
-            key=str(record["key"]),
+            key=record["key"],
             formula=_formula(record),
-            molecular_mass_kg_mol=float(record["molecular_mass_g_mol"]) / 1000.0,
-            heat_of_formation_j_mol_298=float(record["heat_of_formation_j_mol_298"]),
-            phase_group=str(record["phase_group"]),
-            phase_index=int(record["phase_index"]),
+            molecular_mass_kg_mol=real(record["molecular_mass_g_mol"], 'molecular_mass_g_mol') / 1000.0,
+            heat_of_formation_j_mol_298=record["heat_of_formation_j_mol_298"],
+            phase_group=record["phase_group"],
+            phase_index=record["phase_index"],
             intervals=_intervals(record),
             source=title,
             source_url=url,
         )
-    reactants = {
-        record["key"].upper(): CondensedReactant(
-            key=str(record["key"]),
-            name=str(record["name"]),
+    reactants: dict[str, CondensedReactant] = {}
+    for record in document['reactants']:
+        parsed = CondensedReactant(
+            key=record["key"],
+            name=record["name"],
             formula=_formula(record),
-            molecular_mass_kg_mol=float(record["molecular_mass_g_mol"]) / 1000.0,
-            enthalpy_j_mol=float(record["assigned_enthalpy_j_mol"]),
-            temperature_k=float(record["assigned_temperature_k"]),
+            molecular_mass_kg_mol=real(record["molecular_mass_g_mol"], 'molecular_mass_g_mol') / 1000.0,
+            enthalpy_j_mol=record["assigned_enthalpy_j_mol"],
+            temperature_k=record["assigned_temperature_k"],
             source=title,
             source_url=url,
         )
-        for record in document["reactants"]
-    }
-    return CondensedCatalog(gases=gases, condensed=condensed, reactants=reactants)
+        key = parsed.key.upper()
+        if key in reactants:
+            raise RuntimeError('Duplicate condensed-reactant keys.')
+        reactants[key] = parsed
+    return (_owned_catalog(gases, Species, 'gases'),
+            _owned_catalog(condensed, CondensedSpecies, 'condensed'),
+            _owned_catalog(reactants, CondensedReactant, 'reactants'))
+
+
+def condensed_catalog() -> CondensedCatalog:
+    """Return an independent, serializable snapshot of the cached data [1]_.
+
+    All three dictionaries are owned copies. Edits cannot change later
+    callers or thermodynamic calculations; source-labelled records are
+    immutable. ``dataclasses.asdict`` remains supported.
+
+    References
+    ----------
+    .. [1] NASA-CEA-THERMO. NASA Glenn Research Center, CEA thermodynamic
+           database ``data/thermo.inp``. https://github.com/nasa/cea
+    """
+    gases, condensed, reactants = _condensed_catalog_tables()
+    return CondensedCatalog(gases=dict(gases), condensed=dict(condensed), reactants=dict(reactants))
 
 
 def get_condensed_reactant(key: str) -> Species | CondensedReactant:
@@ -277,7 +332,7 @@ def get_condensed_reactant(key: str) -> Species | CondensedReactant:
            database ``data/thermo.inp``. https://github.com/nasa/cea
     """
 
-    reactant = condensed_catalog().reactants.get(key.strip().upper())
+    reactant = condensed_catalog().reactants.get(text(key, 'species').strip().upper())
     return reactant if reactant is not None else get_reactant(key)
 
 
@@ -633,6 +688,24 @@ class _System:
     target_h_over_r: float | None
     target_s_over_r: float | None
 
+    def fixed_temperature_k(self) -> float:
+        """Prescribed temperature of a TP problem, K."""
+        if self.temperature_k is None:
+            raise InputError("TP requires a temperature.", field="temperature_k")
+        return self.temperature_k
+
+    def enthalpy_target(self) -> float:
+        """Target ``H/R`` of an HP problem, K mol/kg."""
+        if self.target_h_over_r is None:
+            raise InputError("HP requires a target enthalpy.", field="target_enthalpy_j")
+        return self.target_h_over_r
+
+    def entropy_target(self) -> float:
+        """Target ``S/R`` of an SP problem, mol/kg."""
+        if self.target_s_over_r is None:
+            raise InputError("SP requires a target entropy.", field="target_entropy_j_k")
+        return self.target_s_over_r
+
 
 @dataclass(slots=True)
 class _Iterate:
@@ -892,7 +965,7 @@ class CondensedEquilibriumProvider:
         )
 
     def _initial(self, system: _System, start: CondensedEquilibriumState | None) -> _Iterate:
-        temperature = system.temperature_k if system.mode == "TP" else _INITIAL_TEMPERATURE_K
+        temperature = system.fixed_temperature_k() if system.mode == "TP" else _INITIAL_TEMPERATURE_K
         keys = tuple(item.key for item in system.gases)
         if start is not None and start.gas_keys == keys:
             condensed_index = {item.key: position for position, item in enumerate(system.condensed)}
@@ -995,7 +1068,7 @@ class CondensedEquilibriumProvider:
             # Condensed rows, eq. (2.25).
             for position, c in enumerate(active):
                 row = elements + position
-                cp_c, h_c, s_c = cond_props[position]
+                _cp_c, h_c, s_c = cond_props[position]
                 for i, aic in enumerate(system.condensed_dense[c]):
                     matrix[row][i] = aic
                 if variable_t:
@@ -1018,7 +1091,7 @@ class CondensedEquilibriumProvider:
                     matrix[t_col][elements + position] = cond_props[position][1]
                 matrix[t_col][n_col] = sum_nh
                 matrix[t_col][t_col] = sum_ncp + cond_cp + sum_nh2
-                rhs[t_col] = system.target_h_over_r / temperature - h_total + sum_nhmu
+                rhs[t_col] = system.enthalpy_target() / temperature - h_total + sum_nhmu
             elif system.mode == "SP":
                 s_total = sum_ns + sum(state.condensed_amounts[c] * cond_props[p][2]
                                        for p, c in enumerate(active))
@@ -1028,7 +1101,7 @@ class CondensedEquilibriumProvider:
                     matrix[t_col][elements + position] = cond_props[position][2]
                 matrix[t_col][n_col] = sum_ns
                 matrix[t_col][t_col] = sum_ncp + cond_cp + sum_nhs
-                rhs[t_col] = system.target_s_over_r - s_total + total_gas - sum_n + sum_nsmu
+                rhs[t_col] = system.entropy_target() - s_total + total_gas - sum_n + sum_nsmu
             try:
                 correction = _gauss(matrix, rhs)
             except _Singular:
@@ -1073,11 +1146,13 @@ class CondensedEquilibriumProvider:
                 and abs(delta_log_t) <= self.temperature_tolerance
             )
             if converged and system.mode == "SP":
-                converged = abs(system.target_s_over_r - s_total) <= self.state_tolerance * max(
-                    abs(system.target_s_over_r), 1.0)
+                target_s = system.entropy_target()
+                converged = abs(target_s - s_total) <= self.state_tolerance * max(
+                    abs(target_s), 1.0)
             if converged and system.mode == "HP":
-                converged = abs(system.target_h_over_r / temperature - h_total) <= (
-                    self.state_tolerance * max(abs(system.target_h_over_r / temperature), 1.0))
+                target_h = system.enthalpy_target()
+                converged = abs(target_h / temperature - h_total) <= (
+                    self.state_tolerance * max(abs(target_h / temperature), 1.0))
             # Control factor, eqs. (3.1)-(3.3).
             largest = max(5.0 * abs(delta_log_t), 5.0 * abs(delta_log_n))
             lambda2 = 1.0
@@ -1189,7 +1264,7 @@ class CondensedEquilibriumProvider:
                 continue
             # Inclusion test, eq. (3.7): at most one new species per convergence.
             tests = self._test_values(system, state, potentials)
-            candidate = min(tests, key=tests.get, default=None)
+            candidate = min(tests, key=tests.__getitem__, default=None)
             if candidate is not None and tests[candidate] < 0.0:
                 key = (tuple(sorted(state.active + [candidate])), round(temperature))
                 if key in seen:
@@ -1245,14 +1320,14 @@ class CondensedEquilibriumProvider:
                 out_of_range_trace.append(species.key)
         by_key = {item.key: item for item in system.condensed}
         for key, amount in condensed_amounts.items():
-            species = by_key[key]
-            cp, h, s0 = _reduced(species.intervals, temperature, log_t)
+            phase = by_key[key]
+            cp, h, s0 = _reduced(phase.intervals, temperature, log_t)
             enthalpy += amount * h * r * temperature
             entropy += amount * s0 * r
             cp_total += amount * cp * r
-            outside = max(species.minimum_temperature_k - temperature,
-                          temperature - species.maximum_temperature_k)
-            coexisting = any(by_key[other].phase_group == species.phase_group
+            outside = max(phase.minimum_temperature_k - temperature,
+                          temperature - phase.maximum_temperature_k)
+            coexisting = any(by_key[other].phase_group == phase.phase_group
                              and by_key[other].covers(temperature)
                              for other in condensed_amounts if other != key)
             # Two phases of one substance pin T to their transition; the data
@@ -1278,10 +1353,10 @@ class CondensedEquilibriumProvider:
         energy_target = None
         energy_residual = None
         if system.mode == "HP":
-            energy_target = system.target_h_over_r * r * mass
+            energy_target = system.enthalpy_target() * r * mass
             energy_residual = abs(enthalpy - energy_target) / max(abs(energy_target), 1.0)
         elif system.mode == "SP":
-            target_s = system.target_s_over_r * r * mass
+            target_s = system.entropy_target() * r * mass
             energy_residual = abs(entropy - target_s) / max(abs(target_s), 1.0e-12)
         molecular_mass = mass / gas_moles
         gas_constant = r / molecular_mass
@@ -1552,20 +1627,7 @@ def solve_condensed_rocket_performance(
         solution = station(log_pressure)
         return density(solution) * velocity(solution)
 
-    low, high = log(pc / 2.5), log(pc / 1.2)
-    first = high - _GOLDEN * (high - low)
-    second = low + _GOLDEN * (high - low)
-    flux_first, flux_second = flux(first), flux(second)
-    while high - low > 1.0e-5:
-        if flux_first > flux_second:
-            high, second, flux_second = second, first, flux_first
-            first = high - _GOLDEN * (high - low)
-            flux_first = flux(first)
-        else:
-            low, first, flux_first = first, second, flux_second
-            second = low + _GOLDEN * (high - low)
-            flux_second = flux(second)
-    log_throat = 0.5 * (low + high)
+    log_throat = _maximize_bounded(flux, log(pc / 2.5), log(pc / 1.2), 1.0e-5)
     throat = station(log_throat)
     throat_velocity = velocity(throat)
     throat_flux = density(throat) * throat_velocity

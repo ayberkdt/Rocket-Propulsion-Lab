@@ -50,6 +50,7 @@ from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError
 from rocket_propulsion.core.validation import real, text, vector3
 from rocket_propulsion.propulsion.burns import (
     PropulsionTimeline,
+    ScheduledBurn,
     free_space_burn_metrics,
 )
 from rocket_propulsion.propulsion.burns.numeric_outputs import _finite_rational, _fraction
@@ -564,7 +565,9 @@ def lunaris_burn_windows(
         offset = _fraction(burn.ignition_time_s)+_fraction(drivers["ignition_time_bias_s"])
         resolved.append((offset, burn, drivers))
     resolved.sort(key=lambda row: row[0])
-    contexts = []
+    # (offset, burn, drivers, horizon, ignition, dates, depletion, deficit)
+    contexts: list[tuple[Fraction, ScheduledBurn, Mapping[str, float], Fraction, float,
+                         tuple[float, ...], float | None, Fraction | None]] = []
 
     def consumed_at(context, date):
         _offset, burn, drivers, horizon, _, _, _, _ = context
@@ -812,6 +815,14 @@ def velocity_direction(burn_id: str, time_s: float, state: Any) -> tuple[float, 
     return (float(state[3]), float(state[4]), float(state[5]))
 
 
+def _cutoff_horizon(window: LunarisBurnWindow) -> Fraction:
+    """Return the exact profile-time cutoff that :func:`lunaris_burn_windows` records."""
+    ratio = window.cutoff_profile_time_ratio
+    if ratio is None:
+        raise DomainError("Native burn window lacks its exact cutoff coordinate.")
+    return Fraction(*ratio)
+
+
 class LunarisFiniteBurnDynamics:
     """Lunaris dynamics wrapper that adds finite-burn thrust and mass flow.
 
@@ -937,7 +948,7 @@ class LunarisFiniteBurnDynamics:
         )
         self._ids = tuple(burn.burn_id for burn in timeline.burns)
         self._windows = windows
-        self._horizons = {window.burn_id:Fraction(*window.cutoff_profile_time_ratio) for window in windows}
+        self._horizons = {window.burn_id:_cutoff_horizon(window) for window in windows}
         self._boundaries = _merged_times(
             value for window in windows for value in window.time_events_s
         )

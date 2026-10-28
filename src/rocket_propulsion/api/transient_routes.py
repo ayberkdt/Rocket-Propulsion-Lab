@@ -28,11 +28,12 @@ library functions each route calls. ``TRANSIENT_ROUTES`` and
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import asdict
 from math import ceil
 from typing import Any
 
-from rocket_propulsion.core.errors import InputError
+from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.metadata import ModelMetadata
 from rocket_propulsion.propulsion.burns import (
     BlowdownTankModel,
@@ -81,6 +82,7 @@ from rocket_propulsion.propulsion.burns import (
     simulate_pressure_fed_blowdown,
 )
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
+from rocket_propulsion.studies.global_sensitivity import rank_sensitivity
 from rocket_propulsion.studies.sass import project_from_dict
 
 from .routes import _boolean, _enum_value, _integer, _number, _object, _objects
@@ -260,7 +262,7 @@ def _artifact_summary(artifact: TabulatedBurnArtifact) -> dict[str, Any]:
     }
 
 
-def _histogram(values: list[float], bins: int) -> dict[str, list[float]]:
+def _histogram(values: list[float], bins: int) -> dict[str, list[float] | list[int]]:
     """Equal-width histogram of sample values; a constant sample gives one bin."""
 
     low, high = min(values), max(values)
@@ -790,8 +792,8 @@ def evaluate_regulated_feed_route(payload: dict[str, Any]) -> dict[str, Any]:
             "NASA-GRC-MASS-FLOW-CHOKING",
         ],
         "warnings": [
-            "State evaluation only: the library returns the feed ODE right-hand side; "
-            "no time history is integrated.",
+            ("State evaluation only: the library returns the feed ODE right-hand side; "
+            "no time history is integrated."),
             "Performance grid and burn profile are synthetic example data.",
         ],
     }
@@ -948,8 +950,8 @@ def evaluate_feed_line_route(payload: dict[str, Any]) -> dict[str, Any]:
         "series": {"line_flow_sweep": _series("line_mass_flow_kg_s", sweep, MAX_SERIES_POINTS)},
         "reference_ids": ["NASA-19740028545", "NASA-20220006583", "NASA-20240003493"],
         "warnings": [
-            "State evaluation only: the library returns the line ODE right-hand side; "
-            "no time history is integrated.",
+            ("State evaluation only: the library returns the line ODE right-hand side; "
+            "no time history is integrated."),
             "First inertance/compliance mode only; not a water-hammer solver.",
             "Performance grid and burn profile are synthetic example data.",
         ],
@@ -1144,7 +1146,10 @@ def evaluate_electric_route(payload: dict[str, Any]) -> dict[str, Any]:
         current = model.select_level(power, current)
         decreasing.append(current)
     sweep["level_index_decreasing"] = decreasing[::-1]
-    path_levels = model.throttle_law.levels
+    throttle_law = model.throttle_law
+    if not isinstance(throttle_law, DiscreteThrottlePath):  # constructed from one above
+        raise DomainError("Electric throttle sweep requires a discrete throttle path.")
+    path_levels = throttle_law.levels
     return {
         "model": "power-limited electric propulsion, discrete throttle path",
         "inputs": {**values, "levels": [asdict(item) for item in levels]},
@@ -1189,8 +1194,8 @@ def evaluate_electric_route(payload: dict[str, Any]) -> dict[str, Any]:
         "series": {"power_sweep": _series("available_power_w", sweep, MAX_SERIES_POINTS)},
         "reference_ids": ["NASA-20090004685", "OREKIT-13.1.5-PROPULSION-MODEL"],
         "warnings": [
-            "Throttle-table values are caller-supplied; the model is not validated against "
-            "thruster hardware.",
+            ("Throttle-table values are caller-supplied; the model is not validated against "
+            "thruster hardware."),
         ],
     }
 
@@ -1411,10 +1416,10 @@ def plan_pulse_mode_route(payload: dict[str, Any]) -> dict[str, Any]:
         "series": series,
         "reference_ids": list(thruster.reference_ids),
         "warnings": [
-            "The impulse-bit and propellant tables are caller-supplied; the default table is "
-            "synthetic.",
-            "Pulse-train segments are rectangles over the electrical on-time; rise and tail-off "
-            "are not represented.",
+            ("The impulse-bit and propellant tables are caller-supplied; the default table is "
+            "synthetic."),
+            ("Pulse-train segments are rectangles over the electrical on-time; rise and tail-off "
+            "are not represented."),
         ],
     }
 
@@ -1455,6 +1460,32 @@ _UNCERTAINTY_METRICS = (
     "thrust_centroid_time_s",
     "final_supply_pressure_pa",
 )
+
+
+def _rank_sensitivities(parameters: Sequence[Any], realizations: dict[str, list[Any]]) -> list[dict[str, Any]]:
+    """Spearman, PRCC and SRRC of every metric to every sampled input [1]_.
+
+    Computed from the same seeded sample as the Pearson screening records;
+    a metric whose values are not all finite, or a sample too small for
+    PRCC, is reported with the reason instead.
+
+    References
+    ----------
+    .. [1] SAND2001-0417. Helton and Davis, Sect. 6, https://doi.org/10.2172/806696
+    """
+
+    inputs = {parameter.name: [float(value) for value in realizations[f"input_{parameter.name}"]]
+              for parameter in parameters}
+    records: list[dict[str, Any]] = []
+    for metric in _UNCERTAINTY_METRICS:
+        values = realizations[metric]
+        try:
+            if any(value is None for value in values):
+                raise DomainError(f"{metric} is undefined in some realizations.")
+            records.append(asdict(rank_sensitivity(inputs, [float(value) for value in values], output_name=metric)))
+        except DomainError as error:
+            records.append({"output": metric, "unavailable": str(error)})
+    return records
 
 
 def simulate_uncertainty_route(payload: dict[str, Any]) -> dict[str, Any]:
@@ -1654,6 +1685,7 @@ def simulate_uncertainty_route(payload: dict[str, Any]) -> dict[str, Any]:
         },
         "statistics": [asdict(item) for item in result.statistics],
         "sensitivity": [asdict(item) for item in result.sensitivity],
+        "global_sensitivity": _rank_sensitivities(result.parameters, realizations),
         "convergence": asdict(result.convergence),
         "histograms": {
             metric: _histogram(realizations[metric], values["histogram_bins"])
@@ -2074,20 +2106,21 @@ def evaluate_timeline_route(payload: dict[str, Any]) -> dict[str, Any]:
     for index, item in enumerate(_items(payload, "burns", default=_TIMELINE_BURNS)):
         label = f"burns[{index}]"
         _reject_unknown(item, {"burn_id", *burn_fields}, label)
-        burn = {"burn_id": _text(item, "burn_id", default="")}
-        burn.update({key: _number(item, key) for key in burn_fields})
+        burn_id = _text(item, "burn_id", default="")
+        numbers = {key: _number(item, key) for key in burn_fields}
+        burn: dict[str, str | float] = {"burn_id": burn_id, **numbers}
         burn_inputs.append(burn)
-        streams = (("ox", burn["oxidizer_mass_flow_kg_s"]), ("fu", burn["fuel_mass_flow_kg_s"]))
-        flow = burn["oxidizer_mass_flow_kg_s"] + burn["fuel_mass_flow_kg_s"]
-        thrust = burn["thrust_n"]
+        streams = (("ox", numbers["oxidizer_mass_flow_kg_s"]), ("fu", numbers["fuel_mass_flow_kg_s"]))
+        flow = numbers["oxidizer_mass_flow_kg_s"] + numbers["fuel_mass_flow_kg_s"]
+        thrust = numbers["thrust_n"]
         artifact = TabulatedBurnArtifact(
             segments=(
                 TabulatedBurnSegment(
-                    0.0, burn["duration_s"], thrust, thrust, thrust, thrust,
+                    0.0, numbers["duration_s"], thrust, thrust, thrust, thrust,
                     flow, flow, streams, streams, "steady",
                 ),
             ),
-            source_id=f"{burn['burn_id']}-burn",
+            source_id=f"{burn_id}-burn",
             source_sha256="0" * 64,
             reference_ids=("NASA-20040000363",),
         )
@@ -2095,7 +2128,7 @@ def evaluate_timeline_route(payload: dict[str, Any]) -> dict[str, Any]:
             artifact,
             stream_bindings=(StreamStateBinding("ox", "m_ox"), StreamStateBinding("fu", "m_fu")),
         )
-        burns.append(ScheduledBurn(burn["burn_id"], bridge, burn["ignition_time_s"]))
+        burns.append(ScheduledBurn(burn_id, bridge, numbers["ignition_time_s"]))
     jettison_items = payload.get("jettisons", list(_TIMELINE_JETTISONS))
     if not isinstance(jettison_items, list) or len(jettison_items) > _MAX_LIST_ITEMS:
         raise InputError("Field jettisons must be a list.", field="jettisons")
@@ -2697,8 +2730,12 @@ def size_sass_mission_route(payload: dict[str, Any]) -> dict[str, Any]:
     document = study.to_dict()
     scores = {score.name: score for score in study.scores}
     rows = []
+    candidate_values: list[dict[str, float]] = []
     for item in study.candidates:
         metrics = dict(item.metrics)
+        candidate_values.append(
+            {name: metrics[name].value for name in _SASS_METRICS if name in metrics}
+        )
         score = scores.get(item.candidate.identifier)
         rows.append(
             {
@@ -2730,18 +2767,15 @@ def size_sass_mission_route(payload: dict[str, Any]) -> dict[str, Any]:
 
     def metric_column(name: str) -> list[float | None]:
         """Candidate values of one sized metric; null where a candidate is unsized."""
-        return [
-            row["metrics"][name]["value"] if name in row["metrics"] else None for row in rows
-        ]
+        return [values.get(name) for values in candidate_values]
 
-    budget = document["delta_v_budget"]["values"]
     result: dict[str, Any] = {
         "model": "cited preliminary spacecraft propulsion sizing and weighted trade",
         "inputs": {"study": study.input_data, "overrides": overrides},
         "summary": {
             "title": study.title,
-            "nominal_delta_v_m_s": budget["nominal_delta_v"]["value"],
-            "allocated_delta_v_m_s": budget["allocated_delta_v"]["value"],
+            "nominal_delta_v_m_s": study.budget.get("nominal_delta_v").value,
+            "allocated_delta_v_m_s": study.budget.get("allocated_delta_v").value,
             "candidate_count": len(rows),
             "eligible_count": sum(row["eligibility"] == "eligible" for row in rows),
             "study_hash": document["study_hash"],
@@ -2763,8 +2797,8 @@ def size_sass_mission_route(payload: dict[str, Any]) -> dict[str, Any]:
         },
         "reference_ids": sorted(_cited_source_ids(document)),
         "warnings": [
-            "Preliminary design screening only: no hardware readiness, experimental "
-            "validation or qualification evidence.",
+            ("Preliminary design screening only: no hardware readiness, experimental "
+            "validation or qualification evidence."),
             f"Catalogue extrapolation: {document['extrapolation_policy']}.",
         ],
     }

@@ -265,6 +265,27 @@ class VerificationEvidenceAttacks(unittest.TestCase):
             (root / "summary.json").write_text(json.dumps(report), encoding="utf-8")
             self.assertFalse(summarize(root, root)["complete_suite_passed"])
 
+    def test_changed_browser_modules_workflow_or_launcher_invalidate_prior_pass(self):
+        assets=('src/web.mjs','scripts/verify.cjs','.github/workflows/ci.yml','app.cmd')
+        for asset in assets:
+            with self.subTest(asset=asset),tempfile.TemporaryDirectory() as folder:
+                root=Path(folder)
+                (root/'README.md').write_text('fixture')
+                (root/'pyproject.toml').write_text('')
+                source=root/asset;source.parent.mkdir(parents=True,exist_ok=True)
+                source.write_text('original')
+                report={'source_sha256':verification_inputs(root),'source_unchanged_during_run':True,
+                        'collected_test_ids':['tests/test_model.py::Checks::test_physics'],
+                        'explicit_sidera_test_path':None,
+                        'results':[{'module':'tests/test_model.py','status':'passed'}]}
+                (root/'summary.json').write_text(json.dumps(report))
+                (root/'test_model.xml').write_text('<testsuites><testsuite>'
+                    '<testcase classname="tests.test_model.Checks" name="test_physics"/>'
+                    '</testsuite></testsuites>')
+                self.assertTrue(summarize(root,root)['complete_suite_passed'])
+                source.write_text('changed executable input')
+                with self.assertRaisesRegex(ValueError,'stale'):summarize(root,root)
+
     def test_missing_collected_test_cannot_disappear_from_report(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

@@ -365,6 +365,7 @@ def burn_result_from_dict(payload: dict[str, Any]) -> Any:
         if result.result_hash != burn_result_hash(result):
             raise InputError("Burn artifact result hash does not match its contents.", field="result_hash")
         # A recomputed hash is not evidence that the output follows its inputs.
+        expected: BurnResult | ProfiledBurnResult
         if isinstance(result, ProfiledBurnResult):
             from .profile_integration import simulate_profiled_burn
             expected = simulate_profiled_burn(result.definition, result.operating_point, result.schedule)

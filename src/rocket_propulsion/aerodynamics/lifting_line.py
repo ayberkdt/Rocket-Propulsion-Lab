@@ -42,6 +42,7 @@ from dataclasses import dataclass
 from math import acos, cos, isfinite, pi, sin, sqrt
 
 from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.validation import numeric_range_guard
 
 from ._subsonic_numerics import integrate, solve_dense
 
@@ -94,6 +95,7 @@ class Wing:
     breakpoints: tuple[float, ...] = ()
 
     @property
+    @numeric_range_guard("span")
     def aspect_ratio(self) -> float:
         """``AR = b^2 / S``."""
 

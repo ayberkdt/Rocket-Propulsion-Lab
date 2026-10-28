@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import json
 import math
 import threading
@@ -62,7 +63,7 @@ class RegistryTests(unittest.TestCase):
         indices = transient_routes._decimated_indices(1001, 400)
         self.assertEqual(len(indices), 400)
         self.assertEqual((indices[0], indices[-1]), (0, 1000))
-        self.assertTrue(all(a < b for a, b in zip(indices, indices[1:], strict=False)))
+        self.assertTrue(all(a < b for a, b in itertools.pairwise(indices)))
         self.assertEqual(indices, transient_routes._decimated_indices(1001, 400))
         self.assertEqual(transient_routes._decimated_indices(5, 400), [0, 1, 2, 3, 4])
 

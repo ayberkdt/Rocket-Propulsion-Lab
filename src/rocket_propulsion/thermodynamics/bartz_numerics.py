@@ -128,7 +128,7 @@ def _profile(inputs,precision):
     root=_power(pr,f(1,3),precision)
     rn,rd=_integer_root(pr.numerator,3),_integer_root(pr.denominator,3)
     exact_root=None if rn is None or rd is None else f(rn,rd)
-    records=[];cumulative=_ZERO
+    records:list[dict[str,tuple[Decimal,Decimal]]]=[];cumulative=_ZERO
     for index,station in enumerate(inputs.contour.stations):
         compression=1+(f(inputs.gamma)-1)*f(station.mach)**2/2
         sigma_base=(tw/tc*compression+1)/2

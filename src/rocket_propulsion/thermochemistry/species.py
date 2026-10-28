@@ -20,15 +20,24 @@ References
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
-from math import isfinite
 from pathlib import Path
+from typing import TypedDict
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.numerics import solve_bisect_monotonic
+from rocket_propulsion.core.validation import coerce_fields, numeric_range_guard, real, text
 
-from .nasa_polynomials import UNIVERSAL_GAS_CONSTANT_J_MOL_K, NasaPolynomialInterval
+from ._records import _caloric_identity, _owned_catalog, _owned_formula, _property_identity
+from .nasa_polynomials import (
+    UNIVERSAL_GAS_CONSTANT_J_MOL_K,
+    NasaIntervalRecord,
+    NasaPolynomialInterval,
+    _owned_intervals,
+    interval_from_record,
+)
 
 DATA_FILE = Path(__file__).parent / "data" / "nasa_glenn_2002.json"
 CEA_DATA_FILE = Path(__file__).parent / "data" / "nasa_cea_thermo.json"
@@ -77,6 +86,18 @@ class SpeciesProperties:
     enthalpy_j_kg: float
     entropy_j_kg_k: float
 
+    def __post_init__(self) -> None:
+        coerce_fields(self, 'Species properties')
+        if self.temperature_k <= 0 or self.molecular_mass_kg_mol <= 0:
+            raise DomainError('Species temperature and molar mass must be positive.')
+        object.__setattr__(self, 'species', self.species.strip())
+        _caloric_identity(self.cp_j_kg_k, self.cv_j_kg_k, self.gas_constant_j_kg_k, self.gamma)
+        mass = self.molecular_mass_kg_mol
+        _property_identity(self.gas_constant_j_kg_k * mass, UNIVERSAL_GAS_CONSTANT_J_MOL_K, 'R')
+        _property_identity(self.cp_j_kg_k * mass, self.cp_molar_j_mol_k, 'molar cp')
+        _property_identity(self.enthalpy_j_kg * mass, self.enthalpy_molar_j_mol, 'molar enthalpy')
+        _property_identity(self.entropy_j_kg_k * mass, self.entropy_molar_j_mol_k, 'molar entropy')
+
 
 @dataclass(frozen=True, slots=True)
 class Species:
@@ -113,6 +134,14 @@ class Species:
     source: str
     source_url: str
 
+    def __post_init__(self) -> None:
+        coerce_fields(self, 'Species')
+        if self.molecular_mass_kg_mol <= 0:
+            raise DomainError('Species molar mass must be positive.', field='molecular_mass_kg_mol')
+        object.__setattr__(self, 'key', self.key.strip())
+        object.__setattr__(self, 'formula', _owned_formula(self.formula))
+        object.__setattr__(self, 'intervals', _owned_intervals(self.intervals))
+
     @property
     def minimum_temperature_k(self) -> float:
         """Lower bound of the first polynomial interval, K."""
@@ -134,8 +163,7 @@ class Species:
             If it lies outside the species range
             (code ``property_temperature_out_of_range``).
         """
-        if not isfinite(temperature_k):
-            raise InputError("Temperature must be finite.", field="temperature_k")
+        temperature_k = real(temperature_k, 'temperature_k')
         for index, interval in enumerate(self.intervals):
             if interval.contains(
                 temperature_k, include_upper=index == len(self.intervals) - 1
@@ -153,6 +181,7 @@ class Species:
             },
         )
 
+    @numeric_range_guard('temperature_k')
     def properties(self, temperature_k: float) -> SpeciesProperties:
         """Evaluate all ideal-gas properties without extrapolation.
 
@@ -188,6 +217,7 @@ class Species:
                https://ntrs.nasa.gov/citations/20020085330
         """
 
+        temperature_k = real(temperature_k, 'temperature_k')
         interval = self._interval(temperature_k)
         cp_molar = interval.cp_molar_j_mol_k(temperature_k)
         enthalpy_molar = interval.enthalpy_molar_j_mol(temperature_k)
@@ -287,22 +317,26 @@ class Species:
         return result.value
 
 
-def _parse_species(record: dict[str, object], source: dict[str, str]) -> Species:
+class _SpeciesRecord(TypedDict):
+    """One gas-species record of the packaged JSON data files."""
+
+    key: str
+    name: str
+    formula: dict[str, float]
+    molecular_mass_g_mol: float
+    heat_of_formation_j_mol_298: float
+    intervals: list[NasaIntervalRecord]
+
+
+def _parse_species(record: _SpeciesRecord, source: dict[str, str]) -> Species:
     """Build a :class:`Species` from one JSON record; molar mass is given in g/mol."""
-    intervals = tuple(
-        NasaPolynomialInterval(
-            minimum_temperature_k=float(interval["minimum_temperature_k"]),
-            maximum_temperature_k=float(interval["maximum_temperature_k"]),
-            coefficients=tuple(float(value) for value in interval["coefficients"]),
-        )
-        for interval in record["intervals"]
-    )
+    intervals = tuple(interval_from_record(interval) for interval in record["intervals"])
     return Species(
-        key=str(record["key"]),
-        name=str(record["name"]),
-        formula=tuple((str(key), float(value)) for key, value in record["formula"].items()),
-        molecular_mass_kg_mol=float(record["molecular_mass_g_mol"]) / 1000.0,
-        heat_of_formation_j_mol_298=float(record["heat_of_formation_j_mol_298"]),
+        key=record["key"],
+        name=record["name"],
+        formula=tuple(record["formula"].items()),
+        molecular_mass_kg_mol=real(record["molecular_mass_g_mol"], 'molecular_mass_g_mol') / 1000.0,
+        heat_of_formation_j_mol_298=record["heat_of_formation_j_mol_298"],
         intervals=intervals,
         source=source["title"],
         source_url=source["url"],
@@ -310,13 +344,14 @@ def _parse_species(record: dict[str, object], source: dict[str, str]) -> Species
 
 
 @lru_cache(maxsize=1)
-def species_catalog() -> dict[str, Species]:
+def _species_catalog() -> Mapping[str, Species]:
     """Load and validate the bundled, source-labelled species catalog once [1]_, [2]_.
 
     Returns
     -------
-    dict of str to Species
-        Species keyed by upper-case key; the result is cached.
+    mapping of str to Species
+        Private immutable table keyed by canonical upper-case lookup keys;
+        source identifiers retain their printed spelling.
 
     Raises
     ------
@@ -338,11 +373,28 @@ def species_catalog() -> dict[str, Species]:
         document = json.loads(path.read_text(encoding="utf-8"))
         source = document["source"]
         for record in document["species"]:
-            result[record["key"].upper()] = _parse_species(record, source)
+            parsed = _parse_species(record, source)
+            result[parsed.key.upper()] = parsed
         count += len(document["species"])
     if len(result) != count:
         raise RuntimeError("Duplicate species keys in thermochemistry data files.")
-    return result
+    return _owned_catalog(result, Species, 'species')
+
+
+def species_catalog() -> dict[str, Species]:
+    """Return an independent mapping of the bundled immutable species [1]_.
+
+    The validated internal catalogue is cached; editing this dictionary
+    cannot affect lookup or any later caller. Nested formulae and intervals
+    are owned immutable tuples.
+
+    References
+    ----------
+    .. [1] NASA/TP-2002-211556. NASA Glenn, "NASA Glenn Coefficients for
+           Calculating Thermodynamic Properties of Individual Species".
+           https://ntrs.nasa.gov/citations/20020085330
+    """
+    return dict(_species_catalog())
 
 
 def get_species(key: str) -> Species:
@@ -365,15 +417,15 @@ def get_species(key: str) -> Species:
         are listed in the error details.
     """
 
-    normalized = key.strip().upper()
+    normalized = text(key, 'species').strip().upper()
     try:
-        return species_catalog()[normalized]
+        return _species_catalog()[normalized]
     except KeyError as error:
         raise InputError(
             f"Unknown species: {key!r}.",
             code="unknown_species",
             field="species",
-            details={"supported": sorted(species_catalog())},
+            details={"supported": sorted(_species_catalog())},
         ) from error
 
 
@@ -419,15 +471,22 @@ class CondensedReactant:
     source: str
     source_url: str
 
+    def __post_init__(self) -> None:
+        coerce_fields(self, 'Condensed reactant')
+        if self.molecular_mass_kg_mol <= 0 or self.temperature_k <= 0:
+            raise DomainError('Condensed-reactant molar mass and assigned temperature must be positive.')
+        object.__setattr__(self, 'key', self.key.strip())
+        object.__setattr__(self, 'formula', _owned_formula(self.formula))
+
 
 @lru_cache(maxsize=1)
-def condensed_reactant_catalog() -> dict[str, CondensedReactant]:
+def _condensed_reactant_catalog() -> Mapping[str, CondensedReactant]:
     """Load the bundled assigned-enthalpy reactants once [1]_.
 
     Returns
     -------
-    dict of str to CondensedReactant
-        Reactants keyed by upper-case CEA name; the result is cached.
+    mapping of str to CondensedReactant
+        Private immutable table keyed by upper-case CEA name.
 
     References
     ----------
@@ -437,19 +496,36 @@ def condensed_reactant_catalog() -> dict[str, CondensedReactant]:
 
     document = json.loads(CEA_DATA_FILE.read_text(encoding="utf-8"))
     source = document["source"]
-    return {
-        record["key"].upper(): CondensedReactant(
-            key=str(record["key"]),
-            name=str(record["name"]),
-            formula=tuple((str(key), float(value)) for key, value in record["formula"].items()),
-            molecular_mass_kg_mol=float(record["molecular_mass_g_mol"]) / 1000.0,
-            enthalpy_j_mol=float(record["assigned_enthalpy_j_mol"]),
-            temperature_k=float(record["assigned_temperature_k"]),
-            source=str(source["title"]),
-            source_url=str(source["url"]),
+    result: dict[str, CondensedReactant] = {}
+    for record in document['reactants']:
+        parsed = CondensedReactant(
+            key=record["key"],
+            name=record["name"],
+            formula=tuple(record["formula"].items()),
+            molecular_mass_kg_mol=real(record["molecular_mass_g_mol"], 'molecular_mass_g_mol') / 1000.0,
+            enthalpy_j_mol=record["assigned_enthalpy_j_mol"],
+            temperature_k=record["assigned_temperature_k"],
+            source=source["title"],
+            source_url=source["url"],
         )
-        for record in document["reactants"]
-    }
+        key = parsed.key.upper()
+        if key in result:
+            raise RuntimeError('Duplicate condensed-reactant keys.')
+        result[key] = parsed
+    return _owned_catalog(result, CondensedReactant, 'reactants')
+
+
+def condensed_reactant_catalog() -> dict[str, CondensedReactant]:
+    """Return an independent mapping of assigned-enthalpy reactants [1]_.
+
+    Editing the returned dictionary cannot change the cached catalogue.
+
+    References
+    ----------
+    .. [1] NASA-CEA-THERMO. NASA Glenn Research Center, CEA thermodynamic
+           database ``data/thermo.inp``. https://github.com/nasa/cea
+    """
+    return dict(_condensed_reactant_catalog())
 
 
 def get_reactant(key: str) -> Species | CondensedReactant:
@@ -474,8 +550,8 @@ def get_reactant(key: str) -> Species | CondensedReactant:
         (code ``unknown_species``).
     """
 
-    normalized = key.strip().upper()
-    reactant = condensed_reactant_catalog().get(normalized)
+    normalized = text(key, 'species').strip().upper()
+    reactant = _condensed_reactant_catalog().get(normalized)
     if reactant is not None:
         return reactant
     return get_species(key)

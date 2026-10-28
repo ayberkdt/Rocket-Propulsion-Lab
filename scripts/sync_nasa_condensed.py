@@ -60,7 +60,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from sync_nasa_thermo import (  # noqa: E402  (sibling script, not a package)
+import itertools
+
+from sync_nasa_thermo import (
     COMMIT,
     EXPECTED_SHA256,
     REPOSITORY,
@@ -213,7 +215,7 @@ def build_document(text: str, sha256: str) -> dict:
     transitions = []
     for group, records in sorted(groups.items()):
         records.sort(key=lambda item: item["intervals"][0]["minimum_temperature_k"])
-        for lower, upper in zip(records, records[1:], strict=False):
+        for lower, upper in itertools.pairwise(records):
             t = lower["intervals"][-1]["maximum_temperature_k"]
             if t != upper["intervals"][0]["minimum_temperature_k"]:
                 raise SystemExit(f"{group}: phases {lower['name']} and {upper['name']} are not adjacent")

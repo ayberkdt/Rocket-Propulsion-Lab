@@ -253,11 +253,11 @@ def _bernstein_enclosure(interval, precision=96):
                 p = following
             dv, mom = beta * total, beta * moment
             if rounding == ROUND_CEILING and r:
-                denominator = Context(prec=precision, rounding=ROUND_FLOOR).subtract(Decimal(1), u2)
+                tail_denominator = Context(prec=precision, rounding=ROUND_FLOOR).subtract(Decimal(1), u2)
                 tail_power = Decimal(1)
                 for _ in range(terms + 1):
                     tail_power *= u2
-                tail = beta * initial_mean * tail_power / denominator
+                tail = beta * initial_mean * tail_power / tail_denominator
                 dv += tail
                 mom += (t0 + dt) * tail
             results.append((Fraction(dv), Fraction(mom)))

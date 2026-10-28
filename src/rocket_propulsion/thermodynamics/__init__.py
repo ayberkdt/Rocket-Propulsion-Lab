@@ -40,7 +40,6 @@ from .wall_conduction import (
 )
 
 __all__ = [
-    "real_fluids",
     "BartzContour",
     "BartzContourStation",
     "BartzHeatTransferResult",
@@ -70,5 +69,6 @@ __all__ = [
     "coolant_catalog",
     "get_coolant",
     "get_wall_material",
+    "real_fluids",
     "wall_material_catalog",
 ]

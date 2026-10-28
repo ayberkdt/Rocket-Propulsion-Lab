@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from math import isfinite
 
 from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.validation import numeric_range_guard
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +43,7 @@ class NormalShockResult:
     stagnation_pressure_ratio: float
 
 
+@numeric_range_guard("upstream_mach")
 def calculate_normal_shock(upstream_mach: float, gamma: float = 1.4) -> NormalShockResult:
     """Calculate Rankine-Hugoniot relations across a normal shock.
 

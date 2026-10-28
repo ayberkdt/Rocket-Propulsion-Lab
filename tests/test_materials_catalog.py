@@ -135,8 +135,8 @@ class CatalogErrors(unittest.TestCase):
             PropertyCitation("NIST-WEBBOOK-FLUID", "")
         for changes in ({"value": -1.0}, {"value": 0.0}, {"value": float("nan")},
                         {"temperature_k": 0.0}, {"upper_value": 0.5}, {"value": True}):
-            fields = dict(name="density", value=1.0, unit="kg/m^3", citation=good,
-                          source_value="1 kg/m3", condition="test")
+            fields = {"name": "density", "value": 1.0, "unit": "kg/m^3", "citation": good,
+                          "source_value": "1 kg/m3", "condition": "test"}
             fields.update(changes)
             with self.subTest(changes=changes), self.assertRaises(DomainError):
                 CitedProperty(**fields)
@@ -191,7 +191,7 @@ class WallConduction(unittest.TestCase):
         self.assertLess(user.hot_wall_temperature_k, catalog.hot_wall_temperature_k)
 
     def test_ambiguous_or_incomplete_coolant_side_is_rejected(self):
-        base = dict(wall_material="grcop-84", wall_thickness_m=1e-3, heat_flux_w_m2=1e7)
+        base = {"wall_material": "grcop-84", "wall_thickness_m": 1e-3, "heat_flux_w_m2": 1e7}
         for extra in ({}, {"coolant_side_wall_temperature_k": 300.0,
                            "coolant_side_heat_transfer_coefficient_w_m2_k": 1e4},
                       {"coolant_side_heat_transfer_coefficient_w_m2_k": 1e4},

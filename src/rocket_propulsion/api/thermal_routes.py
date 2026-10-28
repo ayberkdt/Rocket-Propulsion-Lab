@@ -19,7 +19,7 @@ from dataclasses import asdict
 from math import pi, sqrt
 from typing import Any
 
-from rocket_propulsion.api.aero_routes import _clean, _integer, _linspace, _number, _text
+from rocket_propulsion.api.aero_routes import _clean, _integer, _linspace, _number, _positive, _text
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.metadata import ModelMetadata
 from rocket_propulsion.geometry import generate_nozzle_contour
@@ -30,14 +30,17 @@ from rocket_propulsion.heat_transfer.regen_chamber import (
     hot_gas_from_propellant,
     solve_regen_chamber,
 )
+from rocket_propulsion.thermochemistry import combustion_efficiency as efficiency
 from rocket_propulsion.thermochemistry import (
     get_propellant_pair,
     reactants_for_mass_ratio,
     solve_rocket_performance,
 )
-from rocket_propulsion.thermochemistry import combustion_efficiency as efficiency
 from rocket_propulsion.thermochemistry.finite_area_combustor import solve_finite_area_combustor
-from rocket_propulsion.thermochemistry.nozzle_kinetics import HyperbolicNozzle, solve_nozzle_kinetics
+from rocket_propulsion.thermochemistry.nozzle_kinetics import (
+    HyperbolicNozzle,
+    solve_nozzle_kinetics,
+)
 from rocket_propulsion.thermodynamics.real_fluids.transport import transport_tp
 
 
@@ -121,23 +124,35 @@ def heat_convection_route(payload: dict[str, Any]) -> dict[str, Any]:
     """
 
     fluid = _text(payload, "fluid", "methane")
-    diameter = _number(payload, "hydraulic_diameter_m", 2.0e-3)
-    centre = _number(payload, "mass_flux_kg_m2_s", 2.0e4)
+    diameter = _positive(payload, "hydraulic_diameter_m", 2.0e-3)
+    centre = _positive(payload, "mass_flux_kg_m2_s", 2.0e4)
     properties = transport_tp(fluid, _number(payload, "temperature_k", 200.0), _number(payload, "pressure_pa", 1.5e7))
     sweep = []
     for flux in _linspace(0.25 * centre, 2.0 * centre, 15):
         reynolds = flux * diameter / properties.viscosity_pa_s
         row: dict[str, Any] = {"mass_flux_kg_m2_s": flux, "reynolds": reynolds}
         scale = properties.thermal_conductivity_w_m_k / diameter
-        for key, call in (("gnielinski", lambda: convection.gnielinski_nusselt(reynolds, properties.prandtl_number, extrapolate=True)),
-                          ("dittus_boelter", lambda: convection.power_law_nusselt(reynolds, properties.prandtl_number, "dittus_boelter", extrapolate=True)),
-                          ("colburn", lambda: convection.power_law_nusselt(reynolds, properties.prandtl_number, "colburn", extrapolate=True))):
+        for key, call in (("gnielinski", lambda reynolds=reynolds: convection.gnielinski_nusselt(reynolds, properties.prandtl_number, extrapolate=True)),
+                          ("dittus_boelter", lambda reynolds=reynolds: convection.power_law_nusselt(reynolds, properties.prandtl_number, "dittus_boelter", extrapolate=True)),
+                          ("colburn", lambda reynolds=reynolds: convection.power_law_nusselt(reynolds, properties.prandtl_number, "colburn", extrapolate=True))):
             try:
                 row[key] = call().value * scale
             except (DomainError, InputError):
                 row[key] = None
         sweep.append(row)
     return _clean({"transport": properties, "sweep": sweep})
+
+
+def _flag(payload: dict[str, Any], key: str) -> bool:
+    """Read an optional boolean: JSON true/false or the text true/false; anything else is refused."""
+    raw = payload.get(key, False)
+    if raw in (None, ""):
+        return False
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, str) and raw.strip().lower() in {"true", "false"}:
+        return raw.strip().lower() == "true"
+    raise InputError(f"Field {key} must be true or false.", field=key)
 
 
 def heat_radiation_route(payload: dict[str, Any]) -> dict[str, Any]:
@@ -193,8 +208,12 @@ def regen_chamber_route(payload: dict[str, Any]) -> dict[str, Any]:
         chamber_pressure_pa, throat_area_m2, area_ratio : float, default 7 MPa, 0.01, 10
         coolant : str, default "methane"; coolant_inlet_temperature_k, coolant_inlet_pressure_pa
         coolant_mass_flow_kg_s : float, optional (default: the fuel flow)
-        channel_count, channel_width_m, channel_height_m, hot_wall_thickness_m
+        channel_count, channel_width_m, channel_height_m, hot_wall_thickness_m : default
+            100, 1.5 mm, 5 mm, 1 mm; channel_helix_angle_deg : float, default 0
         wall_material : str, default "grcop-84"
+        wall_model : {"fin", "2d"}, default "fin"
+        closeout_thickness_m : float, default 0 (``"2d"`` only)
+        axial_conduction : bool, default false
 
     Returns
     -------
@@ -209,7 +228,7 @@ def regen_chamber_route(payload: dict[str, Any]) -> dict[str, Any]:
 
     pair = get_propellant_pair(_text(payload, "propellant_pair", "LOX_CH4"))
     pressure = _number(payload, "chamber_pressure_pa", 7.0e6)
-    throat_area = _number(payload, "throat_area_m2", 0.01)
+    throat_area = _positive(payload, "throat_area_m2", 0.01)
     area_ratio = _number(payload, "area_ratio", 10.0)
     gas = hot_gas_from_propellant(propellant_pair=pair.key, chamber_pressure_pa=pressure,
                                   throat_radius_of_curvature_m=sqrt(throat_area / pi))
@@ -223,14 +242,18 @@ def regen_chamber_route(payload: dict[str, Any]) -> dict[str, Any]:
         contour=contour, gas=gas,
         channels=CoolingChannels(count=_integer(payload, "channel_count", 100, 4, 1000),
                                  width_m=_number(payload, "channel_width_m", 1.5e-3),
-                                 height_m=_number(payload, "channel_height_m", 3.0e-3),
+                                 height_m=_number(payload, "channel_height_m", 5.0e-3),
                                  hot_wall_thickness_m=_number(payload, "hot_wall_thickness_m", 1.0e-3),
-                                 roughness_m=_number(payload, "roughness_m", 1.0e-6)),
+                                 roughness_m=_number(payload, "roughness_m", 1.0e-6),
+                                 helix_angle_deg=_number(payload, "channel_helix_angle_deg", 0.0)),
         coolant=Coolant(fluid=_text(payload, "coolant", "methane"),
                         inlet_temperature_k=_number(payload, "coolant_inlet_temperature_k", 120.0),
                         inlet_pressure_pa=_number(payload, "coolant_inlet_pressure_pa", 1.5e7),
                         mass_flow_kg_s=flow),
-        wall_material=_text(payload, "wall_material", "grcop-84"))
+        wall_material=_text(payload, "wall_material", "grcop-84"),
+        wall_model=_text(payload, "wall_model", "fin"),
+        closeout_thickness_m=_number(payload, "closeout_thickness_m", 0.0),
+        axial_conduction=_flag(payload, "axial_conduction"))
     return _clean({"gas": gas, "fuel_flow_kg_s": fuel_flow, "coolant_flow_kg_s": flow, **asdict(result)})
 
 
@@ -311,6 +334,15 @@ def combustion_losses_route(payload: dict[str, Any]) -> dict[str, Any]:
     ratio = _number(payload, "oxidizer_fuel_ratio", pair.reference_oxidizer_fuel_ratio)
     pressure = _number(payload, "chamber_pressure_pa", 6.894757e6)
     area_ratio = _number(payload, "area_ratio", 40.0)
+    # The loss-chain inputs are checked before the seconds-long chemistry runs.
+    divergence = _number(payload, "divergence_efficiency", 0.985)
+    decrement = _number(payload, "boundary_layer_decrement_s", 3.0)
+    cstar_efficiency = _number(payload, "characteristic_velocity_efficiency", 0.98)
+    for key, value in (("divergence_efficiency", divergence), ("characteristic_velocity_efficiency", cstar_efficiency)):
+        if not 0.0 < value <= 1.0:
+            raise InputError(f"Field {key} must be in (0, 1].", field=key)
+    if decrement < 0.0:
+        raise InputError("Field boundary_layer_decrement_s must be non-negative.", field="boundary_layer_decrement_s")
     reactants = reactants_for_mass_ratio(pair, ratio)
     limits = efficiency.frozen_equilibrium_limits(propellant_pair=pair.key, oxidizer_fuel_ratio=ratio,
                                                   chamber_pressure_pa=pressure, area_ratio=area_ratio)
@@ -336,9 +368,8 @@ def combustion_losses_route(payload: dict[str, Any]) -> dict[str, Any]:
                     "warnings": solution.warnings}
     chain = efficiency.jannaf_isp_loss_chain(
         ode_specific_impulse_s=limits.equilibrium_specific_impulse_s, kinetic_efficiency=kinetic_efficiency,
-        divergence_efficiency=_number(payload, "divergence_efficiency", 0.985),
-        boundary_layer_decrement_s=_number(payload, "boundary_layer_decrement_s", 3.0),
-        characteristic_velocity_efficiency=_number(payload, "characteristic_velocity_efficiency", 0.98))
+        divergence_efficiency=divergence, boundary_layer_decrement_s=decrement,
+        characteristic_velocity_efficiency=cstar_efficiency)
     ideal = solve_rocket_performance(reactants=reactants, chamber_pressure_pa=pressure, area_ratios=(area_ratio,))
     return _clean({
         "limits": limits, "kinetics": kinetics,

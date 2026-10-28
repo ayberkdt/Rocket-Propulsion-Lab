@@ -52,6 +52,7 @@ References
 
 from __future__ import annotations
 
+import itertools
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from math import ceil, isfinite, sqrt
@@ -267,16 +268,16 @@ class AeroDatabase:
             if not isinstance(points, tuple) or len(points) < 2:
                 raise InputError(f"Axis {name!r} needs at least two breakpoints.", field="breakpoints")
             values = [_finite(v, "breakpoints") for v in points]
-            if any(b <= a for a, b in zip(values, values[1:], strict=False)):
+            if any(b <= a for a, b in itertools.pairwise(values)):
                 raise InputError(f"Axis {name!r} breakpoints must increase.", field="breakpoints")
             size *= len(points)
         if not self.coefficients:
             raise InputError("At least one coefficient table is required.", field="coefficients")
         for table_name, table in (("coefficients", self.coefficients), ("gridded_uncertainty", self.gridded_uncertainty)):
-            for name, values in table.items():
-                if not isinstance(values, tuple) or len(values) != size:
+            for name, table_values in table.items():
+                if not isinstance(table_values, tuple) or len(table_values) != size:
                     raise InputError(f"{table_name}[{name!r}] needs {size} values.", field=table_name)
-                for value in values:
+                for value in table_values:
                     number = _finite(value, table_name)
                     if table_name == "gridded_uncertainty" and number < 0.0:
                         raise InputError("Uncertainty bounds must be non-negative.", field=table_name)
@@ -288,8 +289,8 @@ class AeroDatabase:
                 raise InputError(f"Coefficient {name!r} has two uncertainty models.", field=name)
             if not isinstance(ranged, RangeUncertainty) or ranged.axis not in self.axes:
                 raise InputError("Range uncertainty must name a database axis.", field=name)
-        for value in (self.reference_area_m2, self.reference_length_m):
-            if value is not None and (not isfinite(value) or value <= 0.0):
+        for reference in (self.reference_area_m2, self.reference_length_m):
+            if reference is not None and (not isfinite(reference) or reference <= 0.0):
                 raise InputError("Reference quantities must be positive.", field="reference_area_m2")
 
     def _weights(self, point: Mapping[str, float]) -> list[tuple[int, float]]:
@@ -379,7 +380,7 @@ class AeroDatabase:
         }
         for name, ranged in self.range_uncertainty.items():
             uncertainty[name] = ranged.bound_at(point[ranged.axis])
-        warnings = ()
+        warnings: tuple[WarningMessage, ...] = ()
         if self.gridded_uncertainty and len(corners) > 1:
             warnings = (
                 WarningMessage(

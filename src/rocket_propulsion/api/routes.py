@@ -18,7 +18,7 @@ from decimal import Decimal, InvalidOperation
 from fractions import Fraction
 from math import isfinite, log
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from rocket_propulsion.compressible import (
     calculate_fanno,
@@ -83,14 +83,15 @@ from rocket_propulsion.studies import (
     workspace_from_json,
     workspace_to_json,
 )
+from rocket_propulsion.studies.global_sensitivity import rank_sensitivity, sobol_indices
 from rocket_propulsion.thermochemistry import (
     PROPELLANT_PAIRS,
-    cea_library_info,
     CeaEquilibriumProvider,
     CeaSubprocessAdapter,
     EquilibriumProblem,
     LocalEquilibriumProvider,
     Mixture,
+    cea_library_info,
     generate_oxidizer_fuel_sweep,
     get_species,
     species_catalog,
@@ -104,9 +105,13 @@ from rocket_propulsion.thermodynamics import (
     complete_ideal_gas_state,
 )
 
-from .capabilities import SideraCapabilityProbe
 from .aero_routes import AERO_ROUTE_METADATA, AERO_ROUTES
+from .capabilities import SideraCapabilityProbe
 from .chemistry_routes import CHEMISTRY_ROUTE_METADATA, CHEMISTRY_ROUTES
+from .combustion_dynamics_routes import (
+    COMBUSTION_DYNAMICS_ROUTE_METADATA,
+    COMBUSTION_DYNAMICS_ROUTES,
+)
 from .thermal_routes import THERMAL_ROUTE_METADATA, THERMAL_ROUTES
 
 
@@ -696,6 +701,19 @@ def calculate_nozzle_route(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+class _OffDesignInputs(TypedDict):
+    """Validated keyword arguments of :func:`calculate_off_design_nozzle`."""
+
+    chamber_pressure_pa: float
+    chamber_temperature_k: float
+    throat_area_m2: float
+    area_ratio: float
+    ambient_pressure_pa: float
+    gamma: float
+    gas_constant_j_kg_k: float
+    station_count: int
+
+
 def calculate_off_design_nozzle_route(payload: dict[str, Any]) -> dict[str, Any]:
     """Solve the back-pressure-driven nozzle regime and optionally an altitude sweep.
 
@@ -758,7 +776,7 @@ def calculate_off_design_nozzle_route(payload: dict[str, Any]) -> dict[str, Any]
            NASA-TM-X-74335, https://ntrs.nasa.gov/citations/19770009539
     """
 
-    inputs = {
+    inputs: _OffDesignInputs = {
         "chamber_pressure_pa": _number(payload, "chamber_pressure_pa"),
         "chamber_temperature_k": _number(payload, "chamber_temperature_k"),
         "throat_area_m2": _number(payload, "throat_area_m2"),
@@ -1287,6 +1305,21 @@ def simulate_burn_route(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+class _ConstantPointCommon(TypedDict):
+    """Validated keyword arguments shared by both constant-provider families."""
+
+    delivered_thrust_n: float
+    system_specific_impulse_s: float
+    ideal_thrust_n: float | None
+    commanded_throttle: float
+    realized_throttle: float
+    active_engine_count: int
+    chamber_pressure_pa: float
+    ambient_pressure_pa: float
+    name: str
+    source: str
+
+
 def calculate_engine_operating_point_route(payload: dict[str, Any]) -> dict[str, Any]:
     """Resolve a constant-performance shortcut into an explicit operating point.
 
@@ -1340,7 +1373,7 @@ def calculate_engine_operating_point_route(payload: dict[str, Any]) -> dict[str,
     """
 
     family = str(payload.get("family", "bipropellant")).strip().lower()
-    common = {
+    common: _ConstantPointCommon = {
         "delivered_thrust_n": _number(payload, "delivered_thrust_n"),
         "system_specific_impulse_s": _number(payload, "system_specific_impulse_s"),
         "ideal_thrust_n": _optional_number(payload, "ideal_thrust_n"),
@@ -1596,10 +1629,18 @@ def calculate_loss_budget_route(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+class _ContourCommon(TypedDict):
+    """Validated keyword arguments shared by the thermal-route contour builders."""
+
+    throat_area_m2: float
+    area_ratio: float
+    gamma: float
+
+
 def _thermal_contour(payload: dict[str, Any]) -> NozzleContour:
     """Build the nozzle contour for the thermal route (Rao by default)."""
     model = str(payload.get("contour", "rao")).strip().lower()
-    common = {
+    common: _ContourCommon = {
         "throat_area_m2": _number(payload, "throat_area_m2"),
         "area_ratio": _number(payload, "area_ratio"),
         "gamma": _number(payload, "gamma", default=1.22),
@@ -2010,6 +2051,10 @@ def _study_request_integer(payload, key, default):
         raise InputError(f'{key} must be an integer.', field=key) from error
 
 
+#: Largest Sobol base sample the HTTP route accepts (library choice: a few seconds).
+_MAXIMUM_ROUTE_SOBOL_BASE = 8192
+
+
 def _uncertainty_delta_v(sample):
     """Return ``g_n Isp ln(MR)`` for one uncertainty sample, rounded once.
 
@@ -2077,8 +2122,12 @@ def calculate_uncertainty_route(payload: dict[str, Any]) -> dict[str, Any]:
     -----
     Independent uniform marginals sampled by Latin hypercube [1]_ through
     ``dv = g_n Isp ln(MR)`` [2]_; Pearson coefficients [3]_ are linear
-    screening only. Summaries are empirical, without qualified confidence
-    coverage.
+    screening only. ``global_sensitivity`` adds rank measures (Spearman, PRCC,
+    SRRC and rank-regression R^2) of the same samples [4]_ and first-order and
+    total Sobol indices with 95 % bootstrap intervals from a separate
+    ``N (k + 2)`` Saltelli design, ``N = sobol_base_samples`` (default 1024,
+    at most 8192) [5]_. Summaries are empirical, without qualified
+    confidence coverage.
 
     References
     ----------
@@ -2090,6 +2139,9 @@ def calculate_uncertainty_route(payload: dict[str, Any]) -> dict[str, Any]:
            https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/
     .. [3] NIST-PEARSON. NIST Dataplot, centered-product correlation definition,
            https://www.itl.nist.gov/div898/software/dataplot/refman2/auxillar/correlat.htm
+    .. [4] SAND2001-0417. Helton and Davis, Sect. 6, https://doi.org/10.2172/806696
+    .. [5] SALTELLI-2010-CPC. Saltelli et al., Computer Physics Communications
+           181(2), 259-270, 2010, doi:10.1016/j.cpc.2009.09.018
     """
 
     raw_parameters = payload.get("parameters")
@@ -2131,14 +2183,30 @@ def calculate_uncertainty_route(payload: dict[str, Any]) -> dict[str, Any]:
             field="parameters",
         )
     _validate_uncertainty_physical_ranges(parameters)
+    seed = _study_request_integer(payload, "seed", 42)
+    sobol_base = _study_request_integer(payload, "sobol_base_samples", 1024)
+    if not 8 <= sobol_base <= _MAXIMUM_ROUTE_SOBOL_BASE:
+        raise InputError(f"sobol_base_samples must be in [8, {_MAXIMUM_ROUTE_SOBOL_BASE}].",
+                         field="sobol_base_samples")
     result = propagate_uncertainty(
         parameters,
         evaluator=_uncertainty_delta_v,
         sample_count=_study_request_integer(payload, "sample_count", 200),
-        seed=_study_request_integer(payload, "seed", 42),
+        seed=seed,
         method=payload.get("method", "latin-hypercube"),
     )
-    return asdict(result)
+    document = asdict(result)
+    names = [parameter.name for parameter in parameters]
+    rank = None
+    if len(result.samples) >= len(names) + 3:
+        rank = asdict(rank_sensitivity({name: [point.inputs[name] for point in result.samples] for name in names},
+                                       [point.output for point in result.samples], output_name="delta_v_m_s"))
+    document["global_sensitivity"] = {
+        "rank": rank,
+        "sobol": asdict(sobol_indices(_uncertainty_delta_v, parameters, base_samples=sobol_base, seed=seed,
+                                      bootstrap_resamples=200)),
+    }
+    return document
 
 
 def validate_workspace_route(payload: dict[str, Any]) -> dict[str, Any]:
@@ -3179,6 +3247,8 @@ ROUTES.update(AERO_ROUTES)
 ROUTE_METADATA.update(AERO_ROUTE_METADATA)
 ROUTES.update(THERMAL_ROUTES)
 ROUTE_METADATA.update(THERMAL_ROUTE_METADATA)
+ROUTES.update(COMBUSTION_DYNAMICS_ROUTES)
+ROUTE_METADATA.update(COMBUSTION_DYNAMICS_ROUTE_METADATA)
 
 
 def dispatch_calculation(path: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -3212,7 +3282,7 @@ def dispatch_calculation(path: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 # --- Transient-core and SASS routes (defined in transient_routes.py) ---------
-from .transient_routes import TRANSIENT_ROUTE_METADATA, TRANSIENT_ROUTES  # noqa: E402
+from .transient_routes import TRANSIENT_ROUTE_METADATA, TRANSIENT_ROUTES
 
 ROUTES.update(TRANSIENT_ROUTES)
 ROUTE_METADATA.update(TRANSIENT_ROUTE_METADATA)

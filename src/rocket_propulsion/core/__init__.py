@@ -8,7 +8,7 @@ from .errors import (
     RocketPropulsionError,
 )
 from .metadata import ModelMetadata, ValidityRange, WarningMessage
-from .numerics import RootResult, bisect_monotonic, solve_bisect_monotonic
+from .numerics import RootEvaluation, RootResult, bisect_monotonic, solve_bisect_monotonic
 from .units import UNIT_REGISTRY, UnitDefinition, from_si, get_unit, to_si
 
 __all__ = [
@@ -19,6 +19,7 @@ __all__ = [
     "InputError",
     "ModelMetadata",
     "RocketPropulsionError",
+    "RootEvaluation",
     "RootResult",
     "UnitDefinition",
     "ValidityRange",

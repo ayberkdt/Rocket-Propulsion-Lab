@@ -26,11 +26,11 @@ from dataclasses import dataclass
 from fractions import Fraction
 from itertools import product
 from math import isfinite
+from typing import cast
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import (
     name_value_pairs,
-    read_json_document,
     real,
     real_mapping,
     real_tuple,
@@ -39,7 +39,7 @@ from rocket_propulsion.core.validation import (
     text,
 )
 
-from .exchange_documents import _surface_document
+from .exchange_documents import _read_document, _surface_document
 from .interpolation import _MULTILINEAR_POLICY, _multilinear_terms
 from .numeric_outputs import _finite_rational, _fraction
 from .performance_surface import (
@@ -423,11 +423,12 @@ class RectilinearStreamPerformanceSurface:
             points_payload = payload["points"]
             if not isinstance(axes_payload, list) or not isinstance(points_payload, list):
                 raise TypeError
+            # _surface_document has checked the JSON types of these members.
             surface = cls(
-                schema=payload["schema"],
-                source_id=payload["source_id"],
-                source_sha256=payload["source_sha256"],
-                reference_ids=payload["reference_ids"],
+                schema=cast(str, payload["schema"]),
+                source_id=cast(str, payload["source_id"]),
+                source_sha256=cast(str, payload["source_sha256"]),
+                reference_ids=tuple(cast(list[str], payload["reference_ids"])),
                 axes=tuple(
                     PerformanceAxis(
                         name=item["name"],
@@ -478,7 +479,7 @@ class RectilinearStreamPerformanceSurface:
                Format". https://www.rfc-editor.org/rfc/rfc8259
         """
 
-        return read_json_document(text, "Stream-performance artifact", cls.from_dict)  # type: ignore[return-value]
+        return _read_document(text, "Stream-performance artifact", cls.from_dict)
 
     def validity_surfaces(self) -> tuple[PerformanceValiditySurface, ...]:
         """Return lower and upper validity event surfaces for every axis.
@@ -628,7 +629,9 @@ class RectilinearStreamPerformanceSurface:
         stream_gradients = {name: [Fraction(0)] * len(self.axes) for name in self.stream_ids}
         for corner, weight, derivative_weights in _multilinear_terms(brackets):
             coordinate = tuple(
-                axis.values[brackets[index][corner[index]]] for index, axis in enumerate(self.axes)
+                # ``[:2]`` keeps the integer (lower, upper) grid indices of each bracket.
+                axis.values[brackets[index][:2][corner[index]]]
+                for index, axis in enumerate(self.axes)
             )
             point = point_by_coordinate[coordinate]
             point_streams = {name: _fraction(value) for name, value in point.stream_flow_scales}

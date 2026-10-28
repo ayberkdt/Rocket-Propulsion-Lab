@@ -1,0 +1,250 @@
+{
+  "_about": "Measured hot-gas-side coefficients of the NASA Lewis 5-in.-throat LOX/GH2 heat-sink chamber. Copied from the page images on 2026-10-25.",
+  "source": "Schacht & Quentmeyer, NASA TN D-6396 (1971), Table I, pp. 10-11; geometry Fig. 1, p. 3. https://ntrs.nasa.gov/citations/19710021262",
+  "geometry": {
+    "throat_diameter_m": 0.127,
+    "chamber_diameter_m": 0.2735,
+    "chamber_area_ratio": 4.64,
+    "throat_wall_radius_m": 0.0635,
+    "chamber_station_x_m": -0.2221,
+    "locator": "Fig. 1(a) station table and Fig. 1(b) (Rad 6.35 cm), p. 3"
+  },
+  "property_basis_note": "Measured h from transient copper heat-sink plugs (three thermocouples per rod); T_aw computed by the authors. Values are not all at the same time; compare h, not T_w.",
+  "readings": {
+    "24": {
+      "chamber_pressure_mpa": 2.083,
+      "percent_fuel": 15.64,
+      "oxidizer_fuel_ratio_printed": 5.934,
+      "oxidizer_fuel_ratio_used": 5.394,
+      "ratio_note": "5.934 is inconsistent with 15.64 % fuel (84.36/15.64 = 5.394); readings 27-37 all satisfy O/F = (100-%fuel)/%fuel.",
+      "combustion_efficiency": 1.0,
+      "chamber": {
+        "adiabatic_wall_k": 3340.1,
+        "h_kw_m2_k": [
+          2.537,
+          2.128,
+          2.024,
+          2.935,
+          2.284,
+          2.178
+        ],
+        "wall_k": [
+          567.9,
+          526.1,
+          510.7,
+          613.2,
+          538.8,
+          526.7
+        ]
+      },
+      "throat": {
+        "adiabatic_wall_k": 3263.0,
+        "h_kw_m2_k": [
+          6.406,
+          7.237,
+          6.426,
+          7.072,
+          7.301,
+          8.461
+        ],
+        "wall_k": [
+          924.5,
+          990.4,
+          925.4,
+          976.4,
+          991.6,
+          1082.5
+        ]
+      }
+    },
+    "27": {
+      "chamber_pressure_mpa": 2.092,
+      "percent_fuel": 15.38,
+      "oxidizer_fuel_ratio_used": 5.502,
+      "combustion_efficiency": 1.0,
+      "chamber": {
+        "adiabatic_wall_k": 3355.2,
+        "h_kw_m2_k": [
+          2.962,
+          2.431,
+          2.341,
+          2.807,
+          2.482,
+          2.206
+        ],
+        "wall_k": [
+          640.9,
+          582.6,
+          572.2,
+          627.0,
+          587.1,
+          556.5
+        ]
+      },
+      "throat": {
+        "adiabatic_wall_k": 3277.2,
+        "h_kw_m2_k": [
+          8.026,
+          7.57,
+          8.692,
+          8.077,
+          7.785,
+          8.967
+        ],
+        "wall_k": [
+          1088.7,
+          1053.2,
+          1138.9,
+          1093.3,
+          1070.7,
+          1164.1
+        ]
+      }
+    },
+    "30": {
+      "chamber_pressure_mpa": 2.07,
+      "percent_fuel": 15.42,
+      "oxidizer_fuel_ratio_used": 5.485,
+      "combustion_efficiency": 0.9982,
+      "chamber": {
+        "adiabatic_wall_k": 3396.3,
+        "h_kw_m2_k": [
+          2.578,
+          2.298,
+          2.4,
+          2.788,
+          2.641,
+          2.343
+        ],
+        "wall_k": [
+          583.5,
+          550.8,
+          559.3,
+          604.9,
+          586.0,
+          552.1
+        ]
+      },
+      "throat": {
+        "adiabatic_wall_k": 3262.5,
+        "h_kw_m2_k": [
+          7.533,
+          8.357,
+          8.5,
+          8.13,
+          8.506,
+          10.11
+        ],
+        "wall_k": [
+          1034.6,
+          1096.7,
+          1107.8,
+          1080.4,
+          1104.9,
+          1215.9
+        ]
+      }
+    },
+    "34": {
+      "chamber_pressure_mpa": 2.095,
+      "percent_fuel": 15.6,
+      "oxidizer_fuel_ratio_used": 5.41,
+      "combustion_efficiency": 0.9885,
+      "chamber": {
+        "adiabatic_wall_k": 3266.5,
+        "h_kw_m2_k": [
+          2.696,
+          2.037,
+          2.094,
+          2.635,
+          2.079,
+          2.196
+        ],
+        "wall_k": [
+          591.5,
+          523.9,
+          528.2,
+          586.1,
+          525.2,
+          537.8
+        ]
+      },
+      "throat": {
+        "adiabatic_wall_k": 3195.1,
+        "h_kw_m2_k": [
+          7.364,
+          6.104,
+          7.315,
+          6.357,
+          5.903,
+          6.896
+        ],
+        "wall_k": [
+          997.2,
+          896.4,
+          994.2,
+          916.4,
+          884.0,
+          959.0
+        ]
+      }
+    },
+    "37": {
+      "chamber_pressure_mpa": 2.098,
+      "percent_fuel": 20.39,
+      "oxidizer_fuel_ratio_used": 3.904,
+      "combustion_efficiency": 0.9962,
+      "chamber": {
+        "adiabatic_wall_k": 2978.6,
+        "h_kw_m2_k": [
+          3.062,
+          2.178,
+          2.167,
+          2.698,
+          2.13,
+          2.265
+        ],
+        "wall_k": [
+          622.4,
+          534.3,
+          532.6,
+          586.5,
+          527.4,
+          541.2
+        ]
+      },
+      "throat": {
+        "adiabatic_wall_k": 2921.5,
+        "h_kw_m2_k": [
+          7.239,
+          6.428,
+          7.237,
+          6.812,
+          6.637,
+          7.699
+        ],
+        "wall_k": [
+          961.7,
+          900.2,
+          960.9,
+          928.0,
+          916.0,
+          993.2
+        ]
+      }
+    }
+  },
+  "tn_d_2832_correlation_constant": {
+    "source": "Schacht, Quentmeyer & Jones, NASA TN D-2832 (1965), table on p. 17 (fit St* Pr*^0.7 = C Re_d*^-0.2). https://ntrs.nasa.gov/citations/19650016811",
+    "bartz_type_constant": 0.026,
+    "by_station": {
+      "1 (A/A* 4.64)": 0.0257,
+      "2 (A/A* 1.78)": 0.024,
+      "3 (throat)": 0.0148,
+      "3 bar (throat mean)": 0.0151,
+      "4 (A/A* 1.27)": 0.0153,
+      "5 (A/A* 3.33)": 0.0188
+    },
+    "throat_one_sigma_percent": 13.2
+  }
+}

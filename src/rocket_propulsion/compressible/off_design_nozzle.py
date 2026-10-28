@@ -24,7 +24,7 @@ References
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import exp, isfinite, sqrt
+from math import exp, isfinite, log, log1p, sqrt
 
 from rocket_propulsion.core.constants import (
     STANDARD_GRAVITY_M_S2,
@@ -143,20 +143,45 @@ class SeparationAssessment:
     Attributes
     ----------
     predicted : bool
-        Whether the screening criterion indicates possible separation.
+        Whether either criterion indicates possible separation.
     correlation, criterion : str
-        Name and inequality of the screening correlation.
+        Name and inequality of the Summerfield screening correlation.
     exit_to_ambient_pressure_ratio : float or None
         ``p_exit/p_ambient``; ``None`` for vacuum back pressure.
     valid_for : str
-        Stated validity envelope of the correlation.
+        Stated validity envelope of the Summerfield correlation.
     source, source_url : str
-        Source document of the correlation.
+        Source document of the Summerfield correlation.
+    schmucker_predicted : bool
+        Whether the Schmucker criterion places the separation point inside
+        the divergent section.
+    schmucker_separation_mach, schmucker_separation_area_ratio : float or None
+        One-dimensional wall Mach number and area ratio of the incipient
+        separation point ``i``; ``None`` when the flow stays attached or the
+        criterion is not applicable.
+    schmucker_separation_pressure_pa : float or None
+        Wall pressure ``p_i`` at that point.
+    schmucker_within_range : bool
+        False when the search had to stop at ``M_i = 5``, the end of the data
+        behind the criterion; separation beyond it is not assessed.
+
+    Notes
+    -----
+    Summerfield's ``p_i/p_a = 0.4`` is the oldest criterion, a conservative
+    guideline for ``p_c/p_a`` of 15 to 20 [1]_, [2]_. Schmucker fitted the
+    averaged separation data of chemical engines with a Mach-number form,
+    ``p_i/p_a = (1.88 M_i - 1)^(-0.64)``, which removes the a-priori
+    isentropic exponent of pressure-ratio criteria and locates the point of
+    incipient separation; it is not to be used above ``M_i = 5`` [2]_.
 
     References
     ----------
     .. [1] NASA-SP8120-SEPARATION. NASA SP-8120, "Liquid Rocket Engine Nozzles", 1976, p. 17.
-           https://ntrs.nasa.gov/citations/19710021390
+           https://ntrs.nasa.gov/citations/19770009165
+    .. [2] NASA-TM-77396-SCHMUCKER. R. H. Schmucker, "Flow Processes in
+           Overexpanded Chemical Rocket Nozzles. Part 1: Flow Separation",
+           NASA TM-77396, 1984, Eqs. (7) and (11), printed pp. 37-39.
+           https://ntrs.nasa.gov/citations/19840011402
     """
 
     predicted: bool
@@ -166,6 +191,11 @@ class SeparationAssessment:
     valid_for: str
     source: str
     source_url: str
+    schmucker_predicted: bool = False
+    schmucker_separation_mach: float | None = None
+    schmucker_separation_area_ratio: float | None = None
+    schmucker_separation_pressure_pa: float | None = None
+    schmucker_within_range: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -573,31 +603,130 @@ def _solve_internal_shock(
     )
 
 
-def _separation_assessment(
-    *, exit_pressure_pa: float, ambient_pressure_pa: float
-) -> SeparationAssessment:
-    """Screen for flow separation with the Summerfield exit-pressure criterion.
+#: Upper end of the separation data behind Schmucker's criterion (NASA TM-77396, p. 39).
+SCHMUCKER_MAXIMUM_MACH = 5.0
+#: Mach grid spacing of the sign-change search before bisection (library choice).
+_SCHMUCKER_SEARCH_STEP = 0.01
+
+
+def schmucker_separation_point(
+    *, chamber_pressure_pa: float, ambient_pressure_pa: float, exit_mach: float, gamma: float
+) -> tuple[float | None, bool]:
+    """Return the wall Mach number of incipient separation by Schmucker's criterion.
+
+    Parameters
+    ----------
+    chamber_pressure_pa : float
+        Stagnation pressure of the attached supersonic flow.
+    ambient_pressure_pa : float
+        Back pressure ``p_a``; zero gives no separation.
+    exit_mach : float
+        One-dimensional exit Mach number of the full-flowing nozzle (>= 1).
+    gamma : float
+        Ratio of specific heats.
+
+    Returns
+    -------
+    tuple of (float or None, bool)
+        The Mach number ``M_i`` in ``[1, min(exit_mach, 5)]`` where the
+        isentropic wall pressure first falls to ``p_a (1.88 M - 1)^(-0.64)``
+        (``None`` if it never does), and whether the search covered the
+        whole divergent section (False when it stopped at ``M = 5``).
 
     Notes
     -----
-    Separation is flagged when ``p_exit/p_ambient <= 0.4`` [1]_. The
-    correlation is an onset screen for roughly 15 degree conical divergent
-    sections at chamber-to-ambient pressure ratios above 16; it is not a
-    viscous solution, does not locate the separation point and gives no
-    side-load estimate. Vacuum back pressure yields no ratio and no flag.
+    The residual ``ln(p/p_a) + 0.64 ln(1.88 M - 1)`` is not monotone just
+    downstream of the throat, so its first sign change is found on a
+    ``0.01`` Mach grid and refined by bisection to a relative 1e-12. The
+    wall pressure is the one-dimensional isentropic value; a contoured
+    bell's wall Mach number differs from it, which is not modelled here [1]_.
+
+    References
+    ----------
+    .. [1] NASA-TM-77396-SCHMUCKER. R. H. Schmucker, NASA TM-77396, 1984,
+           Eq. (11), printed pp. 38-39.
+           https://ntrs.nasa.gov/citations/19840011402
+    """
+
+    if not (isfinite(chamber_pressure_pa) and chamber_pressure_pa > 0.0):
+        raise DomainError("Chamber pressure must be positive and finite.", field="chamber_pressure_pa")
+    if not (isfinite(exit_mach) and exit_mach >= 1.0):
+        raise DomainError("Exit Mach number must be finite and at least 1.", field="exit_mach")
+    if not (isfinite(gamma) and gamma > 1.0):
+        raise DomainError("gamma must be finite and greater than 1.", field="gamma")
+    if not isfinite(ambient_pressure_pa) or ambient_pressure_pa < 0.0:
+        raise DomainError("Ambient pressure must be finite and non-negative.", field="ambient_pressure_pa")
+    if ambient_pressure_pa == 0.0:
+        return None, True
+    upper = min(exit_mach, SCHMUCKER_MAXIMUM_MACH)
+    log_ratio = log(chamber_pressure_pa / ambient_pressure_pa)
+    exponent = gamma / (gamma - 1.0)
+
+    def residual(mach: float) -> float:
+        # ln(p/p_a) - ln((1.88 M - 1)^(-0.64)); positive while the flow is attached
+        wall = log_ratio - exponent * log1p(0.5 * (gamma - 1.0) * mach * mach)
+        return wall + 0.64 * log(1.88 * mach - 1.0)
+
+    lower = 1.0
+    if residual(lower) <= 0.0:
+        return 1.0, True
+    while lower < upper:
+        step = min(upper, lower + _SCHMUCKER_SEARCH_STEP)
+        if residual(step) <= 0.0:
+            low, high = lower, step
+            while high - low > 1.0e-12 * high:
+                middle = 0.5 * (low + high)
+                if residual(middle) > 0.0:
+                    low = middle
+                else:
+                    high = middle
+            return high, True
+        lower = step
+    return None, exit_mach <= SCHMUCKER_MAXIMUM_MACH
+
+
+def _separation_assessment(
+    *, exit_pressure_pa: float, ambient_pressure_pa: float, chamber_pressure_pa: float,
+    exit_mach: float | None, gamma: float,
+) -> SeparationAssessment:
+    """Assess flow separation with the Summerfield and Schmucker criteria.
+
+    Notes
+    -----
+    Summerfield flags ``p_exit/p_ambient <= 0.4`` [1]_, an onset screen for
+    roughly 15 degree conical divergent sections at chamber-to-ambient
+    pressure ratios above 16. Schmucker's Mach-number criterion [2]_ is
+    evaluated along the attached supersonic branch when the throat is
+    choked (``exit_mach`` given) and locates the incipient separation
+    point. Neither is a viscous solution or a side-load estimate. Vacuum
+    back pressure yields no ratio and no flag.
 
     References
     ----------
     .. [1] NASA-SP8120-SEPARATION. NASA SP-8120, "Liquid Rocket Engine Nozzles", 1976, p. 17.
-           https://ntrs.nasa.gov/citations/19710021390
+           https://ntrs.nasa.gov/citations/19770009165
+    .. [2] NASA-TM-77396-SCHMUCKER. R. H. Schmucker, NASA TM-77396, 1984,
+           Eq. (11), printed pp. 38-39. https://ntrs.nasa.gov/citations/19840011402
     """
 
     ratio = (
         exit_pressure_pa / ambient_pressure_pa if ambient_pressure_pa > 0.0 else None
     )
-    predicted = ratio is not None and ratio <= 0.4
+    summerfield = ratio is not None and ratio <= 0.4
+    mach_i: float | None = None
+    within = True
+    if exit_mach is not None and exit_mach > 1.0:
+        mach_i, within = schmucker_separation_point(
+            chamber_pressure_pa=chamber_pressure_pa, ambient_pressure_pa=ambient_pressure_pa,
+            exit_mach=exit_mach, gamma=gamma)
+    area_i: float | None = None
+    pressure_i: float | None = None
+    if mach_i is not None:
+        point = calculate_isentropic(mach_i, gamma)
+        area_i = point.area_critical_ratio
+        pressure_i = chamber_pressure_pa * point.pressure_total_ratio
     return SeparationAssessment(
-        predicted=predicted,
+        predicted=summerfield or mach_i is not None,
         correlation="Summerfield onset screening",
         criterion="p_exit / p_ambient <= 0.4",
         exit_to_ambient_pressure_ratio=ratio,
@@ -607,6 +736,11 @@ def _separation_assessment(
         ),
         source="NASA SP-8120, Liquid Rocket Engine Nozzles (1976), p. 17",
         source_url="https://ntrs.nasa.gov/citations/19770009165",
+        schmucker_predicted=mach_i is not None,
+        schmucker_separation_mach=mach_i,
+        schmucker_separation_area_ratio=area_i,
+        schmucker_separation_pressure_pa=pressure_i,
+        schmucker_within_range=within,
     )
 
 
@@ -967,8 +1101,16 @@ def calculate_off_design_nozzle(
     relative_residual = (
         abs(exit_mass_flow - mass_flow) / mass_flow if mass_flow > 0.0 else 0.0
     )
+    # Schmucker's criterion needs an attached supersonic wall flow, i.e. a choked throat
+    # followed by the supersonic branch (up to the shock, if there is one).
+    supersonic_branch = regime in {"internal-normal-shock", "shock-at-exit", "overexpanded",
+                                   "design", "underexpanded"}
     separation = _separation_assessment(
-        exit_pressure_pa=exit_pressure, ambient_pressure_pa=ambient_pressure_pa
+        exit_pressure_pa=exit_pressure, ambient_pressure_pa=ambient_pressure_pa,
+        chamber_pressure_pa=chamber_pressure_pa,
+        exit_mach=(mach_from_isentropic("area_ratio_supersonic", area_ratio, gamma)
+                   if supersonic_branch else None),
+        gamma=gamma,
     )
     warnings: list[WarningMessage] = []
     if separation.predicted:
@@ -977,7 +1119,14 @@ def calculate_off_design_nozzle(
                 code="possible_flow_separation",
                 severity="critical",
                 message=(
-                    "Summerfield screening indicates possible boundary-layer separation; "
+                    "Empirical separation criteria ("
+                    + "; ".join(name for name, hit in (
+                        ("Summerfield", separation.exit_to_ambient_pressure_ratio is not None
+                         and separation.exit_to_ambient_pressure_ratio <= 0.4),
+                        (f"Schmucker at A/A* = {separation.schmucker_separation_area_ratio:.4g}"
+                         if separation.schmucker_separation_area_ratio is not None else "", 
+                         separation.schmucker_predicted)) if hit)
+                    + ") indicate possible boundary-layer separation; "
                     "this is not a viscous flow solution."
                 ),
             )

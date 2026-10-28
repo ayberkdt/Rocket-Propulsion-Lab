@@ -63,7 +63,7 @@ class CeaLibraryInfo:
 
 
 def _import_cea() -> Any:
-    import cea  # noqa: PLC0415 - optional dependency
+    import cea
 
     return cea
 
@@ -176,7 +176,7 @@ def solve_cea_rocket(
     if chemistry not in ("equilibrium", "frozen"):
         raise DomainError("Rocket chemistry must be equilibrium or frozen.", field="chemistry")
     cea = _import_cea()
-    import numpy  # noqa: PLC0415 - installed with cea
+    import numpy
 
     records = [get_reactant(fuel), get_reactant(oxidizer)]
     names = [record.key for record in records]

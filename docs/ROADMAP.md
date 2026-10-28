@@ -193,8 +193,14 @@ acceptance gates, and the first three sprints are specified in
   energy, efficiency models, Isp loss chain, O/F optimisation, condensed-phase
   equilibrium, finite-rate H₂–O₂ nozzle kinetics
 - Six HTTP routes and three browser views; cross-model consistency tests
-- Remaining: hot-fire validation data, propellant burnout and transpiration
-  cooling, Priem–Heidmann vaporisation, hydrocarbon kinetics, combustion
+- Added: transpiration cooling (film theory, Eckert–Livingood, Rannie, porous
+  wall), a gas-side comparison with NASA TN D-6396 firings, the Priem–Heidmann
+  vaporization length and curve, and SP-194 combustion-instability relations
+- Added: ethanol and MMH flow-boiling burnout, feed-coupled chugging, a
+  TN D-3532 total heat-load comparison, and HTTP routes and workbench panes
+  for transpiration, stability and vaporization
+- Remaining: station-by-station coolant-side hot-fire validation, RP-1
+  burnout, hydrocarbon kinetics, pump-coupled and nonlinear combustion
   instability
 
 The reviewed interface, ownership boundary, phases and acceptance gates are in

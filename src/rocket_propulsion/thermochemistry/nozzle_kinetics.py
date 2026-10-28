@@ -55,6 +55,7 @@ from typing import Literal
 from rocket_propulsion.core.constants import MOLAR_GAS_CONSTANT_J_MOL_K, STANDARD_GRAVITY_M_S2
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
+from rocket_propulsion.core.validation import numeric_range_guard
 
 from .equilibrium import EquilibriumProblem, EquilibriumProvider, LocalEquilibriumProvider
 from .kinetics import Mechanism, StepRejected, _compile, solve_stiff
@@ -122,6 +123,7 @@ class HyperbolicNozzle:
         angle = self.convergent_half_angle_deg if x_m < 0.0 else self.divergent_half_angle_deg
         return tan(radians(angle))
 
+    @numeric_range_guard("x_m")
     def area_ratio(self, x_m: float) -> float:
         """Return ``A(x)/A_t``; ``x`` is measured from the throat."""
         return 1.0 + (x_m * self._slope(x_m) / self.throat_radius_m) ** 2
@@ -264,7 +266,7 @@ class BrayFreezingResult:
     warnings: tuple[WarningMessage, ...]
 
 
-class _Choked(StepRejected):  # noqa: N818 - control-flow signal
+class _Choked(StepRejected):
     """The target mass flux exceeds the local frozen choking flux."""
 
     def __init__(self, excess_flux: float) -> None:
@@ -272,7 +274,7 @@ class _Choked(StepRejected):  # noqa: N818 - control-flow signal
         self.local_maximum = excess_flux
 
 
-class _MarchComplete(Exception):  # noqa: N818 - control-flow signal
+class _MarchComplete(Exception):
     """The subsonic march has passed its minimum choking margin."""
 
 
@@ -417,7 +419,7 @@ class _Expansion:
         log_target = log(flux)
 
         def log_flux(temperature):
-            cp, log_p, v2, gamma, gas_constant, h_rt, s_r = self._evaluate(
+            cp, log_p, v2, gamma, gas_constant, _h_rt, _s_r = self._evaluate(
                 temperature, sigma, total, mixing, entropy)
             if v2 <= 0.0:
                 return None
@@ -431,11 +433,9 @@ class _Expansion:
             trial = guess
             for _ in range(25):
                 if trial < _MINIMUM_TEMPERATURE_K or trial > 6000.0:
-                    trial = None
                     break
                 evaluated = log_flux(trial)
                 if evaluated is None or evaluated[1] == 0.0:
-                    trial = None
                     break
                 step = -(evaluated[0] - log_target) / evaluated[1]
                 step = max(-0.05 * trial, min(0.05 * trial, step))
@@ -476,7 +476,7 @@ class _Expansion:
                     temperature = sonic_temperature
                 else:
                     temperature = _illinois(residual, low, high, f_low, f_high, 1.0e-13)
-        cp, log_p, v2, gamma, gas_constant, h_rt, s_r = self._evaluate(
+        _cp, log_p, v2, gamma, gas_constant, h_rt, s_r = self._evaluate(
             temperature, sigma, total, mixing, entropy)
         self.last_temperature[branch] = temperature
         pressure = REFERENCE_PRESSURE_PA * exp(log_p)
@@ -740,7 +740,7 @@ def solve_nozzle_kinetics(
         path = _EquilibriumPath(expansion)
         throat_pressure, flux = path.throat(chamber_pressure_pa)
         log_start = path.log_pressure_at_area(log(throat_pressure), flux, start_area_ratio)
-        temperature, density, velocity, sigma = path.isentrope(exp(log_start))
+        _temperature, _density, _velocity, sigma = path.isentrope(exp(log_start))
         x_switch = nozzle.position(start_area_ratio, divergent=True)
         y_switch = tuple(sigma) + (expansion.s0,)
         expansion.last_temperature.clear()
@@ -1041,7 +1041,7 @@ class _EquilibriumPath:
         return value
 
     def flux(self, pressure):
-        temperature, density, velocity, _ = self.isentrope(pressure)
+        _temperature, density, velocity, _ = self.isentrope(pressure)
         return density * velocity
 
     def throat(self, chamber_pressure_pa, tolerance=1.0e-6):

@@ -35,7 +35,6 @@ from statistics import fmean
 from typing import Any
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import read_json_document
 
 from .calibration import (
     CalibrationScope,
@@ -43,6 +42,7 @@ from .calibration import (
     HotFireScaleMeasurement,
     calibrate_hot_fire_scale,
 )
+from .exchange_documents import _read_document
 from .serialization import canonical_json_bytes
 from .uncertainty import CorrelationModel, UncertainParameter
 
@@ -305,11 +305,11 @@ def _regularized_correlation(
             coefficient = covariance[row][column] / sqrt(variances[row] * variances[column])
             raw_rows[row][column] = coefficient
             raw_rows[column][row] = coefficient
-            clipped = max(-limit, min(limit, coefficient))
-            if clipped != coefficient:
+            clipped_value = max(-limit, min(limit, coefficient))
+            if clipped_value != coefficient:
                 clip_count += 1
-            clipped_rows[row][column] = clipped
-            clipped_rows[column][row] = clipped
+            clipped_rows[row][column] = clipped_value
+            clipped_rows[column][row] = clipped_value
     raw = tuple(tuple(row) for row in raw_rows)
     clipped = tuple(tuple(row) for row in clipped_rows)
     if _is_positive_definite(clipped):
@@ -645,7 +645,7 @@ class HotFireMultivariateCalibration:
                duplicate-member and nonstandard numeric token behavior.
         """
 
-        return read_json_document(text, "Hot-fire multivariate calibration", cls.from_dict)
+        return _read_document(text, "Hot-fire multivariate calibration", cls.from_dict)
 
 
 def _group_vectors(

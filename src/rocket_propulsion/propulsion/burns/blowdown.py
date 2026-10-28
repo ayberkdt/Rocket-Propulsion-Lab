@@ -62,7 +62,12 @@ class PressurePerformanceModel(Protocol):
            Systems". https://ntrs.nasa.gov/citations/20040000363
     """
 
-    minimum_supply_pressure_pa: float
+    # Read-only, so frozen dataclass implementations satisfy the protocol.
+    @property
+    def minimum_supply_pressure_pa(self) -> float:
+        """Inclusive lower supply-pressure validity limit, Pa."""
+
+        ...
 
     @property
     def maximum_pressure_pa(self) -> float:

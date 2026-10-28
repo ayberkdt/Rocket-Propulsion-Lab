@@ -27,20 +27,25 @@ References
 
 from __future__ import annotations
 
+from bisect import bisect_left
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from math import exp, isfinite, log, sqrt
+from math import copysign, exp, isfinite, log, sqrt
 from typing import Literal
 
 from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
 
-from .equilibrium import EquilibriumProblem, EquilibriumProvider, LocalEquilibriumProvider
+from .equilibrium import (
+    MAXIMUM_IDEAL_GAS_PRESSURE_PA,
+    EquilibriumProblem,
+    EquilibriumProvider,
+    LocalEquilibriumProvider,
+)
 from .mixtures import Mixture
 
 Chemistry = Literal["equilibrium", "frozen"]
-_GOLDEN = (sqrt(5.0) - 1.0) / 2.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,10 +181,93 @@ def _illinois(function: Callable[[float], float], low: float, high: float,
     raise ConvergenceError("Rocket station root did not converge.", code="rocket_root_not_converged")
 
 
+def _maximize_bounded(function: Callable[[float], float], low: float, high: float,
+                      tolerance: float) -> float:
+    """Return the maximizer of a unimodal ``function`` on ``[low, high]`` (bounded Brent).
+
+    Golden-section steps safeguard successive parabolic interpolation through
+    the three best points [1]_; the search stops when the bracket around the
+    best point is below ``2 (sqrt(eps) |x| + tolerance/3)``. Smooth maxima such
+    as the throat mass flux converge superlinearly, in about a third of the
+    evaluations of a pure golden-section search.
+
+    References
+    ----------
+    .. [1] SCIPY-1.14.1-FMINBOUND. SciPy ``optimize.fminbound`` (bounded
+           Brent method), the algorithm transcribed here for a maximum.
+    """
+    root_eps = sqrt(2.2e-16)  # as in SciPy
+
+    def objective(x: float) -> float:
+        value = function(x)
+        if not isfinite(value):
+            # every comparison with NaN is False and would silently pick a point
+            raise ConvergenceError("Throat mass flux is not finite.", code="non_finite_objective")
+        return -value
+
+    golden_mean = 0.5 * (3.0 - sqrt(5.0))
+    a, b = low, high
+    xf = second = third = a + golden_mean * (b - a)
+    fx = objective(xf)
+    f_second = f_third = fx
+    step = previous = 0.0
+    middle = 0.5 * (a + b)
+    tol1 = root_eps * abs(xf) + tolerance / 3.0
+    tol2 = 2.0 * tol1
+    for _ in range(500):
+        if abs(xf - middle) <= tol2 - 0.5 * (b - a):
+            return xf
+        golden = True
+        if abs(previous) > tol1:
+            golden = False
+            r = (xf - second) * (fx - f_third)
+            q = (xf - third) * (fx - f_second)
+            numerator = (xf - third) * q - (xf - second) * r
+            q = 2.0 * (q - r)
+            if q > 0.0:
+                numerator = -numerator
+            q = abs(q)
+            r, previous = previous, step
+            if abs(numerator) < abs(0.5 * q * r) and q * (a - xf) < numerator < q * (b - xf):
+                step = numerator / q
+                trial = xf + step
+                if trial - a < tol2 or b - trial < tol2:
+                    step = copysign(tol1, middle - xf) if middle != xf else tol1
+            else:
+                golden = True
+        if golden:
+            previous = (a - xf) if xf >= middle else (b - xf)
+            step = golden_mean * previous
+        trial = xf + (copysign(1.0, step) if step != 0.0 else 1.0) * max(abs(step), tol1)
+        f_trial = objective(trial)
+        if f_trial <= fx:
+            if trial >= xf:
+                a = xf
+            else:
+                b = xf
+            third, f_third = second, f_second
+            second, f_second = xf, fx
+            xf, fx = trial, f_trial
+        else:
+            if trial < xf:
+                a = trial
+            else:
+                b = trial
+            if f_trial <= f_second or second == xf:
+                third, f_third = second, f_second
+                second, f_second = trial, f_trial
+            elif f_trial <= f_third or third in (xf, second):
+                third, f_third = trial, f_trial
+        middle = 0.5 * (a + b)
+        tol1 = root_eps * abs(xf) + tolerance / 3.0
+        tol2 = 2.0 * tol1
+    raise ConvergenceError("Throat mass-flux maximum did not converge.", code="rocket_root_not_converged")
+
+
 def _bracket(function: Callable[[float], float], guess: float, lower_limit: float,
-             upper_limit: float) -> tuple[float, float, float, float]:
+             upper_limit: float, *, factor: float = 1.05) -> tuple[float, float, float, float]:
     """Grow a multiplicative bracket around ``guess`` until ``function`` changes sign."""
-    low, high = max(lower_limit, guess / 1.05), min(upper_limit, guess * 1.05)
+    low, high = max(lower_limit, guess / factor), min(upper_limit, guess * factor)
     f_low, f_high = function(low), function(high)
     for _ in range(60):
         if f_low * f_high <= 0.0:
@@ -220,6 +308,8 @@ class _Expansion:
             mole_fractions=_leading(fractions),
         )
         self.gamma = chamber.gamma
+        # Solved isentrope points (ln p, ln T), sorted by ln p, for warm starts.
+        self._log_points: list[tuple[float, float]] = []
 
     def state(self, temperature_k: float, pressure_pa: float) -> _State:
         """Return the state at ``(T, p)`` with this expansion's chemistry."""
@@ -241,7 +331,14 @@ class _Expansion:
         """Return the state on the chamber isentrope at ``pressure_pa``."""
         target = self.chamber.entropy_j_kg_k
         chamber = self.chamber
-        guess = chamber.temperature_k * (pressure_pa / chamber.pressure_pa) ** ((self.gamma - 1.0) / self.gamma)
+        log_p = log(pressure_pa)
+        warm = self._warm_temperature(log_p)
+        if warm is None:
+            guess = chamber.temperature_k * (pressure_pa / chamber.pressure_pa) ** ((self.gamma - 1.0) / self.gamma)
+            factor = 1.05
+        else:
+            # Interpolated from solved points: the root is close, so start narrow.
+            guess, factor = warm, 1.003
         cache: dict[float, _State] = {}
 
         def residual(temperature: float) -> float:
@@ -249,9 +346,22 @@ class _Expansion:
             return (cache[temperature].entropy_j_kg_k - target) / abs(target)
 
         low, high, f_low, f_high = _bracket(residual, min(guess, chamber.temperature_k), 200.0,
-                                            chamber.temperature_k)
+                                            chamber.temperature_k, factor=factor)
         temperature = _illinois(residual, low, high, f_low, f_high, 1.0e-11)
+        index = bisect_left(self._log_points, (log_p, 0.0))
+        self._log_points.insert(index, (log_p, log(temperature)))
         return cache.get(temperature) or self.state(temperature, pressure_pa)
+
+    def _warm_temperature(self, log_p: float) -> float | None:
+        """Interpolate ln T linearly in ln p between the nearest solved points."""
+        points = self._log_points
+        if len(points) < 2:
+            return None
+        index = min(max(bisect_left(points, (log_p, 0.0)), 1), len(points) - 1)
+        (x0, y0), (x1, y1) = points[index - 1], points[index]
+        if x1 == x0:
+            return exp(y0)
+        return exp(y0 + (y1 - y0) * (log_p - x0) / (x1 - x0))
 
     def velocity(self, state: _State) -> float:
         drop = self.chamber.enthalpy_j_kg - state.enthalpy_j_kg
@@ -338,6 +448,11 @@ def solve_rocket_performance(
         raise InputError("Rocket chemistry must be equilibrium or frozen.", field="chemistry")
     if not isfinite(chamber_pressure_pa) or chamber_pressure_pa <= 0.0:
         raise DomainError("Chamber pressure must be positive.", field="chamber_pressure_pa")
+    if chamber_pressure_pa > MAXIMUM_IDEAL_GAS_PRESSURE_PA:
+        raise DomainError(
+            f"Chamber pressure {chamber_pressure_pa:.4g} Pa exceeds the {MAXIMUM_IDEAL_GAS_PRESSURE_PA:.0e} Pa "
+            "limit of the ideal-gas mixture model.",
+            code="pressure_outside_ideal_gas_range", field="chamber_pressure_pa")
     ratios = tuple(float(value) for value in area_ratios)
     if not ratios or any(not isfinite(value) or value <= 1.0 for value in ratios):
         raise DomainError("Rocket area ratios must all exceed one.", field="area_ratios")
@@ -345,22 +460,15 @@ def solve_rocket_performance(
     expansion = _Expansion(reactants, active, chemistry, chamber_pressure_pa)
     pc = chamber_pressure_pa
 
-    # Golden-section maximization of mass flux on ln p.
-    low, high = log(pc / 2.5), log(pc / 1.2)
-    first = high - _GOLDEN * (high - low)
-    second = low + _GOLDEN * (high - low)
-    flux_first = expansion.mass_flux(exp(first))[0]
-    flux_second = expansion.mass_flux(exp(second))[0]
-    while high - low > 1.0e-5:
-        if flux_first > flux_second:
-            high, second, flux_second = second, first, flux_first
-            first = high - _GOLDEN * (high - low)
-            flux_first = expansion.mass_flux(exp(first))[0]
-        else:
-            low, first, flux_first = first, second, flux_second
-            second = low + _GOLDEN * (high - low)
-            flux_second = expansion.mass_flux(exp(second))[0]
-    throat_flux, throat_state = expansion.mass_flux(exp(0.5 * (low + high)))
+    # The throat carries the largest mass flux on the isentrope: maximize it on ln p.
+    fluxes: dict[float, tuple[float, _State]] = {}
+
+    def flux_at(log_pressure: float) -> float:
+        fluxes[log_pressure] = expansion.mass_flux(exp(log_pressure))
+        return fluxes[log_pressure][0]
+
+    log_throat_pressure = _maximize_bounded(flux_at, log(pc / 2.5), log(pc / 1.2), 1.0e-5)
+    throat_flux, throat_state = fluxes.get(log_throat_pressure) or expansion.mass_flux(exp(log_throat_pressure))
     throat_velocity = expansion.velocity(throat_state)
     log_throat = log(throat_state.pressure_pa)
 
@@ -368,13 +476,13 @@ def solve_rocket_performance(
     for ratio in ratios:
         states: dict[float, _State] = {}
 
-        def residual(log_pressure: float, ratio: float = ratio) -> float:
+        def residual(log_pressure: float, ratio: float = ratio, *, states=states) -> float:
             flux, state = expansion.mass_flux(exp(log_pressure))
             states[log_pressure] = state
             return log(throat_flux / flux) - log(ratio)
 
         guess = log_throat - log(ratio) * expansion.gamma
-        lo, hi, f_lo, f_hi = _bracket(lambda value: residual(value), guess, log_throat - 40.0,
+        lo, hi, f_lo, f_hi = _bracket(residual, guess, log_throat - 40.0,
                                       log_throat - 1.0e-3)
         root = _illinois(residual, lo, hi, f_lo, f_hi, 1.0e-12)
         state = states.get(root) or expansion.isentrope(exp(root))

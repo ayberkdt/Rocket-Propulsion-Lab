@@ -12,6 +12,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 _SIDERA_SRC = os.environ.get("RPLAB_SIDERA_SRC", "").strip()
 if _SIDERA_SRC and os.path.isdir(_SIDERA_SRC) and _SIDERA_SRC not in sys.path:
@@ -22,19 +23,19 @@ if _SIDERA_SRC and os.path.isdir(_SIDERA_SRC) and _SIDERA_SRC not in sys.path:
     )
     sys.path.append(_SIDERA_SRC)
 
-from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError  # noqa: E402
-from rocket_propulsion.integrations.sidera_native import (  # noqa: E402
+from rocket_propulsion.core.errors import DomainError, FeatureUnavailableError
+from rocket_propulsion.integrations.sidera_native import (
     SideraNativeBurn,
     SideraNativeCapabilities,
     inspect_sidera_native_capabilities,
     missing_sidera_native_capabilities,
 )
-from rocket_propulsion.propulsion.burns import (  # noqa: E402
+from rocket_propulsion.propulsion.burns import (
     PropagatorPropulsionBridge,
     free_space_burn_metrics,
 )
-from tests.test_burn_propagator import example_artifact, example_bridge  # noqa: E402
-from tests.test_burn_stream_performance import example_stream_surface  # noqa: E402
+from tests.test_burn_propagator import example_artifact, example_bridge
+from tests.test_burn_stream_performance import example_stream_surface
 
 CAPABILITIES = inspect_sidera_native_capabilities()
 SIDERA_SUPPORTED = CAPABILITIES.status == "supported"
@@ -65,14 +66,16 @@ def synthetic_capabilities(status: str) -> SideraNativeCapabilities:
 
 class SideraNativeRefusalTests(unittest.TestCase):
     def test_construction_refuses_cleanly_without_sidera(self) -> None:
-        if CAPABILITIES.status != "unavailable":
-            self.skipTest("Sidera is importable in this run.")
-        self.assertIsNone(CAPABILITIES.version)
-        with self.assertRaises(FeatureUnavailableError) as caught:
-            SideraNativeBurn(
-                object(), mass_only_bridge(), ignition_epoch_s=0.0, direction=(1.0, 0.0, 0.0)
-            )
-        self.assertIn("propagate_available", caught.exception.details["missing_capabilities"])
+        with patch('rocket_propulsion.integrations.sidera.import_module',
+                   side_effect=ModuleNotFoundError('deliberately unavailable Sidera')):
+            observed=inspect_sidera_native_capabilities()
+            self.assertEqual(observed.status,'unavailable')
+            self.assertIsNone(observed.version)
+            with self.assertRaises(FeatureUnavailableError) as caught:
+                SideraNativeBurn(
+                    object(), mass_only_bridge(), ignition_epoch_s=0.0, direction=(1.0, 0.0, 0.0)
+                )
+            self.assertIn("propagate_available", caught.exception.details["missing_capabilities"])
 
     def test_unavailable_capabilities_refuse_in_every_mode(self) -> None:
         with self.assertRaises(FeatureUnavailableError) as caught:

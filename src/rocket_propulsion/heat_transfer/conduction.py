@@ -53,6 +53,7 @@ References
 
 from __future__ import annotations
 
+import itertools
 import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -61,7 +62,7 @@ from functools import lru_cache
 from rocket_propulsion.core.constants import STEFAN_BOLTZMANN_W_M2_K4
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
-from rocket_propulsion.core.validation import real
+from rocket_propulsion.core.validation import numeric_range_guard, real
 
 # Euler's constant, DLMF Eq. 5.2.3: 0.57721 56649 01532 86060...
 _EULER_GAMMA = 0.5772156649015329
@@ -496,6 +497,36 @@ def _bessel_j(order: int, x: float) -> float:
     return total / points
 
 
+def bessel_jn(order: int, x: float) -> float:
+    """Bessel function of the first kind and integer order, ``J_n(x)``.
+
+    Parameters
+    ----------
+    order : int
+        Nonnegative integer order ``n``.
+    x : float
+        Real argument with ``|x| <= 1e4``.
+
+    Returns
+    -------
+    float
+        ``J_n(x)`` from Bessel's integral DLMF 10.9.2 by the trapezoidal
+        rule; absolute error of order 1e-15, as for :func:`bessel_j0`.
+
+    References
+    ----------
+    .. [1] DLMF-10-BESSEL. NIST DLMF Eq. 10.9.2, https://dlmf.nist.gov/10.9
+    .. [2] DLMF-3.5-TRAPEZOID. NIST DLMF Sec. 3.5(i), Eq. 3.5.5,
+           https://dlmf.nist.gov/3.5
+    """
+    if isinstance(order, bool) or not isinstance(order, int) or order < 0:
+        raise DomainError("order must be a nonnegative integer.", field="order")
+    value = real(x, "x")
+    if abs(value) > 1.0e4:
+        raise DomainError("|x| above 1e4 is outside the supported range of J_n.", field="x")
+    return _bessel_j(order, value)
+
+
 def bessel_j0(x: float) -> float:
     """Bessel function of the first kind and order zero, ``J_0(x)``.
 
@@ -695,7 +726,7 @@ class TabulatedProperty:
         if len(temperatures) != len(values) or len(temperatures) < 2:
             raise InputError("A tabulated property needs matching temperature and value "
                              "tuples with at least two entries.", field="values")
-        if any(b <= a for a, b in zip(temperatures, temperatures[1:], strict=False)):
+        if any(b <= a for a, b in itertools.pairwise(temperatures)):
             raise DomainError("Tabulated temperatures must increase strictly.",
                               field="temperatures_k")
         if not isinstance(self.unit, str):
@@ -1175,6 +1206,22 @@ class SurfaceConvection:
         object.__setattr__(self, "fluid_temperature_k", fluid)
         object.__setattr__(self, "surroundings_temperature_k", surroundings)
 
+    @property
+    def radiating_temperature_k(self) -> float:
+        """Surroundings temperature seen by radiation, K.
+
+        Equal to ``surroundings_temperature_k``, which ``__post_init__``
+        resolves to the fluid temperature when it is not given [1]_.
+
+        References
+        ----------
+        .. [1] AHTT-V6. Lienhard and Lienhard, Eqs. (1.34)-(1.35), printed
+               p. 33, https://ahtt.mit.edu/wp-content/uploads/2024/04/AHTTv600.pdf
+        """
+        if self.surroundings_temperature_k is None:
+            return self.fluid_temperature_k
+        return self.surroundings_temperature_k
+
     def flux_into_wall(self, surface_temperature_k: float) -> float:
         """Heat flux entering the wall at surface temperature ``T_s``, W/m^2.
 
@@ -1187,9 +1234,10 @@ class SurfaceConvection:
         flux = self.heat_transfer_coefficient_w_m2_k * (self.fluid_temperature_k - t)
         if self.emissivity:
             flux += self.emissivity * STEFAN_BOLTZMANN_W_M2_K4 * (
-                self.surroundings_temperature_k**4 - t**4)
+                self.radiating_temperature_k**4 - t**4)
         return flux
 
+    @numeric_range_guard("surface_temperature_k")
     def flux_derivative(self, surface_temperature_k: float) -> float:
         """Derivative of :meth:`flux_into_wall` with respect to ``T_s`` (negative).
 
@@ -1205,7 +1253,9 @@ class SurfaceConvection:
 _BOUNDARY_TYPES = (SurfaceTemperature, SurfaceHeatFlux, SurfaceConvection)
 
 
-def _check_boundary(value: object, label: str):
+def _check_boundary(
+    value: object, label: str
+) -> SurfaceTemperature | SurfaceHeatFlux | SurfaceConvection:
     if not isinstance(value, _BOUNDARY_TYPES):
         raise InputError(f"{label} must be a SurfaceTemperature, SurfaceHeatFlux or "
                          "SurfaceConvection.", field=label)
@@ -1546,7 +1596,9 @@ def _march(geometry, faces, conductivities, generations, contacts, inner_tempera
     """
     temperature = inner_temperature
     heat_rate = inner_heat_rate
-    layer_in, layer_out, profile = [], [], []
+    layer_in: list[float] = []
+    layer_out: list[float] = []
+    profile: list[tuple[float, float]] = []
     count = len(conductivities)
     for i in range(count):
         start, end = faces[i], faces[i + 1]
@@ -1642,7 +1694,7 @@ def _solve_surface_for_flux(boundary: SurfaceConvection, flux_into: float) -> fl
         return boundary.flux_into_wall(temperature) - flux_into
 
     low, high = 1.0e-9, max(boundary.fluid_temperature_k,
-                            boundary.surroundings_temperature_k) * 2.0
+                            boundary.radiating_temperature_k) * 2.0
     low, high = _bracket(residual, low, high, expand_low=False, expand_high=True,
                          label="surface temperature")
     return _bisect_sign(residual, low, high)[0]
@@ -1845,7 +1897,7 @@ def solve_steady_wall(
     temperatures = [b.temperature_k for b in (inner, outer)
                     if isinstance(b, SurfaceTemperature)]
     temperatures += [t for b in (inner, outer) if isinstance(b, SurfaceConvection)
-                     for t in (b.fluid_temperature_k, b.surroundings_temperature_k)]
+                     for t in (b.fluid_temperature_k, b.radiating_temperature_k)]
     reference = max(temperatures) if temperatures else 300.0
     lower_limit = max(1.0e-9, getattr(conductivities[0], "minimum_temperature_k", 0.0))
     upper_cap = getattr(conductivities[0], "maximum_temperature_k", math.inf)
@@ -1869,8 +1921,11 @@ def solve_steady_wall(
         required = -outer.heat_flux_w_m2 * outer_area - generated  # Q_in
         if isinstance(inner, SurfaceTemperature):
             unknown = required
-        else:
+        elif isinstance(inner, SurfaceConvection):
             unknown = _solve_surface_for_flux(inner, required / inner_area)
+        else:  # pragma: no cover - two flux boundaries are rejected above
+            raise InputError("Two flux boundaries do not fix the temperature level.",
+                             code="steady_wall_underdetermined", field="outer_boundary")
     elif isinstance(inner, SurfaceTemperature):
         low, high = _bracket(residual, -1.0, 1.0, expand_low=True, expand_high=True,
                              label="inner heat rate")
@@ -2147,7 +2202,7 @@ def semi_infinite_surface_temperature_step(
     .. [2] PYTHON-3.12-MATH-ERF. Python 3.12, math.erf and math.erfc,
            https://docs.python.org/3.12/library/math.html#math.erfc
     """
-    depth, _, _, root, z = _semi_infinite_inputs(depth_m, time_s, thermal_diffusivity_m2_s)
+    _depth, _, _, root, z = _semi_infinite_inputs(depth_m, time_s, thermal_diffusivity_m2_s)
     k = _positive(thermal_conductivity_w_m_k, "thermal_conductivity_w_m_k")
     t_i = _temperature(initial_temperature_k, "initial_temperature_k")
     t_s = _temperature(surface_temperature_k, "surface_temperature_k")
@@ -2799,7 +2854,7 @@ class _BoundaryFlux:
             return rate, 0.0, surface
         # convective / radiative surface: solve (phi(Ts) - phi(Tc))/S = A g(Ts)
         candidates = (cell_temperature, boundary.fluid_temperature_k,
-                      boundary.surroundings_temperature_k)
+                      boundary.radiating_temperature_k)
         low = max(min(candidates), prop.minimum_temperature_k)
         high = min(max(candidates), prop.maximum_temperature_k)
 
@@ -3183,10 +3238,9 @@ def solve_transient_wall(
         outer_surface.append(outer_new[2])
         inner_rates.append(inner_new[0])
         outer_rates.append(-outer_new[0])
-        if (snapshot_every and step % snapshot_every == 0) or step == steps:
-            if snapshot_times[-1] != step * dt:
-                snapshot_times.append(step * dt)
-                snapshots.append(tuple(temperatures))
+        if ((snapshot_every and step % snapshot_every == 0) or step == steps) and snapshot_times[-1] != step * dt:
+            snapshot_times.append(step * dt)
+            snapshots.append(tuple(temperatures))
     stored = sum(volumes[j] * capacities[cell_layers[j]].integral(initial_field[j],
                                                                   temperatures[j])
                  for j in range(n))

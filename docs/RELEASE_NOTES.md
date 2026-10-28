@@ -1,5 +1,84 @@
 # Release notes
 
+Thermodynamic records now own their coefficient, formula, interval and
+component inputs and reject malformed/nonfinite or inconsistent values at
+construction. Gas, assigned-enthalpy and extended condensed catalogues
+expose independent dictionary snapshots backed by private immutable cached
+tables. Lookup identity is case-insensitive while NASA's printed phase and
+isomer names are retained. Mixture aliases coalesce before mixing entropy;
+accepted composition roundoff is normalized and conflicting mass/mole
+fractions are refused. Pressure entropy uses a stable logarithmic ratio.
+See [THERMODYNAMIC_RECORD_REVIEW.md](THERMODYNAMIC_RECORD_REVIEW.md) for
+contracts, independent checks and the remaining data/fit/inverse scope.
+
+Repair two numerical defects found on `bd449cb`: imposed radiation/axial
+surface heat is now eliminated through the 2-D wall's half-cell resistance,
+and Nyquist winding starts at zero with interval slope bounds and a global
+tail envelope. Unresolved contours raise errors rather than a stability
+verdict; custom admittance callbacks now require explicit
+`AdmittanceBounds`. New regressions use explicit surface unknowns,
+local Fourier/Robin balances, Lambert W roots, analytic delay crossings
+and finite-tank polynomial roots. Wall solves also refuse malformed scalars,
+unrepresentable temperatures and excessive banded-grid work/storage.
+The optional CEA 3.3.4 boundary is excluded from following malformed vendor
+stubs while the project's adapter remains type checked. Scope and remaining
+issues: [NYQUIST_AND_WALL_BOUNDARY_REVIEW.md](NYQUIST_AND_WALL_BOUNDARY_REVIEW.md).
+
+The 2-D channel wall gains a closeout layer bonded to the lands (cooled
+underside, adiabatic or convective outer face), and the march can couple
+its stations through axial wall conduction, solved implicitly from each
+station's linearised response (a plain fixed-point iteration diverged).
+Both are verified against independent recomputations and mutation-checked;
+the regen route exposes `closeout_thickness_m` and `axial_conduction`.
+
+Closed the remaining simplifications named in the previous entry. The
+regenerative solver gains an optional two-dimensional wall cross-section at
+every station (`wall_model="2d"`, peak hot-wall temperature above the
+channel centre, verified against an independent sparse solve), channel-count
+changes along the chamber with GFSSP sudden-area-change losses, and a
+corrected momentum term: Euler's `ρ v dv = −dp` replaces `Δ(G²/ρ)`, which is
+only right for a constant channel area and mis-counted the reversible
+pressure change of channels narrowed at the throat. The blowdown uncertainty
+route returns Spearman, PRCC and SRRC per metric; PRCC is reported as
+undefined (with a warning) when the other inputs already fix the output
+ranks, instead of returning round-off.
+
+Raised three simplified parts to engineering models. The regenerative-cooling
+solver accepts channels that vary along the chamber (`ChannelProfile`) and
+helical channels, and its coolant pressure drop now carries the RTE momentum
+term next to friction (Wadel, NASA/TM-1998-206313, eqs. (14)-(16)); for the
+methane example the momentum term is half of the 2.86 MPa drop, and the
+earlier 3 mm default channel was found to choke, so the default depth is now
+5 mm. Stations report coolant velocity and Mach number, with a warning above
+Mach 0.5. A new `studies.global_sensitivity` module adds rank-based measures
+(Spearman, PRCC, SRRC, rank R²; Helton and Davis, SAND2001-0417) and Sobol
+first-order and total indices with bootstrap intervals (Saltelli et al. 2010),
+returned by the Δv uncertainty route; the persisted burn-uncertainty documents
+keep their Pearson records. Rocket performance finds the throat with a bounded
+Brent search and warm-starts each isentrope, cutting equilibrium solves per
+call from 481 to 268 with c* and Isp unchanged to 3e-9; a non-finite mass
+flux now fails closed instead of returning a point.
+
+Hardened the existing systems against independent oracles and hostile input.
+Eight new oracle suites check compressible flow, conduction, real-fluid
+equations of state, Gibbs equilibrium, finite-rate kinetics, radiation,
+rocket performance and incompressible aerodynamics against SciPy/mpmath
+solutions, Monte Carlo ray tracing, KKT certificates and conservation laws
+written in the test files; an AST-driven fuzzer sends type garbage and
+extreme values to every field of every HTTP route. Defects they found and
+fixed: the vortex-panel influence integrals used an unsigned distance, so
+cambered sections were wrong (NACA 4412 zero-lift cl 1.44 instead of 0.517);
+isentropic inverses are now closed-form or bracketed Newton (0.017 ms instead
+of 2.6 ms, to a few ulp); ideal-gas equilibrium refuses pressures above 1 GPa
+instead of hanging; 41 overflow, division and time-out failures under extreme
+inputs now fail closed with named codes (`numeric_range`,
+`sample_budget_exceeded`); the propagator kept thrust exact when no nozzle
+exit area is set; a bare 101 325 Pa literal now uses the registered
+constant; the SP-8120 docstring link pointed at SP-8041. Nozzle separation
+gained Schmucker's Mach-number criterion (NASA TM-77396), which locates the
+incipient separation point next to the Summerfield screen. `mypy` now runs in
+CI with `check_untyped_defs` and `warn_unused_ignores`.
+
 Added heat-transfer and combustion depth. A new `heat_transfer` package covers
 conduction (multilayer k(T) walls, fins, analytic and energy-audited
 finite-volume transients), convection (pipe, entry, external, natural,
@@ -60,6 +139,20 @@ layered ullage stratification, hot-fire calibration fields over the
 operating-condition surface, a native Sidera wrapper for the propagation
 bridge, and a clean-environment package smoke test
 (`scripts/package_smoke_test.py`). See `VALIDATION_REPORT.md`.
+
+Added transpiration cooling (`heat_transfer.transpiration`: Mickley film
+theory, the wall energy balance with efficiency and radiation,
+Eckert–Livingood and Rannie relations, the two-temperature porous wall), the
+first hot-fire comparison (Bartz against NASA TN D-6396: 7–30 % high in the
+chamber, 13–61 % at the throat), the Priem–Heidmann vaporization length
+(`thermochemistry.vaporization`) and NASA SP-194 combustion-instability
+relations (`thermochemistry.combustion_instability`). `hot_gas_from_reactants`
+builds the chamber gas for any reactant mixture. Also added ethanol and MMH
+flow-boiling burnout correlations, feed-coupled chugging with SP-194 feed
+admittances and a Nyquist count, a total heat-load comparison with the NASA
+TN D-3532 firings, and the `/api/v1/transpiration-cooling`,
+`/api/v1/combustion-stability` and `/api/v1/propellant-vaporization` routes
+with workbench panes.
 
 Repaired relative-time boundary ownership, early bridge cutoff, shifted-time
 rounding and native event merging. Exact origins/endpoints and zero implicit

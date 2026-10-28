@@ -32,6 +32,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from fractions import Fraction
+from typing import TypedDict
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
@@ -50,6 +51,25 @@ _ASSUMPTIONS = (
 )
 _OPTIONAL = ("coolant_side_wall_temperature_k", "coolant_side_heat_transfer_coefficient_w_m2_k",
              "coolant_bulk_temperature_k", "wall_thermal_conductivity_w_m_k")
+
+
+class _WallValues(TypedDict):
+    """Result fields of the wall step, keyed as in :class:`WallConductionResult`."""
+
+    wall_thermal_conductivity_w_m_k: float
+    conductivity_source: str
+    coolant_side_wall_temperature_k: float
+    wall_temperature_drop_k: float
+    hot_wall_temperature_k: float
+    wall_limit_temperature_k: float
+    wall_limit_basis: str
+    wall_limit_exceeded: bool
+    wall_limit_margin_k: float | None
+    wall_limit_margin_unrepresentable: bool
+    warnings: tuple[WarningMessage, ...]
+    assumptions: tuple[str, ...]
+    physical_model_qualified: bool
+    model: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,7 +159,7 @@ def _optional_float(value: Fraction, label: str) -> float | None:
         return None
 
 
-def _wall_values(inputs: WallConductionInputs) -> dict[str, object]:
+def _wall_values(inputs: WallConductionInputs) -> _WallValues:
     """Return every result field of the wall step for ``inputs`` [1]_.
 
     All temperatures are formed exactly from the binary64 inputs and rounded
@@ -153,15 +173,29 @@ def _wall_values(inputs: WallConductionInputs) -> dict[str, object]:
            https://ntrs.nasa.gov/api/citations/19710019929/downloads/19710019929.pdf
     """
     record = get_wall_material(inputs.wall_material)
-    catalog = record.thermal_conductivity
     user = inputs.wall_thermal_conductivity_w_m_k
-    conductivity = user if user is not None else catalog.value
+    catalog = None
+    if user is not None:
+        conductivity = user
+    else:
+        catalog = record.thermal_conductivity
+        if catalog is None:  # pragma: no cover - rejected by WallConductionInputs
+            raise InputError(f"{record.key} has no verified catalog conductivity; supply "
+                             "wall_thermal_conductivity_w_m_k.",
+                             code="wall_conductivity_unavailable",
+                             field="wall_thermal_conductivity_w_m_k")
+        conductivity = catalog.value
     flux = Fraction(inputs.heat_flux_w_m2)
     if inputs.coolant_side_wall_temperature_k is not None:
         coolant_wall = Fraction(inputs.coolant_side_wall_temperature_k)
     else:
-        coolant_wall = (Fraction(inputs.coolant_bulk_temperature_k)
-                        + flux / Fraction(inputs.coolant_side_heat_transfer_coefficient_w_m2_k))
+        bulk = inputs.coolant_bulk_temperature_k
+        film = inputs.coolant_side_heat_transfer_coefficient_w_m2_k
+        if bulk is None or film is None:  # pragma: no cover - rejected by WallConductionInputs
+            raise InputError("The coolant bulk temperature is used with, and only with, the "
+                             "coolant-side heat-transfer coefficient.",
+                             field="coolant_bulk_temperature_k")
+        coolant_wall = Fraction(bulk) + flux / Fraction(film)
     drop = flux * Fraction(inputs.wall_thickness_m) / Fraction(conductivity)
     hot = coolant_wall + drop
     limit, basis = record.temperature_limit()
@@ -173,7 +207,7 @@ def _wall_values(inputs: WallConductionInputs) -> dict[str, object]:
         "wall_model_unqualified",
         "One-dimensional steady planar conduction with constant conductivity; curvature, "
         "ribs, coatings, contact resistance and thermal stress are not modelled.")]
-    if user is None:
+    if catalog is not None:
         where = ("at an unstated temperature" if catalog.temperature_k is None
                  else f"at {catalog.temperature_k:.6g} K")
         warnings.append(WarningMessage(

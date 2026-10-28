@@ -32,7 +32,6 @@ from math import isclose, isfinite
 from typing import Any
 
 from rocket_propulsion.core.errors import DomainError, InputError
-from rocket_propulsion.core.validation import read_json_document
 
 from .ensemble import (
     ConditionalPropulsionRealization,
@@ -47,6 +46,7 @@ from .ensemble import (
     _weighted_statistics,
 )
 from .ensemble_documents import _ensemble_document
+from .exchange_documents import _read_document
 from .marginal_numerics import _SAMPLING_POLICY
 from .numeric_outputs import _finite_rational, _fraction
 from .probability_numerics import _PROBABILITY_POLICY, _weight_ledger
@@ -709,5 +709,5 @@ def hierarchical_ensemble_from_json(text: str) -> HierarchicalPropulsionEnsemble
            duplicate-member and nonstandard numeric token behavior.
     """
 
-    return read_json_document(text, "Hierarchical ensemble", hierarchical_ensemble_from_dict)
+    return _read_document(text, "Hierarchical ensemble", hierarchical_ensemble_from_dict)
 

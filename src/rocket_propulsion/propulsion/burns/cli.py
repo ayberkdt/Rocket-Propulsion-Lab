@@ -176,7 +176,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
             print(f"Valid {result.schema}: {result.result_hash}")
         return 0
 
-    artifact = export_sidera_burn_route(
+    route = export_sidera_burn_route(
         {
             "burn_result": json.loads(burn_result_to_json(result, indent=None)),
             "t_start_s": options.start,
@@ -187,7 +187,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
     )
     _write_text(
         options.output,
-        json.dumps(artifact, ensure_ascii=False, allow_nan=False, sort_keys=True, indent=2)
+        json.dumps(route, ensure_ascii=False, allow_nan=False, sort_keys=True, indent=2)
         + "\n",
     )
     print(f"Exported {options.mode} Sidera burn: {options.output}")

@@ -41,11 +41,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from fractions import Fraction
 from itertools import pairwise
+from typing import cast
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.validation import (
     name_value_pairs,
-    read_json_document,
     real,
     real_mapping,
     real_tuple,
@@ -55,7 +55,7 @@ from rocket_propulsion.core.validation import (
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
 from .direction import _direction_geometry
-from .exchange_documents import _metadata
+from .exchange_documents import _metadata, _read_document
 from .interpolation import _hermite_coefficients, _hermite_segment, _pchip_rational_slopes
 from .mass_closure import _MASS_CLOSURE_POLICY, _inventory_ledger
 from .numeric_outputs import _finite_rational, _fraction
@@ -66,6 +66,7 @@ from .propagator import (
     BurnEventSurface,
     EstimableParameter,
     PropellantMassClosure,
+    _document_parameters,
 )
 from .serialization import _require_numerical_policies, canonical_sha256
 
@@ -699,8 +700,8 @@ class ThrottleableEngineModel:
             throttle=throttle,
             active=True,
             thrust_n=thrust,
-            force_vector_n=force,  # type: ignore[arg-type]
-            acceleration_m_s2=acceleration,  # type: ignore[arg-type]
+            force_vector_n=force,
+            acceleration_m_s2=acceleration,
             mass_derivative_kg_s=_finite_rational(-flow, "Total mass flow"),
             additional_state_derivatives=tuple(
                 (name, _finite_rational(-flow * weight, f"Tank mass flow: {name}"))
@@ -728,13 +729,13 @@ class ThrottleableEngineModel:
                     if self.nozzle_exit_area_m2 is None
                     else geometry.project(-self.nozzle_exit_area_m2, vehicle_mass_kg,
                                           label="Ambient pressure acceleration partial")
-                ),  # type: ignore[arg-type]
+                ),
                 acceleration_wrt_parameters=(
                     (
                         "thrust_scale",
                         geometry.project(_fraction(self.rated_thrust_n) * _fraction(thrust_fraction),
                                          vehicle_mass_kg, label="Thrust scale acceleration partial"),
-                    ),  # type: ignore[arg-type]
+                    ),
                     ("mass_flow_scale", _ZERO3),
                 ),
                 mass_rate_wrt_parameters=(
@@ -908,27 +909,32 @@ class ThrottleableEngineModel:
             def curve(item):
                 return None if item is None else MonotoneCubicCurve(item["x"], item["y"])
 
+            # _throttle_document has checked the JSON types of every member read
+            # below; each stream fraction is a two-entry [name, value] array.
             model = cls(
-                rated_thrust_n=payload["rated_thrust_n"],
-                rated_mass_flow_kg_s=payload["rated_mass_flow_kg_s"],
-                minimum_throttle=payload["minimum_throttle"],
-                maximum_throttle=payload["maximum_throttle"],
-                stream_fractions=tuple(tuple(item) for item in payload["stream_fractions"]),
+                rated_thrust_n=cast(float, payload["rated_thrust_n"]),
+                rated_mass_flow_kg_s=cast(float, payload["rated_mass_flow_kg_s"]),
+                minimum_throttle=cast(float, payload["minimum_throttle"]),
+                maximum_throttle=cast(float, payload["maximum_throttle"]),
+                stream_fractions=tuple(
+                    (cast(str, pair[0]), cast(float, pair[1]))
+                    for pair in cast(list[list[object]], payload["stream_fractions"])
+                ),
                 thrust_curve=curve(payload["thrust_curve"]),
                 flow_curve=curve(payload["flow_curve"]),
                 state_constraints=tuple(
-                    AdditionalStateConstraint(i["state_name"], i["minimum_value"], i["label"])
-                    for i in payload["state_constraints"]
+                    AdditionalStateConstraint(
+                        cast(str, i["state_name"]),
+                        cast(float, i["minimum_value"]),
+                        cast(str, i["label"]),
+                    )
+                    for i in cast(list[dict[str, object]], payload["state_constraints"])
                 ),
-                protected_dry_mass_kg=payload["protected_dry_mass_kg"],
-                nozzle_exit_area_m2=payload["nozzle_exit_area_m2"],
-                parameters=tuple(
-                    EstimableParameter(i["name"], i["reference_value"], i["scale"],
-                                       i["minimum"], i["maximum"], i["unit"])
-                    for i in payload["parameters"]
-                ),
-                model_id=payload["model_id"],
-                schema=payload["schema"],
+                protected_dry_mass_kg=cast(float | None, payload["protected_dry_mass_kg"]),
+                nozzle_exit_area_m2=cast(float | None, payload["nozzle_exit_area_m2"]),
+                parameters=_document_parameters(payload["parameters"]),
+                model_id=cast(str, payload["model_id"]),
+                schema=cast(str, payload["schema"]),
             )
         except (KeyError, TypeError, ValueError, AttributeError) as error:
             raise InputError("Malformed throttleable engine document.") from error
@@ -958,4 +964,4 @@ class ThrottleableEngineModel:
             If the text is not a valid model document.
         """
 
-        return read_json_document(text_value, "Throttleable engine document", cls.from_dict)
+        return _read_document(text_value, "Throttleable engine document", cls.from_dict)

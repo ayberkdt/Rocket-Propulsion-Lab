@@ -39,7 +39,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 
 from rocket_propulsion.core.errors import DomainError
-from rocket_propulsion.core.metadata import WarningMessage
+from rocket_propulsion.core.metadata import WarningMessage, is_warning_severity
 from rocket_propulsion.core.validation import (
     coerce_fields,
     real_matrix,
@@ -221,7 +221,7 @@ def _owned(value, kind, label):
         message = text(value.message, 'Loss warning message')
         severity = text(value.severity, 'Loss warning severity')
         field = None if value.field is None else text(value.field, 'Loss warning field')
-        if severity not in ('info', 'warning', 'critical'):
+        if not is_warning_severity(severity):
             raise DomainError('Unknown loss warning severity.', field='Loss warning severity')
         value = WarningMessage(code, message, severity, field)
     return value

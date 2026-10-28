@@ -14,6 +14,7 @@ from math import asin, atan, cos, degrees, isfinite, pi, radians, sin, tan
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.numerics import bisect_monotonic
+from rocket_propulsion.core.validation import numeric_range_guard
 
 from .normal_shock import calculate_normal_shock
 
@@ -115,6 +116,7 @@ def _maximum_turn_state(upstream_mach: float, gamma: float) -> tuple[float, floa
     return beta, _turning_angle_rad(upstream_mach, beta, gamma)
 
 
+@numeric_range_guard("upstream_mach")
 def calculate_oblique_shock(
     *,
     upstream_mach: float,

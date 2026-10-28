@@ -33,6 +33,7 @@ cea = ["cea==3.3.4"]
 dev = [
     "pytest>=8",
     "ruff==0.17.2",
+    "mypy==2.1.0",
     "mpmath==1.3.0",
     "numpy==2.2.6",
     "scipy==1.14.1",
@@ -54,6 +55,24 @@ rocket_propulsion = [
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src/rocket_propulsion"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+strict_equality = true
+no_implicit_optional = true
+check_untyped_defs = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+# CEA 3.3.4 includes a libcea.pyi with an invalid parameter ordering.
+# Treat this optional third-party boundary as untyped; keep checking our adapter.
+module = ["cea", "cea.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+follow_imports_for_stubs = true
 
 [tool.ruff]
 line-length = 100

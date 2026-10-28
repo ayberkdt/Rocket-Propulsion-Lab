@@ -2,8 +2,9 @@
 
 The local provider minimizes ideal-gas Gibbs energy subject to element
 conservation [1]_ using NASA Glenn species data [2]_. It is limited to the
-bundled gas species and 200--6000 K and is not validated against NASA CEA or
-hardware data. The provider protocol also lets the NASA CEA adapter of
+bundled gas species and 200--6000 K. Bounded solver comparisons against NASA
+CEA are recorded in ``tests/test_cea_gate.py``; shared thermodynamic data do
+not independently validate the catalogue or hardware. The provider protocol also lets the NASA CEA adapter of
 :mod:`.cea` be selected without coupling the rest of the application to an
 external executable.
 
@@ -23,6 +24,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from itertools import combinations
 from math import exp, isfinite, log
+from operator import mul
 from typing import Protocol, runtime_checkable
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
@@ -31,6 +33,13 @@ from rocket_propulsion.core.metadata import WarningMessage
 from .mixtures import REFERENCE_PRESSURE_PA, Mixture
 from .nasa_polynomials import UNIVERSAL_GAS_CONSTANT_J_MOL_K
 from .species import CondensedReactant, Species, get_reactant, get_species, species_catalog
+
+#: Library bound, not a source value: the gas phase is the ideal-gas mixture of
+#: :mod:`.mixtures`, an assumption that fails long before 1 GPa (rocket
+#: chambers run below about 30 MPa). NASA CEA itself imposes no bound; above
+#: this pressure solves are refused instead of returning ideal-gas numbers for
+#: states that cannot be ideal gases.
+MAXIMUM_IDEAL_GAS_PRESSURE_PA = 1.0e9
 
 
 @dataclass(frozen=True, slots=True)
@@ -730,6 +739,11 @@ class LocalEquilibriumProvider:
             )
         if not isfinite(pressure_pa) or pressure_pa <= 0.0:
             raise DomainError("Equilibrium pressure must be positive.", field="pressure_pa")
+        if pressure_pa > MAXIMUM_IDEAL_GAS_PRESSURE_PA:
+            raise DomainError(
+                f"Equilibrium pressure {pressure_pa:.4g} Pa exceeds the {MAXIMUM_IDEAL_GAS_PRESSURE_PA:.0e} Pa "
+                "limit of the ideal-gas mixture model.",
+                code="pressure_outside_ideal_gas_range", field="pressure_pa")
         # Some NASA records start at 300 K; below that they are simply absent.
         candidates = tuple(
             species
@@ -744,6 +758,10 @@ class LocalEquilibriumProvider:
             for element in elements[1:]
         }
         atom_matrix = [dict(species.formula) for species in candidates]
+        atom_rows = [tuple(record.get(element, 0.0) for element in elements)
+                     for record in atom_matrix]
+        atom_columns = {element: tuple(row[column] for row in atom_rows)
+                        for column, element in enumerate(elements)}
         g_over_rt = []
         for species in candidates:
             properties = species.properties(temperature_k)
@@ -759,20 +777,14 @@ class LocalEquilibriumProvider:
             log_weights = [
                 pressure_term
                 - gibbs
-                + sum(
-                    atom_matrix[index].get(element, 0.0) * potentials[element_index]
-                    for element_index, element in enumerate(elements)
-                )
+                + sum(map(mul, atom_rows[index], potentials))
                 for index, gibbs in enumerate(g_over_rt)
             ]
             normalization = _logsumexp(log_weights)
             fractions = [exp(value - normalization) for value in log_weights]
             atoms_per_mole = {
-                element: sum(
-                    fraction * atom_matrix[index].get(element, 0.0)
-                    for index, fraction in enumerate(fractions)
-                )
-                for element in elements
+                element: sum(map(mul, fractions, counts))
+                for element, counts in atom_columns.items()
             }
             values = [normalization]
             reference_atoms = atoms_per_mole[reference_element]
@@ -801,14 +813,17 @@ class LocalEquilibriumProvider:
                     solved_potentials[0] = potentials
                     return fractions, iteration, norm
                 step_size = 1.0e-5
-                jacobian: list[list[float]] = []
-                for row in range(len(elements)):
-                    jacobian.append([])
-                    for column in range(len(elements)):
-                        shifted = potentials[:]
-                        shifted[column] += step_size
-                        shifted_values, _ = residuals(shifted)
-                        jacobian[row].append((shifted_values[row] - values[row]) / step_size)
+                # One residual vector supplies every row of a difference column.
+                # Re-evaluating that identical vector per row adds no information.
+                shifted_columns: list[list[float]] = []
+                for column in range(len(elements)):
+                    shifted = potentials[:]
+                    shifted[column] += step_size
+                    shifted_values, _ = residuals(shifted)
+                    shifted_columns.append(shifted_values)
+                jacobian = [[(shifted_columns[column][row] - values[row]) / step_size
+                             for column in range(len(elements))]
+                            for row in range(len(elements))]
                 try:
                     delta = _solve_linear(jacobian, [-value for value in values])
                 except ConvergenceError:
@@ -865,11 +880,8 @@ class LocalEquilibriumProvider:
         self._last_potentials[elements] = solved_potentials[0]
 
         atoms_per_mole = {
-            element: sum(
-                fraction * atom_matrix[index].get(element, 0.0)
-                for index, fraction in enumerate(fractions)
-            )
-            for element in elements
+            element: sum(map(mul, fractions, counts))
+            for element, counts in atom_columns.items()
         }
         total_moles = inventory[reference_element] / atoms_per_mole[reference_element]
         amounts = {
@@ -1232,6 +1244,7 @@ class LocalEquilibriumProvider:
         """Solve an assigned enthalpy and pressure (adiabatic combustion) problem."""
         if problem.pressure_pa is None:
             raise InputError("HP requires pressure.", field="pressure_pa")
+        pressure_pa = problem.pressure_pa
         reactant_enthalpy, _ = self._reactant_energy(problem)
         target = (
             problem.target_enthalpy_j
@@ -1248,7 +1261,7 @@ class LocalEquilibriumProvider:
                 inventory=inventory,
                 candidates=candidates,
                 temperature_k=temperature,
-                pressure_pa=problem.pressure_pa,
+                pressure_pa=pressure_pa,
             )
             amounts, _, _ = last
             enthalpy = sum(
@@ -1283,6 +1296,7 @@ class LocalEquilibriumProvider:
         """Solve an assigned internal energy and volume (constant-volume) problem."""
         if problem.volume_m3 is None or problem.volume_m3 <= 0.0:
             raise InputError("UV requires a positive volume.", field="volume_m3")
+        volume_m3 = problem.volume_m3
         _, reactant_internal_energy = self._reactant_energy(problem)
         target = (
             problem.target_internal_energy_j
@@ -1314,12 +1328,12 @@ class LocalEquilibriumProvider:
                     * temperature
                     / pressure
                 )
-                return log(actual_volume / problem.volume_m3)
+                return log(actual_volume / volume_m3)
 
             log_pressure, iterations = self._bisect_state(
                 volume_residual,
                 lower=log(1.0),
-                upper=log(1.0e10),
+                upper=log(MAXIMUM_IDEAL_GAS_PRESSURE_PA),
                 tolerance=1.0e-10,
             )
             pressure_iteration_total += iterations

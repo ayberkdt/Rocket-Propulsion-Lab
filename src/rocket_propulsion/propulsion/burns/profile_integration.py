@@ -59,7 +59,7 @@ def _required_exposure(definition, operating_point):
 
 def _tank_rates(operating_point):
     """Return the exact rated tank-depleting flow per tank identifier."""
-    rates = {}
+    rates: dict[str, Fraction] = {}
     for stream in operating_point.streams:
         if stream.tank_depleting:
             rates[stream.tank_id] = rates.get(stream.tank_id, Fraction(0)) + _fraction(
@@ -233,7 +233,7 @@ def _profile_cutoff(definition, operating_point, schedule, rates):
     """
     total_time, _ = _schedule_totals(schedule)
     requested = _required_exposure(definition, operating_point)
-    times = [
+    times: list[tuple[Fraction, int, CutoffReason, str | None]] = [
         (
             _fraction(definition.maximum_duration_s),
             3,
@@ -246,7 +246,7 @@ def _profile_cutoff(definition, operating_point, schedule, rates):
         times.append((_fraction(definition.target.value), 0, CutoffReason.TARGET_REACHED, None))
     cap, time_rank, time_reason, time_binding = min(times, key=lambda row: (row[0], row[1]))
     cap_exposure = _schedule_integrals(schedule, cap)[0]
-    exposures = []
+    exposures: list[tuple[Fraction, int, CutoffReason, str | None]] = []
     if requested is not None:
         exposures.append((requested, 0, CutoffReason.TARGET_REACHED, None))
     for tank in definition.tanks:

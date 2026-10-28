@@ -33,6 +33,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from functools import partial
 from math import acos, cos, isfinite, pi
 
 from rocket_propulsion.core.errors import DomainError
@@ -172,8 +173,11 @@ def thin_airfoil(
 
     mean_slope = integrate(slope, limits) / pi
     a0 = alpha - mean_slope
+    def fourier_integrand(theta: float, n: int) -> float:
+        return slope(theta) * cos(n * theta)
+
     coefficients = tuple(
-        2.0 / pi * integrate(lambda t, n=n: slope(t) * cos(n * t), limits)
+        2.0 / pi * integrate(partial(fourier_integrand, n=n), limits)
         for n in range(1, max(coefficient_count, 2) + 1)
     )
     a1, a2 = coefficients[0], coefficients[1]

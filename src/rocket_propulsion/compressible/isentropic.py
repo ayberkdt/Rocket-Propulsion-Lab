@@ -12,10 +12,14 @@ References
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import asin, atan, degrees, isfinite, radians, sin, sqrt
+from math import asin, atan, degrees, expm1, isfinite, log, radians, sin, sqrt
 
 from rocket_propulsion.core.errors import DomainError
-from rocket_propulsion.core.numerics import bisect_monotonic
+
+#: Bracket of the inverse relations (library choice): below 1e-8 or above 1000
+#: the perfect-gas Mach number carries no engineering meaning.
+_MINIMUM_MACH = 1.0e-8
+_MAXIMUM_MACH = 1000.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,7 +113,9 @@ def calculate_isentropic(mach: float, gamma: float = 1.4) -> IsentropicResult:
     _validate_gamma(gamma)
     _validate_mach(mach)
 
-    energy_factor = 1.0 + 0.5 * (gamma - 1.0) * mach**2
+    # mach * mach overflows to inf instead of raising like ``mach**2``; any
+    # non-representable result is refused below.
+    energy_factor = 1.0 + 0.5 * (gamma - 1.0) * mach * mach
     temperature_total = energy_factor**-1.0
     pressure_total = energy_factor ** (-gamma / (gamma - 1.0))
     density_total = energy_factor ** (-1.0 / (gamma - 1.0))
@@ -120,8 +126,11 @@ def calculate_isentropic(mach: float, gamma: float = 1.4) -> IsentropicResult:
         ** ((gamma + 1.0) / (2.0 * (gamma - 1.0)))
     )
 
+    if not (isfinite(area_ratio) and pressure_total > 0.0 and density_total > 0.0):
+        raise DomainError(f"Mach number {mach:.6g} is outside the floating-point range of the "
+                          "isentropic relations.", code="numeric_range", field="mach")
     if mach >= 1.0:
-        root = sqrt(max(0.0, mach**2 - 1.0))
+        root = sqrt(max(0.0, mach * mach - 1.0))
         mach_angle = degrees(asin(1.0 / mach))
         prandtl_meyer = degrees(
             sqrt((gamma + 1.0) / (gamma - 1.0))
@@ -183,11 +192,27 @@ def mach_from_isentropic(
 
     Notes
     -----
-    The Mach angle is inverted in closed form, ``M = 1/sin(mu)``. All other
-    properties are inverted by monotonic bisection of the forward relations of
-    [1]_ on a bracket inside ``1e-8 <= M <= 1000``. The area ratio is
-    double-valued, so the subsonic or supersonic branch must be named
-    explicitly; ``A/A* = 1`` returns ``M = 1`` on either branch.
+    Every relation is inverted to machine precision (library choice of
+    method; the forward relations are those of [1]_):
+
+    * Mach angle: ``M = 1/sin(mu)``;
+    * stagnation ratios, with ``X = 1 + (gamma-1) M^2/2``:
+      ``M^2 = 2 (X - 1)/(gamma - 1)`` and ``X - 1`` from ``T/T0 = 1/X``,
+      ``p/p0 = X^(-gamma/(gamma-1))`` or ``rho/rho0 = X^(-1/(gamma-1))``
+      in closed form, written with ``expm1``/``log`` so that ratios near 1
+      (``M -> 0``) keep full relative precision;
+    * critical ratios: converted exactly to stagnation ratios with the sonic
+      values ``T*/T0 = 2/(gamma+1)`` (and its powers), then as above;
+    * area ratio and Prandtl-Meyer angle: Newton iteration with the analytic
+      derivatives ``d(A/A*)/dM = (A/A*)(M^2-1)/(M X)`` and
+      ``d nu/dM = sqrt(M^2-1)/(M X)``, kept inside a shrinking bracket
+      (bisection step whenever Newton would leave it) and stopped when the
+      bracket or the step falls below 4 ulp of ``M``.
+
+    The result lies in ``[1e-8, 1000]``; a value whose Mach number falls
+    outside is refused. The area ratio is double-valued, so the subsonic or
+    supersonic branch must be named explicitly; ``A/A* = 1`` returns
+    ``M = 1`` on either branch.
 
     References
     ----------
@@ -204,48 +229,112 @@ def mach_from_isentropic(
     if input_kind == "mach_angle_deg":
         if not 0.0 < value <= 90.0:
             raise DomainError("Mach angle must be in the interval (0, 90].")
-        return 1.0 / sin(radians(value))
+        return _bounded(1.0 / sin(radians(value)), input_kind, value)
     if input_kind == "prandtl_meyer_deg":
         maximum = degrees(0.5 * 3.141592653589793 * (sqrt((gamma + 1) / (gamma - 1)) - 1))
         if not 0.0 <= value < maximum:
             raise DomainError(f"Prandtl-Meyer angle must be in [0, {maximum:g}).")
-        return bisect_monotonic(
-            lambda candidate: calculate_isentropic(candidate, gamma).prandtl_meyer_deg or 0.0,
-            value,
-            1.0,
-            1000.0,
-        )
+        if value == 0.0:
+            return 1.0
+        return _newton_bracketed(lambda m: _prandtl_meyer_deg(m, gamma), _prandtl_meyer_slope(gamma),
+                                 value, 1.0, _MAXIMUM_MACH, input_kind)
 
-    field_by_input = {
-        "pressure_total_ratio": "pressure_total_ratio",
-        "density_total_ratio": "density_total_ratio",
-        "temperature_total_ratio": "temperature_total_ratio",
-        "pressure_critical_ratio": "pressure_critical_ratio",
-        "density_critical_ratio": "density_critical_ratio",
-        "temperature_critical_ratio": "temperature_critical_ratio",
+    stagnation_exponent = {
+        "pressure_total_ratio": gamma / (gamma - 1.0), "pressure_critical_ratio": gamma / (gamma - 1.0),
+        "density_total_ratio": 1.0 / (gamma - 1.0), "density_critical_ratio": 1.0 / (gamma - 1.0),
+        "temperature_total_ratio": 1.0, "temperature_critical_ratio": 1.0,
     }
-    if input_kind in field_by_input:
+    if input_kind in stagnation_exponent:
         if value <= 0.0:
             raise DomainError("Flow ratios must be greater than zero.")
-        field = field_by_input[input_kind]
-        return bisect_monotonic(
-            lambda candidate: getattr(calculate_isentropic(candidate, gamma), field),
-            value,
-            1.0e-8,
-            1000.0,
-        )
+        exponent = stagnation_exponent[input_kind]
+        # ln X = -ln(ratio)/exponent; critical ratios first become stagnation ratios.
+        log_x = -log(value) / exponent
+        if input_kind.endswith("_critical_ratio"):
+            log_x -= log(2.0 / (gamma + 1.0))
+        if log_x < 0.0:
+            raise DomainError(f"{input_kind} = {value:g} exceeds its stagnation (M = 0) value.",
+                              field="value")
+        mach = sqrt(2.0 * expm1(log_x) / (gamma - 1.0)) if log_x < 700.0 else float("inf")
+        return _bounded(mach, input_kind, value)
 
     if input_kind in {"area_ratio_subsonic", "area_ratio_supersonic"}:
         if value < 1.0:
             raise DomainError("A/A* must be greater than or equal to 1.")
         if value == 1.0:
             return 1.0
-        bounds = (1.0e-8, 1.0) if input_kind.endswith("subsonic") else (1.0, 1000.0)
-        return bisect_monotonic(
-            lambda candidate: calculate_isentropic(candidate, gamma).area_critical_ratio,
-            value,
-            *bounds,
-        )
+        lower, upper = (_MINIMUM_MACH, 1.0) if input_kind.endswith("subsonic") else (1.0, _MAXIMUM_MACH)
+        return _newton_bracketed(lambda m: _area_ratio(m, gamma), _area_ratio_slope(gamma),
+                                 value, lower, upper, input_kind)
 
     raise DomainError(f"Unsupported isentropic input kind: {input_kind!r}.")
 
+
+def _bounded(mach: float, kind: str, value: float) -> float:
+    """Return ``mach`` if it lies in the inverse bracket, else refuse."""
+    if not (_MINIMUM_MACH <= mach <= _MAXIMUM_MACH):
+        raise DomainError(f"{kind} = {value:g} corresponds to a Mach number outside "
+                          f"[{_MINIMUM_MACH:g}, {_MAXIMUM_MACH:g}].", code="outside_inverse_range",
+                          field="value")
+    return mach
+
+
+def _area_ratio(mach: float, gamma: float) -> float:
+    x = 1.0 + 0.5 * (gamma - 1.0) * mach * mach
+    return (2.0 * x / (gamma + 1.0)) ** ((gamma + 1.0) / (2.0 * (gamma - 1.0))) / mach
+
+
+def _area_ratio_slope(gamma: float):
+    def slope(mach: float, area: float) -> float:
+        return area * (mach * mach - 1.0) / (mach * (1.0 + 0.5 * (gamma - 1.0) * mach * mach))
+    return slope
+
+
+def _prandtl_meyer_deg(mach: float, gamma: float) -> float:
+    root = sqrt(max(0.0, mach * mach - 1.0))
+    return degrees(sqrt((gamma + 1.0) / (gamma - 1.0)) * atan(sqrt((gamma - 1.0) / (gamma + 1.0)) * root)
+                   - atan(root))
+
+
+def _prandtl_meyer_slope(gamma: float):
+    def slope(mach: float, _value: float) -> float:
+        return degrees(sqrt(max(0.0, mach * mach - 1.0)) / (mach * (1.0 + 0.5 * (gamma - 1.0) * mach * mach)))
+    return slope
+
+
+def _newton_bracketed(function, slope, target: float, lower: float, upper: float, kind: str) -> float:
+    """Solve ``function(M) = target`` for monotonic ``function`` on ``[lower, upper]``.
+
+    Newton steps with an analytic slope, replaced by a bisection step whenever
+    they would leave the current bracket; the bracket is updated from the sign
+    of every residual, so convergence is guaranteed and is quadratic near the
+    root. Stops when the bracket or the step is below 4 ulp of ``M``.
+    """
+    f_low, f_high = function(lower) - target, function(upper) - target
+    if f_low == 0.0:
+        return lower
+    if f_high == 0.0:
+        return upper
+    if (f_low > 0.0) == (f_high > 0.0):
+        raise DomainError(f"{kind} = {target:g} corresponds to a Mach number outside "
+                          f"[{lower:g}, {upper:g}].", code="outside_inverse_range", field="value")
+    increasing = f_high > 0.0
+    mach = 0.5 * (lower + upper) if upper < 10.0 else sqrt(lower * upper)
+    for _ in range(200):
+        value = function(mach)
+        residual = value - target
+        if residual == 0.0:
+            return mach
+        if (residual > 0.0) == increasing:
+            upper = mach
+        else:
+            lower = mach
+        derivative = slope(mach, value)
+        step_ok = derivative != 0.0 and isfinite(derivative)
+        candidate = mach - residual / derivative if step_ok else 0.5 * (lower + upper)
+        if not (lower < candidate < upper):
+            candidate = 0.5 * (lower + upper)
+        if abs(candidate - mach) <= 4.0 * 2.220446049250313e-16 * mach or upper - lower <= 4.0 * 2.220446049250313e-16 * upper:
+            return candidate
+        mach = candidate
+    return mach

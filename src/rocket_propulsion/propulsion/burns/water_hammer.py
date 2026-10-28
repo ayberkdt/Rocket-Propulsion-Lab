@@ -519,9 +519,9 @@ class WaterHammerConfiguration:
         _nonnegative(self.vapor_pressure_pa, "Vapour pressure")
         if self.step_count > MAXIMUM_TIME_STEPS:
             raise DomainError("Water-hammer run exceeds the time-step limit.", field="duration_s")
+        stations: tuple[int, ...]
         if self.station_indices is None:
-            stations = (0, self.reach_count // 2, self.reach_count)
-            stations = tuple(dict.fromkeys(stations))
+            stations = tuple(dict.fromkeys((0, self.reach_count // 2, self.reach_count)))
         else:
             if not isinstance(self.station_indices, (list, tuple)) or not self.station_indices:
                 raise DomainError("Station indices must be a non-empty sequence.",
@@ -816,6 +816,8 @@ def simulate_water_hammer(configuration: WaterHammerConfiguration) -> WaterHamme
         return net_in, boundary, dissipation, body_work
 
     stations = configuration.station_indices
+    if stations is None:  # __post_init__ always stores the resolved stations
+        raise DomainError("Water-hammer stations are unresolved.", field="station_indices")
     times = [0.0]
     station_p = [[pressure[i]] for i in stations]
     station_q = [[flow[i]] for i in stations]

@@ -18,7 +18,7 @@ def _form_defaults() -> dict[str, str]:
     start = text.index('id="nozzle-thermal-form"')
     form = text[start:text.index("</form>", start)]
     payload = {m.group(1): m.group(2) for m in re.finditer(r'<input name="([^"]+)" type="[^"]+" value="([^"]*)"', form)}
-    for match in re.finditer(r'<select name="([^"]+)"[^>]*>(.*?)</select>', form, re.S):
+    for match in re.finditer(r'<select name="([^"]+)"[^>]*>(.*?)</select>', form, re.DOTALL):
         chosen = re.search(r'<option value="([^"]*)" selected', match.group(2))
         payload[match.group(1)] = chosen.group(1) if chosen else re.search(r'<option value="([^"]*)"', match.group(2)).group(1)
     return payload
