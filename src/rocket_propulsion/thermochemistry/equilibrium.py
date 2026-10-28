@@ -569,7 +569,7 @@ class LocalEquilibriumProvider:
     """
 
     name = "local-gibbs"
-    version = "0.2-experimental"
+    version = "0.3-nasa2002-experimental"
     maximum_iterations = 100
     residual_tolerance = 2.0e-9
 

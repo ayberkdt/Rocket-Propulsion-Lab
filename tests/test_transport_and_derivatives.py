@@ -11,19 +11,20 @@ Tolerances and why (measured deviations in ``docs/TRANSPORT_AND_DERIVATIVES.md``
   equation (5.1) of RP-1311 Part I; only rounding differs.
 * fixed small mixtures whose species all have trans.inp data: viscosity and
   frozen conductivity 1e-7. Quantities proportional to the gas constant
-  (specific heats, reaction conductivity, Prandtl numbers) 2e-5, because CEA
-  3.3.4 uses R = 8314.51 J/(kmol K) and the library the exact 2019 SI value,
-  a ratio of 1 - 5.7e-6.
+  (specific heats, reaction conductivity, Prandtl numbers) retain the original
+  2e-5 allowance. The earlier 5.7e-6 SI/CEA scale difference is removed:
+  the NASA model now uses CEA's R = 8314.51 J/(kmol K).
 * rocket chamber/throat states: CEA estimates properties of HO2, H2O2, O3,
   HCO, COOH, ... from an undocumented correlation; this library omits them
   (at most 3.3e-4 of the mixture here). Viscosity 1e-4, frozen conductivity
   3e-4, equilibrium conductivity and Prandtl numbers 1e-3.
 * equilibrium derivatives evaluated on CEA's own composition: gamma_s 1e-7
-  (dimensionless, independent of R); specific heats and sound speed 2e-6 after
-  rescaling CEA's R to the SI value (residual from CEA trace species absent
-  from the bundled thermodynamic catalog).
+  (dimensionless, independent of R); specific heats and sound speed 2e-6
+  on the common NASA basis (residual from CEA trace species absent from the
+  bundled thermodynamic catalog).
 * derivatives of the local provider's own equilibrium at CEA's T and p:
-  gamma_s 1e-6, rescaled sound speed and specific heat 1e-5.
+  gamma_s 1e-6, sound speed and specific heat 1e-5. No fixture or numerical
+  acceptance tolerance is widened for the basis repair.
 """
 
 from __future__ import annotations
@@ -34,7 +35,6 @@ from math import sqrt
 from pathlib import Path
 
 from rocket_propulsion.core.constants import (
-    MOLAR_GAS_CONSTANT_J_MOL_K,
     USSA1976_SEA_LEVEL_TEMPERATURE,
 )
 from rocket_propulsion.core.errors import DomainError, InputError
@@ -73,7 +73,8 @@ POINTS = json.loads((DATA / "cea_transport_points.json").read_text(encoding="utf
 MILLIPOISE = 1.0e-4
 MILLIWATT_PER_CM_K = 0.1
 KJ = 1.0e3
-R_RATIO = MOLAR_GAS_CONSTANT_J_MOL_K * 1.0e3 / POINTS["reference"]["universal_gas_constant_j_kmol_k"]
+NASA_R = 8.314510  # NASA/TP-2002-211556 Appendix A, independent of production alias.
+R_RATIO = NASA_R * 1.0e3 / POINTS["reference"]["universal_gas_constant_j_kmol_k"]
 
 
 def _relative(actual: float, expected: float) -> float:
@@ -250,8 +251,8 @@ class MixtureIdentityTests(unittest.TestCase):
     def test_prandtl_and_eucken_helpers(self) -> None:
         self.assertAlmostEqual(prandtl_number(1000.0, 2.0e-5, 0.025), 0.8)
         # Monatomic gas, cp = 5/2 R: modified Eucken reduces to 15/4 (R/M) mu.
-        value = modified_eucken_conductivity(2.0e-5, 2.5 * MOLAR_GAS_CONSTANT_J_MOL_K, 0.04)
-        self.assertAlmostEqual(value, 3.75 * MOLAR_GAS_CONSTANT_J_MOL_K / 0.04 * 2.0e-5, places=15)
+        value = modified_eucken_conductivity(2.0e-5, 2.5 * NASA_R, 0.04)
+        self.assertAlmostEqual(value, 3.75 * NASA_R / 0.04 * 2.0e-5, places=15)
         with self.assertRaises(InputError):
             prandtl_number(1000.0, 0.0, 0.025)
 
@@ -340,7 +341,7 @@ class DerivativeTests(unittest.TestCase):
         record = next(r for r in POINTS["rocket"] if r["id"] == "cea-lox_ch4-of-3.4-chamber")
         cea = record["cea"]
         d = derivatives_from_composition(self._cea_composition(record), cea["T"], cea["P"] * 1.0e5)
-        gas_constant = MOLAR_GAS_CONSTANT_J_MOL_K / d.molecular_mass_kg_mol
+        gas_constant = NASA_R / d.molecular_mass_kg_mol
         # RP-1311 eq. (2.68): (dln p/dln V)_s = -gamma_s.
         dlnp_dlnv = d.equilibrium_cp_j_kg_k / (
             d.equilibrium_cp_j_kg_k * d.dlnv_dlnp_t + gas_constant * d.dlnv_dlnt_p ** 2)

@@ -489,6 +489,12 @@ whose bibliographic record has been verified are cited. The main foundations:
 
 ## Validation status and limits
 
+- **Thermochemical convention:** NASA polynomials, mixture/equilibrium
+  identities and coupled thermochemical models use NASA's defining gas
+  constant. The general SI constant, Arrhenius activation-energy convention
+  and real-fluid fit constants retain their own bases. Data corrections,
+  independent source checks and compatibility details are recorded in
+  [docs/NASA_THERMOCHEMICAL_BASIS_REVIEW.md](docs/NASA_THERMOCHEMICAL_BASIS_REVIEW.md).
 - **Mostly verified, barely validated.** Agreement with NASA CEA, the NIST
   WebBook and textbook examples shows that the published models are
   implemented correctly with the published data. How well they predict a real

@@ -5,11 +5,11 @@ NASA CEA 3.3.4 with its full product database for the reactant elements
 (``scripts/generate_cea_condensed_points.py``). The provider's species set is
 the same set, drawn from the same ``thermo.inp``; remaining differences come
 from CEA's convergence tolerances (RP-1311 Part I eqs. (3.5)-(3.6c)), from
-CEA's area-ratio iteration and from the gas constant (8.31451 in CEA,
-8.314462618 J/(mol K) here, a 5.7e-6 relative difference in entropy).
+CEA's area-ratio iteration. The NASA-basis repair makes both thermochemical
+models use R = 8.31451 J/(mol K); the former SI rescaling is removed.
 
 Tolerances were declared after one exploratory comparison, not before: the
-largest deviation then was 8.9e-6 (relative throat pressure, LOX/CH4 O/F 0.8;
+largest deviation before the NASA-basis repair was 8.9e-6 (relative throat pressure, LOX/CH4 O/F 0.8;
 relative for temperatures, pressures, molar masses, c* and Isp, absolute for
 mass and mole fractions), and the tolerances are 3e-5, about 3.4 times that.
 Measured values are listed in docs/CONDENSED_EQUILIBRIUM.md.

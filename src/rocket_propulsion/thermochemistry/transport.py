@@ -46,11 +46,11 @@ from math import exp, isfinite, log, sqrt
 from pathlib import Path
 from typing import TypedDict, Unpack
 
-from rocket_propulsion.core.constants import MOLAR_GAS_CONSTANT_J_MOL_K
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
 
 from .equilibrium import EquilibriumResult
+from .nasa_polynomials import UNIVERSAL_GAS_CONSTANT_J_MOL_K as _R
 from .species import get_species, species_catalog
 
 DATA_FILE = Path(__file__).parent / "data" / "nasa_cea_transport.json"
@@ -867,7 +867,7 @@ def mixture_transport_properties(
         independent_reactions([dict(species.formula) for species in thermo]) if reacting else []
     )
     if reactions:
-        rt = MOLAR_GAS_CONSTANT_J_MOL_K * temperature_k
+        rt = _R * temperature_k
         enthalpy_over_rt = [
             sum(alpha[k] * properties[k].enthalpy_molar_j_mol for k in range(count)) / rt
             for alpha in reactions
@@ -892,10 +892,10 @@ def mixture_transport_properties(
                         g[i][j] += rt_over_pd * product
         lambda_r = _solve(g, enthalpy_over_rt)
         capital_x = _solve(d, enthalpy_over_rt)
-        reaction_conductivity = MOLAR_GAS_CONSTANT_J_MOL_K * sum(
+        reaction_conductivity = _R * sum(
             h * value for h, value in zip(enthalpy_over_rt, lambda_r, strict=True)
         )
-        reaction_cp = MOLAR_GAS_CONSTANT_J_MOL_K * sum(
+        reaction_cp = _R * sum(
             h * value for h, value in zip(enthalpy_over_rt, capital_x, strict=True)
         ) / mean_molar_mass
 
@@ -1211,7 +1211,7 @@ def modified_eucken_conductivity(
                         ("molar_mass_kg_mol", molar_mass_kg_mol)):
         if not isfinite(value) or value <= 0.0:
             raise InputError(f"{name} must be finite and positive.", field=name)
-    cp_over_r = cp_molar_j_mol_k / MOLAR_GAS_CONSTANT_J_MOL_K
-    return viscosity_pa_s * MOLAR_GAS_CONSTANT_J_MOL_K / molar_mass_kg_mol * (
+    cp_over_r = cp_molar_j_mol_k / _R
+    return viscosity_pa_s * _R / molar_mass_kg_mol * (
         3.75 + 1.32 * (cp_over_r - 2.5)
     )

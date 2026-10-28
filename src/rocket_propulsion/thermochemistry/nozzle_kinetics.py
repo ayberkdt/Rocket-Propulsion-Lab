@@ -52,7 +52,7 @@ from dataclasses import dataclass
 from math import exp, isfinite, log, pi, radians, sqrt, tan
 from typing import Literal
 
-from rocket_propulsion.core.constants import MOLAR_GAS_CONSTANT_J_MOL_K, STANDARD_GRAVITY_M_S2
+from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
 from rocket_propulsion.core.validation import numeric_range_guard
@@ -61,9 +61,9 @@ from .equilibrium import EquilibriumProblem, EquilibriumProvider, LocalEquilibri
 from .kinetics import Mechanism, StepRejected, _compile, solve_stiff
 from .kinetics_mechanisms import gri30_h2o2_mechanism
 from .mixtures import REFERENCE_PRESSURE_PA
+from .nasa_polynomials import UNIVERSAL_GAS_CONSTANT_J_MOL_K as _R
 from .species import get_reactant
 
-_R = MOLAR_GAS_CONSTANT_J_MOL_K
 _SQRT_EPS = 1.4901161193847656e-08
 _MINIMUM_TEMPERATURE_K = 300.0
 _SONIC_CLAMP_RELATIVE = 1.0e-4

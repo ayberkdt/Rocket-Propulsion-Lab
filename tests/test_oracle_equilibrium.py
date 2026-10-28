@@ -29,11 +29,10 @@ import unittest
 import numpy as np
 from scipy import optimize
 
-from rocket_propulsion.core.constants import MOLAR_GAS_CONSTANT_J_MOL_K
 from rocket_propulsion.thermochemistry import EquilibriumProblem, LocalEquilibriumProvider
 from rocket_propulsion.thermochemistry.species import get_species
 
-R = MOLAR_GAS_CONSTANT_J_MOL_K
+R = 8.314510  # NASA/TP-2002-211556 Appendix A; independent model convention.
 P0 = 1.0e5
 PROVIDER = LocalEquilibriumProvider()
 RNG = np.random.default_rng(424242)
