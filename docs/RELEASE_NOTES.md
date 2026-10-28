@@ -1,5 +1,15 @@
 # Release notes
 
+NASA thermochemistry now retains its source model's gas constant throughout
+polynomials, ideal-mixture/EOS identities, equilibrium derivatives, reaction
+transport, CEA input decks and kinetic detailed balance/concentrations. The
+general SI constant and Arrhenius activation-energy convention retain their
+SI values. Two atomic-hydrogen coefficients are corrected from the original
+printed table and pinned CEA records. Real-fluid fit constants are registered
+under their own sources with their existing values. Numerical results from
+older thermochemical runs need their basis recorded when comparing revisions.
+See [NASA_THERMOCHEMICAL_BASIS_REVIEW.md](NASA_THERMOCHEMICAL_BASIS_REVIEW.md).
+
 Thermodynamic records now own their coefficient, formula, interval and
 component inputs and reject malformed/nonfinite or inconsistent values at
 construction. Gas, assigned-enthalpy and extended condensed catalogues

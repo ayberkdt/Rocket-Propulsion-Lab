@@ -12,7 +12,6 @@ import unittest
 from math import exp, log10
 from pathlib import Path
 
-from rocket_propulsion.core.constants import MOLAR_GAS_CONSTANT_J_MOL_K
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.thermochemistry import (
     EquilibriumProblem,
@@ -170,7 +169,7 @@ class MechanismTests(unittest.TestCase):
     def test_equilibrium_constant_matches_species_gibbs_energies(self) -> None:
         temperature = 2800.0
         constants = equilibrium_constants(self.mechanism, temperature)
-        r = MOLAR_GAS_CONSTANT_J_MOL_K
+        r = 8.314510  # NASA thermodynamic basis; Arrhenius activation energy remains SI.
         for reaction, kc in zip(self.mechanism.reactions, constants, strict=True):
             gibbs = 0.0
             for key, change in reaction.net_stoichiometry.items():

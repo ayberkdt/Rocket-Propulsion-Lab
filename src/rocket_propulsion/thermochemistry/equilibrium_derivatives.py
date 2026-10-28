@@ -27,10 +27,10 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from math import exp, isfinite, log, sqrt
 
-from rocket_propulsion.core.constants import MOLAR_GAS_CONSTANT_J_MOL_K
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 
 from .equilibrium import EquilibriumProblem, EquilibriumProvider, EquilibriumResult
+from .nasa_polynomials import UNIVERSAL_GAS_CONSTANT_J_MOL_K as _R
 from .species import get_species
 
 
@@ -184,10 +184,10 @@ def derivatives_from_composition(
     n = [amounts[name] for name in names]
     total_moles = sum(n)
     mass = sum(amount * item.molecular_mass_kg_mol for amount, item in zip(n, species, strict=True))
-    rt = MOLAR_GAS_CONSTANT_J_MOL_K * temperature_k
+    rt = _R * temperature_k
     properties = [item.properties(temperature_k) for item in species]
     h = [prop.enthalpy_molar_j_mol / rt for prop in properties]
-    cp_over_r = [prop.cp_molar_j_mol_k / MOLAR_GAS_CONSTANT_J_MOL_K for prop in properties]
+    cp_over_r = [prop.cp_molar_j_mol_k / _R for prop in properties]
     formulas = [dict(item.formula) for item in species]
     elements = sorted({element for formula in formulas for element in formula})
     a = [[formula.get(element, 0.0) for formula in formulas] for element in elements]
@@ -218,9 +218,9 @@ def derivatives_from_composition(
         + sum(nj * hj for nj, hj in zip(n, h, strict=True)) * dlnn_dlnt
         + sum(nj * hj * hj for nj, hj in zip(n, h, strict=True))
     )
-    gas_constant = MOLAR_GAS_CONSTANT_J_MOL_K * total_moles / mass
-    frozen_cp = MOLAR_GAS_CONSTANT_J_MOL_K * frozen_cp_over_r / mass
-    reaction_cp = MOLAR_GAS_CONSTANT_J_MOL_K * reaction_cp_over_r / mass
+    gas_constant = _R * total_moles / mass
+    frozen_cp = _R * frozen_cp_over_r / mass
+    reaction_cp = _R * reaction_cp_over_r / mass
     equilibrium_cp = frozen_cp + reaction_cp
     dlnv_dlnt = 1.0 + dlnn_dlnt
     dlnv_dlnp = -1.0 + dlnn_dlnp
@@ -400,7 +400,7 @@ def finite_difference_derivatives(
             f1 = state.entropy_j_k - entropy
             if abs(f1) <= entropy_tolerance * abs(entropy):
                 return pressure * (state.total_mass_kg / state.total_moles) / (
-                    MOLAR_GAS_CONSTANT_J_MOL_K * state.temperature_k
+                    _R * state.temperature_k
                 )
             if f1 == f0:
                 break
@@ -408,7 +408,7 @@ def finite_difference_derivatives(
         raise ConvergenceError("Isentropic temperature not found.", code="isentrope_not_converged")
 
     # (dln p/dln T)_s from the difference estimates, only to start the secant.
-    dlnp_dlnt_guess = cp * mass / (MOLAR_GAS_CONSTANT_J_MOL_K * result.total_moles * dlnv_dlnt)
+    dlnp_dlnt_guess = cp * mass / (_R * result.total_moles * dlnv_dlnt)
     rho_high = isentropic_density(p0 + dp)
     rho_low = isentropic_density(p0 - dp)
     sound_speed = sqrt(2.0 * dp / (rho_high - rho_low))

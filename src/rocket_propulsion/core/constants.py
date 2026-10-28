@@ -10,7 +10,9 @@ Where a model is *defined* with a particular constant, the model's own value
 is used even if a newer value exists. The U.S. Standard Atmosphere 1976 [2]_
 is defined with its own gas constant, ``USSA1976_GAS_CONSTANT``, rather than
 the 2019 SI value ``MOLAR_GAS_CONSTANT_SI_2019`` [1]_, and its tabulated layer
-pressures are reproduced only with the former.
+pressures are reproduced only with the former. NASA Glenn thermochemistry,
+and the nitrogen/methane reference-fluid and methane transport fits, also
+retain separately sourced defining gas-constant conventions.
 
 References
 ----------
@@ -84,6 +86,46 @@ MOLAR_GAS_CONSTANT_SI_2019 = PhysicalConstant(
     "https://www.bipm.org/en/publications/si-brochure",
     exact=True,
     note="Product 6.02214076e23 * 1.380649e-23, rounded to double precision.",
+)
+
+NASA_GLENN_2002_GAS_CONSTANT = PhysicalConstant(
+    "NASA Glenn 2002 / CEA thermodynamic-model gas constant R",
+    8.31451,
+    "J/(mol K)",
+    "NASA/TP-2002-211556, Appendix A, printed page 7; NASA CEA uses 8314.51 J/(kmol K)",
+    "https://ntrs.nasa.gov/citations/20020085330",
+    exact=True,
+    note="Defining convention of the NASA polynomial/CEA model, not the exact 2019 SI physical constant.",
+)
+
+SPAN_2000_NITROGEN_GAS_CONSTANT = PhysicalConstant(
+    "Span 2000 nitrogen EOS gas constant R",
+    8.314510,
+    "J/(mol K)",
+    "Span et al. (2000), physical constants of nitrogen, printed page 1364",
+    "https://srd.nist.gov/jpcrdreprint/1.1349047.pdf",
+    exact=True,
+    note="Defining fit convention, independently sourced from the NASA thermochemical model.",
+)
+
+SETZMANN_1991_METHANE_GAS_CONSTANT = PhysicalConstant(
+    "Setzmann and Wagner 1991 methane EOS gas constant Rm",
+    8.31451,
+    "J/(mol K)",
+    "Setzmann and Wagner (1991), physical constants for methane, printed page 1064",
+    "https://srd.nist.gov/jpcrdreprint/1.555898.pdf",
+    exact=True,
+    note="Defining fit convention; moving the declaration does not change the methane EOS.",
+)
+
+FRIEND_1989_METHANE_GAS_CONSTANT = PhysicalConstant(
+    "Friend, Ely and Ingham 1989 methane transport gas constant R",
+    8.314510,
+    "J/(mol K)",
+    "Friend, Ely and Ingham (1989), Table 1, printed page 590",
+    "https://srd.nist.gov/jpcrdreprint/1.555828.pdf",
+    exact=True,
+    note="Defining correlation convention; independent of the NASA thermochemical model.",
 )
 
 USSA1976_GAS_CONSTANT = PhysicalConstant(
@@ -183,6 +225,10 @@ STEFAN_BOLTZMANN = PhysicalConstant(
 REGISTERED_CONSTANTS: tuple[PhysicalConstant, ...] = (
     STANDARD_GRAVITY,
     MOLAR_GAS_CONSTANT_SI_2019,
+    NASA_GLENN_2002_GAS_CONSTANT,
+    SPAN_2000_NITROGEN_GAS_CONSTANT,
+    SETZMANN_1991_METHANE_GAS_CONSTANT,
+    FRIEND_1989_METHANE_GAS_CONSTANT,
     USSA1976_GAS_CONSTANT,
     USSA1976_MOLAR_MASS,
     AIR_SPECIFIC_GAS_CONSTANT,
@@ -197,6 +243,10 @@ REGISTERED_CONSTANTS: tuple[PhysicalConstant, ...] = (
 
 STANDARD_GRAVITY_M_S2 = STANDARD_GRAVITY.value
 MOLAR_GAS_CONSTANT_J_MOL_K = MOLAR_GAS_CONSTANT_SI_2019.value
+NASA_GLENN_2002_GAS_CONSTANT_J_MOL_K = NASA_GLENN_2002_GAS_CONSTANT.value
+SPAN_2000_NITROGEN_GAS_CONSTANT_J_MOL_K = SPAN_2000_NITROGEN_GAS_CONSTANT.value
+SETZMANN_1991_METHANE_GAS_CONSTANT_J_MOL_K = SETZMANN_1991_METHANE_GAS_CONSTANT.value
+FRIEND_1989_METHANE_GAS_CONSTANT_J_MOL_K = FRIEND_1989_METHANE_GAS_CONSTANT.value
 USSA1976_GAS_CONSTANT_J_MOL_K = USSA1976_GAS_CONSTANT.value
 USSA1976_MOLAR_MASS_KG_MOL = USSA1976_MOLAR_MASS.value
 AIR_SPECIFIC_GAS_CONSTANT_J_KG_K = AIR_SPECIFIC_GAS_CONSTANT.value

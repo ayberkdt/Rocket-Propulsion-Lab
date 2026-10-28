@@ -759,7 +759,7 @@ class CondensedEquilibriumProvider:
     """
 
     name = "local-gibbs-condensed"
-    version = "0.1-experimental"
+    version = "0.2-nasa2002-experimental"
     composition_tolerance = 1.0e-10
     element_tolerance = 1.0e-10
     temperature_tolerance = 1.0e-10

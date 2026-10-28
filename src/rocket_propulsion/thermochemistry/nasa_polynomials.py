@@ -2,8 +2,9 @@
 
 The representation is often called NASA9 because seven heat-capacity
 coefficients are accompanied by two integration constants. Equations follow
-NASA/TP-2002-211556 exactly [1]_. The molar gas constant is the registered
-``MOLAR_GAS_CONSTANT_J_MOL_K`` of :mod:`rocket_propulsion.core.constants`.
+NASA/TP-2002-211556 [1]_. The molar gas constant is that model's registered
+``NASA_GLENN_2002_GAS_CONSTANT_J_MOL_K`` from Appendix A. The general SI
+constant in :mod:`rocket_propulsion.core.constants` retains its SI value.
 
 References
 ----------
@@ -20,7 +21,7 @@ from itertools import pairwise
 from math import log
 from typing import TypedDict
 
-from rocket_propulsion.core.constants import MOLAR_GAS_CONSTANT_J_MOL_K
+from rocket_propulsion.core.constants import NASA_GLENN_2002_GAS_CONSTANT_J_MOL_K
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.validation import (
     _ordered_items,
@@ -29,7 +30,7 @@ from rocket_propulsion.core.validation import (
     real,
 )
 
-UNIVERSAL_GAS_CONSTANT_J_MOL_K = MOLAR_GAS_CONSTANT_J_MOL_K
+UNIVERSAL_GAS_CONSTANT_J_MOL_K = NASA_GLENN_2002_GAS_CONSTANT_J_MOL_K
 
 
 @dataclass(frozen=True, slots=True)

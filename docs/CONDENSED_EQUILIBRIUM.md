@@ -169,7 +169,8 @@ for condensed mass fractions and gas mole fractions at or above 1e-4; 2e-5
 relative for entropy; 1 J/kg + 1e-5 relative for enthalpy. The set of
 condensed phases must match CEA exactly at every point and station.
 
-Largest measured deviations (this commit, all points):
+Historical measured deviations before the NASA-basis repair (all points;
+these numbers are not measurements of the revised implementation):
 
 - rocket: c* 5.1e-6 (LOX/CH4 O/F 1.2); temperature 2.0e-6 (LOX/CH4 O/F 0.8
   throat); throat pressure 8.9e-6, exit pressure 1.4e-6; M 1.8e-6; MW 1.7e-6;
@@ -179,7 +180,10 @@ Largest measured deviations (this commit, all points):
 - equilibrium: HP temperature 1.9e-13 relative; M 2.6e-9; MW 1.1e-9;
   condensed mass fraction 2.9e-9 absolute; gas mole fraction 4.0e-9 absolute;
   enthalpy below 0.001 J/kg absolute; entropy 5.7e-6 relative, which is the
-  ratio of the gas constants (8.31451 in CEA, 8.314462618 J/(mol K) here).
+  former ratio of the gas constants (8.31451 in CEA, 8.314462618 J/(mol K)
+  in that implementation). The revised thermochemical model retains NASA's
+  defining constant throughout; see
+  [NASA_THERMOCHEMICAL_BASIS_REVIEW.md](NASA_THERMOCHEMICAL_BASIS_REVIEW.md).
 
 The rocket deviations are dominated by CEA's own convergence: its tolerances
 of eqs. (3.5)-(3.6c) and its area-ratio iteration (CEA reports 60.00106 for

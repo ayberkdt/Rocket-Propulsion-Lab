@@ -22,14 +22,14 @@ import math
 import unittest
 from typing import Any, ClassVar
 
-from rocket_propulsion.core.constants import MOLAR_GAS_CONSTANT_J_MOL_K, STANDARD_GRAVITY_M_S2
+from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2
 from rocket_propulsion.thermochemistry.rocket_equilibrium import (
     get_propellant_pair,
     reactants_for_mass_ratio,
 )
 from rocket_propulsion.thermochemistry.rocket_performance import solve_rocket_performance
 
-R = MOLAR_GAS_CONSTANT_J_MOL_K
+R = 8.314510  # NASA/TP-2002-211556 Appendix A; independent model convention.
 CASES = (("LOX_LH2", 6.0, 6.894757e6), ("LOX_CH4", 3.4, 1.0e7), ("LOX_LH2", 4.0, 2.0e6))
 AREA_RATIOS = (3.0, 12.0, 40.0)
 

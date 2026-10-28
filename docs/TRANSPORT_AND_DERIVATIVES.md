@@ -63,9 +63,12 @@ Deliberate differences from CEA:
    `modified_eucken_conductivity` for explicit use.
 3. **Species set.** CEA selects transport species by cumulative abundance;
    here every species above `minimum_mole_fraction` (1e-10) is used.
-4. **Gas constant.** CEA 3.3.4 uses `R = 8314.51 J/(kmol K)` (recorded in
-   the fixture); the library uses the exact 2019 SI value. Every
-   R-proportional quantity differs by 5.7e-6.
+The NASA-basis repair removes a former scale difference: both these
+thermochemical modules and CEA 3.3.4 now use the model convention
+`R = 8314.51 J/(kmol K)`. The reference fixtures are compared without the
+former SI rescaling; their acceptance tolerances are retained. Generic
+SI constants and reference-fluid model constants keep their own meanings.
+See [NASA_THERMOCHEMICAL_BASIS_REVIEW.md](NASA_THERMOCHEMICAL_BASIS_REVIEW.md).
 
 Fallbacks: `sutherland_viscosity` (U.S. Standard Atmosphere 1976 eq. (51),
 `beta = 1.458e-6`, `S = 110.4 K`; the standard notes the law fails at very

@@ -72,7 +72,8 @@ class MixturePropertyTests(unittest.TestCase):
     def test_air_like_mixture_at_300_k(self) -> None:
         state = Mixture.from_fractions({"N2": 0.79, "O2": 0.21}).properties(300.0)
         self.assertAlmostEqual(state.molecular_mass_kg_mol, 0.028850334, places=12)
-        self.assertAlmostEqual(state.gas_constant_j_kg_k, 288.19294, places=4)
+        # NASA R / (0.79 M_N2 + 0.21 M_O2), retaining the original tolerance.
+        self.assertAlmostEqual(state.gas_constant_j_kg_k, 288.19458, places=4)
         self.assertAlmostEqual(state.gamma, 1.398476, places=5)
 
     def test_mixture_fraction_sum_is_not_silently_normalized(self) -> None:

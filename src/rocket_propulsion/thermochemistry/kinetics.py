@@ -57,6 +57,7 @@ from rocket_propulsion.core.constants import MOLAR_GAS_CONSTANT_J_MOL_K
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 
 from .mixtures import REFERENCE_PRESSURE_PA
+from .nasa_polynomials import UNIVERSAL_GAS_CONSTANT_J_MOL_K as _THERMO_R
 from .species import Species, get_species
 
 CALORIE_TH_J = 4.184
@@ -151,7 +152,11 @@ class ArrheniusRate:
                    activation_energy_cal_mol * CALORIE_TH_J)
 
     def __call__(self, temperature_k: float) -> float:
-        """Return ``k(T)`` in SI units."""
+        """Return ``k(T)`` with SI R for activation energies converted to J/mol.
+
+        This rate-parameter convention is separate from the NASA/CEA R
+        convention used for thermodynamic equilibrium and concentrations.
+        """
         return (self.pre_exponential_si * temperature_k ** self.temperature_exponent
                 * exp(-self.activation_energy_j_mol / (MOLAR_GAS_CONSTANT_J_MOL_K * temperature_k)))
 
@@ -467,8 +472,8 @@ class _Compiled:
 
     def equilibrium_constants(self, temperature_k: float, h_rt: Sequence[float],
                               s_r: Sequence[float]) -> list[float]:
-        """Return ``K_c`` from precomputed ``h/(R T)`` and ``s0/R``."""
-        log_scale = log(REFERENCE_PRESSURE_PA / (MOLAR_GAS_CONSTANT_J_MOL_K * temperature_k))
+        """Return ``K_c`` on the NASA thermodynamic ``h/(R T)``, ``s0/R`` basis."""
+        log_scale = log(REFERENCE_PRESSURE_PA / (_THERMO_R * temperature_k))
         values = []
         for net, delta in zip(self.net, self.delta_moles, strict=True):
             exponent = -sum(change * (h_rt[i] - s_r[i]) for i, change in net) + delta * log_scale
@@ -757,7 +762,7 @@ def _mass_action_derivative(orders: list[tuple[int, int]], concentrations: Seque
 def concentrations_from_mole_fractions(mechanism: Mechanism, temperature_k: float,
                                        pressure_pa: float,
                                        mole_fractions: Mapping[str, float]) -> tuple[float, ...]:
-    """Return ideal-gas concentrations ``C_i = x_i p/(R T)`` in mol/m^3.
+    """Return ``C_i = x_i p/(R T)`` on the NASA thermodynamic basis, mol/m^3.
 
     Parameters
     ----------
@@ -786,7 +791,7 @@ def concentrations_from_mole_fractions(mechanism: Mechanism, temperature_k: floa
     unknown = set(mole_fractions) - set(mechanism.species)
     if unknown:
         raise InputError(f"Species not in mechanism: {sorted(unknown)}.", field="mole_fractions")
-    total = pressure_pa / (MOLAR_GAS_CONSTANT_J_MOL_K * temperature_k)
+    total = pressure_pa / (_THERMO_R * temperature_k)
     return tuple(total * float(mole_fractions.get(key, 0.0)) for key in mechanism.species)
 
 

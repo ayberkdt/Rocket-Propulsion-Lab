@@ -112,8 +112,10 @@ Final source-bound full-suite, mutation, lint/type and package
 results belong in `output/assurance/oct27_thermo_records/`; only completed
 checks are passes.
 
-Open work includes primary-source coefficient and fit-constant consistency,
-numerical conditioning across the full polynomial domain, caloric jumps
+The hand-curated primary coefficients and coupled NASA gas-constant basis
+are addressed in [NASA_THERMOCHEMICAL_BASIS_REVIEW.md](NASA_THERMOCHEMICAL_BASIS_REVIEW.md).
+Open work includes broader source/catalogue audits, numerical conditioning
+across the full polynomial domain, caloric jumps
 at piecewise boundaries and inverse reachability, transport records and
 other model/catalogue contracts, and the API fuzzer's mandatory-refusal
 assertions. Structural interval contiguity does not prove monotonic or

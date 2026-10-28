@@ -83,7 +83,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import cache
 
-from rocket_propulsion.core.constants import USSA1976_SEA_LEVEL_PRESSURE_PA
+from rocket_propulsion.core.constants import (
+    SETZMANN_1991_METHANE_GAS_CONSTANT_J_MOL_K,
+    SPAN_2000_NITROGEN_GAS_CONSTANT_J_MOL_K,
+    USSA1976_SEA_LEVEL_PRESSURE_PA,
+)
 from rocket_propulsion.core.errors import InputError
 
 from .helmholtz import (
@@ -442,7 +446,7 @@ def _nitrogen() -> FluidModel:
     tc, pc = 126.192, 3.3958 * _MPA
     return FluidModel(
         name="nitrogen", key="nitrogen", model_kind="reference",
-        molar_mass_kg_mol=28.01348e-3, gas_constant_j_mol_k=8.314510,
+        molar_mass_kg_mol=28.01348e-3, gas_constant_j_mol_k=SPAN_2000_NITROGEN_GAS_CONSTANT_J_MOL_K,
         t_reduce_k=tc, rho_reduce_mol_m3=11.1839e3, t_crit_k=tc, p_crit_pa=pc,
         t_min_k=63.151, t_max_k=1000.0, p_max_pa=2200.0 * _MPA,
         ideal=_N2_IDEAL, residual=ResidualHelmholtz(_N2_TERMS),
@@ -460,7 +464,7 @@ def _methane() -> FluidModel:
     tc, pc = 190.564, 4.5992 * _MPA
     return FluidModel(
         name="methane", key="methane", model_kind="reference",
-        molar_mass_kg_mol=_CH4_MOLAR_MASS, gas_constant_j_mol_k=8.31451,
+        molar_mass_kg_mol=_CH4_MOLAR_MASS, gas_constant_j_mol_k=SETZMANN_1991_METHANE_GAS_CONSTANT_J_MOL_K,
         t_reduce_k=tc, rho_reduce_mol_m3=_CH4_RHOC_MASS / _CH4_MOLAR_MASS, t_crit_k=tc,
         p_crit_pa=pc, t_min_k=90.6941, t_max_k=625.0, p_max_pa=1000.0 * _MPA,
         ideal=_CH4_IDEAL, residual=ResidualHelmholtz(_CH4_TERMS),

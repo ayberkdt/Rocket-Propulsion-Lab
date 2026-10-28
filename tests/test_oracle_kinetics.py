@@ -25,7 +25,6 @@ import unittest
 import numpy as np
 from scipy import integrate
 
-from rocket_propulsion.core.constants import MOLAR_GAS_CONSTANT_J_MOL_K
 from rocket_propulsion.thermochemistry import EquilibriumProblem, LocalEquilibriumProvider
 from rocket_propulsion.thermochemistry import kinetics as k
 from rocket_propulsion.thermochemistry.kinetics_mechanisms import gri30_h2o2_mechanism
@@ -33,7 +32,7 @@ from rocket_propulsion.thermochemistry.species import get_species
 
 MECH = gri30_h2o2_mechanism()
 SPECIES = MECH.species
-R = MOLAR_GAS_CONSTANT_J_MOL_K
+R = 8.314510  # NASA/TP-2002-211556 Appendix A; independent model convention.
 P0 = 1.0e5
 T_REACTOR = 2800.0
 P_START = 2.0e6
