@@ -16,6 +16,12 @@ documented scaling requirements.
 
 ## Evidence that exists (software, independent references)
 
+- Pressure-fed numerical range: independent high-precision power, inverse,
+  stream-flow and ideal-gas Jacobian checks preserve finite outputs through
+  overflowing intermediates and refuse unrepresentable positive results
+  (`PRESSURE_RANGE_NUMERICS_REVIEW.md`). Synthetic scale attacks are not
+  a hardware performance envelope or relevant-environment validation.
+
 - Combustion equilibrium and rocket performance: nine NASA CEA 3.3.4 points
   and the 0.5–25 MPa domain reproduced within 2e-5; RP-1311 example 8 at its
   published station (`VALIDATION_REPORT.md`).
@@ -44,11 +50,12 @@ documented scaling requirements.
   rocket-equation closed forms) and the 2-D channel wall (an independent
   `scipy.sparse` solve of the same cells agrees to 1e-9); each fix was
   mutation-checked by re-introducing the defect.
-- Refusal at public boundaries: every field of every HTTP route is driven
-  with type garbage and with 0, -0, -1, 1e-300, ±1e300 and 10^9; only
-  library errors may escape and answers must be strict JSON
-  (`tests/test_api_adversarial_fuzz.py`). Combinations of extreme fields are
-  not enumerated.
+- API numeric admission: declared top-level scalar numbers, including shared
+  helper readers, must refuse malformed values before model execution with
+  the correct field. Direct nonnumeric getters and numeric semantic extremes
+  receive typed-error/strict-JSON smoke checks. Nested schemas and combinations
+  of extreme fields are not comprehensively covered
+  (`API_NUMERIC_ADMISSION_REVIEW.md`).
 - Hot-fire comparisons of the regenerative-cooling gas side and heat load
   (NASA TN D-6396, TN D-3532; `REGENERATIVE_COOLING.md`).
 
@@ -74,9 +81,9 @@ normal force is 22–24 % above the TR 1048 measured point.
 No software change can supply these; they come from hardware tests. Until
 they exist, no claim of zero modelling error is possible, and the passing
 suite is software evidence, not a TRL 5 demonstration. Individual models state
-validity ranges; the route fuzzer checks single-field refusal at every public
-boundary, but a passing suite does not prove that every combination of
-out-of-range or malformed inputs is rejected. The current upstream reconciliation and remaining software
+validity ranges; the route fuzzer checks declared scalar admission and smoke
+behavior, but a passing suite does not prove that every field, branch, nested
+schema or combination of malformed inputs is covered. The current upstream reconciliation and remaining software
 review are tracked in [CURRENT_UPSTREAM_REVIEW.md](CURRENT_UPSTREAM_REVIEW.md).
 
 ## References

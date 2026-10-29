@@ -73,7 +73,7 @@ rocket-propulsion --open          # or, without installing: PYTHONPATH=src pytho
 
 The server listens on <http://127.0.0.1:8765> and moves to 8766–8770 when that
 port is busy (`--port` pins one). The same calculations are available as
-58 `POST /api/v1/...` routes (see [docs/API.md](docs/API.md)) and from the
+61 `POST /api/v1/...` routes (see [docs/API.md](docs/API.md)) and from the
 `rocket-propulsion burn simulate` CLI. Add `?palette=<id>` to the URL to open a
 specific colour theme.
 
@@ -452,7 +452,7 @@ Python 3.11 and 3.12. The tests for the newest areas:
 | Nozzle separation | `test_nozzle_separation.py` | 6 | Schmucker criterion against `brentq`, first crossing, trends, M = 5 limit |
 | Global sensitivity | `test_global_sensitivity.py` | 12 | Rank measures against numpy/SciPy, Sobol indices against Ishigami and rocket-equation closed forms, estimator mutants detected |
 | Performance numerics | `test_rocket_performance_numerics.py` | 5 | Brent throat search against SciPy `fminbound`, warm-started isentropes equal cold solves, throat is a flux maximum |
-| Hostile HTTP input | `test_api_adversarial_fuzz.py` | 123 | Every field of every route: type garbage refused, extremes refused or answered in strict JSON |
+| Hostile HTTP input | `test_api_adversarial_fuzz.py` | 129 | Declared top-level numbers must refuse malformed input with the correct field; other discovered fields and semantic extremes receive typed-error/strict-JSON smoke checks; nested/branch coverage remains open |
 
 Elsewhere the suite has central finite-difference checks of every analytic
 partial, event-aware RK4 integrations that reproduce the rocket equation and

@@ -50,7 +50,7 @@ from typing import Literal
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
-from rocket_propulsion.core.validation import numeric_range_guard
+from rocket_propulsion.core.validation import coerce_fields, numeric_range_guard
 from rocket_propulsion.geometry import NozzleContour
 from rocket_propulsion.heat_transfer import conduction, convection, radiation
 from rocket_propulsion.heat_transfer.channel_wall import solve_channel_wall_section
@@ -133,6 +133,12 @@ class CoolingChannels:
     hot_wall_thickness_m: float
     roughness_m: float = 0.0
     helix_angle_deg: float = 0.0
+
+    def __post_init__(self) -> None:
+        coerce_fields(self, 'Cooling channels')
+        _channel_scalars(self.count, self.roughness_m, self.helix_angle_deg)
+        for name in ('width_m', 'height_m', 'hot_wall_thickness_m'):
+            _positive(getattr(self, name), name)
 
 
 #: Largest accepted helix angle (library choice): beyond it the channel-normal
@@ -310,6 +316,13 @@ class Coolant:
     inlet_pressure_pa: float
     mass_flow_kg_s: float
     counterflow: bool = True
+
+    def __post_init__(self) -> None:
+        coerce_fields(self, 'Coolant')
+        for name in ('inlet_temperature_k', 'inlet_pressure_pa', 'mass_flow_kg_s'):
+            _positive(getattr(self, name), name)
+        if not isinstance(self.counterflow, bool):
+            raise InputError('counterflow must be a boolean.', field='counterflow')
 
 
 @dataclass(frozen=True, slots=True)

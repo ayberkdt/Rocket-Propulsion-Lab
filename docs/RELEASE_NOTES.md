@@ -1,5 +1,51 @@
 # Release notes
 
+Direct blowdown mass/cutoff and pressure-map queries now normalize their real
+arguments. Volume exports use checked complete rational expressions, while
+pressure evaluation retains relative growth and can remain finite when its
+intermediate volume is unrepresentable. Small volume changes are preserved
+before large polytropic exponents. Independent high-precision oracles and
+real final-range refusals cover these paths.
+
+Pressure-fed tank, correlation and table records normalize physical scalars
+and capture the sample sequence, preventing caller-owned numeric arithmetic
+or list mutation from changing an already constructed model. Fixed cooling
+channels and coolant inputs also own their scalars and require a boolean
+library flow direction. Regenerative route controls are rejected before gas
+chemistry when their geometry, fluid range or options are already invalid;
+the real fuel-flow default and solver physics remain unchanged. See
+[REGEN_ADMISSION_REVIEW.md](REGEN_ADMISSION_REVIEW.md) and
+[PRESSURE_RANGE_NUMERICS_REVIEW.md](PRESSURE_RANGE_NUMERICS_REVIEW.md).
+
+Exact-integer uncertainty controls now check a 4300-decimal-digit resource
+budget, or a lower configured host limit, before expanding exponent text.
+Oversized values return a named `integer_budget_exceeded` input error.
+Existing large seeds such as `1e309` retain exact precision within the budget.
+See [API_INTEGER_RESOURCE_REVIEW.md](API_INTEGER_RESOURCE_REVIEW.md).
+
+Pressure-fed calculations preserve finite scaled powers and stream flows even
+when an intermediate power or scale is outside binary64. The polytropic inverse
+handles unreachable cutoffs before exponentiation and resolves small expelled
+volumes. Feed ideal-gas pressures and Jacobians avoid intermediate product and
+ullage-square overflow. Genuinely unrepresentable positive outputs raise domain
+errors; an explicit zero maximum pressure no longer selects a default. These
+are numerical repairs, not a larger hardware validity domain. See
+[PRESSURE_RANGE_NUMERICS_REVIEW.md](PRESSURE_RANGE_NUMERICS_REVIEW.md).
+
+Repeated built-in pressure-law operating points are reused within a simulation
+through a bounded cache. Custom providers and subclasses retain their previous
+evaluation behavior. Analytic time/pressure/impulse histories check reuse across
+different rated points and pressure exponents.
+
+The API dispatcher now refuses malformed declared top-level numeric fields
+before executing a model, including controls unused by the selected branch.
+Errors name the offending field; this can change validation ordering. Numeric
+form strings and exact large integer uncertainty seeds retain their precision
+within the documented integer resource budget. Refusal tests now fail on injected finite success or an unrelated
+field error. Scalar-helper inventory guards supplement direct getter discovery;
+nested documents and complete semantic-branch coverage remain separate work.
+See [API_NUMERIC_ADMISSION_REVIEW.md](API_NUMERIC_ADMISSION_REVIEW.md).
+
 NASA thermochemistry now retains its source model's gas constant throughout
 polynomials, ideal-mixture/EOS identities, equilibrium derivatives, reaction
 transport, CEA input decks and kinetic detailed balance/concentrations. The

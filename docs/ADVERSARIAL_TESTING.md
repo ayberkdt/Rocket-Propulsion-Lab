@@ -21,13 +21,17 @@ that it works. Four rules apply:
 
 | Suite | What it attacks | Oracle |
 | --- | --- | --- |
+| `test_api_integer_budget.py` | Compact exponent expansion, allocated oversized integers, host-limit configuration and HTTP serialization | An independent Decimal conversion tripwire stops unsafe allocation; exact boundary controls and real HTTP requests verify refusal and preserved large seeds. |
+| `test_blowdown_record_ownership.py`, `test_blowdown_evaluation_reuse.py` | Mutable numeric aliases, caller-owned sample lists and repeated pressure queries | Before/after caller mutation, owned scalar/type checks, single-pass rows and independent analytic pressure/time/impulse histories; custom-provider controls remain uncached. |
+| `test_blowdown_direct_queries.py` | Direct-query malformed reals, false-zero/nonfinite volume export, volume overflow masking finite pressure, small growth erased before a large exponent | Independent 100-digit polytropic and log1p-series witnesses, forward/inverse closure and true final-range refusal. |
+| `test_api_regen_admission_order.py`, `test_regen_input_records.py` | Invalid controls reaching chemistry, mutable dimensions, truthy nonboolean flow direction, false rejection at EOS/pitch bounds | Chemistry sentinels establish ordering only; exact EOS endpoints and positive land remain admitted; real thermal/geometry/conjugate suites retain physics and energy checks. |
 | `test_free_space_numerics.py`, `test_tabulated_ledger_numerics.py` | Intermediate range loss, false-zero diagnostics, directed tails, output rounding/range ties, scale/group order, HOLD and producer authority | Independent rational and paired-precision closed-form integrals/moments; direct enclosure inequalities; selected fault injections |
 | `test_adversarial_epochs.py` | Left/right limits at every boundary of random jump profiles at epochs 1–3·10⁸ s; snapping; resolution limits; RK4 integration across biased burns at random epochs | Segment values set by the test; written-out linear interpolation; Δv = c ln(m0/mf) with exact trapezoid propellant |
 | `test_adversarial_lunaris.py` | Coincident and back-to-back burns, bias that reorders burns, partial propagation windows, 400 random dry-mass cases (ramps up/down, plateaus, cuts on boundaries and at the stop), mass-check tolerance, predicted mass | Exact piecewise-quadratic mass and bisection; a two-burn lunar case integrated by SciPy DOP853 with a right-hand side written in the test |
 | `test_adversarial_pulse_mode.py` | 120 random thrusters with thousands of requests, including interval end points ± 1 ulp; budget-limited trains; pulse limits; forged plans; tampered and hostile documents | Exhaustive enumeration of achievable Δv/impulse intervals per pulse count |
 | `test_adversarial_json_readers.py` | All 14 persisted-document readers: more than 1 500 generated mutants plus raw hostile texts | Rule: refuse with `DomainError`/`InputError`, or return a model identical to the original |
 | `test_constants_and_references.py` | Bare copies of physical constants, the 1976 standard atmosphere, docs without sources | Registered constants; independent RK4 integration of the hydrostatic equation |
-| `test_api_adversarial_fuzz.py` | Every field of every HTTP route (fields found in the route source by AST), one at a time: NaN, ±inf, booleans, text, lists, objects; then 0, −0, −1, 1e−300, ±1e300 and 10⁹ | Rule: type garbage is refused with `RocketPropulsionError`; extremes are refused or answered in strict JSON, never a bare `OverflowError`/`ZeroDivisionError`/`ValueError`/`TypeError` or a hang |
+| `test_api_adversarial_fuzz.py`, `test_api_numeric_admission.py` | Declared top-level scalar readers, shared API helpers and direct getters, one field at a time; nested schemas are not comprehensively covered | Malformed declared numbers must be refused before model execution with the correct field; other fields and semantic extremes receive typed-error/strict-JSON smoke checks. Fault controls reject injected finite success and unrelated-field errors. See `API_NUMERIC_ADMISSION_REVIEW.md`. |
 | `test_oracle_compressible.py` | Normal and oblique shocks, Prandtl–Meyer, Fanno and Rayleigh, every inverse of the isentropic relations, Taylor–Maccoll cones | Rankine–Hugoniot residuals and entropy rise; quadrature of the differential relations; the area-ratio mass-flux identity; SciPy `solve_ivp` on the Taylor–Maccoll equation |
 | `test_oracle_conduction.py` | Bessel functions, erfc solutions, slab/cylinder/sphere eigenvalues and series, fins | SciPy Bessel, mpmath erfc, `brentq` eigenvalues to 1e−15, a BDF method-of-lines solution with a sparse Jacobian, `solve_bvp` fins |
 | `test_oracle_real_fluids.py` | Every Helmholtz-energy derivative property, state round trips, saturation | Richardson-extrapolated finite differences of the EOS itself; Mayer, sound-speed, Gibbs, Joule–Thomson and Z identities; equal Gibbs energy and Clausius–Clapeyron on the saturation line |
@@ -99,6 +103,52 @@ All of the following were fixed, and each has a regression test.
   distinct canonical dates for distinct boundaries; actual collisions are refused.
 - The study workspace has no content hash, so an edited file gives an edited
   workspace. It is checked for stability, not for immutability.
+
+## Reproducing selected numeric fault checks
+
+`scripts/run_numeric_mutations.py` and
+`tests/fixtures/numeric_admission_mutations.json` keep the selected faults and
+their test selectors in version control. Run the preflight without executing
+tests, or execute the faults in a new output directory:
+
+```text
+python scripts/run_numeric_mutations.py --list
+python scripts/run_numeric_mutations.py --output-dir output/assurance/numeric_mutations
+```
+
+`--case NAME` selects a particular fault and can be repeated. The current case
+file contains 63 selected admission, integer-budget, ownership, range, reuse and
+test-oracle faults. That count is an inventory, not a passing result or an
+exhaustive mutation score. Each case loads a fresh source/test copy, runs its
+original control, applies one compilable change, restores the exact original
+bytes and runs the restored control. A kill requires an assertion failure;
+timeouts, collection errors, unrelated crashes, skips and surviving faults
+remain open. The before/after controls must pass the same test count. Results
+include source origins, repository fingerprints, JUnit logs, restoration hashes
+and a verified baseline source/test archive. The checkout itself is never
+mutated. Only verified temporary source/test copies inside the output tree
+are removed after a successful case.
+
+A previous local run exposed two verification defects. Text-based restoration
+changed LF bytes to CRLF on Windows, so restoration now uses original bytes.
+After the tank's direct pressure implementation changed, a fault in the shared
+pressure-scaling helper was still paired with a tank test that no longer called
+it. The helper fault now targets the performance-law oracle, and a separate
+fault targets the tank's new pressure fallback. The incomplete earlier run is
+not evidence that all selected faults were killed. Any surviving fault must be
+examined as a test gap, an invalid selector or a genuine equivalent change;
+changing its label does not turn it into a pass.
+
+The first rebinding trial reached the correct helper but its zero-output fault
+triggered an unhandled `DomainError` before the numerical assertion. The strict
+runner kept that result open instead of counting a crash as a kill. The two
+valid pressure-scaling rescue cases now establish a finite positive independent
+expected value before evaluation and explicitly fail on a false domain refusal.
+Other exception types remain unexpected failures, not accepted assertion kills.
+
+These checks establish sensitivity to particular equation and refusal defects.
+They do not provide calibration data, relevant-environment hardware evidence or
+TRL certification.
 
 ## References
 

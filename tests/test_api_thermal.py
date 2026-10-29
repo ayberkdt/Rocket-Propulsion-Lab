@@ -36,6 +36,7 @@ class ThermalRouteDefaultTests(unittest.TestCase):
     def test_regen_route_conserves_energy(self) -> None:
         response = self.responses["regen-chamber"]
         self.assertLess(abs(response["energy_balance_residual_w"]), 1.0e-9 * response["total_heat_load_w"])
+        self.assertEqual(response['coolant_flow_kg_s'], response['fuel_flow_kg_s'])
 
     def test_products_show_recombination_and_losses_chain_multiplies(self) -> None:
         radicals = [row["radical_mole_fraction"] for row in self.responses["combustion-products"]["stations"]]

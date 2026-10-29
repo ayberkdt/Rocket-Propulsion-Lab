@@ -21,15 +21,21 @@ from __future__ import annotations
 
 import hashlib
 from bisect import bisect_right
+from collections.abc import Callable
 from dataclasses import dataclass
+from decimal import Decimal, localcontext
+from functools import lru_cache
 from itertools import pairwise
-from math import ceil, isfinite
+from math import ceil, exp, isfinite, log1p
+from sys import float_info
 from typing import Protocol
 
 from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.validation import coerce_fields, real, records
 from rocket_propulsion.propulsion.performance import STANDARD_GRAVITY_M_S2
 
 from .models import EngineOperatingPoint, PropellantFlow
+from .numeric_outputs import _finite_rational, _fraction
 from .serialization import canonical_json_bytes
 from .tabulated import TabulatedBurnArtifact, TabulatedBurnSegment
 
@@ -113,6 +119,56 @@ def _nonnegative(value: float, label: str) -> None:
         raise DomainError(f"{label} must be finite and non-negative.")
 
 
+def _positive_decimal(value: Decimal, label: str) -> float:
+    """Export a positive result without silently erasing it or emitting infinity."""
+    result = float(value)
+    if not isfinite(result) or result <= 0.0:
+        raise DomainError(f"{label} is outside the positive finite output range.", field=label)
+    return result
+
+
+def _scaled_pressure_power(
+    value: float, numerator: float, denominator: float, exponent: float, label: str
+) -> float:
+    """Evaluate value*(numerator/denominator)**exponent as a complete quantity.
+
+    Ordinary powers and bounded log contributions keep a binary64 path.
+    Other range-sensitive cases use 80-digit log/exp evaluation; only the final
+    positive output is range-checked. No exponent cap is imposed.
+    """
+    if exponent == 0.0 or numerator == denominator:
+        return value
+    ratio = numerator / denominator
+    if isfinite(ratio) and ratio > 0.0 and abs(exponent) <= 4.0:
+        try:
+            factor = ratio**exponent
+            result = value * factor
+        except OverflowError:
+            pass
+        else:
+            if (isfinite(result) and result >= float_info.min
+                    and isfinite(factor) and factor >= float_info.min):
+                return result
+    if 0.5 <= ratio <= 2.0:
+        # Unlike log(numerator/denominator), log1p of the relative difference
+        # does not amplify a rounded-near-one ratio when the exponent is large.
+        # Limit the logarithmic contribution, so exp's input error stays small.
+        log_factor = exponent * log1p((numerator - denominator) / denominator)
+        if abs(log_factor) <= 32.0:
+            result = value * exp(log_factor)
+            if isfinite(result) and result >= float_info.min:
+                return result
+    with localcontext() as context:
+        context.prec = 80
+        v, p, pref, power = map(Decimal, (value, numerator, denominator, exponent))
+        logarithm = v.ln() + power * (p / pref).ln()
+        # These loose bounds avoid exp() of an astronomical exponent. The final
+        # conversion decides the exact binary64 overflow/round-to-zero boundary.
+        if logarithm > 710 or logarithm < -746:
+            raise DomainError(f"{label} is outside the positive finite output range.", field=label)
+        return _positive_decimal(logarithm.exp(), label)
+
+
 def _scaled_operating_point(
     rated_point: EngineOperatingPoint,
     *,
@@ -139,10 +195,21 @@ def _scaled_operating_point(
     .. [1] NASA Glenn Research Center, "Specific Impulse".
            https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/
     """
-    total_flow = delivered_thrust_n / (
-        STANDARD_GRAVITY_M_S2 * system_specific_impulse_s
+    _positive(delivered_thrust_n, "Pressure-scaled thrust")
+    _positive(system_specific_impulse_s, "Pressure-scaled system specific impulse")
+    _positive(chamber_pressure_pa, "Pressure-scaled chamber pressure")
+    thrust = _fraction(delivered_thrust_n)
+    gravity = _fraction(STANDARD_GRAVITY_M_S2)
+    total_flow = _finite_rational(
+        thrust / (gravity * _fraction(system_specific_impulse_s)), "Pressure-scaled total tank flow"
     )
-    flow_ratio = total_flow / rated_point.total_tank_flow_kg_s
+    # Keep the ratio exact: it may be outside binary64 although every scaled
+    # stream is finite and representable.
+    flow_ratio = _fraction(total_flow) / _fraction(rated_point.total_tank_flow_kg_s)
+
+    def scaled_flow(value: float) -> float:
+        return _finite_rational(_fraction(value) * flow_ratio, "Pressure-scaled stream flow")
+
     streams = tuple(
         PropellantFlow(
             stream_id=stream.stream_id,
@@ -150,30 +217,31 @@ def _scaled_operating_point(
             propellant_key=stream.propellant_key,
             role=stream.role,
             destination=stream.destination,
-            mass_flow_kg_s=stream.mass_flow_kg_s * flow_ratio,
+            mass_flow_kg_s=scaled_flow(stream.mass_flow_kg_s),
             tank_depleting=stream.tank_depleting,
             contributes_to_delivered_thrust=stream.contributes_to_delivered_thrust,
         )
         for stream in rated_point.streams
     )
-    chamber_flow = rated_point.chamber_mass_flow_kg_s * flow_ratio
+    chamber_flow = scaled_flow(rated_point.chamber_mass_flow_kg_s)
     return EngineOperatingPoint(
         name=f"{rated_point.name} @ {supply_pressure_pa:.9g} Pa supply",
         commanded_throttle=rated_point.commanded_throttle,
         realized_throttle=rated_point.realized_throttle,
         active_engine_count=rated_point.active_engine_count,
-        ideal_thrust_n=rated_point.ideal_thrust_n
-        * delivered_thrust_n
-        / rated_point.delivered_thrust_n,
+        ideal_thrust_n=_finite_rational(
+            _fraction(rated_point.ideal_thrust_n) * thrust / _fraction(rated_point.delivered_thrust_n),
+            "Pressure-scaled ideal thrust",
+        ),
         delivered_thrust_n=delivered_thrust_n,
-        chamber_specific_impulse_s=(
-            delivered_thrust_n / (STANDARD_GRAVITY_M_S2 * chamber_flow)
+        chamber_specific_impulse_s=_finite_rational(
+            thrust / (gravity * _fraction(chamber_flow)), "Pressure-scaled chamber specific impulse"
         ),
         system_specific_impulse_s=system_specific_impulse_s,
         chamber_mass_flow_kg_s=chamber_flow,
         total_tank_flow_kg_s=total_flow,
-        oxidizer_mass_flow_kg_s=rated_point.oxidizer_mass_flow_kg_s * flow_ratio,
-        fuel_mass_flow_kg_s=rated_point.fuel_mass_flow_kg_s * flow_ratio,
+        oxidizer_mass_flow_kg_s=scaled_flow(rated_point.oxidizer_mass_flow_kg_s),
+        fuel_mass_flow_kg_s=scaled_flow(rated_point.fuel_mass_flow_kg_s),
         mixture_ratio=rated_point.mixture_ratio,
         chamber_pressure_pa=chamber_pressure_pa,
         ambient_pressure_pa=rated_point.ambient_pressure_pa,
@@ -208,6 +276,10 @@ class BlowdownTankModel:
 
     Notes
     -----
+    Accepted real scalar inputs are normalized to native finite floats at
+    construction; booleans and text are refused. Caller-owned arithmetic
+    behavior is not retained in this frozen tank description.
+
     The ullage follows the blowdown pressure law [1]_
     ``p = p0 * (V0 / V)**n``, where ``V`` grows by the expelled liquid volume.
     ``n = 1`` is the isothermal ideal-gas limit; a larger declared exponent
@@ -232,6 +304,7 @@ class BlowdownTankModel:
     polytropic_exponent: float = 1.0
 
     def __post_init__(self) -> None:
+        coerce_fields(self, 'Blowdown tank')
         for value, label in (
             (self.initial_pressure_pa, "Initial ullage pressure"),
             (self.initial_ullage_volume_m3, "Initial ullage volume"),
@@ -245,25 +318,40 @@ class BlowdownTankModel:
     def initial_propellant_volume_m3(self) -> float:
         """Initial liquid volume ``m0 / rho`` of the incompressible propellant, m^3 [1]_.
 
+        Raises
+        ------
+        DomainError
+            If the positive volume cannot be represented as a finite float.
+
         References
         ----------
         .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets",
                1975. https://ntrs.nasa.gov/citations/19760015212
         """
 
-        return self.initial_propellant_mass_kg / self.propellant_density_kg_m3
+        return _finite_rational(
+            _fraction(self.initial_propellant_mass_kg) / _fraction(self.propellant_density_kg_m3),
+            'Initial propellant volume')
 
     @property
     def tank_volume_m3(self) -> float:
         """Rigid internal tank volume, initial ullage plus initial liquid, m^3 [1]_.
 
+        Raises
+        ------
+        DomainError
+            If the complete volume cannot be represented as a finite float.
+
         References
         ----------
         .. [1] NASA SP-8112. NASA, "Pressurization Systems for Liquid Rockets",
                1975. https://ntrs.nasa.gov/citations/19760015212
         """
 
-        return self.initial_ullage_volume_m3 + self.initial_propellant_volume_m3
+        return _finite_rational(
+            _fraction(self.initial_ullage_volume_m3)
+            + _fraction(self.initial_propellant_mass_kg) / _fraction(self.propellant_density_kg_m3),
+            'Tank volume')
 
     def ullage_volume_m3(self, remaining_propellant_mass_kg: float) -> float:
         """Return the ullage volume after part of the propellant is expelled.
@@ -282,7 +370,8 @@ class BlowdownTankModel:
         Raises
         ------
         DomainError
-            If the remaining mass is non-finite or outside the initial inventory.
+            If the remaining mass is malformed or outside the initial inventory,
+            or the complete positive volume cannot be represented.
 
         References
         ----------
@@ -290,9 +379,10 @@ class BlowdownTankModel:
                1975. https://ntrs.nasa.gov/citations/19760015212
         """
 
-        self._validate_remaining_mass(remaining_propellant_mass_kg)
-        expelled_mass = self.initial_propellant_mass_kg - remaining_propellant_mass_kg
-        return self.initial_ullage_volume_m3 + expelled_mass / self.propellant_density_kg_m3
+        remaining = self._validate_remaining_mass(remaining_propellant_mass_kg)
+        expelled = _fraction(self.initial_propellant_mass_kg) - _fraction(remaining)
+        return _finite_rational(_fraction(self.initial_ullage_volume_m3)
+                                + expelled / _fraction(self.propellant_density_kg_m3), 'Ullage volume')
 
     def pressure_pa(self, remaining_propellant_mass_kg: float) -> float:
         """Evaluate the declared polytropic ullage-pressure law.
@@ -310,7 +400,8 @@ class BlowdownTankModel:
         Raises
         ------
         DomainError
-            If the remaining mass is non-finite or outside the initial inventory.
+            If the remaining mass is malformed or outside the initial inventory,
+            or the positive pressure cannot be represented.
 
         Notes
         -----
@@ -318,6 +409,10 @@ class BlowdownTankModel:
         or pressurant-dissolution model.  The exponent ``n`` is an explicit
         input rather than an inferred gas property; [2]_ documents the pressure
         decay of an unregulated system of this kind.
+
+        Volume export and complete pressure evaluation have separate final
+        range checks. Relative volume growth is retained before exponentiation
+        so a small growth term is not erased before a large exponent acts on it.
 
         References
         ----------
@@ -328,10 +423,36 @@ class BlowdownTankModel:
                https://ntrs.nasa.gov/citations/19730012094
         """
 
-        ullage = self.ullage_volume_m3(remaining_propellant_mass_kg)
-        return self.initial_pressure_pa * (
-            self.initial_ullage_volume_m3 / ullage
-        ) ** self.polytropic_exponent
+        remaining = self._validate_remaining_mass(remaining_propellant_mass_kg)
+        expelled = self.initial_propellant_mass_kg - remaining
+        if expelled == 0.0:
+            return self.initial_pressure_pa
+        # log1p avoids erasing small volume growth before a large exponent.
+        # The common path is used only when its intermediate scales are normal
+        # and its logarithmic contribution is bounded. Exported volume need not
+        # be representable for the complete pressure itself to be representable.
+        capacity = self.propellant_density_kg_m3 * self.initial_ullage_volume_m3
+        if isfinite(capacity) and capacity >= float_info.min:
+            growth = expelled / capacity
+            if isfinite(growth) and growth >= float_info.min:
+                contribution = -self.polytropic_exponent * log1p(growth)
+                if contribution >= -32.0:
+                    result = self.initial_pressure_pa * exp(contribution)
+                    if result >= float_info.min:
+                        return result
+        with localcontext() as context:
+            context.prec = 80
+            p0, v0, mass0, mass, density, power = map(Decimal, (
+                self.initial_pressure_pa, self.initial_ullage_volume_m3,
+                self.initial_propellant_mass_kg, remaining,
+                self.propellant_density_kg_m3, self.polytropic_exponent))
+            growth_d = (mass0-mass)/(density*v0)
+            log_growth = growth_d if growth_d < Decimal('1e-20') else (1+growth_d).ln()
+            logarithm = p0.ln()-power*log_growth
+            if logarithm < -746:
+                raise DomainError('Ullage pressure is outside the positive finite output range.',
+                                  field='Ullage pressure')
+            return _positive_decimal(logarithm.exp(), 'Ullage pressure')
 
     def remaining_mass_at_pressure(self, pressure_pa: float) -> float:
         """Invert the polytropic law to locate a pressure-triggered cutoff.
@@ -360,30 +481,42 @@ class BlowdownTankModel:
                1975. https://ntrs.nasa.gov/citations/19760015212
         """
 
-        _positive(pressure_pa, "Requested ullage pressure")
+        pressure_pa = real(pressure_pa, 'pressure_pa')
+        if pressure_pa <= 0.0:
+            raise DomainError('Requested ullage pressure must be positive.', field='pressure_pa')
         if pressure_pa >= self.initial_pressure_pa:
             return self.initial_propellant_mass_kg
-        required_ullage = self.initial_ullage_volume_m3 * (
-            self.initial_pressure_pa / pressure_pa
-        ) ** (1.0 / self.polytropic_exponent)
-        expelled_mass = (
-            required_ullage - self.initial_ullage_volume_m3
-        ) * self.propellant_density_kg_m3
-        return min(
-            self.initial_propellant_mass_kg,
-            max(0.0, self.initial_propellant_mass_kg - expelled_mass),
-        )
+        with localcontext() as context:
+            context.prec = 80
+            p0, p, v0, mass, density, exponent = map(Decimal, (
+                self.initial_pressure_pa, pressure_pa, self.initial_ullage_volume_m3,
+                self.initial_propellant_mass_kg, self.propellant_density_kg_m3,
+                self.polytropic_exponent,
+            ))
+            log_expansion = (p0 / p).ln() / exponent
+            capacity_ratio = mass / (density * v0)
+            # log1p/expm1 series avoid cancellation when the expansion is tiny.
+            # The omitted relative terms below 1e-20 are below binary64 precision.
+            empty_log = capacity_ratio if capacity_ratio < Decimal('1e-20') else (1 + capacity_ratio).ln()
+            if log_expansion >= empty_log:
+                return 0.0
+            expansion = log_expansion if log_expansion < Decimal('1e-20') else log_expansion.exp() - 1
+            remaining = mass - density * v0 * expansion
+            return _positive_decimal(remaining, "Remaining propellant mass")
 
-    def _validate_remaining_mass(self, remaining_propellant_mass_kg: float) -> None:
-        """Raise `DomainError` unless the mass lies in ``[0, initial mass]``."""
+    def _validate_remaining_mass(self, remaining_propellant_mass_kg: float) -> float:
+        """Normalize a finite real mass inside ``[0, initial mass]`` or refuse it."""
+        remaining_propellant_mass_kg = real(remaining_propellant_mass_kg, 'remaining_propellant_mass_kg')
         if (
             not isfinite(remaining_propellant_mass_kg)
             or remaining_propellant_mass_kg < 0.0
             or remaining_propellant_mass_kg > self.initial_propellant_mass_kg
         ):
             raise DomainError(
-                "Remaining propellant mass must be within the tank's initial inventory."
+                "Remaining propellant mass must be within the tank's initial inventory.",
+                field='remaining_propellant_mass_kg',
             )
+        return remaining_propellant_mass_kg
 
 
 @dataclass(frozen=True, slots=True)
@@ -414,6 +547,10 @@ class PressurePerformanceLaw:
 
     Notes
     -----
+    Scalar parameters are normalized to native finite floats before domain
+    checks. A mutable numeric subclass cannot later change this correlation;
+    this ownership is required by built-in repeated-evaluation reuse.
+
     With ``r = p / p_ref`` the correlation is ``F / F_ref = r**a``,
     ``Isp / Isp_ref = r**b`` and ``pc / pc_ref = r**c``.  The exponents are
     hardware-specific calibration inputs, not universal rocket laws.  [1]_
@@ -440,9 +577,11 @@ class PressurePerformanceLaw:
     maximum_supply_pressure_pa: float | None = None
 
     def __post_init__(self) -> None:
+        coerce_fields(self, 'Pressure performance law')
         _positive(self.reference_supply_pressure_pa, "Reference supply pressure")
         _positive(self.minimum_supply_pressure_pa, "Minimum supply pressure")
-        maximum = self.maximum_supply_pressure_pa or self.reference_supply_pressure_pa
+        maximum = (self.reference_supply_pressure_pa if self.maximum_supply_pressure_pa is None
+                   else self.maximum_supply_pressure_pa)
         _positive(maximum, "Maximum supply pressure")
         if not self.minimum_supply_pressure_pa < maximum:
             raise DomainError("Minimum supply pressure must be below maximum pressure.")
@@ -470,7 +609,8 @@ class PressurePerformanceLaw:
                https://ntrs.nasa.gov/citations/19720011120
         """
 
-        return self.maximum_supply_pressure_pa or self.reference_supply_pressure_pa
+        return (self.reference_supply_pressure_pa if self.maximum_supply_pressure_pa is None
+                else self.maximum_supply_pressure_pa)
 
     def scale_operating_point(
         self, rated_point: EngineOperatingPoint, supply_pressure_pa: float
@@ -512,6 +652,7 @@ class PressurePerformanceLaw:
                https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
         """
 
+        supply_pressure_pa = real(supply_pressure_pa, 'supply_pressure_pa')
         tolerance = max(1e-9, self.maximum_pressure_pa * 1e-12)
         if not isfinite(supply_pressure_pa) or (
             supply_pressure_pa < self.minimum_supply_pressure_pa - tolerance
@@ -522,17 +663,21 @@ class PressurePerformanceLaw:
             self.maximum_pressure_pa,
             max(self.minimum_supply_pressure_pa, supply_pressure_pa),
         )
-        pressure_ratio = supply_pressure_pa / self.reference_supply_pressure_pa
-        thrust_ratio = pressure_ratio**self.thrust_pressure_exponent
-        isp_ratio = pressure_ratio**self.specific_impulse_pressure_exponent
         return _scaled_operating_point(
             rated_point,
             supply_pressure_pa=supply_pressure_pa,
-            delivered_thrust_n=rated_point.delivered_thrust_n * thrust_ratio,
-            system_specific_impulse_s=rated_point.system_specific_impulse_s * isp_ratio,
-            chamber_pressure_pa=(
-                rated_point.chamber_pressure_pa
-                * pressure_ratio**self.chamber_pressure_exponent
+            delivered_thrust_n=_scaled_pressure_power(
+                rated_point.delivered_thrust_n, supply_pressure_pa, self.reference_supply_pressure_pa,
+                self.thrust_pressure_exponent, "Pressure-correlated thrust",
+            ),
+            system_specific_impulse_s=_scaled_pressure_power(
+                rated_point.system_specific_impulse_s, supply_pressure_pa,
+                self.reference_supply_pressure_pa, self.specific_impulse_pressure_exponent,
+                "Pressure-correlated specific impulse",
+            ),
+            chamber_pressure_pa=_scaled_pressure_power(
+                rated_point.chamber_pressure_pa, supply_pressure_pa, self.reference_supply_pressure_pa,
+                self.chamber_pressure_exponent, "Pressure-correlated chamber pressure",
             ),
             model_id="pressure_correlated_blowdown_v1",
             source=f"{rated_point.source}; pressure law calibrated by user",
@@ -583,6 +728,7 @@ class PressurePerformanceSample:
     chamber_pressure_pa: float
 
     def __post_init__(self) -> None:
+        coerce_fields(self, 'Pressure performance sample')
         for value, label in (
             (self.supply_pressure_pa, "Map supply pressure"),
             (self.delivered_thrust_n, "Map delivered thrust"),
@@ -598,8 +744,9 @@ class PressurePerformanceTable:
 
     Parameters
     ----------
-    samples : tuple of PressurePerformanceSample
-        At least two rows with strictly increasing supply pressure.
+    samples : ordered iterable of PressurePerformanceSample
+        At least two rows with strictly increasing supply pressure. Stored as
+        an owned tuple so caller collection changes cannot change the map.
     source_id : str
         Non-blank identifier of the test or model source of the rows.
 
@@ -631,10 +778,10 @@ class PressurePerformanceTable:
     source_id: str
 
     def __post_init__(self) -> None:
+        coerce_fields(self, 'Pressure performance table')
+        object.__setattr__(self, 'samples', records(self.samples, PressurePerformanceSample, 'samples'))
         if len(self.samples) < 2:
-            raise DomainError("A pressure-performance table requires at least two rows.")
-        if not self.source_id.strip():
-            raise DomainError("Pressure-performance table source must not be empty.")
+            raise DomainError("A pressure-performance table requires at least two rows.", field='samples')
         pressures = tuple(sample.supply_pressure_pa for sample in self.samples)
         if any(end <= start for start, end in pairwise(pressures)):
             raise DomainError("Pressure-performance samples must be strictly increasing.")
@@ -702,6 +849,7 @@ class PressurePerformanceTable:
                https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/rocket-thrust-equation/
         """
 
+        supply_pressure_pa = real(supply_pressure_pa, 'supply_pressure_pa')
         tolerance = max(1e-9, self.maximum_pressure_pa * 1e-12)
         if not isfinite(supply_pressure_pa) or (
             supply_pressure_pa < self.minimum_supply_pressure_pa - tolerance
@@ -904,6 +1052,7 @@ def _build_blowdown_mesh(
     cant_efficiency: float,
     maximum_mass_step_kg: float,
     source_hash: str,
+    operating_point_at_pressure: Callable[[float], EngineOperatingPoint] | None = None,
 ) -> tuple[tuple[BlowdownSample, ...], TabulatedBurnArtifact, float]:
     """Build one uniform expelled-mass mesh of the blowdown history.
 
@@ -934,7 +1083,9 @@ def _build_blowdown_mesh(
     def state(expelled_mass_kg: float) -> tuple[float, EngineOperatingPoint]:
         remaining = tank.initial_propellant_mass_kg - expelled_mass_kg
         pressure = tank.pressure_pa(remaining)
-        return remaining, pressure_law.scale_operating_point(rated_point, pressure)
+        point = (pressure_law.scale_operating_point(rated_point, pressure)
+                 if operating_point_at_pressure is None else operating_point_at_pressure(pressure))
+        return remaining, point
 
     samples: list[BlowdownSample] = []
     segments: list[TabulatedBurnSegment] = []
@@ -1129,6 +1280,15 @@ def simulate_pressure_fed_blowdown(
     simpson_impulse = 0.0
     residuals: tuple[float, float, float, float] | None = None
     refinement = 0
+    operating_point_at_pressure: Callable[[float], EngineOperatingPoint] | None = None
+    if type(pressure_law) is PressurePerformanceLaw:
+        # This exact built-in law and the rated point are immutable. Retain
+        # validated points for repeated quadrature/refinement pressures only
+        # within this simulation. Custom providers keep their evaluation calls.
+        @lru_cache(maxsize=2048)
+        def cached_point(pressure: float) -> EngineOperatingPoint:
+            return pressure_law.scale_operating_point(rated_point, pressure)
+        operating_point_at_pressure = cached_point
     for refinement in range(maximum_refinements + 1):
         samples, artifact, simpson_impulse = _build_blowdown_mesh(
             tank,
@@ -1138,6 +1298,7 @@ def simulate_pressure_fed_blowdown(
             cant_efficiency=cant_efficiency,
             maximum_mass_step_kg=step,
             source_hash=source_hash,
+            operating_point_at_pressure=operating_point_at_pressure,
         )
         mass_error = abs(artifact.consumed_propellant_kg - consumed)
         impulse_error = abs(artifact.delivered_total_impulse_n_s - simpson_impulse)

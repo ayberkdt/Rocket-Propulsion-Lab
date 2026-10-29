@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.validation import coerce_fields, name_value_pairs, real
 
+from .numeric_outputs import _finite_rational, _fraction
 from .serialization import canonical_sha256
 
 if TYPE_CHECKING:
@@ -851,14 +852,16 @@ class RegulatedFeedSystem:
         gas_constant = self.configuration.gas.specific_gas_constant_j_kg_k
         return RegulatedFeedState(
             propellant_mass_kg=propellant_mass_kg,
-            tank_pressurant_mass_kg=(
-                tank_pressure_pa * ullage / (gas_constant * tank_gas_temperature_k)
+            tank_pressurant_mass_kg=_finite_rational(
+                _fraction(tank_pressure_pa) * _fraction(ullage)
+                / (_fraction(gas_constant) * _fraction(tank_gas_temperature_k)),
+                "Initial tank pressurant mass",
             ),
             tank_gas_temperature_k=tank_gas_temperature_k,
-            bottle_pressurant_mass_kg=(
-                bottle_pressure_pa
-                * self.configuration.bottle_volume_m3
-                / (gas_constant * bottle_gas_temperature_k)
+            bottle_pressurant_mass_kg=_finite_rational(
+                _fraction(bottle_pressure_pa) * _fraction(self.configuration.bottle_volume_m3)
+                / (_fraction(gas_constant) * _fraction(bottle_gas_temperature_k)),
+                "Initial bottle pressurant mass",
             ),
             bottle_gas_temperature_k=bottle_gas_temperature_k,
             regulator_opening=regulator_opening,
@@ -903,17 +906,15 @@ class RegulatedFeedSystem:
         config = self.configuration
         ullage = self._ullage_volume(state.propellant_mass_kg)
         gas_constant = config.gas.specific_gas_constant_j_kg_k
-        tank_pressure = (
-            state.tank_pressurant_mass_kg
-            * gas_constant
-            * state.tank_gas_temperature_k
-            / ullage
+        tank_pressure = _finite_rational(
+            _fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)
+            * _fraction(state.tank_gas_temperature_k) / _fraction(ullage),
+            "Tank pressure",
         )
-        bottle_pressure = (
-            state.bottle_pressurant_mass_kg
-            * gas_constant
-            * state.bottle_gas_temperature_k
-            / config.bottle_volume_m3
+        bottle_pressure = _finite_rational(
+            _fraction(state.bottle_pressurant_mass_kg) * _fraction(gas_constant)
+            * _fraction(state.bottle_gas_temperature_k) / _fraction(config.bottle_volume_m3),
+            "Bottle pressure",
         )
         _positive(tank_pressure, "Representable positive tank pressure")
         _positive(bottle_pressure, "Representable positive bottle pressure")
@@ -1113,18 +1114,28 @@ class RegulatedFeedSystem:
             injector_pressure_wrt_state=(
                 (
                     "propellant_mass_kg",
-                    state.tank_pressurant_mass_kg
-                    * gas_constant
-                    * state.tank_gas_temperature_k
-                    / (config.propellant_density_kg_m3 * ullage**2),
+                    _finite_rational(
+                        _fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)
+                        * _fraction(state.tank_gas_temperature_k)
+                        / (_fraction(config.propellant_density_kg_m3) * _fraction(ullage)**2),
+                        "Injector pressure derivative with respect to propellant mass",
+                    ),
                 ),
                 (
                     "tank_pressurant_mass_kg",
-                    gas_constant * state.tank_gas_temperature_k / ullage,
+                    _finite_rational(
+                        _fraction(gas_constant) * _fraction(state.tank_gas_temperature_k)
+                        / _fraction(ullage),
+                        "Injector pressure derivative with respect to tank pressurant mass",
+                    ),
                 ),
                 (
                     "tank_gas_temperature_k",
-                    state.tank_pressurant_mass_kg * gas_constant / ullage,
+                    _finite_rational(
+                        _fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)
+                        / _fraction(ullage),
+                        "Injector pressure derivative with respect to tank gas temperature",
+                    ),
                 ),
                 ("bottle_pressurant_mass_kg", 0.0),
                 ("bottle_gas_temperature_k", 0.0),

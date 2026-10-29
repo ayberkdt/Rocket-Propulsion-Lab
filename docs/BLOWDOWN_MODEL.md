@@ -139,6 +139,11 @@ The implementation refuses:
 
 ## Primary references
 
+Numerical range behavior and independent boundary oracles are documented in
+[PRESSURE_RANGE_NUMERICS_REVIEW.md](PRESSURE_RANGE_NUMERICS_REVIEW.md). A scaled
+power is checked as a complete quantity; an overflowing intermediate factor
+does not by itself make a finite final pressure or thrust invalid.
+
 - NASA SP-8112, *Pressurization Systems for Liquid Rockets*:
   <https://ntrs.nasa.gov/citations/19760015212>
 - NASA CR-131400, *Reliability Model of a Monopropellant Auxiliary Propulsion

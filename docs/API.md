@@ -17,6 +17,19 @@ All calculations use `POST /api/v1/...` with a JSON object. Success returns:
 Failures use a stable `error` object. Input/domain errors are HTTP 400,
 optional feature errors HTTP 501, and convergence failures HTTP 422.
 
+For registered paths, supplied declared top-level scalar numbers are checked
+before the adapter executes, including controls unused by the selected model.
+Malformed numbers produce an input error naming the field. This can change
+error ordering relative to missing fields or invalid selectors. Numeric form
+strings remain supported; optional null/empty handling and physical range
+checks belong to the adapter. Exact-integer uncertainty controls retain large
+integer values without float conversion, within a 4300-decimal-digit API budget
+(or a lower configured host integer/string limit). Over-budget values fail
+before expansion with `integer_budget_exceeded` and the offending field.
+See [API_INTEGER_RESOURCE_REVIEW.md](API_INTEGER_RESOURCE_REVIEW.md).
+Nested schemas and nonnumeric fields
+retain their own validators. See [API_NUMERIC_ADMISSION_REVIEW.md](API_NUMERIC_ADMISSION_REVIEW.md).
+
 ## Examples
 
 ```powershell
@@ -74,6 +87,17 @@ nullable `pressure_fed_supply_sufficient`. An unrepresentable optional margin is
 null, while the exact sign still decides supply sufficiency. Warnings and scope
 must be retained: algebraic zero residual does not validate integrated hardware
 or hot-gas pressure closure. See `CYCLE_COMPONENT_REVIEW.md`.
+
+## Regenerative cooling admission
+
+`/api/v1/regen-chamber` checks fixed-channel dimensions, channel-normal throat
+pitch, coolant catalog bounds, material availability and wall/closeout options
+before running gas chemistry. The coolant flow still defaults to the fuel
+flow computed from the real gas solution. Passing these inexpensive checks
+does not establish a single-phase coolant state or a converged thermal design;
+the solver retains its EOS, boiling, choking and energy checks. Direct library
+records own their physical scalars and require an actual boolean flow direction.
+See [REGEN_ADMISSION_REVIEW.md](REGEN_ADMISSION_REVIEW.md).
 
 ## Generic delta-v uncertainty
 

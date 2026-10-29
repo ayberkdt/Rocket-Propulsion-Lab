@@ -1,22 +1,23 @@
-"""Hostile inputs on every HTTP route: fail closed or answer in strict, finite JSON.
+"""Hostile inputs on declared top-level API fields.
 
 The route contract (``api.routes.dispatch_calculation``) allows only
-:class:`RocketPropulsionError` to escape. This module sends every payload
-field of every registered route, one at a time, two families of bad values:
+:class:`RocketPropulsionError` to escape on known routes. This module sends
+discovered fields, one at a time, two families of values:
 
 * **type garbage** - NaN, +/-inf, a boolean, text, a list and an object. A
-  route must refuse these with ``RocketPropulsionError``; silently accepting
-  a boolean or a list as a number is a failure too, unless the field is a
-  genuine flag, list or object field;
+  declared numeric fields must be refused with an error naming that field.
+  Other fields receive a typed-error/finite-JSON smoke check; it does not
+  establish that malformed flags, lists or nested objects are refused;
 * **semantic extremes** - 0, -0.0, -1, 1e-300, +/-1e300 and 10^9. A route
   may compute or refuse, but it must never raise a bare ``OverflowError``,
   ``ZeroDivisionError``, ``ValueError`` or ``TypeError``, and anything it
   returns must serialise with ``allow_nan=False``.
 
-Payload fields are discovered from the route source by AST (getter calls
-such as ``_number(payload, "field", ...)``, ``payload.get("field")`` and
-``payload["field"]``), so new routes and fields are covered automatically.
-Each route gets its own test method, named after the route.
+Direct getters are discovered by AST and supplemented with the audited
+scalar-helper catalogue. Nested schemas and branch-dependent semantic ranges
+are not comprehensively covered. These single-field requests isolate numeric
+admission; they are not baseline-valid physics fixtures. Each route gets its
+own test method, named after the route.
 """
 
 from __future__ import annotations
@@ -26,7 +27,9 @@ import inspect
 import json
 import textwrap
 import unittest
+from unittest.mock import patch
 
+from rocket_propulsion.api.numeric_contracts import NUMERIC_FIELDS
 from rocket_propulsion.api.routes import ROUTES, dispatch_calculation
 from rocket_propulsion.core.errors import RocketPropulsionError
 
@@ -60,14 +63,18 @@ def payload_fields(route) -> list[str]:
     return sorted(keys)
 
 
-def probe(path: str, field: str, value: object) -> str | None:
+def probe(path: str, field: str, value: object, *, require_refusal: bool = False) -> str | None:
     """Return a failure description, or None when the route kept its contract."""
     try:
         result = dispatch_calculation(path, {field: value})
-    except RocketPropulsionError:
+    except RocketPropulsionError as exc:
+        if require_refusal and exc.field != field:
+            return f"{field}={value!r}: refusal names unrelated field {exc.field!r}"
         return None
     except Exception as exc:  # noqa: BLE001 - any other exception is the defect under test
         return f"{field}={value!r}: {type(exc).__name__}: {exc}"
+    if require_refusal:
+        return f"{field}={value!r}: malformed number returned success"
     try:
         json.dumps(result, allow_nan=False)
     except (TypeError, ValueError) as exc:
@@ -83,18 +90,20 @@ class SemanticExtremes(unittest.TestCase):
     """Extreme but well-typed values must be refused or answered in finite JSON."""
 
 
-def _make(path: str, values: dict[str, object]):
+def _make(path: str, values: dict[str, object], *, numeric_refusal: bool = False):
     def test(self: unittest.TestCase) -> None:
-        failures = [message for field in payload_fields(ROUTES[path])
+        fields = sorted(set(payload_fields(ROUTES[path])) | NUMERIC_FIELDS[path])
+        failures = [message for field in fields
                     for value in values.values()
-                    if (message := probe(path, field, value)) is not None]
+                    if (message := probe(path, field, value,
+                                         require_refusal=numeric_refusal and field in NUMERIC_FIELDS[path])) is not None]
         self.assertEqual(failures, [], f"{path}: {len(failures)} contract violations")
     return test
 
 
 for _path in sorted(ROUTES):
     _name = "test_" + _path.removeprefix("/api/v1/").replace("/", "_").replace("-", "_")
-    setattr(TypeGarbage, _name, _make(_path, GARBAGE))
+    setattr(TypeGarbage, _name, _make(_path, GARBAGE, numeric_refusal=True))
     setattr(SemanticExtremes, _name, _make(_path, EXTREMES))
 
 
@@ -106,6 +115,43 @@ class FieldDiscovery(unittest.TestCase):
                    "/api/v1/transient/feed-line"}
         self.assertEqual(sorted(set(empty) - allowed), [])
         self.assertGreater(sum(len(payload_fields(r)) for r in ROUTES.values()), 350)
+
+
+class RefusalOracle(unittest.TestCase):
+    def test_finite_success_is_a_failure_when_refusal_is_required(self):
+        with patch(__name__ + '.dispatch_calculation', return_value={'accepted': True}):
+            self.assertIsNotNone(probe('/api/v1/isentropic', 'value', True, require_refusal=True))
+
+    def test_an_unrelated_field_error_cannot_prove_refusal(self):
+        error = RocketPropulsionError('Missing another field.', field='unrelated')
+        with patch(__name__ + '.dispatch_calculation', side_effect=error):
+            self.assertIsNotNone(probe('/api/v1/isentropic', 'value', True, require_refusal=True))
+
+    def test_the_correct_field_error_proves_refusal(self):
+        error = RocketPropulsionError('Malformed number.', field='value')
+        with patch(__name__ + '.dispatch_calculation', side_effect=error):
+            self.assertIsNone(probe('/api/v1/isentropic', 'value', True, require_refusal=True))
+
+    def test_semantic_extremes_can_still_produce_finite_success(self):
+        with patch(__name__ + '.dispatch_calculation', return_value={'accepted': True}):
+            self.assertIsNone(probe('/api/v1/isentropic', 'value', 0.0))
+
+    def test_generated_numeric_family_requires_refusal(self):
+        generated = _make('/api/v1/isentropic', {'bool': True}, numeric_refusal=True)
+        with (patch(__name__ + '.dispatch_calculation', return_value={'accepted': True}),
+              self.assertRaises(AssertionError)):
+            generated(self)
+
+    def test_generated_family_covers_numbers_read_only_in_helpers(self):
+        path = '/api/v1/transient/feed-line'
+        self.assertNotIn('bottle_pressure_pa', payload_fields(ROUTES[path]))
+        self.assertIn('bottle_pressure_pa', NUMERIC_FIELDS[path])
+        generated = _make(path, {'bool': True}, numeric_refusal=True)
+        with (patch(__name__ + '.dispatch_calculation', return_value={'accepted': True}) as call,
+              self.assertRaises(AssertionError)):
+            generated(self)
+        self.assertTrue(any(payload == {'bottle_pressure_pa': True}
+                            for _, payload in (item.args for item in call.call_args_list)))
 
 
 if __name__ == "__main__":

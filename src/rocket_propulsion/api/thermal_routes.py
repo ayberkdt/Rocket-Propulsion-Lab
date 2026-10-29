@@ -16,7 +16,7 @@ References
 from __future__ import annotations
 
 from dataclasses import asdict
-from math import pi, sqrt
+from math import cos, pi, radians, sqrt
 from typing import Any
 
 from rocket_propulsion.api.aero_routes import _clean, _integer, _linspace, _number, _positive, _text
@@ -41,6 +41,8 @@ from rocket_propulsion.thermochemistry.nozzle_kinetics import (
     HyperbolicNozzle,
     solve_nozzle_kinetics,
 )
+from rocket_propulsion.thermodynamics.materials import get_wall_material
+from rocket_propulsion.thermodynamics.real_fluids import reference_fluid_model
 from rocket_propulsion.thermodynamics.real_fluids.transport import transport_tp
 
 
@@ -227,33 +229,67 @@ def regen_chamber_route(payload: dict[str, Any]) -> dict[str, Any]:
     """
 
     pair = get_propellant_pair(_text(payload, "propellant_pair", "LOX_CH4"))
-    pressure = _number(payload, "chamber_pressure_pa", 7.0e6)
+    pressure = _positive(payload, "chamber_pressure_pa", 7.0e6)
     throat_area = _positive(payload, "throat_area_m2", 0.01)
     area_ratio = _number(payload, "area_ratio", 10.0)
+    if area_ratio < 1.0:
+        raise DomainError('Exit-to-throat area ratio must be at least one.', field='area_ratio')
+    channels = CoolingChannels(
+        count=_integer(payload, 'channel_count', 100, 4, 1000),
+        width_m=_positive(payload, 'channel_width_m', 1.5e-3),
+        height_m=_positive(payload, 'channel_height_m', 5.0e-3),
+        hot_wall_thickness_m=_positive(payload, 'hot_wall_thickness_m', 1.0e-3),
+        roughness_m=_number(payload, 'roughness_m', 1.0e-6),
+        helix_angle_deg=_number(payload, 'channel_helix_angle_deg', 0.0))
+    # The throat has the smallest radius; this is the solver's channel-normal
+    # pitch including hot-wall thickness, not an arbitrary width/angle cap.
+    pitch = (2*pi*(sqrt(throat_area/pi)+channels.hot_wall_thickness_m)
+             * cos(radians(channels.helix_angle_deg))/channels.count)
+    if channels.width_m >= pitch:
+        raise DomainError('Channels do not fit the throat circumference.', field='channel_width_m')
+    coolant_name = _text(payload, 'coolant', 'methane')
+    inlet_temperature = _positive(payload, 'coolant_inlet_temperature_k', 120.0)
+    inlet_pressure = _positive(payload, 'coolant_inlet_pressure_pa', 1.5e7)
+    fluid_model = reference_fluid_model(coolant_name)
+    if not fluid_model.t_min_k <= inlet_temperature <= fluid_model.t_max_k:
+        raise DomainError('Coolant inlet temperature is outside the declared fluid range.',
+                          field='coolant_inlet_temperature_k')
+    if inlet_pressure > fluid_model.p_max_pa:
+        raise DomainError('Coolant inlet pressure is outside the declared fluid range.',
+                          field='coolant_inlet_pressure_pa')
+    raw_flow = payload.get('coolant_mass_flow_kg_s')
+    explicit_flow = (None if raw_flow in (None, '')
+                     else _positive(payload, 'coolant_mass_flow_kg_s', 1.0))
+    material_name = _text(payload, 'wall_material', 'grcop-84')
+    material = get_wall_material(material_name)
+    if material.thermal_conductivity is None:
+        raise InputError(f'{material_name} has no verified catalog conductivity.',
+                         code='wall_conductivity_unavailable', field='wall_material')
+    wall_model = _text(payload, 'wall_model', 'fin')
+    if wall_model not in ('fin', '2d'):
+        raise InputError('Wall model must be fin or 2d.', field='wall_model')
+    closeout = _number(payload, 'closeout_thickness_m', 0.0)
+    if closeout < 0.0:
+        raise DomainError('Closeout thickness must be non-negative.', field='closeout_thickness_m')
+    if closeout > 0.0 and wall_model != '2d':
+        raise InputError("A closeout needs wall_model='2d'.", field='closeout_thickness_m')
+    axial = _flag(payload, 'axial_conduction')
     gas = hot_gas_from_propellant(propellant_pair=pair.key, chamber_pressure_pa=pressure,
                                   throat_radius_of_curvature_m=sqrt(throat_area / pi))
     contour = generate_nozzle_contour(contour="conical", throat_area_m2=throat_area, area_ratio=area_ratio,
                                       gamma=gas.gamma, chamber_radius_ratio=2.0, station_count=41)
     total_flow = pressure * throat_area / gas.characteristic_velocity_m_s
     fuel_flow = total_flow / (1.0 + pair.reference_oxidizer_fuel_ratio)
-    coolant_flow = payload.get("coolant_mass_flow_kg_s")
-    flow = fuel_flow if coolant_flow in (None, "") else _number(payload, "coolant_mass_flow_kg_s", fuel_flow)
+    flow = fuel_flow if explicit_flow is None else explicit_flow
     result = solve_regen_chamber(
         contour=contour, gas=gas,
-        channels=CoolingChannels(count=_integer(payload, "channel_count", 100, 4, 1000),
-                                 width_m=_number(payload, "channel_width_m", 1.5e-3),
-                                 height_m=_number(payload, "channel_height_m", 5.0e-3),
-                                 hot_wall_thickness_m=_number(payload, "hot_wall_thickness_m", 1.0e-3),
-                                 roughness_m=_number(payload, "roughness_m", 1.0e-6),
-                                 helix_angle_deg=_number(payload, "channel_helix_angle_deg", 0.0)),
-        coolant=Coolant(fluid=_text(payload, "coolant", "methane"),
-                        inlet_temperature_k=_number(payload, "coolant_inlet_temperature_k", 120.0),
-                        inlet_pressure_pa=_number(payload, "coolant_inlet_pressure_pa", 1.5e7),
+        channels=channels,
+        coolant=Coolant(fluid=coolant_name,
+                        inlet_temperature_k=inlet_temperature,
+                        inlet_pressure_pa=inlet_pressure,
                         mass_flow_kg_s=flow),
-        wall_material=_text(payload, "wall_material", "grcop-84"),
-        wall_model=_text(payload, "wall_model", "fin"),
-        closeout_thickness_m=_number(payload, "closeout_thickness_m", 0.0),
-        axial_conduction=_flag(payload, "axial_conduction"))
+        wall_material=material_name, wall_model=wall_model,
+        closeout_thickness_m=closeout, axial_conduction=axial)
     return _clean({"gas": gas, "fuel_flow_kg_s": fuel_flow, "coolant_flow_kg_s": flow, **asdict(result)})
 
 

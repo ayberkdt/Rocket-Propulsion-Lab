@@ -18,6 +18,7 @@ from decimal import Decimal, InvalidOperation
 from fractions import Fraction
 from math import isfinite, log
 from pathlib import Path
+from sys import get_int_max_str_digits
 from typing import Any, TypedDict
 
 from rocket_propulsion.compressible import (
@@ -112,6 +113,7 @@ from .combustion_dynamics_routes import (
     COMBUSTION_DYNAMICS_ROUTE_METADATA,
     COMBUSTION_DYNAMICS_ROUTES,
 )
+from .numeric_contracts import EXACT_INTEGER_FIELDS, NUMBER_FIELDS
 from .thermal_routes import THERMAL_ROUTE_METADATA, THERMAL_ROUTES
 
 
@@ -2031,22 +2033,46 @@ def calculate_engine_cycle_route(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+_MAXIMUM_ROUTE_INTEGER_DIGITS = 4300
+
+
+def _integer_budget_error(key: str, limit: int) -> InputError:
+    """Report the API's decimal expansion/serialization budget without formatting the value."""
+    return InputError(
+        f"Field {key} exceeds the {limit}-decimal-digit integer budget.",
+        code="integer_budget_exceeded", field=key,
+        details={"maximum_decimal_digits": limit},
+    )
+
+
 def _study_request_integer(payload, key, default):
     """Read an integer field exactly, including large seeds given as text.
 
     JSON integers are returned unchanged; floats and numeric text must be
     finite and integral. ``bool`` and other types raise :class:`InputError`.
+    The API permits at most 4300 decimal digits, or the host's configured
+    integer/string limit when lower. Expansion is checked before ``int``;
+    disabling the host limit does not disable the API budget.
     """
     value = payload.get(key, default)
     if isinstance(value, bool) or not isinstance(value, (int, float, str)):
         raise InputError(f'{key} must be an integer.', field=key)
+    configured = get_int_max_str_digits()
+    limit = min(_MAXIMUM_ROUTE_INTEGER_DIGITS, configured) if configured else _MAXIMUM_ROUTE_INTEGER_DIGITS
     if isinstance(value, int):
+        threshold = 10**limit
+        if not -threshold < value < threshold:
+            raise _integer_budget_error(key, limit)
         return value
     try:
         number = Decimal(value) if isinstance(value, str) else Decimal.from_float(value)
         if not number.is_finite() or number != number.to_integral_value():
             raise InputError(f'{key} must be a finite integer.', field=key)
+        if not number.is_zero() and number.adjusted() >= limit:
+            raise _integer_budget_error(key, limit)
         return int(number)
+    except InputError:
+        raise
     except (InvalidOperation, ValueError, OverflowError) as error:
         raise InputError(f'{key} must be an integer.', field=key) from error
 
@@ -3259,7 +3285,10 @@ def dispatch_calculation(path: str, payload: dict[str, Any]) -> dict[str, Any]:
     path : str
         Versioned API path, a key of ``ROUTES``.
     payload : dict
-        Decoded JSON request body.
+        Decoded JSON object. Supplied declared scalar numbers are checked
+        before route execution, including controls unused by the selected
+        model. Optional null/empty values and domain rules remain with the
+        adapter. Input values are not rewritten.
 
     Returns
     -------
@@ -3278,6 +3307,17 @@ def dispatch_calculation(path: str, payload: dict[str, Any]) -> dict[str, Any]:
     route = ROUTES.get(path)
     if route is None:
         raise KeyError(path)
+    if not isinstance(payload, dict):
+        raise InputError("Request payload must be a JSON object.", field="payload")
+    for key in sorted(NUMBER_FIELDS[path]):
+        if key in payload:
+            raw = payload[key]
+            if raw is None or (isinstance(raw, str) and raw == ""):
+                continue
+            _number(payload, key)
+    for key in sorted(EXACT_INTEGER_FIELDS[path]):
+        if key in payload:
+            _study_request_integer(payload, key, 0)
     return route(payload)
 
 

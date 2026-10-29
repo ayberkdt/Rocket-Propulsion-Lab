@@ -1,5 +1,18 @@
 # Engineering references
 
+- **SETZMANN-WAGNER-1991-CH4-NIST-MIRROR**: Official NIST-hosted copy of
+  Setzmann and Wagner's 1991 methane reference EOS paper; the model's original
+  NIST DOI/PDF reference remains registered separately. Accessed 2026-10-29.
+  <https://www.nist.gov/system/files/documents/srd/jpcrd425.pdf>
+
+- **PYTHON-3.12-LRU-CACHE**: Bounded least-recently-used function memoization.
+  <https://docs.python.org/3.12/library/functools.html#functools.lru_cache>
+
+- **PYTHON-3.12-INTEGER-LIMIT**: Integer/string conversion limits and default policy.
+  <https://docs.python.org/3.12/library/stdtypes.html#integer-string-conversion-length-limitation>
+- **PYTHON-3.12-DECIMAL-ADJUSTED**: Decimal adjusted exponent.
+  <https://docs.python.org/3.12/library/decimal.html#decimal.Decimal.adjusted>
+
 - **HALL-MCCABE-RM3440**: McCabe, planar Hall coefficients and nozzle-design context, ARC R&M3440 (report 1964, issued 1967). <https://reports.aerade.cranfield.ac.uk/handle/1826.2/4023>
 - **KLIEGEL-QUAN-1966**: Full potential equations, Cartesian Hall coefficients and comparison of transonic approximations, 02874-6002-R000. Theory context only. <https://ntrs.nasa.gov/api/citations/19670009614/downloads/19670009614.pdf>
 - **SAUER-NACA-TM1147**: Historical near-critical-flow and curved-sonic-line theory, 1947. <https://ntrs.nasa.gov/api/citations/20050019415/downloads/20050019415.pdf>

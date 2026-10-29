@@ -1,0 +1,443 @@
+[
+  [
+    "non_object_forwarded",
+    "src/rocket_propulsion/api/routes.py",
+    "        raise InputError(\"Request payload must be a JSON object.\", field=\"payload\")\n",
+    "        return route(payload)\n",
+    "tests/test_api_numeric_admission.py::NumericRequestAdmission::test_non_object_requests_are_refused_before_the_route_body"
+  ],
+  [
+    "number_preflight_removed",
+    "src/rocket_propulsion/api/routes.py",
+    "            _number(payload, key)\n",
+    "            pass\n",
+    "tests/test_api_numeric_admission.py::NumericRequestAdmission::test_inactive_but_numeric_geometry_control_still_refuses_a_boolean"
+  ],
+  [
+    "bool_as_number",
+    "src/rocket_propulsion/api/routes.py",
+    "    if isinstance(raw_value, bool):\n        raise InputError(f\"Field {key} must be a number.\", field=key)\n",
+    "    if False:\n        raise InputError(f\"Field {key} must be a number.\", field=key)\n",
+    "tests/test_api_numeric_admission.py::NumericRequestAdmission::test_inactive_but_numeric_geometry_control_still_refuses_a_boolean"
+  ],
+  [
+    "wrong_error_field",
+    "src/rocket_propulsion/api/routes.py",
+    "        raise InputError(f\"Field {key} must be a number.\", field=key)\n",
+    "        raise InputError(f\"Field {key} must be a number.\", field=\"unrelated\")\n",
+    "tests/test_api_numeric_admission.py::NumericRequestAdmission::test_inactive_but_numeric_geometry_control_still_refuses_a_boolean"
+  ],
+  [
+    "exact_integer_float_reader",
+    "src/rocket_propulsion/api/routes.py",
+    "            _study_request_integer(payload, key, 0)\n",
+    "            _number(payload, key)\n",
+    "tests/test_api_numeric_admission.py::NumericRequestAdmission::test_exact_integer_fields_keep_large_integer_and_form_text_semantics"
+  ],
+  [
+    "fractional_integer_accepted",
+    "src/rocket_propulsion/api/routes.py",
+    "if not number.is_finite() or number != number.to_integral_value():",
+    "if not number.is_finite():",
+    "tests/test_api_numeric_admission.py::NumericRequestAdmission::test_numeric_overflow_and_fractional_integer_controls_never_run_the_body"
+  ],
+  [
+    "exact_integer_check_removed",
+    "src/rocket_propulsion/api/routes.py",
+    "            _study_request_integer(payload, key, 0)\n",
+    "            pass\n",
+    "tests/test_api_numeric_admission.py::NumericRequestAdmission::test_numeric_overflow_and_fractional_integer_controls_never_run_the_body"
+  ],
+  [
+    "optional_placeholder_rejected",
+    "src/rocket_propulsion/api/routes.py",
+    "            if raw is None or (isinstance(raw, str) and raw == \"\"):\n",
+    "            if False:\n",
+    "tests/test_api_numeric_admission.py::NumericRequestAdmission::test_numeric_forms_and_optional_placeholders_are_not_rewritten"
+  ],
+  [
+    "request_rewritten",
+    "src/rocket_propulsion/api/routes.py",
+    "            _number(payload, key)\n",
+    "            payload[key] = _number(payload, key)\n",
+    "tests/test_api_numeric_admission.py::NumericRequestAdmission::test_numeric_forms_and_optional_placeholders_are_not_rewritten"
+  ],
+  [
+    "catalogue_mutable",
+    "src/rocket_propulsion/api/numeric_contracts.py",
+    "NUMBER_FIELDS = MappingProxyType(\n",
+    "NUMBER_FIELDS = dict(\n",
+    "tests/test_api_numeric_admission.py::NumericRequestAdmission::test_contract_catalogue_and_field_sets_are_immutable"
+  ],
+  [
+    "catalogue_omits_field",
+    "src/rocket_propulsion/api/numeric_contracts.py",
+    "\"/api/v1/isentropic\": frozenset({\"gamma\", \"value\"}),",
+    "\"/api/v1/isentropic\": frozenset({\"gamma\"}),",
+    "tests/test_api_numeric_admission.py::NumericRequestAdmission::test_contract_catalogue_matches_scalar_readers_and_shared_helpers"
+  ],
+  [
+    "finite_success_oracle",
+    "tests/test_api_adversarial_fuzz.py",
+    "    if require_refusal:\n        return f\"{field}={value!r}: malformed number returned success\"\n",
+    "    if False:\n        return f\"{field}={value!r}: malformed number returned success\"\n",
+    "tests/test_api_adversarial_fuzz.py::RefusalOracle::test_finite_success_is_a_failure_when_refusal_is_required"
+  ],
+  [
+    "unrelated_error_oracle",
+    "tests/test_api_adversarial_fuzz.py",
+    "        if require_refusal and exc.field != field:\n",
+    "        if False:\n",
+    "tests/test_api_adversarial_fuzz.py::RefusalOracle::test_an_unrelated_field_error_cannot_prove_refusal"
+  ],
+  [
+    "generated_family_skips_refusal",
+    "tests/test_api_adversarial_fuzz.py",
+    "require_refusal=numeric_refusal and field in NUMERIC_FIELDS[path]",
+    "require_refusal=False",
+    "tests/test_api_adversarial_fuzz.py::RefusalOracle::test_generated_numeric_family_requires_refusal"
+  ],
+  [
+    "generated_family_omits_helpers",
+    "tests/test_api_adversarial_fuzz.py",
+    "        fields = sorted(set(payload_fields(ROUTES[path])) | NUMERIC_FIELDS[path])\n",
+    "        fields = payload_fields(ROUTES[path])\n",
+    "tests/test_api_adversarial_fuzz.py::RefusalOracle::test_generated_family_covers_numbers_read_only_in_helpers"
+  ],
+  [
+    "audit_ignores_keyword_aliases",
+    "tests/api_numeric_contract_tools.py",
+    "            named = [key for key, arg in keywords.items()\n                     if isinstance(arg, ast.Name) and arg.id == parameter]\n",
+    "            named = []\n",
+    "tests/test_api_numeric_admission.py::NumericRequestAdmission::test_source_audit_follows_keyword_aliases_and_reports_computed_keys"
+  ],
+  [
+    "audit_discards_unresolved",
+    "tests/api_numeric_contract_tools.py",
+    "                    unresolved.append((function.__name__, ast.unparse(node)))\n",
+    "                    pass\n",
+    "tests/test_api_numeric_admission.py::NumericRequestAdmission::test_source_audit_follows_keyword_aliases_and_reports_computed_keys"
+  ],
+  [
+    "inverse_always_empty",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "if log_expansion >= empty_log:",
+    "if True:",
+    "tests/test_blowdown_range_numerics.py::BlowdownPressureRangeTests::test_inverse_preserves_finite_answer_when_unscaled_power_overflows"
+  ],
+  [
+    "scaled_pressure_fallback_erased",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "return _positive_decimal(logarithm.exp(), label)",
+    "return 0.0",
+    "tests/test_blowdown_range_numerics.py::PressurePerformanceRangeTests::test_underflowing_power_does_not_erase_representable_scaled_thrust_or_streams"
+  ],
+  [
+    "large_exponent_discarded",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "logarithm = v.ln() + power * (p / pref).ln()",
+    "logarithm = v.ln() + Decimal(0) * (p / pref).ln()",
+    "tests/test_blowdown_range_numerics.py::PressurePerformanceRangeTests::test_overflowing_power_does_not_refuse_representable_scaled_thrust_or_streams"
+  ],
+  [
+    "zero_maximum_defaulted",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "        maximum = (self.reference_supply_pressure_pa if self.maximum_supply_pressure_pa is None\n                   else self.maximum_supply_pressure_pa)",
+    "        maximum = self.maximum_supply_pressure_pa or self.reference_supply_pressure_pa",
+    "tests/test_blowdown_range_numerics.py::PressurePerformanceRangeTests::test_explicit_zero_maximum_is_not_silently_replaced_by_reference"
+  ],
+  [
+    "jacobian_erased",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "_fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)\n                        * _fraction(state.tank_gas_temperature_k)\n                        / (_fraction(config.propellant_density_kg_m3) * _fraction(ullage)**2)",
+    "_fraction(0.0)",
+    "tests/test_feed_pressure_range.py::FeedPressureRangeTests::test_representable_pressure_partials_survive_overflowing_ullage_square"
+  ],
+  [
+    "jacobian_sign_reversed",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "_fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)\n                        * _fraction(state.tank_gas_temperature_k)\n                        / (_fraction(config.propellant_density_kg_m3) * _fraction(ullage)**2)",
+    "-(_fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)\n                        * _fraction(state.tank_gas_temperature_k)\n                        / (_fraction(config.propellant_density_kg_m3) * _fraction(ullage)**2))",
+    "tests/test_feed_pressure_range.py::FeedPressureRangeTests::test_partial_sign_and_mass_pressure_elasticities_remain_physical"
+  ],
+  [
+    "initial_gas_mass_halved",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "_fraction(tank_pressure_pa) * _fraction(ullage)",
+    "_fraction(tank_pressure_pa) * _fraction(ullage) / 2",
+    "tests/test_feed_pressure_range.py::FeedPressureRangeTests::test_initial_mass_and_recovered_pressure_survive_overflowing_pv_product"
+  ],
+  [
+    "recovered_pressure_halved",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "_fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)\n            * _fraction(state.tank_gas_temperature_k) / _fraction(ullage)",
+    "(_fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)\n            * _fraction(state.tank_gas_temperature_k) / _fraction(ullage)) / 2",
+    "tests/test_feed_pressure_range.py::FeedPressureRangeTests::test_initial_mass_and_recovered_pressure_survive_overflowing_pv_product"
+  ],
+  [
+    "small_expansion_lost",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "expansion = log_expansion if log_expansion < Decimal('1e-20') else log_expansion.exp() - 1",
+    "expansion = Decimal(0)",
+    "tests/test_blowdown_range_numerics.py::BlowdownPressureRangeTests::test_inverse_resolves_near_initial_pressure_without_losing_expelled_volume"
+  ],
+  [
+    "near_reference_log_discarded",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "log_factor = exponent * log1p((numerator - denominator) / denominator)",
+    "log_factor = 0.0 * log1p((numerator - denominator) / denominator)",
+    "tests/test_blowdown_range_numerics.py::PressurePerformanceRangeTests::test_near_reference_ratio_rounding_is_not_amplified_by_large_exponent"
+  ],
+  [
+    "decimal_budget_removed",
+    "src/rocket_propulsion/api/routes.py",
+    "if not number.is_zero() and number.adjusted() >= limit:",
+    "if False:",
+    "tests/test_api_integer_budget.py::IntegerExpansionBudgetTests::test_compact_exponents_refuse_before_expansion_and_model"
+  ],
+  [
+    "allocated_integer_budget_removed",
+    "src/rocket_propulsion/api/routes.py",
+    "if not -threshold < value < threshold:",
+    "if False:",
+    "tests/test_api_integer_budget.py::IntegerExpansionBudgetTests::test_allocated_oversized_integers_refuse_without_stringification"
+  ],
+  [
+    "wrong_integer_budget_code",
+    "src/rocket_propulsion/api/routes.py",
+    "code=\"integer_budget_exceeded\", field=key,",
+    "code=\"invalid_input\", field=key,",
+    "tests/test_api_integer_budget.py::IntegerExpansionBudgetTests::test_compact_exponents_refuse_before_expansion_and_model"
+  ],
+  [
+    "host_lower_budget_ignored",
+    "src/rocket_propulsion/api/routes.py",
+    "limit = min(_MAXIMUM_ROUTE_INTEGER_DIGITS, configured) if configured else _MAXIMUM_ROUTE_INTEGER_DIGITS",
+    "limit = _MAXIMUM_ROUTE_INTEGER_DIGITS",
+    "tests/test_api_integer_budget.py::IntegerExpansionBudgetTests::test_lower_host_limit_is_honored_and_disabled_host_limit_keeps_api_cap"
+  ],
+  [
+    "disabled_host_budget_widened",
+    "src/rocket_propulsion/api/routes.py",
+    "limit = min(_MAXIMUM_ROUTE_INTEGER_DIGITS, configured) if configured else _MAXIMUM_ROUTE_INTEGER_DIGITS",
+    "limit = min(_MAXIMUM_ROUTE_INTEGER_DIGITS, configured) if configured else _MAXIMUM_ROUTE_INTEGER_DIGITS + (1 if configured == 0 else 0)",
+    "tests/test_api_integer_budget.py::IntegerExpansionBudgetTests::test_lower_host_limit_is_honored_and_disabled_host_limit_keeps_api_cap"
+  ],
+  [
+    "integer_conversion_before_budget",
+    "src/rocket_propulsion/api/routes.py",
+    "        if not number.is_zero() and number.adjusted() >= limit:",
+    "        int(number)\n        if not number.is_zero() and number.adjusted() >= limit:",
+    "tests/test_api_integer_budget.py::IntegerExpansionBudgetTests::test_compact_exponents_refuse_before_expansion_and_model"
+  ],
+  [
+    "typed_budget_code_swallowed",
+    "src/rocket_propulsion/api/routes.py",
+    "    except InputError:\n        raise\n",
+    "",
+    "tests/test_api_integer_budget.py::IntegerExpansionBudgetTests::test_compact_exponents_refuse_before_expansion_and_model"
+  ],
+  [
+    "builtin_reuse_removed",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "        operating_point_at_pressure = cached_point",
+    "        operating_point_at_pressure = None",
+    "tests/test_blowdown_evaluation_reuse.py::BlowdownEvaluationReuseTests::test_builtin_law_avoids_duplicate_solver_work_and_keeps_analytic_history"
+  ],
+  [
+    "subclass_implicitly_cached",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "if type(pressure_law) is PressurePerformanceLaw:",
+    "if isinstance(pressure_law, PressurePerformanceLaw):",
+    "tests/test_blowdown_evaluation_reuse.py::BlowdownEvaluationReuseTests::test_custom_provider_keeps_its_evaluation_behavior_and_analytic_history"
+  ],
+  [
+    "cached_pressure_ignored",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "            return pressure_law.scale_operating_point(rated_point, pressure)",
+    "            return pressure_law.scale_operating_point(rated_point, pressure_law.reference_supply_pressure_pa)",
+    "tests/test_blowdown_evaluation_reuse.py::BlowdownEvaluationReuseTests::test_reuse_cannot_leak_across_rated_points_or_pressure_laws"
+  ],
+  [
+    "law_scalar_ownership_removed",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "        coerce_fields(self, 'Pressure performance law')\n",
+    "",
+    "tests/test_blowdown_record_ownership.py::PressureRecordOwnershipTests::test_caller_numeric_mutation_cannot_change_law_or_flow"
+  ],
+  [
+    "tank_scalar_ownership_removed",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "        coerce_fields(self, 'Blowdown tank')\n",
+    "",
+    "tests/test_blowdown_record_ownership.py::PressureRecordOwnershipTests::test_supported_real_values_are_owned_native_floats"
+  ],
+  [
+    "sample_scalar_ownership_removed",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "        coerce_fields(self, 'Pressure performance sample')\n",
+    "",
+    "tests/test_blowdown_record_ownership.py::PressureRecordOwnershipTests::test_supported_real_values_are_owned_native_floats"
+  ],
+  [
+    "table_source_coercion_removed",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "        coerce_fields(self, 'Pressure performance table')\n",
+    "",
+    "tests/test_blowdown_record_ownership.py::PressureRecordOwnershipTests::test_table_source_is_validated_without_calling_foreign_strip"
+  ],
+  [
+    "table_sample_ownership_removed",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "        object.__setattr__(self, 'samples', records(self.samples, PressurePerformanceSample, 'samples'))\n",
+    "",
+    "tests/test_blowdown_record_ownership.py::PressureRecordOwnershipTests::test_list_mutation_cannot_change_table_range_or_interpolation"
+  ],
+  [
+    "channel_scalar_ownership_removed",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "        coerce_fields(self, 'Cooling channels')\n",
+    "",
+    "tests/test_regen_input_records.py::RegenInputRecordTests::test_owned_width_cannot_be_changed_by_caller_arithmetic"
+  ],
+  [
+    "coolant_scalar_ownership_removed",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "        coerce_fields(self, 'Coolant')\n",
+    "",
+    "tests/test_regen_input_records.py::RegenInputRecordTests::test_direct_physical_fields_refuse_boolean_text_and_erased_reals"
+  ],
+  [
+    "coolant_boolean_direction_removed",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "if not isinstance(self.counterflow, bool):",
+    "if False:",
+    "tests/test_regen_input_records.py::RegenInputRecordTests::test_coolant_direction_requires_an_actual_boolean"
+  ],
+  [
+    "premature_regen_chemistry",
+    "src/rocket_propulsion/api/thermal_routes.py",
+    "    channels = CoolingChannels(",
+    "    hot_gas_from_propellant(propellant_pair=pair.key, chamber_pressure_pa=pressure, throat_radius_of_curvature_m=sqrt(throat_area/pi))\n    channels = CoolingChannels(",
+    "tests/test_api_regen_admission_order.py::RegenAdmissionOrderTests::test_invalid_controls_are_rejected_before_chemistry"
+  ],
+  [
+    "coolant_lower_range_ignored",
+    "src/rocket_propulsion/api/thermal_routes.py",
+    "if not fluid_model.t_min_k <= inlet_temperature <= fluid_model.t_max_k:",
+    "if inlet_temperature > fluid_model.t_max_k:",
+    "tests/test_api_regen_admission_order.py::RegenAdmissionOrderTests::test_declared_coolant_range_is_checked_before_chemistry"
+  ],
+  [
+    "coolant_temperature_endpoints_rejected",
+    "src/rocket_propulsion/api/thermal_routes.py",
+    "if not fluid_model.t_min_k <= inlet_temperature <= fluid_model.t_max_k:",
+    "if not fluid_model.t_min_k < inlet_temperature < fluid_model.t_max_k:",
+    "tests/test_api_regen_admission_order.py::RegenAdmissionOrderTests::test_positive_land_and_declared_eos_endpoints_are_not_rejected"
+  ],
+  [
+    "coolant_pressure_endpoint_rejected",
+    "src/rocket_propulsion/api/thermal_routes.py",
+    "if inlet_pressure > fluid_model.p_max_pa:",
+    "if inlet_pressure >= fluid_model.p_max_pa:",
+    "tests/test_api_regen_admission_order.py::RegenAdmissionOrderTests::test_positive_land_and_declared_eos_endpoints_are_not_rejected"
+  ],
+  [
+    "throat_pitch_helix_ignored",
+    "src/rocket_propulsion/api/thermal_routes.py",
+    "* cos(radians(channels.helix_angle_deg))/channels.count)",
+    "* 1.0/channels.count)",
+    "tests/test_api_regen_admission_order.py::RegenAdmissionOrderTests::test_width_limit_uses_channel_normal_pitch_and_wall_thickness"
+  ],
+  [
+    "throat_pitch_wall_thickness_ignored",
+    "src/rocket_propulsion/api/thermal_routes.py",
+    "sqrt(throat_area/pi)+channels.hot_wall_thickness_m",
+    "sqrt(throat_area/pi)",
+    "tests/test_api_regen_admission_order.py::RegenAdmissionOrderTests::test_positive_land_and_declared_eos_endpoints_are_not_rejected"
+  ],
+  [
+    "closeout_compatibility_ignored",
+    "src/rocket_propulsion/api/thermal_routes.py",
+    "if closeout > 0.0 and wall_model != '2d':",
+    "if False:",
+    "tests/test_api_regen_admission_order.py::RegenAdmissionOrderTests::test_incompatible_closeout_is_rejected_before_chemistry"
+  ],
+  [
+    "early_exit_area_check_removed",
+    "src/rocket_propulsion/api/thermal_routes.py",
+    "if area_ratio < 1.0:",
+    "if False:",
+    "tests/test_api_regen_admission_order.py::RegenAdmissionOrderTests::test_invalid_controls_are_rejected_before_chemistry"
+  ],
+  [
+    "direct_mass_normalization_removed",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "        remaining_propellant_mass_kg = real(remaining_propellant_mass_kg, 'remaining_propellant_mass_kg')\n",
+    "",
+    "tests/test_blowdown_direct_queries.py::BlowdownDirectQueryTests::test_query_methods_refuse_malformed_and_erased_input_with_field"
+  ],
+  [
+    "cutoff_pressure_normalization_removed",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "        pressure_pa = real(pressure_pa, 'pressure_pa')\n",
+    "",
+    "tests/test_blowdown_direct_queries.py::BlowdownDirectQueryTests::test_query_methods_refuse_malformed_and_erased_input_with_field"
+  ],
+  [
+    "correlation_query_normalization_removed",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "        supply_pressure_pa = real(supply_pressure_pa, 'supply_pressure_pa')\n        tolerance = max(1e-9, self.maximum_pressure_pa * 1e-12)\n        if not isfinite(supply_pressure_pa) or (\n            supply_pressure_pa < self.minimum_supply_pressure_pa - tolerance\n            or supply_pressure_pa > self.maximum_pressure_pa + tolerance\n        ):\n            raise DomainError(\"Supply pressure lies outside the declared correlation range.\")",
+    "        tolerance = max(1e-9, self.maximum_pressure_pa * 1e-12)\n        if not isfinite(supply_pressure_pa) or (\n            supply_pressure_pa < self.minimum_supply_pressure_pa - tolerance\n            or supply_pressure_pa > self.maximum_pressure_pa + tolerance\n        ):\n            raise DomainError(\"Supply pressure lies outside the declared correlation range.\")",
+    "tests/test_blowdown_direct_queries.py::BlowdownDirectQueryTests::test_performance_queries_also_refuse_boolean_or_text_pressure"
+  ],
+  [
+    "table_query_normalization_removed",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "        supply_pressure_pa = real(supply_pressure_pa, 'supply_pressure_pa')\n        tolerance = max(1e-9, self.maximum_pressure_pa * 1e-12)\n        if not isfinite(supply_pressure_pa) or (\n            supply_pressure_pa < self.minimum_supply_pressure_pa - tolerance\n            or supply_pressure_pa > self.maximum_pressure_pa + tolerance\n        ):\n            raise DomainError(\"Supply pressure lies outside the tabulated map range.\")",
+    "        tolerance = max(1e-9, self.maximum_pressure_pa * 1e-12)\n        if not isfinite(supply_pressure_pa) or (\n            supply_pressure_pa < self.minimum_supply_pressure_pa - tolerance\n            or supply_pressure_pa > self.maximum_pressure_pa + tolerance\n        ):\n            raise DomainError(\"Supply pressure lies outside the tabulated map range.\")",
+    "tests/test_blowdown_direct_queries.py::BlowdownDirectQueryTests::test_performance_queries_also_refuse_boolean_or_text_pressure"
+  ],
+  [
+    "premature_ullage_export_restored",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "        remaining = self._validate_remaining_mass(remaining_propellant_mass_kg)\n        expelled = self.initial_propellant_mass_kg - remaining\n        if expelled == 0.0:",
+    "        ullage = self.ullage_volume_m3(remaining_propellant_mass_kg)\n        return _scaled_pressure_power(self.initial_pressure_pa, self.initial_ullage_volume_m3,\n                                      ullage, self.polytropic_exponent, \"Ullage pressure\")\n        remaining = self._validate_remaining_mass(remaining_propellant_mass_kg)\n        expelled = self.initial_propellant_mass_kg - remaining\n        if expelled == 0.0:",
+    "tests/test_blowdown_direct_queries.py::BlowdownDirectQueryTests::test_complete_pressure_survives_unrepresentable_intermediate_volume"
+  ],
+  [
+    "small_growth_erased_before_power",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "log1p(growth)",
+    "__import__('math').log(1.0+growth)",
+    "tests/test_blowdown_direct_queries.py::BlowdownDirectQueryTests::test_small_volume_growth_is_not_erased_before_large_exponent"
+  ],
+  [
+    "small_growth_fallback_erased",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "log_growth = growth_d if growth_d < Decimal('1e-20') else (1+growth_d).ln()",
+    "log_growth = (1+growth_d).ln()",
+    "tests/test_blowdown_direct_queries.py::BlowdownDirectQueryTests::test_small_growth_fallback_handles_capacity_overflow_and_subnormal_ratio"
+  ],
+  [
+    "unchecked_initial_volume_export",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "        return _finite_rational(\n            _fraction(self.initial_propellant_mass_kg) / _fraction(self.propellant_density_kg_m3),\n            'Initial propellant volume')",
+    "        return self.initial_propellant_mass_kg / self.propellant_density_kg_m3",
+    "tests/test_blowdown_direct_queries.py::BlowdownDirectQueryTests::test_public_volume_outputs_do_not_export_false_zero_or_infinity"
+  ],
+  [
+    "cutoff_pressure_field_omitted",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "raise DomainError('Requested ullage pressure must be positive.', field='pressure_pa')",
+    "raise DomainError('Requested ullage pressure must be positive.')",
+    "tests/test_blowdown_direct_queries.py::BlowdownDirectQueryTests::test_nonpositive_cutoff_pressure_names_its_field"
+  ],
+  [
+    "tank_forward_pressure_fallback_erased",
+    "src/rocket_propulsion/propulsion/burns/blowdown.py",
+    "return _positive_decimal(logarithm.exp(), 'Ullage pressure')",
+    "return 0.0",
+    "tests/test_blowdown_range_numerics.py::BlowdownPressureRangeTests::test_forward_pressure_recovers_underflowed_power_after_scaling"
+  ]
+]
