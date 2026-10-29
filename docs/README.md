@@ -64,6 +64,9 @@
   inferred propulsion project branches, field-level references, preliminary
   sizing/trade tools, strict JSON/HTML workflow and the no-extrapolation policy.
 
+- [Sentinel-1C and Sentinel-2C mission study](missions/sentinel/README.md) (Turkish):
+  propulsion-focused A–D checklist review with source-level verification status.
+
 - `ARCHITECTURE.md` explains dependency direction and extension points.
 - `ROADMAP.md` records the staged engineering scope.
 - `DEVELOPMENT_PLAN.md` turns the open gaps into a prioritized, test-gated
