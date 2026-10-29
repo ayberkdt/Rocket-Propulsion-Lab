@@ -1,74 +1,68 @@
-# Sentinel-1C ve Sentinel-2C — itki odaklı görev araştırması (Revizyon V3)
+# Sentinel-1 ve Sentinel-2 serileri — karşılaştırmalı SASS raporu (V4)
 
-UZM 508E / SASS kapsamında hazırlanan, Sentinel-1C ve Sentinel-2C görevlerinin rapor kontrol
-listesine (A genel bilgi, B bütçeler, C CONOPS, D itki sistemi) göre incelenmesi.
-Ders hazırlığı bağlamı: [../../SASS_PROJECT_PREPARATION.md](../../SASS_PROJECT_PREPARATION.md).
+**Kapsam:** Kullanıcının teyidiyle ilk nesil A/B/C/D araçları karşılaştırılır.
+C araçları, dolum bilgisi ve ayrıntılı manevra kayıtlarıyla hesap örnekleridir.
+**Kaynak kesiti:** 29 Ekim 2026. Ders: [SASS hazırlığı](../../SASS_PROJECT_PREPARATION.md).
 
-## Dosyalar
+## İki serinin doğrudan karşılaştırması
+
+| Karar / özellik | Sentinel-1 serisi | Sentinel-2 serisi |
+|---|---|---|
+| Görev / yük | Aktif C-bant SAR, C/D'de AIS | Pasif 13 bantlı MSI |
+| Üretici | Thales Alenia Space; SAR Airbus | Airbus; MSI Airbus |
+| Görev yörüngesi | ~693 km, LTAN 18:00 | ~786 km, LTDN 10:30 |
+| Nominal iki araç tekrarı | 6 gün | 5 gün |
+| 2026 nominal ikilisi | C/D; A görevi sona erdi, B pasifleştirildi | B/C; A ek kampanya, D yerde depoda |
+| Aile itki tipi | Hidrazin monoprop, blow-down | Hidrazin monoprop, He blow-down |
+| Yedekli mimari mirası | 2 dal × 7 adet 1 N; yönelim/yörünge görevleri farklı | 2 soğuk yedekli dal × 4 eğik 1 N |
+| C için yayımlanmış kütle/yakıt | 2186 / 154 kg | 1143 / 133 kg |
+| Tek net 1 N başlangıç ivmesi, C [H] | 0,4575 mm/s² | 0,8749 mm/s² |
+| İtki/operasyon kısıtına örnek | B: plume, tork/teker, Stop Burn FDIR, öngörülemeyen impuls | A/C: tandem ayrımı, eş CAM ve touch-up; cant/duty kaybı |
+| EOL kanıtının niteliği | B: gerçekleşen ~580×610 km, ~70 kg kalan; C/D planı açık | 2014 aile planı 786→653 km, 73 m/s, 47 kg; C güncel tahsisi açık |
+| Tasarımımıza aktarım | Yakıt rezervi kadar emniyetli manevra kabiliyeti de belirleyici | Tank basıncı ≠ giriş basıncı; net kuvvet ≠ skaler debi toplamı |
+
+Kaynak/sürüm ve matematik sınırları aşağıdaki raporlarda açıklanır. Aile mimarisi
+her tekil C/D uçuş konfigürasyonunun kabul kaydı yerine geçmez.
 
 | Dosya | İçerik |
 |---|---|
-| [SENTINEL-1C.md](SENTINEL-1C.md) | Sentinel-1C: A–D başlıkları, kaynaklı değerler |
-| [SENTINEL-2C.md](SENTINEL-2C.md) | Sentinel-2C: A–D başlıkları, gerçek manevra verisi |
-| [HESAPLAR.md](HESAPLAR.md) | Tsiolkovsky, Hohmann, ömür sonu, yakıt, yanma süresi, tutulma, link, veri, rezerv |
-| [KAYNAKLAR.md](KAYNAKLAR.md) | Kaynak dizini, her kaynağın doğrulama düzeyi, fotoğraf lisansları |
-| [KONTROL_LISTESI.md](KONTROL_LISTESI.md) | Kontrol listesinin her maddesi için kanıt düzeyi |
+| [Sentinel-1 serisi](SENTINEL-1_SERISI.md) | A/B/C/D, görev/fırlatıcı, bütçeler, CONOPS, 1B gerçek bertarafı, C hesapları |
+| [Sentinel-2 serisi](SENTINEL-2_SERISI.md) | A/B/C/D, tandem/CAM kayıtları, motor-besleme mimarisi ve hesaplar |
+| [Hesap türetimleri](HESAPLAR.md) | Tsiolkovsky, kütle defteri, cant/debi/süre, yörünge, rezerv, blow-down, güç/link/veri/ısıl |
+| [27 maddelik kontrol listesi](KONTROL_LISTESI.md) | Her görev için kapsam ve açık veri durumu |
+| [Kaynak dizini](KAYNAKLAR.md) | Birincil kaynaklar, belge sürümleri, ayna/erişim ve fotoğraf kredileri |
+| [Girdiler](SERI_VERILERI.json) / [sonuçlar](SERI_SONUCLARI.json) | Araç ve birim etiketli tekrar üretilebilir veri |
+| [Sentinel-1C](SENTINEL-1C.md) / [Sentinel-2C](SENTINEL-2C.md) | Önceki ayrıntılı C dosyaları; V4 düzeltmeleri uygulandı |
 
-## Doğrulama yöntemi
+İki seri raporu gerçek ESA fotoğrafları ve kendi işlevsel şemalarımızı içerir.
+Geniş karşılaştırma grafiği:
 
-V2 paketi (29 Ekim 2026) üç bağımsız geçişle kontrol edildi:
+![Sentinel karşılaştırma ve hesap kapsamı](figures/series_comparison.png)
 
-1. **V2'nin kendi kaynak okuması.**
-2. **Dört ayrı doğrulama okuması** (1C genel, 1 teknik/itki, 2C genel, 2 teknik/itki): her
-   iddia birincil kaynakta arandı, kısa alıntı ve sayfa numarasıyla eşlendi.
-3. **Birincil belgelerin bu çalışmada yeniden indirilmesi:** kritik sayıların geçtiği
-   cümle ve tablolar doğrudan PDF'ten okundu (ESA SP-1322/1 ve /2, Rafael kataloğu,
-   ArianeGroup veri sayfası, resmî VV24 kiti, ISSFD 2012/2017, SpaceOps 2025 #360 ve #617,
-   CGMS-52) ve web sayfaları yeniden açıldı.
+Kaynaklı uçuş değeri, eski tasarım sürümü, katalog mirası ve varsayım ayrı tutulur.
+Eksik as-built güç/kütle/pointing/link/termal bütçeleri tamamlanmış gibi sunulmaz.
+Özellikle 4,21 kg ideal S2C yakıt hesabı ölçüm; 154 kg C dolumu bütün S1 serisinin yükü;
+S1B'nin eski 530 km hedefi gerçekleşen son yörünge olarak kullanılmaz.
 
-Bütün hesaplar bağımsız olarak yeniden yapıldı; V2'deki aritmetik hatasızdır.
+## Hesap ve doğrulama
 
-## V2'ye göre başlıca düzeltmeler
+Depo kökünde Python 3.11+ ile:
 
-- **VV24 kiti:** V2'nin kullandığı üçüncü taraf aynası eski sürümdür. Resmî kitte Zefiro-9
-  ayrılması T+6:32 (V2: 5:52), planlanan ayrılma T+57:33; gerçekleşen 57:27'dir. Toplam yük
-  1220 kg'dır.
-- **"4075 W RF/DC kritik çelişkisi":** kanıtlanamadı; 4075 W'ı DC güç olarak veren kaynak
-  bulunamadı. ESA SP-1322/1: 4368 W RF tepe, 3870 W DC (IW, tek veya çift polarizasyon).
-- **SAR görev çevrimi:** 30 dk/tur yalnızca IW değil SM/IW/EW için geçerli; Mayıs 2026'ya kadar
-  tutulma mevsiminde 25 dk idi.
-- **Termal 13 → 7 °C:** uçuş ölçümünün değil, korelasyonlu ile korelasyonsuz termal model
-  arasındaki belirsizlik farkıdır.
-- **Rampa:** kaynaklar "Avrupa Uzay Üssü, Kourou" der; ZLV iddiası kaldırıldı.
-- **LTDN 10:30 (S2):** ESA Facts and figures sayfasında değil, SentiWiki'de; eğim 98,62°.
-- **"AstroBus-L":** doğrulanamadı; kaldırıldı.
+```powershell
+python scripts/sentinel_series_budget.py --output docs/missions/sentinel/SERI_SONUCLARI.json
+python -m unittest discover -s tests -p test_sentinel_series_budget.py
+```
 
-## V3'te eklenen kaynaklı veri
+25 test yöntemi ve 16 alt test; bağımsız yüksek hassasiyetli denklemler, fiziksel
+korunum, olay muhasebesi, kaynakta yayımlanmış drift örnekleri ve bağımlılıksız CLI
+tekrarını kapsar. Bunlar **sayısal kontrollerdir**; donanım/ilgili ortam doğrulaması
+veya yeni sistem için TRL belgesi değildir. Grafik üretimi ayrıca matplotlib gerektirir;
+hesapların çalışma bağımlılığı yoktur.
 
-- **S2C gerçek manevraları** (SpaceOps 2025 #617): nominalin 10,6 km altına enjeksiyon;
-  ~6,33 m/s düzlem içi + 0,57 m/s düzlem dışı edinim; 6 Kasım 2024'te 314,1 s'de 0,934 m/s
-  eğim manevrası; 18 Aralık 2024'e kadar toplam ~7,97 m/s. 2A rutin bakımı ~0,115 m/s/yıl.
-- **S2 ömür sonu planı** (Airbus 2014): 786 → 653 km dairesel, 116 × 10 dk, 73 m/s, 47 kg,
-  25 yılda yeniden giriş.
-- **S2 itici** (ArianeGroup 1 N): Isp 220 s (200–223 s), 5,5–22 bar, 135 000 N·s.
-- **S1 itki donanımı:** iki dal × yedi 1 N itici (SpaceOps 2025 #360); Rafael PEPT-590GB
-  tankı (204 L, 4:1 blow-down'da 154 kg nominal kapasite, 27,4 → 5,5 bar).
-- **S1 LEOP ΔV planlama tabloları** (ISSFD 2017) ve **1B bertarafının gerçek seyri**
-  (SpaceOps 2025 #360, CGMS-52, ESA).
-- **Güncel durum (29.10.2026):** 1A görevi 29 Haziran 2026'da bitti; 1C ve 1D operasyonel;
-  1D'de 28 Ekim 2026'dan beri süren bir olay var; 2C'de 8 Ağustos 2025 veri kaybı; 2A
-  kampanyası 2027 sonuna uzatıldı; 2D fırlatılmadı.
+## Teslim paketi
 
-## Önemli uyarılar
-
-- As-built kütle, güç, ısıl, link ve pointing bütçeleri kamuya açık değildir; bu belgeler
-  aile değerlerini ve gerçek uçuş olaylarını açıkça ayırır, eksik bütçe uydurmaz.
-- Senaryo hesapları (ör. Sentinel-1C rutin bakım tüketimi) ESA tahsisi değildir ve öyle
-  işaretlenmiştir.
-- Operasyon panosu gibi dinamik kaynaklar teslimden önce yeniden kontrol edilmelidir.
-- Fotoğraf kullanımı için [KAYNAKLAR.md](KAYNAKLAR.md) lisans tablosuna bakın.
-
-## Kaynaklar
-
-Tam liste: [KAYNAKLAR.md](KAYNAKLAR.md). Örnek: ESA Sentinel-2 Facts and figures
-<https://www.esa.int/Applications/Observing_the_Earth/Copernicus/Sentinel-2/Facts_and_figures>.
+Git deposunda rapor, hesap, test, fotoğraf ve grafikler bulunur. İndirilen kaynakların
+tam PDF/HTML kopyaları ayrı çevrimdışı araştırma paketinde saklanır; dosya bazında URL,
+erişim zamanı ve SHA-256 tutulur. Kaynakların mevcut olması yeniden dağıtım lisansı
+vermez; fotoğraflarda kredi ve kaynak sayfasının kullanım koşulları korunur.
+Operasyon durumu değişebildiğinden raporun kesit tarihi teslimde göz önünde tutulmalıdır.

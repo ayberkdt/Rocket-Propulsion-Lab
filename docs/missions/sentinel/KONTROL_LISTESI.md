@@ -1,50 +1,43 @@
-# Rapor kontrol listesi — kapsam matrisi (Revizyon V3)
+# Sentinel-1 / Sentinel-2 — 27 maddelik ödev kontrolü (V4)
 
-**Kodlar:** **D** = görevin kendisine özgü birincil kaynakla doğrulandı · **M** = aile/miras
-verisi (A/B, tasarım belgesi) · **H** = bu çalışmanın kontrol edilmiş hesabı · **AÇIK** =
-kamuya açık kaynakta bulunamadı. "Başlık var" tamamlandı anlamına gelmez.
+**29 Ekim 2026.** Her satır iki seri için ayrı değerlendirilir; A/B/C/D ayrı araçlardır.
+**Kaynaklı:** raporda birincil kanıt var. **Kısmi:** konu işlendi ama kamuya açık tam
+uçuş bütçesi/araç kaydı yok. **Hesap/V:** türetim ve varsayım; uçuş kabulü değil.
+"İşlendi" ile "bütün mühendislik bütçesi kapandı" eş anlamlı değildir.
 
-| Madde | Sentinel-1C | Sentinel-2C | Nerede |
+Ana raporlar: [Sentinel-1 serisi](SENTINEL-1_SERISI.md) ve
+[Sentinel-2 serisi](SENTINEL-2_SERISI.md). Sayısal ek: [HESAPLAR.md](HESAPLAR.md).
+
+| Kimlik | Hocanın maddesi | Sentinel-1 kanıt / durum | Sentinel-2 kanıt / durum |
 |---|---|---|---|
-| **A** Görev tanımı, operatör, üretici | D | D/M | 1C A1 · 2C A1 |
-| A Fotoğraf | D (ESA sayfası; ESA Standard Licence, ek izin gerekebilir) | D (Airbus kredili, ESA lisansı yok; alternatif dolum fotoğrafı ESA Standard Licence) | KAYNAKLAR |
-| A Kütle, boyut, güç | D (2186 kg, 154 kg) + M (boyut, güç) | D (1143 kg, 133 kg) + M | A2 |
-| A Yörünge, tasarım ömrü | D (hedef 700 km; ömür ifadesi) + M | D (hedef 775 km; ömür ifadesi) + M | A2 |
-| A Fırlatıcı, tarih, rampa, enjeksiyon | D | D | A3 |
-| A Operasyonel durum ve tarih | D (29.10.2026) | D (29.10.2026) | A4 |
-| A Tüm görev sistemi (fırlatıcı + üst kademe) | D (Vega-C P120C/Z40/Z9/AVUM+, Vampire) | D (Vega P80/Z23/Z9/AVUM) | A3 |
-| A Genel tartışma | var | var | A4 |
-| **B** Kütle bütçesi | M + AÇIK (alt kalem) | M (70 kg marj) + AÇIK | B1 |
-| B Güç bütçesi | M (5900 W, 3870 W SAR) | M (1700 W, 1,4 kW, 87 Ah) | B2 |
-| B Pointing bütçesi | M (gereksinimler) + AÇIK (1C hata bütçesi) | M (Airbus gereksinimleri) + AÇIK | B3 |
-| B Link bütçesi | M (hızlar) + AÇIK (marj) | M (hızlar, modülasyon) + AÇIK (marj) | B4 |
-| B ΔV bütçesi | M (S1B LEOP tabloları) + H (EOL) + AÇIK (1C gerçek değerleri) | **D (gerçekleşen 7,97 m/s)** + M (EOL 73 m/s) + H | B7 · HESAPLAR §4–5 |
-| B Veri bütçesi | M + H | M + H | B5 |
-| B Isıl bütçe | D (2026 model korelasyonu) + AÇIK (limitler) | AÇIK (limitler) | B6 |
-| B Faydalı yük ve alt sistemler | M (C-SAR) + D (AIS) | M (MSI) | B8 |
-| **C** CONOPS zaman çizelgesi | D (2024–2026 olayları) + M (1B bertarafı) | D (2024–2025 olayları, manevralar) + M (EOL planı) | C |
-| C CONOPS'a göre ΔV | H (senaryo) + AÇIK | **D + H** | HESAPLAR §5 |
-| **D** İtki tipi | D (hidrazin) | D (hidrazin + He blow-down) | D1 |
-| D Kütle, güç, boyut, yerleşim | M (Rafael tank ve itici, itki modülü) | M (ArianeGroup itici, halka içi modül) | D1–D2 |
-| D İşlev | M | M | D3 |
-| D Tsiolkovsky (ΔV, kütle, itki) | H (kaynaklı Isp aralığı) | H (kaynaklı Isp) | D4 · HESAPLAR §2 |
-| D Yanma süresi, kütle debisi | H + M (35 s / 600 s sınırları) | H + D (314 s eğim manevrası, 3,4 N etkin itki) | D4 · HESAPLAR §6 |
-| D İtici kütlesi hesabı | H | H + D (4,2 kg kullanılan) | HESAPLAR §5 |
-| D Rezerv ve ek yıl | H (senaryo) + AÇIK (gerçek kalan) | H (kalan ~75–81 kg) — yıl sayısı verilmez | D6 · HESAPLAR §12 |
-| D Anlık / sürekli | H + M | H + D | D5 |
-| D Güvenlik ve regülasyon | D (dolum) + M (1B bertarafı) | D (dolum) + M (EOL planı) | D7 |
-| D TRL (önce/sonra) | M (uçuş mirası) + AÇIK (resmî kayıt) | M (uçuş mirası) + AÇIK | D8 |
+| A1 | Tanım, amaç, operatör, üretici | A1; kaynaklı ESA/kit | A1; kaynaklı ESA |
+| A2 | Görev fotoğrafı | A2; gerçek C fotoğrafı, kredi/lisans | A2; gerçek C dolum fotoğrafı, kredi/lisans |
+| A3 | Kütle, boyut, güç, yörünge, ömür | A3; 4 araç kitleri ayrı, yakıt kaydı kısmi | A3; eski tasarım/C dolumu ayrı; B/D kabul kütlesi açık |
+| A4 | Fırlatıcı, tarih, rampa, enjeksiyon | A4; hedef/gerçek ayrımı, kesin enjeksiyon vektörü açık | A4; A/B/C Vega; D fırlatılmadı; gerçek vektörler kısmi |
+| A5 | Dated operasyonel durum | A3/A5; A/B sonu, C/D ve dinamik 1D olayı | A3/A5; B/C, A uzatması, D depolama |
+| A6 | Fırlatıcı/üst kademe dahil sistem | A4/C; Soyuz-Fregat, Vega-C-AVUM+, Ariane6-Vinci | A4/C; Vega-AVUM, adaptör ve uydu sınırı |
+| A7 | Genel tartışma | A5/B; SAR ve hassas yer izi/itki bağı | A5/C; optik yük ve tandem/geometri bağı |
+| B1 | Kütle bütçesi | B1; alt kümeler, toplam kabul bütçesi açık | B1; hidrazin dışı fark, toplam kabul bütçesi açık |
+| B2 | Güç bütçesi | B2; RF/DC/ortalama ve valf-ısıtıcı ayrımı; kısmi | B2; EOL/BOL ve tur enerjisi; kısmi |
+| B3 | Yönelim bütçesi | B3; yörünge bandı pointing değil; kovaryans açık | B3; gereksinim/güven düzeyi ve varsayımlı RSS; kısmi |
+| B4 | Link bütçesi | B4; kanal ayrımı ve denklem, gerçek EIRP/G/T açık | B4; RF/EDRS ve denklem, gerçek link kapanışı açık |
+| B5 | ΔV bütçesi | B7/C; evreler ve B gerçek bertarafı, C/D tahsisi açık | B7/C; C yaklaşık rekonstrüksiyon, A istatistiği; yıllık toplam açık |
+| B6 | Veri bütçesi | B5; kapasite, indirme, taşma denklemi; kısmi | B5; bit/byte, net hız, kapasite/indirme; kısmi |
+| B7 | Isıl bütçe | B6; denge, katalog sıcaklıkları, uçuş limitleri açık | B6; denge ve ideal radyatör; gerçek model açık |
+| B8 | Payload / bütün alt sistem detayları | B8/A3; SAR/AIS/EPS/AOCS/veri/termal arayüzler | B8/A3; MSI/EPS/AOCS/OCP/modül arayüzleri |
+| C1 | Fırlatma→EOL CONOPS | C evre tablosu ve B bertaraf deneyimi | C evre tablosu, tandem ve görev devri |
+| C2 | CONOPS'tan ΔV çıkarımı | C; açık varsayımlı C senaryosu ve hesap | C1; norm/olay bazlı C defteri; C2/C3 A bakım/drift |
+| D1 | İtki tipi | D1; monoprop hidrazin/blow-down | D1; monoprop hidrazin/He blow-down |
+| D2 | Kütle, güç, boyut, yerleşim | D1/D2/B1/B2; tank katalog + işlevsel şema; toplam modül açık | D1/D2/B1/B2; halka içi aile modülü + şema; hacim/güç açık |
+| D3 | İtkinin işlevleri | D3/C; edinim, bakım, CAM, güvenli mod, EOL | D3/C; faz/tandem, bakım, CAM, güvenli mod, EOL |
+| D4 | Tsiolkovsky, ΔV/kütle/kuvvet | D4/hesap §2–5; kuvvet süreye bağlı | D4/hesap §2–5; net/skaler kuvvet ayrımı |
+| D5 | Süre ve ṁ | D4–6/hesap §5; ideal eşleşmiş nokta | D4–6; gerçek süre, çıkarılmış kuvvet, ideal ṁ |
+| D6 | Propellant hesabı | D4–6/C; ideal kapasite ve senaryo | D4–6; kademeli defter ve 4 duyarlılık durumu |
+| D7 | Taşınan/hesap rezervi ve ek ömür | D7; B 70 kg karşı örneği; C kalan ölçümü açık | D7; 47 kg eski plan/ideal tüketim ayrımı; ek yıl koşullu |
+| D8 | Impulsive / continuous | D8; kimyasal ayrık; 700 s sonlu yanma oranı | D8; saniyelik/314/600 s ve yörünge periyodu |
+| D9 | Güvenlik/regülasyon | D9; tehlike, FDIR, 25/5 yıl baseline; uyum kısmi | D9; toksisite/basınç/termal, 25/5 yıl baseline; uyum kısmi |
+| D10 | Uçuş öncesi/sonrası TRL | D10; miras/tekil konfigürasyon ayrımı; resmi eski puan açık | D10; A/B uçuşu, C kayıt sınırı, D FAR uçuş değil |
 
-**V2'ye göre seviye atlayan maddeler:** S2C ΔV bütçesi ve CONOPS ΔV'si artık gerçek uçuş
-manevralarına dayanıyor; S2 ömür sonu (73 m/s, 47 kg) ve Isp (220 s, 200–223 s) kaynaklı;
-S1 tank (PEPT-590GB) ve itici sayısı (2 × 7) kaynaklı; S1 ömür sonu hedefi 1B'nin gerçek
-bertaraf hedefinden alındı.
-
-**Hâlâ açık:** as-built kütle/güç/ısıl/link bütçeleri, 1C'nin gerçek manevra büyüklükleri ve
-kalan yakıtı, resmî TRL değerlendirmeleri. Bunlar ESA veya üreticiden belge talebiyle
-kapanabilir; kamuya açık kaynakta yoktur.
-
-## Kaynaklar
-
-Bütün kaynaklar ve doğrulama durumları: [KAYNAKLAR.md](KAYNAKLAR.md). Örnek birincil kaynak:
-<https://publications.spaceops.org/2025/download_by_id.php?id=0617>.
+Sonraki kendi motor+besleme tasarımımızda gereksinim ve temsilî ortam deneyi eksikleri
+ayrı kapatılmalıdır. Bu tabloda hiçbir "kaynaklı" satır, yeni sistemin TRL 5 olduğu
+anlamına gelmez.

@@ -1,187 +1,241 @@
-# Sentinel-1C ve Sentinel-2C — hesaplar (Revizyon V3)
+# Sentinel serileri — hesap türetimleri ve doğrulama (V4)
 
-Tüm sayılar bağımsız olarak yeniden hesaplandı. V2 paketindeki her sayı (ideal ΔV tabloları,
-Hohmann, perigee düşürme, yakıt, kütle debisi, yanma süresi, tutulma, link, veri) birebir
-doğrulandı. V3, keyfî senaryo değerlerinin yerine kaynaklı uçuş değerlerini koyar.
+**29 Ekim 2026.** Kaynaklı büyüklükler, kataloglar ve varsayımlar ayrıdır. Hesaplar
+yeni donanımın yeterliliğini, tam uçuş bütçesini veya TRL'sini kanıtlamaz. Önceki V3'ün
+"bütün sayılar hatasız" genel hükmü yerine kapsamı belirli kontroller kullanılır.
 Kaynak kodları: [KAYNAKLAR.md](KAYNAKLAR.md).
 
-## 1. Sabitler ve girdiler
+## 1. Girdiler ve yeniden üretim
 
-| Değişken | Değer | Not |
-|---|---|---|
-| $g_0$ | 9,80665 m/s² | Isp tanımındaki standart yerçekimi |
-| $\mu$ | 398600,4418 km³/s² | Dünya kütle çekim parametresi |
-| $R_E$ | 6378,137 km | WGS84 ekvator yarıçapı; J₂ ihmal |
-| S1C $m_0$ / itici | 2186 / 154 kg | [D] VV25 kiti; ESA |
-| S2C $m_0$ / itici | 1143 / 133 kg | [D] VV24 kiti; ESA |
-| S1 Isp aralığı | > 205 s (5,5 bar) … > 214 s (22 bar) | [M] Rafael 1 N kataloğu |
-| S2 Isp | nominal 220 s, aralık 200–223 s | [M] ArianeGroup 1 N veri sayfası |
+Python 3.11+ standart kütüphanesi yeterlidir. Depo kökünden:
 
-## 2. Tsiolkovsky
+```powershell
+python scripts/sentinel_series_budget.py --output docs/missions/sentinel/SERI_SONUCLARI.json
+python -m unittest discover -s tests -p test_sentinel_series_budget.py
+```
 
-$v_e = I_{sp}g_0$, $\Delta V = v_e\ln(m_i/m_f)$, $m_p = m_i\left(1-e^{-\Delta V/v_e}\right)$.
+Veri: [SERI_VERILERI.json](SERI_VERILERI.json); sonuç: [SERI_SONUCLARI.json](SERI_SONUCLARI.json).
+Kod: [sentinel_series_budget.py](../../../scripts/sentinel_series_budget.py);
+kontroller: [test_sentinel_series_budget.py](../../../tests/test_sentinel_series_budget.py).
+SI birimleri: kg, m, s, N, m/s. 1 cm/s = 0,01 m/s; JSON şeması
+`sentinel-series-v4-SI`. Farklı şema reddedilir; yanlış birimde yazılmış etiketsiz
+bir sayıyı otomatik tanımak mümkün değildir.
 
-Bütün itici ideal kullanılırsa (yalnızca kapasite, tahsis değil):
-
-| Isp | S1C (2186 → 2032 kg) | S2C (1143 → 1010 kg) |
-|---:|---:|---:|
-| 200 s | — | 242,6 m/s |
-| 205 s | 146,9 m/s | 248,7 m/s |
-| 214 s | 153,3 m/s | 259,6 m/s |
-| 220 s | 157,6 m/s | 266,9 m/s |
-| 223 s | — | 270,5 m/s |
-
-`m_0 − itici` farkı (2032 / 1010 kg) doğrulanmış kuru kütle değildir (basınçlandırıcı gaz ve
-artık sıvılar dahil olabilir).
-
-## 3. Hohmann ve ömür sonu geçişleri
-
-$v_c=\sqrt{\mu/r}$, $a_t=(r_1+r_2)/2$,
-$\Delta V=|v_t(r_1)-v_c(r_1)|+|v_c(r_2)-v_t(r_2)|$.
-
-| Geçiş | ΔV (m/s) | Not |
+| Sabit/girdi | Değer | Kapsam |
 |---|---:|---|
-| S1C 700 → 693 km | 3,71 | yalnızca karşılaştırma; gerçek enjeksiyon elemanları bilinmiyor |
-| S2C 775 → 786 km | 5,73 | gerçekte 2C nominalin 10,6 km altına bırakıldı ve sürüklenme ile faz aldı; bu bölüm için ~6,33 m/s düzlem içi ateşleme yapıldı [D] |
-| **S1C 693 → 530 km dairesel** (1B bertaraf hedefi) | **88,06** | hedef [M] CGMS-52 s.25 |
-| **S2 786 → 653 km dairesel** (Airbus planı) | **70,22** | plan 73 m/s → %4 sonlu yanma payı [M] |
-| S1C 693 km → 400 km yerberi (V2 senaryosu) | 79,85 | tek teğetsel impuls; artık kullanılmıyor [S] |
-| S2C 786 km → 400 km yerberi (V2 senaryosu) | 103,98 | aynı [S] |
+| g0 | 9,80665 m/s² | Isp standart yerçekimi |
+| μ | 3,986004418×10¹⁴ m³/s² | Dünya iki cisim modeli |
+| RE | 6378137 m | Ekvator yarıçapı; küresel yaklaşım |
+| ωE | 7,2921159×10⁻⁵ rad/s | Yer izi lineerleştirmesi |
+| S1C başlangıç / hidrazin | 2186 / 154 kg | VV25 kiti / ESA dolumu |
+| S2C başlangıç / hidrazin | 1143 / 133 kg | VV24 kiti / ESA dolumu |
 
-## 4. Gerçekleşen S2C manevraları (SpaceOps 2025 #617)
+A/B/D için eşleşmiş kabul/dolum çifti bu hesap kümesine atanmadı. Kütle ve yakıt araç
+kimlikleri uyuşmazsa hesap durur; bu kontrol belge gerçekliğini kendi başına denetlemez.
+2032/1010 kg farkları sertifikalı kuru kütle değildir; basınçlandırıcı gazı içerebilir.
 
-| Kalem | m/s |
-|---|---:|
-| 4 büyük düzlem içi ilerleme manevrası | ~6,33 |
-| İnce edinim, 29 Ekim 2024 | 0,012 |
-| LEOP sonrası 2 düzlem dışı manevra | 0,57 |
-| Tablo 3 (31 Ekim – 18 Aralık 2024), vektör büyüklükleri; 6 Kasım: √(0,9344² + 0,0537²) = 0,936 | 1,056 |
-| **Toplam** | **7,97** |
+## 2. Tsiolkovsky türetimi ve kapasite
 
-220 s ile 1143 kg'dan **4,21 kg** (200 s: 4,63 kg) [H]. 6 Kasım manevrası 314,1 s sürdü:
-ortalama ivme 0,936/314,1 = **2,98 mm/s²**, etkin itki ≈ 1139 kg × 2,98 mm/s² ≈ **3,4 N**
-(dört eğik 1 N iticiden). Aynı manevra 9 yıllık 2A'da 422,5 s sürdü (~%27 daha düşük ivme);
-blow-down basınç düşüşüyle tutarlıdır [H].
+Vakum, sabit yerel kuvvet yönü ve dış kuvvetlerden doğan yanma kaybının ihmaliyle
+`m dv = −ce dm`, `ce = g0 Isp`. İntegrasyon:
 
-**Rutin bakım:** 2A'da 2 Temmuz 2015 – Mart 2024 arasında 64 manevra × ortalama 1,56 cm/s =
-0,998 m/s → **0,115 m/s/yıl** düzlem içi (220 s ve 1100 kg'da yılda ~58 g) [H]. Bu sayım
-en büyüğü 3,85 cm/s olan manevraları kapsar; eğim (düzlem dışı) manevraları dahil değildir.
-2A'da 24 çift çarpışmadan kaçınma manevrası yapıldı, en büyüğü 19,0 cm/s; toplam için üst
-sınır 24 × 2 × 0,19 = 9,1 m/s'dir (gerçek toplam yayımlanmadı) [H].
+```text
+ΔV = ce ln(mi/mf)
+mf = mi exp(−ΔV/ce)
+mp = mi [1 − exp(−ΔV/ce)]
+```
 
-## 5. CONOPS'a göre ΔV ve yakıt (V3 senaryoları)
+Kod çok küçük ΔV'de iptal hatasını önlemek için `−expm1(−ΔV/ce)`; kapasitede
+`−log1p(−mp/mi)` kullanır. Kuvvet ideal toplam ΔV'yi doğrudan belirlemez; süreyi ve
+sonlu yanma kayıplarını etkiler.
 
-### 5.1 Sentinel-1C
+| Varsayılan sabit Isp | S1C bütün 154 kg ideal kullanılırsa | S2C bütün 133 kg ideal kullanılırsa |
+|---:|---:|---:|
+| 200 s | — | 242,63 m/s |
+| 205 s | 146,86 m/s | — |
+| 214 s | 153,31 m/s | — |
+| 220 s | 157,61 m/s | 266,89 m/s |
+| 223 s | — | 270,53 m/s |
 
-Kalemler: LEOP = S1B planlama bütçesinin 1σ değerleri (eğim 3,93 + dışmerkezlik 1,78 + yuva
-edinimi 5,3 = **11,01 m/s**) [M]; rutin bakım $d$ m/s/yıl (**1C için yayımlanmadı**, duyarlılık
-olarak verilir) [S]; çarpışmadan kaçınma 3 m/s [S]; ömür sonu 693 → 530 km = 88,06 m/s [H].
+Bu **ideal kapasite**, tahsis değildir. 220 s S1 için duyarlılık varsayımıdır;
+katalog >205/>214 alt sınırlarından gerçek C Isp'si çıkarılamaz. Basınç haritası,
+erişilemeyen yakıt ve hat kaybı bu tabloda yoktur.
 
-| d (m/s/yıl) | Süre | Toplam ΔV | Yakıt @220 s | Yakıt @205 s | 154 kg'a göre fark @220 s |
-|---:|---:|---:|---:|---:|---:|
-| 0,5 | 7,25 yıl | 105,7 m/s | 104,5 kg | 112,0 kg | 49,5 kg |
-| 1,0 | 7,25 yıl | 109,3 m/s | 108,0 kg | 115,7 kg | 46,0 kg |
-| 1,0 | 12 yıl | 114,1 m/s | 112,6 kg | 120,6 kg | 41,4 kg |
-| 2,0 | 12 yıl | 126,1 m/s | 124,1 kg | 132,9 kg | 29,9 kg |
+## 3. Eğik itici ve skaler debi
 
-### 5.2 Sentinel-2C
+Yakıt skaler, kuvvet vektörel toplanır:
 
-Kalemler: gerçekleşen 7,97 m/s (4,21 kg) [D/H]; düzlem içi bakım 0,115 m/s/yıl [H];
-düzlem dışı manevra yılda $n$ adet × 0,936 m/s ($n$ yayımlanmadı) [S]; ömür sonu planı
-**47 kg** [M].
+```text
+Feksen = Σ di Fi cosθi
+ṁtoplam = Σ di Fi / (g0 Ispi)
+ce,etkin = Feksen / ṁtoplam
+ηeksen = Feksen / ΣdiFi     (eş Isp: ce,etkin = g0 Isp ηeksen)
+```
 
-| Süre | n (yıl⁻¹) | Rutin ΔV | Rutin yakıt @220 s | 47 kg EOL sonrası kalan |
-|---:|---:|---:|---:|---:|
-| 7 yıl | 0 | 0,81 m/s | 0,42 kg | 81,4 kg |
-| 7 yıl | 1 | 7,36 m/s | 3,88 kg | 77,9 kg |
-| 12 yıl | 0,5 | 7,00 m/s | 3,69 kg | 78,1 kg |
-| 12 yıl | 1 | 12,61 m/s | 6,64 kg | 75,1 kg |
+di açık kalma oranıdır. Karşı tork darbeleri, yönler, plume ve yedek dal seçimi
+"motor adedi × nominal N" hesabını geçersiz kılar. Roket denklemindeki ce, net eksensel
+ΔV'yi **bütün** tüketilen yakıtla eşleştirmelidir.
 
-Kalan tutar güvenli mod tüketimini, çarpışmadan kaçınmayı ve kullanılamayan kalıntıyı
-kapsamaz. Sonuç: S2C için itici, 12 yıllık ufukta bile **sınırlayıcı kaynak görünmüyor**;
-ömrü batarya, MSI ve diğer bileşenler belirleyecektir. Bu bir yıl sayısı tahmini değildir.
+1 N ve 220 s eşleşmiş ideal noktada `ṁ=0,000463507 kg/s=0,463507 g/s`.
+ArianeGroup'un ayrı nominal 0,44 g/s ve 220 s değerleri **0,949284 N** verir;
+bu nominal tanımların aynı ölçüm noktası olduğu varsayılmaz.
 
-## 6. Kuvvet, kütle debisi, yanma süresi
+## 4. Kademeli kütle defteri: S2C yayımlanmış manevraları
 
-$\dot m = F/(I_{sp}g_0)$, $t = (m_i-m_f)/\dot m$. 1 N, 220 s: $\dot m$ = 0,46351 g/s.
+SpaceOps #617 s.15–16 yaklaşık edinim değerleri ve Tablo 3 kalibre bileşenleri.
+İlk OOP kaleminde makale planlama dili kullanır: toplam, eksiksiz telemetri defteri
+değil, **yayımlanmış özetten rekonstrüksiyon**dur.
 
-| | S1C | S2C |
-|---|---:|---:|
-| 1 m/s için yakıt | 1,0130 kg | 0,5297 kg |
-| Tek net 1 N ile süre | 36,42 dk | 19,05 dk |
-| Başlangıç ivmesi (1 N) | 0,457 mm/s² | 0,875 mm/s² |
-| EOL yakıtı @220 s | 87,43 kg (693 → 530 km) | 47 kg (plan) |
-| EOL toplam impulsu | 188 618 N·s | 101 401 N·s |
-| EOL için tek 1 N eşdeğeri ateşleme | 52,4 sa | 28,2 sa |
+| Kalem | ΔV | Sayım |
+|---|---:|---|
+| Dört büyük IP edinim | yaklaşık 6,33 m/s | Toplu |
+| 29 Ekim ince edinim | 0,012 m/s | Bir kez |
+| İki ilk OOP | yaklaşık 0,57 m/s | Toplu büyüklük |
+| Tablo 3: 31 Ekim–18 Aralık | 1,0564418 m/s | 8 olay; 31 Ekim ayrıca eklenmez |
+| Toplam | **yaklaşık 7,97 m/s** | Aritmetik 7,9684418; kaynak kesinliği daha düşük |
 
-**İtici impuls kapasitesiyle karşılaştırma:** S1C'nin EOL impulsu tek bir Rafael Tip 1
-(100 000 N·s) veya Tip 2 (60 000 N·s) iticinin katalog değerini aşar; yük paylaşımı ideal
-olsa bile en az 2 Tip 1 ya da 4 Tip 2 itici gerekir [H]. 1B bu nedenle bertarafta birden çok
-itici kullandı. S2'de dört itici aynı anda ateşlendiğinden iticide düşen pay (~25 000 N·s)
-ArianeGroup kalifikasyonunun (135 000 N·s) altındadır [H].
+6 Kasım tek yanma için `sqrt(0,9344²+0,0537²)=0,9359418 m/s`. Farklı zamanlardaki
+23 Kasım −0,0207 ve +0,0206 ise **0,0413 m/s** maliyettir; net −0,0001 değildir.
+Toplam yakıt maliyetinde `Σ||Δv_i||` kullanılır, `||ΣΔv_i||` kullanılmaz.
 
-**Airbus planı tutarlılık kontrolü:** 73 m/s için 47 kg, EOL başlangıç kütlesi 1057–1139 kg
-aralığında **etkin Isp ≈ 164–177 s** eder. 220 s nominalin altında; kaynak nedenini açıklamaz
-(düşük blow-down basıncında performans kaybı ve/veya marj olası) [H].
+Her olayda `mi+1=mi−mpi`. 220 s/η=1 ideal defter: son kütle **1138,7862 kg**, kalan
+hidrazin **128,7862 kg**, tüketim **4,2138 kg**. Bunlar **ölçülmüş yakıt değildir**;
+gösterilen basamaklar yalnız hesap tekrar üretimi içindir.
 
-## 7. Güç ve tutulma
+| Isp [varsayım] | ηeksen [varsayım] | Hesap tüketimi |
+|---:|---:|---:|
+| 200 s | 0,8 | 5,7900 kg |
+| 200 s | 1,0 | 4,6343 kg |
+| 220 s | 0,8 | 5,2648 kg |
+| 220 s | 1,0 | 4,2138 kg |
 
-Dairesel, küresel Dünya, $\beta=0$ için periyot $T=2\pi\sqrt{r^3/\mu}$ ve en uzun tutulma
-$T\cdot\arcsin(R_E/r)/\pi$:
+Olay kimliği kontrolü aynı kimliğin tekrarını yakalar. Farklı kimlikle aynı olayı
+yeniden eklemeyi önlemek ayrıca kaynak eşleştirmesi ister; şema fiziksel bağımsızlığı
+tek başına kanıtlamaz.
 
-| | h (km) | T (dk) | β = 0 tutulma (dk) |
+## 5. Kuvvet, süre, debi
+
+Sabit ce ve debi yaklaşımıyla `t=mp/ṁ`, `Feksen=mp ce,etkin/t`.
+1 m/s, 220 s ve tek net 1 N için:
+
+| Araç | Yakıt | Süre | Başlangıç ivmesi |
 |---|---:|---:|---:|
-| S1C | 693 | 98,63 | 35,30 |
-| S2C | 786 | 100,58 | 35,15 |
+| S1C 2186 kg | 1,0130 kg | 36,42 dk | 0,4575 mm/s² |
+| S2C 1143 kg | 0,5297 kg | 19,05 dk | 0,8749 mm/s² |
 
-Bunlar **üst sınırdır**. Sentinel-1'in 18:00 LTAN şafak–alacakaranlık yörüngesinde güneş
-yörünge düzlemine neredeyse diktir (β büyük); tutulma yılın yalnızca bir döneminde görülür
-(SentiWiki SAR görev çevrimini "tutulma mevsimi" için ayrı tanımlar). S2C'nin 10:30 LTDN
-yörüngesinde her turda tutulma vardır. S2C kaba güç kontrolü: 1700 W EOL üretim − 1,4 kW
-nominal tüketim ≈ 300 W fark [H]; batarya enerjisi için gerilim ve izin verilen deşarj
-derinliği [Y].
+S2C 6 Kasım modelinde mi=1139,336 kg; mp=0,494155 kg; t=314,1 s;
+Feksen≈**3,39421 N**. `mi ΔV/t` küçük kütle değişimini ihmal eder. Gerçek ce/F
+zamanla değişebilir; sonuç çıkarılmış ortalamadır. Tek sayıdan cant, basınç ve duty
+ayrı ayrı bulunamaz. Dört motor tam 1 N/duty=1 olsaydı cant yaklaşık 32° olurdu;
+motor başına yaklaşık 0,85 N ile sıfıra yakın cant da aynı net kuvveti verebilir.
 
-## 8. Link bütçesi örneği (tamamen varsayımsal)
+## 6. Yörünge geçişi: plan ve gerçek son durum
 
-$L_{fs}=20\log_{10}(4\pi Rf/c)$, $C/N_0=EIRP+G/T-L_{fs}-L_{diğer}+228{,}6$. Varsayım [S]:
-f = 8,2 GHz, R = 1800 km, 10 W (10 dBW), 12 dBi, G/T = 25 dB/K, 3 dB diğer kayıp →
-$L_{fs}$ = 175,83 dB, $C/N_0$ = 96,77 dBHz; 260 Mbit/s için Eb/N0 = 12,62 dB, 560 Mbit/s
-için 9,29 dB. Uçuş donanımının EIRP/G/T değerleri yayımlanmadığından **gerçek marj değildir**.
+İki cisim, aynı düzlem, vis-viva: `v²=μ(2/r−1/a)`. r0 daireselden alçak rp×ra'ya:
+önce r0×rp transferine impuls; rp'de apojeyi ra'ya indiren ikinci impuls. İki büyüklük
+toplanır. Model J2, atmosfer, sonlu yanma veya gerçek faz programı içermez.
 
-## 9. Veri birimleri
+| Geçiş | İdeal ΔV | Anlamı |
+|---|---:|---|
+| S1 693→530 km dairesel | 88,0576 m/s | B'nin eski hedefi; gerçekleşen son yörünge değil |
+| S1 693→580×610 km | 52,5822 m/s | B son yörüngesiyle geometrik kıyas; gerçek burn toplamı değil |
+| S2 786→653 km dairesel | 70,2157 m/s | 2014 aile EOL geometrisi |
 
-S1: 1410 Gbit = 176,25 GB; 2 × 260 Mbit/s × 600 s = 39,0 GB. S2: 2,4 Tbit = 300 GB;
-560 Mbit/s × 600 s = 42,0 GB. (1 GB = 8 Gbit; ondalık birimler.)
+S2'nin 73 m/s planı idealden **%3,9654** fazladır; kaynak kayıpları ayırmadığı için
+tamamı "sonlu yanma marjı" denmez. 116×600=69600 s=19,33 saat planlı ateşleme.
+73 m/s ve 47 kg ile ters çözüm, EOL başlangıç kütlesi 1057–1139 kg varsayıldığında
+etkin Isp≈164–177 s verir. Cant, blow-down ve marjın payı ayrıca bilinmelidir.
 
-## 10. Rafael itici ısıtıcısı ve valf
+1B'nin yaklaşık 70 kg yakıtla sonlandırılan 2024 bertarafı ve 24 yıllık balistik
+öngörüsü [#226 s.20], rezervin tek başına görev ömrü olmadığını gösterir. Kısmi
+pasivasyon ve manevra belirsizliğinin CAM taramasına etkisi de önemlidir.
 
-Valf 9,2 W @ 28 Vdc; ısıtıcı eleman başına 257 Ω → 28 V'ta $V^2/R$ = 3,05 W/eleman.
-Isıtıcı görev çevrimi ve eşzamanlı çalışan eleman sayısı bilinmediğinden sistem gücü
-toplanamaz [Y].
+## 7. CONOPS senaryosu ve koşullu ek ömür
 
-## 11. TRL
+S1C örnek **varsayım**: edinim 11,01; rutin 7,25 yıl×1; CAM 3;
+B son yörünge geometrisi EOL 52,5822 m/s. Toplam **73,8422 m/s**, 205 s/η=1 ile
+**78,8367 kg**. 11,01; ISSFD 2017 planlama kalemlerinin aritmetik toplamıdır,
+kovaryanslı birleşik 1σ bütçesi değildir. Bu C'nin kabul edilmiş tahsisi/EOL planı değildir.
 
-Uçuş mirası olan bileşen TRL 9 düzeyinde uçmuş tasarımdır; uçuş öncesi seviye ancak belgeli
-bir olgunluk değerlendirmesiyle yazılabilir. Hesapla TRL türetilmez. [TRL-ESA]
+S2C'de 133−4,2138−47=81,7862 kg aritmetik kalan örneği; ideal rekonstrüksiyon ile
+başka sürüm EOL planını birleştirir. Safe-mode, CAM, gerçek OOP, erişilemeyen yakıt ve
+basınç zarfı yoktur. "Yakıt görevi sınırlamaz" sonucu çıkarılamaz.
 
-## 12. "Kaç yıl daha?" sorusu
+**Tutarlı koşullu ek yıl:** Bugünkü toplam kütle m; rutin için ayrılabilecek yakıt
+`p=p_mevcut−p_EOL−p_emniyet−p_erişilemeyen`. Pozitif p, sabit ce ve sabit yıllık
+toplam ΔVyıl varsayımıyla:
 
-Görev başına sorulan "hesaplanan miktar ile taşınan miktar arasındaki fark kaç yıl
-eder?" sorusunun dürüst yanıtı:
+```text
+N_ideal = ce ln[m/(m−p)] / ΔVyıl
+```
 
-- **S2C:** Gerçekleşen tüketim (4,2 kg), ömür sonu planı (47 kg) ve düzlem içi bakım
-  (~58 g/yıl) bilindiğinde ~75–81 kg kalır; düzlem içi bakımla bölmek binlerce yıl verir.
-  Bu sonuç anlamsızdır ve asıl sınırlayıcının yakıt **olmadığını** gösterir: eğim
-  manevralarının sıklığı, güvenli modlar, kullanılamayan kalıntı ile batarya ve MSI ömrü
-  belirleyicidir. Ailenin tasarımı itici ve bataryayı 12 yıl için boyutlandırır. [M]
-- **S1C:** Rutin bakım tüketimi yayımlanmadığından yıl hesabı yapılamaz; §5.1 tablosu
-  yalnızca senaryodur. Somut veri: S1B'de 2016–2022 işletmesi ve bertaraf manevralarının
-  bir kısmından sonra Nisan 2024'te hâlâ ~88 kg yakıt vardı. [M]
+EOL yakıtı rutin boyunca taşındığı için m'nin içinde kalır; başta kütleden ayrıca
+düşülmez. m=1000 kg, p=0,5 kg, ce=220g0, ΔVyıl=1 m/s için yaklaşık **1,079 yıl**.
+Bu belirtilen varsayımların cevabıdır; motor, valf, basınç, batarya ve yük ömürleri
+ayrıca sınanır. Değişen yıllık ihtiyaçta yıl yıl yakıt/impuls/çevrim defteri gerekir.
 
-## Kaynaklar
+## 8. Basınçlı besleme modeli ve sınırı
 
-[KAYNAKLAR.md](KAYNAKLAR.md); başlıcaları SpaceOps 2025 #617
-<https://publications.spaceops.org/2025/download_by_id.php?id=0617>, ISSFD 2017
-<https://issfd.org/ISSFD_2017/paper/ISTS-2017-d-029__ISSFD-2017-029.pdf>, Rafael katalog
-<https://www.rafael.co.il/wp-content/uploads/2024/05/SPACE-Propulsion-Technical-doc_compressed.pdf>,
-ArianeGroup 1 N <https://www.space-propulsion.com/brochures/hydrazine-thrusters/hydrazine-thrusters.pdf>.
+İdeal polytropik blow-down `P Vgazⁿ=sabit`; n=1 izotermal, n≈γ adyabatik sınır.
+`Vgaz=Vtank−mp/ρp` ancak diyafram/ölü hacim ve yoğunluk doğruysa uygulanır.
+`Pgiriş=Ptank−ΔPhat−ΔPvalf−ΔPfiltre`; kayıplar debi, sıcaklık ve viskoziteye bağlıdır.
+
+Örnek **varsayım**: 200 L tank, 150 L sıvı, 20 bar **mutlak**, izotermal. Sıvı bittiğinde
+gaz 50→200 L; basınç 5 bar olur. Minimum motor girişi 5,5 bar ise tüm sıvı yararlı
+değildir. Bu Rafael/C uçuş hesabı değildir; katalog tank maksimumunu motor minimumuyla
+doğrudan karşılaştırmanın neden yeterli olmadığını gösterir.
+
+Gaz kütlesi ilk yaklaşımda `mg=P Vgaz/(Rgaz T)`; gerçek gaz Z, sızıntı/çözünme,
+diyafram, ısıl geçmiş ve gerçek kabul basıncı ayrıca gerekir. S2C'nin 21 bar dolumu
+ile katalogdaki 5,5–22 bar **motor giriş** aralığı farklı sınır noktalarıdır.
+
+## 9. Tandem kontrolü: yaklaşık fizik karşılaştırması
+
+Küçük teğetsel hata: `δa/a≈2δv/v`; `δn/n≈−3δv/v`.
+`|δt_faz|≈3|δv|Δt/v`; dönen Dünya yer izi için `|δXT|≈ωE RE |δt_faz|`.
+J2, atmosfer, eş manevra, enlem ve gerçek propagasyon yerine geçmeyen lineerleştirmedir.
+
+| Hata / süre | Model | SpaceOps #617 s.5 yuvarlak örneği |
+|---|---:|---:|
+| 1 cm/s / 1 gün: yer izi | 161,62 m | 160 m |
+| 1 cm/s / 1 gün: zaman | 0,3475 s | 0,342 s |
+| 3,85 cm/s / 1 gün: yer izi | 622,24 m | 614 m |
+
+Fark %2'nin altındadır; katsayılar bu sayılara sonradan uydurulmadı. Bu makale tahminiyle
+model tutarlılığıdır, bağımsız uçuş yakıt ölçümü veya hot-fire doğrulaması değildir.
+cm/s→m/s faktör 100 hatası kontrolü geçemez. Eş ve dönüş manevraları kontrolsüz
+drift hesabını değiştirir; gerçek 50 günlük performansa tek hata yayılmaz.
+
+## 10. Güç, veri, link ve ısıl örnekler
+
+`T=2πsqrt(r³/μ)`; β=0 için `t_tutulma=T asin(RE/r)/π`.
+S1: 98,6265/35,2982 dk; S2: 100,5786/35,1518 dk (tur/geometrik tutulma).
+Gerçek tutulma β ve mevsime bağlıdır. `Ebat≈Vbat Ah DoD η`;
+`Eüretim≥Eyüklere+Ekayıp` en kötü mevsim ve mod profiliyle sağlanmalıdır.
+
+Veri: 1410 Gbit=176,25 GB; 2,4 Tbit=300 GB; 520/560 Mbit/s×600 s=39/42 GB;
+300 GB/560 Mbit/s=71,43 dk. Bit/byte, GB/GiB, ham/kodlu hız ve kanal adedi ayrıdır.
+
+Link **varsayımı**: 8,2 GHz, 1800 km, 10 W RF, 12 dBi anten, G/T=25 dB/K,
+diğer kayıp 3 dB. `Lfs=20log10(4πRf/c)=175,83 dB`;
+`C/N0=EIRP+G/T−Lfs−Ldiğer+228,6≈96,77 dBHz`.
+`Eb/N0=C/N0−10log10(Rb)`; tek taşıyıcı 260/560 Mbit/s için 12,62/9,29 dB.
+Eşik ve uygulama kaybı olmadığından **marj** verilemez; uçuş link bütçesi değildir.
+
+İdeal derin uzay radyatörü `A=Q/(εσT⁴)`: 300 W, ε=0,8, 300 K → **0,81646 m²**.
+Güneş/albedo/Dünya IR ve iletim yok sayılmıştır. Gerçek termal kapanış değildir.
+Rafael valf 9,2 W@28 V; her 257 Ω ısıtıcı 3,05058 W. Açık/kapalı durum ve duty
+bilinmeden 14 ile çarpılıp gerçek modül gücü bulunamaz.
+
+## 11. Kontroller ve doğrulama sınırı
+
+25 test yöntemi: yüksek hassasiyetli Decimal oraklı, çok küçük ΔV, kütle korunumu,
+sıralı/tek toplam eşdeğerliği, CAM işaretleri, vektör normu, duplikasyon, yanlış araç
+eşleştirme, yakıt yetersizliği, cant, bağımsız açısal momentumla geçiş, yayımlanmış
+drift örneği, veri birimleri ve Python `-I -S` ile bağımlılıksız tekrar üretim.
+16 alt test yanlış tür/NaN/sonsuz/negatif vb. girdileri sınar. Test sayısı fiziksel
+güven veya TRL düzeyi değildir.
+
+Tam sonlu yanma propagasyonu, gerçek motor haritaları, motor başına yaşam defteri,
+uçuş EPS/link/termal bütçeleri ve tank telemetrisi model dışında kalır. Yeni
+motor+besleme sistemi için temsilî ortam deneyleri halen gereklidir.

@@ -1,7 +1,9 @@
-# Sentinel-2C — görev analizi ve itki sistemi (Revizyon V3)
+# Sentinel-2C — ayrıntılı C örneği (V4 düzeltmesi)
 
-**Kaynak kontrol tarihi:** 29 Ekim 2026 · **Revizyon:** V3 (V2 paketinin bağımsız üçlü
-kontrolü). Kanıt sınıfları [SENTINEL-1C.md](SENTINEL-1C.md) ile aynıdır: **[D]** 2C'ye özgü
+**Ana kapsam:** [Sentinel-1 serisi](SENTINEL-1_SERISI.md) ve
+[Sentinel-2 serisi](SENTINEL-2_SERISI.md). Bu dosya ayrıntılı C örneğidir.
+Kaynak kesiti 29 Ekim 2026; doğrulama kapsamı [HESAPLAR.md](HESAPLAR.md).
+Kanıt sınıfları [SENTINEL-1C.md](SENTINEL-1C.md) ile aynıdır: **[D]** 2C'ye özgü
 birincil kaynak · **[M]** Sentinel-2 ailesi / A-B mirası · **[H]** hesap · **[S]** varsayım ·
 **[Y]** bulunamadı. Bağlantılar: [KAYNAKLAR.md](KAYNAKLAR.md).
 
@@ -21,10 +23,10 @@ birincil kaynak · **[M]** Sentinel-2 ailesi / A-B mirası · **[H]** hesap · *
 
 ### A2. Fotoğraf ve fiziksel bilgiler
 
-**Fotoğraf:** [ESA — "Sentinel-2C ready to be loaded into its transport container"](https://www.esa.int/ESA_Multimedia/Images/2024/07/Sentinel-2C_ready_to_be_loaded_into_its_transport_container)
-(kredi *Airbus*; sayfada "No ESA licences available" — kullanım için Airbus izni gerekir).
-Alternatif: ESA "Fuelling Sentinel-2C" görseli "ESA Standard Licence" altındadır. Görseller bu
-depoya kopyalanmadı.
+![Sentinel-2C gerçek ESA fotoğrafı](figures/S2C_ESA_Photo.jpg)
+
+Fotoğraf kaynağı, kredi ve lisans: [kaynak dizini](KAYNAKLAR.md).
+Aynı fotoğraf seri raporunda açık araç kimliğiyle yer alır.
 
 | Kalem | Değer | Kaynak ve kapsam |
 |---|---|---|
@@ -63,7 +65,7 @@ ayrılmadan sonraki manevralar içindir.
 | Tarih | Olay | Kaynak |
 |---|---|---|
 | 6 ve 9 Eylül 2024 | LEOP 6 Eylül (Cuma) akşamı resmen bitti; devreye alma 9 Eylül (Pazartesi) başladı | [D] ESA, 10.09.2024 (günler makale tarihinden) |
-| 29 Ekim – 19 Aralık 2024 | 2A ile tandem uçuş (kalibrasyon) | [D] SpaceOps 2025 #617; CDSE |
+| 31 Ekim – 19 Aralık 2024 | 2A ile tandem uçuş (kalibrasyon) | [D] SpaceOps 2025 #617; CDSE |
 | Aralık 2024 sonu | Yörüngede devreye alma tamamlandı | [D] CDSE 08.01.2025 |
 | **21 Ocak 2025** | 2C, operasyonel görevi 2A'dan devraldı (planlanan ilk algılama 09:12:45 UTC) | [D] CDSE belgesi (gerçekleşen tarih); CDSE 17.01.2025 (planlanan saat) |
 | 8–11 Ağustos 2025 | Uydu sorunu: 8 Ağustos 11:00 – 11 Ağustos 18:00 UTC arasında planlanan çekimlerin %36,25'i kaybedildi | [D] CDSE node/2594 |
@@ -147,8 +149,8 @@ güçleri [Y]; ısıl marj hesaplanamaz. Tutulma geometrisi [HESAPLAR.md](HESAPL
 | 2C yörünge edinimi: 4 büyük düzlem içi manevra | ~6,33 | [D] SpaceOps 2025 #617 s.15 |
 | 2C ince edinim manevraları (29 ve 31 Ekim 2024) | 0,012 + 0,015 | [D] aynı kaynak |
 | 2C düzlem dışı (eğim/LTDN) manevraları, LEOP sonrası | 0,57 | [D] aynı kaynak s.16 |
-| 2C tandem dönemi manevraları (31 Ekim – 18 Aralık 2024), 6 Kasım eğim manevrası 0,934 m/s dahil | ~1,04 | [D] Tablo 3; [H] toplam |
-| **2C gerçekleşen toplam (18 Aralık 2024'e kadar)** | **~7,97** | [H] yukarıdakilerin toplamı |
+| 2C tandem dönemi manevraları (31 Ekim – 18 Aralık 2024), 6 Kasım eğim manevrası 0,934 m/s dahil | ~1,056 | [D] Tablo 3; [H] toplam |
+| **2C yayımlanmış edinim/tandem rekonstrüksiyonu (18 Aralık 2024'e kadar)** | **~7,97** | [H] yaklaşık özet ve kalibre manevralar; eksiksiz telemetri toplamı değil |
 | Rutin düzlem içi bakım (2A, 2015–2024) | ~0,115 / yıl | [H] 64 manevra × 1,56 cm/s |
 | Çarpışmadan kaçınma (2A) | 24 çift; en büyük 19,0 cm/s | [D] SpaceOps 2025 #617 s.5 |
 | Ömür sonu planı: 786 → 653 km dairesel | **73** (47 kg yakıt) | [M] Airbus 2014 s.24 |
@@ -171,7 +173,7 @@ yıllık sıklığı ve büyüklüğü [Y].
 | Fırlatma | 5 Eylül 2024 01:50 UTC → ayrılma T+57:27 | Vega kademeleri | Yalnızca fırlatıcı |
 | LEOP | 5–6 Eylül 2024 | İlk sinyal Troll, panel açılımı, güvenli yönelim | — |
 | Yörünge edinimi | Eylül – Ekim 2024 | Nominalin 10,6 km altına enjeksiyon; doğal sürüklenme ile 2A'nın arkasına geçiş | ~6,9 m/s [D] |
-| Tandem / devreye alma | 29 Ekim – 19 Aralık 2024 | MSI çapraz kalibrasyonu, eğim manevrası, çarpışmadan kaçınma | ~1,04 m/s [D] |
+| Tandem / devreye alma | 29 Ekim – 19 Aralık 2024 | MSI çapraz kalibrasyonu, eğim manevrası, çarpışmadan kaçınma | ~1,056 m/s [D] |
 | Rutin | 21 Ocak 2025 → | Gündüz MSI görüntüleme, X-bant/EDRS indirme; yer izi ±2 km içinde, yerel saat (istek ±90 s) operasyonda ±10 s içinde tutulur | ~0,1 m/s/yıl düzlem içi + eğim manevraları |
 | Ömür sonu | gelecekte | 653 km'ye inme (116 × 10 dk manevra), pasivasyon, 25 yıl içinde kontrolsüz giriş | 73 m/s (plan) |
 
@@ -202,7 +204,7 @@ nedeniyle 2–3 haftada bire çıkmıştır. [S2-SPACEOPS617] s.7
 |---|---|
 | İtki | nominal 1 N, aralık 0,32–1,1 N |
 | Özgül itki | nominal **220 s**, darbe aralığı 200–223 s |
-| Giriş basıncı | 5,5–22 bar (2C'nin 21 bar dolum basıncı bu aralıktadır) |
+| Giriş basıncı | 5,5–22 bar **motor girişinde**; 21 bar C tank dolumu farklı sınır noktasıdır |
 | Kütle debisi | nominal 0,44 g/s (0,142–0,447 g/s) |
 | Kalifiye toplam impuls / çevrim | 135 000 N·s / 59 000 |
 | Toplam yakıt geçişi, tek yanma | 67 kg; 12 saat tek yanma, 50 saat birikimli |
@@ -219,12 +221,13 @@ kaçınma, son güvenli modda yönelim kontrolü ve ömür sonu bertarafı. [S2-
 
 - 133 kg'ın tamamı ideal kullanılırsa (1143 → 1010 kg): Isp 200 s ile **242,6 m/s**,
   220 s ile **266,9 m/s**, 223 s ile **270,5 m/s** [H].
-- Gerçekleşen ~7,97 m/s, 220 s'de **~4,2 kg** hidrazin demektir [H].
+- Yayımlanmış yaklaşık edinim ve kalibre tandem değerlerinin toplamı ~7,97 m/s;
+  220 s ve eksensel faktör 1 ile **~4,21 kg ideal hesap** verir [H/V], ölçülmüş tüketim değildir.
 - 1 N tek itici, 220 s: 0,4635 g/s; 1 m/s için 0,530 kg ve 19,0 dakika. Dört itici aynı anda
   çalışsa da eğik oldukları için net itki 4 N değildir; 6 Kasım 2024 eğim manevrası
   0,936 m/s'yi 314,1 s'de vermiştir (~2,98 mm/s² ortalama ivme, ~3,4 N etkin itki) [H].
 - **Ömür sonu planı:** 73 m/s ve 47 kg. 786 → 653 km ideal Hohmann 70,2 m/s olduğundan plan
-  %4 sonlu yanma payı içerir. 47 kg ise 220 s'den beklenenden fazladır (etkin Isp ~164–177 s);
+  idealden %3,96 fazladır; kaynak farkın tamamının sonlu yanmadan geldiğini söylemez. 47 kg ise 220 s'den beklenenden fazladır (etkin Isp ~164–177 s);
   kaynak nedenini açıklamaz, düşük blow-down basıncında performans kaybı veya marj olası
   açıklamalardır [H].
 
@@ -237,26 +240,19 @@ anlık modele çok iyi uyar; eğim manevrası 314 s ile yörünge periyodunun (1
 
 ### D6. Rezerv ve ek ömür
 
-| Kalem | kg | Sınıf |
-|---|---:|---|
-| Yüklenen | 133 | [D] |
-| Kullanılan (18 Aralık 2024'e kadar, 220 s) | ~4,2 | [H] |
-| Ömür sonu planı | 47 | [M] |
-| Yörünge bakımı, düzlem dışı manevralar, kaçınma, güvenli mod ve kullanılamayan kalıntı için kalan | ~82 | [H] |
-
-Düzlem içi bakım yılda yalnızca ~0,06 kg tükettiğinden kalan yakıt ömrü bu kalemle
-sınırlanmaz; asıl belirleyiciler yıllık sıklığı yayımlanmamış eğim manevraları, güvenli mod
-tüketimi, kullanılamayan kalıntı ve yakıt dışı ömür sınırlarıdır (batarya, MSI, iticinin
-135 000 N·s impuls kapasitesi). Bu yüzden **kesin "ek yıl" sayısı verilmez**; ayrıntı
-[HESAPLAR.md](HESAPLAR.md) §12. Aile tasarımı itici ve bataryayı 12 yıllık işletme için
-boyutlandırmıştır (SentiWiki).
+133 kg yüklenen yakıttan 4,21 kg ideal rekonstrüksiyon ve 47 kg eski aile EOL planı
+çıkarılırsa 81,79 kg aritmetik kalan örneği bulunur. Bu gerçek tank ölçümü veya güncel
+rezerv değildir. OOP, CAM, safe-mode, erişilemeyen kalıntı, cant/duty, basınç ve motor
+ömrü bilinmeden yakıtın sınırlayıcı olmadığı veya kesin ek yıl söylenemez.
+Koşullu yıl hesabı ve duyarlılık [HESAPLAR.md](HESAPLAR.md) §7'de.
 
 ### D7. Güvenlik ve regülasyon
 
 - Hidrazin dolumu kontrollü alanda, özel prosedürle yapıldı; helyum basınçlı sistem, sızıntı
   ve kontaminasyon riskleri tehlike analizi gerektirir. [S2-FUEL]
 - Bertaraf planı 25 yıl içinde kontrolsüz yeniden girişi hedefler (Airbus 2014). ESA'nın
-  2023 enkaz politikası (5 yıl) yeni tedarikler içindir; 2C'ye otomatik uygulanmaz.
+  2023 beş yıl politikası için baseline, geçiş ve uzatma değerlendirmesi gerekir;
+  otomatik muafiyet veya tam uyum sonucu çıkarılamaz.
   [S2-AOCS], [DEBRIS-ESA]
 
 ### D8. TRL

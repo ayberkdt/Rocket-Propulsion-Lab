@@ -1,0 +1,34 @@
+{
+  "schema": "sentinel-series-v4-SI",
+  "evidence_date": "2026-10-29",
+  "note": "C-only matched flight mass and loaded propellant; no A/B/D quantities silently borrowed. Isp and axial factor are assumptions, not measured C performance.",
+  "capacity_cases": {
+    "S1C": {
+      "mass_vehicle": "S1C", "fuel_vehicle": "S1C",
+      "launch_mass_kg": 2186, "loaded_fuel_kg": 154,
+      "mass_source": "S1-VV25 p3 (primary-authored third-party mirror)",
+      "fuel_source": "S1-FUEL ESA 2024-11-18",
+      "assumed_isp_s": [205, 214, 220]
+    },
+    "S2C": {
+      "mass_vehicle": "S2C", "fuel_vehicle": "S2C",
+      "launch_mass_kg": 1143, "loaded_fuel_kg": 133,
+      "mass_source": "S2-VV24 p3", "fuel_source": "S2-FUEL ESA 2024-08-19",
+      "assumed_isp_s": [200, 220, 223]
+    }
+  },
+  "s2c_events_source": "SpaceOps 2025 #617 pp15-16; acquisition aggregates approximate, Table3 calibrated orthogonal components. Oct29 counted once; Oct31 only in Table3.",
+  "s2c_events": [
+    {"id": "four-large-IP-aggregate", "dv_components_m_s": [6.33], "evidence": "approximate aggregate"},
+    {"id": "2024-10-29-fine-acquisition", "dv_components_m_s": [0.012], "evidence": "published rounded size"},
+    {"id": "two-early-OOP-aggregate", "dv_components_m_s": [0.57], "evidence": "approximate acquisition aggregate; source describes OOP planning, not a complete telemetry log"},
+    {"id": "2024-10-31T14:32:37.650", "dv_components_m_s": [0.0146], "duration_s": 5.3},
+    {"id": "2024-11-06T09:51:18.898", "dv_components_m_s": [0.9344, 0.0537], "duration_s": 314.1},
+    {"id": "2024-11-08T12:00:00.440", "dv_components_m_s": [0.0025], "duration_s": 0.9},
+    {"id": "2024-11-23T03:21:56.081", "dv_components_m_s": [-0.0207], "duration_s": 7.3},
+    {"id": "2024-11-23T05:02:38.069", "dv_components_m_s": [0.0206], "duration_s": 7.3},
+    {"id": "2024-11-27T10:52:04.896", "dv_components_m_s": [0.0309], "duration_s": 11.0},
+    {"id": "2024-11-29T11:32:17.614", "dv_components_m_s": [0.0029], "duration_s": 1.0},
+    {"id": "2024-12-18T10:48:25.601", "dv_components_m_s": [0.0283], "duration_s": 10.0}
+  ]
+}

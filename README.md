@@ -595,6 +595,15 @@ examples/             Runnable scripts
 docs/                 Model, contract and validation documentation
 ```
 
+## SASS mission research
+
+[Sentinel-1 and Sentinel-2 comparative series reports](docs/missions/sentinel/README.md)
+cover A/B/C/D variants, propulsion and feed architectures, CONOPS, budgets and reproducible
+calculations. Published flight data, catalogue heritage and analytical assumptions are
+identified separately. Numerical checks do not establish hardware qualification or TRL.
+ESA/industry photographs retain the credits and use conditions recorded in the
+[source register](docs/missions/sentinel/KAYNAKLAR.md).
+
 ## Conventions
 
 - SI units throughout; angles in the flow and geometry APIs are in degrees.

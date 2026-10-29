@@ -1,8 +1,8 @@
-# Sentinel-1C — görev analizi ve itki sistemi (Revizyon V3)
+# Sentinel-1C — ayrıntılı C örneği (V4 düzeltmesi)
 
-**Kaynak kontrol tarihi:** 29 Ekim 2026 · **Revizyon:** V3 (V2 paketinin bağımsız üçlü
-kontrolü: V2 metni, dört ayrı doğrulama okuması ve birincil belgelerin yeniden indirilip
-okunması). Her sayının kaynağı satırında; tam bağlantılar [KAYNAKLAR.md](KAYNAKLAR.md).
+**Ana kapsam artık seriler karşılaştırmasıdır:** [Sentinel-1](SENTINEL-1_SERISI.md) ve
+[Sentinel-2](SENTINEL-2_SERISI.md). Bu dosya önceki C ayrıntılarını korur.
+Kaynak kesiti 29 Ekim 2026; sayısal doğrulamanın gerçek kapsamı [HESAPLAR.md](HESAPLAR.md).
 
 **Kanıt sınıfları:** **[D]** Sentinel-1C'ye özgü, birincil kaynakta doğrudan yazılı ·
 **[M]** Sentinel-1 ailesi / A-B mirası · **[H]** bu çalışmanın hesabı
@@ -26,9 +26,10 @@ kaynakta bulunamadı.
 
 ### A2. Fotoğraf ve fiziksel bilgiler
 
-**Fotoğraf:** [ESA — "Sentinel-1C undergoing tests"](https://www.esa.int/ESA_Multimedia/Images/2023/01/Sentinel-1C_undergoing_tests)
-(Thales Alenia Space, Cannes yankısız odada RF testleri; kredi *Thales Alenia Space/ImagIN*;
-lisans "ESA Standard Licence", ek izin gerekebilir). Görsel bu depoya kopyalanmadı.
+![Sentinel-1C gerçek ESA fotoğrafı](figures/S1C_ESA_Photo.jpg)
+
+Fotoğraf kaynağı, kredi ve lisans: [kaynak dizini](KAYNAKLAR.md).
+Aynı fotoğraf seri raporunda açık araç kimliğiyle yer alır.
 
 | Kalem | Değer | Kaynak ve kapsam |
 |---|---|---|
@@ -49,7 +50,7 @@ lisans "ESA Standard Licence", ek izin gerekebilir). Görsel bu depoya kopyalanm
 
 | Olay | Bilgi | Kaynak |
 |---|---|---|
-| Kalkış | **5 Aralık 2024, 21:20:33 UTC** (Kourou 18:20:33), Vega-C **VV25**, Avrupa Uzay Üssü (Kourou) | [D] VV25 kiti s.2; Arianespace "9:20 p.m. UTC" |
+| Kalkış | **5 Aralık 2024, 21:20 UTC** (kitin nominal saniyesi 21:20:33), Vega-C **VV25**, Avrupa Uzay Üssü (Kourou) | [D] VV25 kiti s.2; Arianespace "9:20 p.m. UTC" |
 | Fırlatıcı | P120C (katı) → Zefiro-40 (katı) → Zefiro-9 (katı) → AVUM+ (sıvı, yeniden ateşlenebilir) | [D] VV25 kiti s.4–5 |
 | Adaptör | "Vampire" yük adaptörü | [D] VV25 kiti; ESA "Building Vega-C flight VV25" |
 | Toplam yük | 2286 kg (uydu 2186 kg; fark adaptör/ayırma donanımı) | [D] VV25 kiti s.2 |
@@ -81,7 +82,7 @@ dahil değildir. Uydunun ΔV bütçesi ayrılmadan sonra başlar.
   ~24 yılda atmosfere girmesi bekleniyor. [S1B-DISPOSAL]
 - **Sentinel-1D:** 4 Kasım 2025'te fırlatıldı; 1 Mayıs 2026'dan beri tam operasyonel.
   26 Ekim 2026 16:20 UTC olayı (kurtarılamaz veri kaybı), 27 Ekim 17:32 UTC nominal;
-  **28 Ekim 2026 ~21:30 UTC'den itibaren yeni olay, analiz sürüyor** (Operasyon Panosu,
+  **28 Ekim 2026 tarihli yeni veri olayı** (ayrıntılı başlangıç/bitiş teyit edilmedi) (Operasyon Panosu,
   29.10.2026). Bu durum değişkendir; rapor teslimden önce panodan yeniden kontrol edilmeli.
   [S1-ESA], [S1D-LIVE], [S1-DASH]
 
@@ -174,7 +175,7 @@ Gerçek, kalem kalem 1C ΔV tahsisi yayımlanmamıştır [Y]. Kaynaklı referans
 | Ömür sonu: 693 km → 530 km dairesel (1B'nin bertaraf hedefi) | **88,1** | [H] Hohmann; hedef [M] CGMS-52 |
 
 Bu kalemler ile tasarım ömrü varsayımları birleştirilerek kurulan senaryo bütçesi
-[HESAPLAR.md](HESAPLAR.md) §5'tedir; **ESA tahsisi değildir**.
+[HESAPLAR.md](HESAPLAR.md) §7'dedir; **ESA tahsisi değildir**.
 
 ### B8. Faydalı yük ve alt sistemler
 
@@ -189,21 +190,20 @@ Bu kalemler ile tasarım ömrü varsayımları birleştirilerek kurulan senaryo 
 | Evre | Zaman | Ana faaliyetler | Uydu ΔV |
 |---|---|---|---|
 | Yer hazırlığı | Kasım 2024 | Hidrazin dolumu (154 kg), "kritik ve tehlikeli" işlem | 0 |
-| Fırlatma | 5 Aralık 2024 21:20:33 UTC → ayrılma T+1 sa 43 dk | Vega-C kademeleri yörüngeyi sağlar | Yalnızca fırlatıcı |
+| Fırlatma | 5 Aralık 2024 ~21:20 UTC → ayrılma ~23:04 UTC | Vega-C kademeleri yörüngeyi sağlar | Yalnızca fırlatıcı |
 | LEOP | ilk günler | İlk temas (00:12 CET), panel açılımı, güvenli yönelim, yörünge belirleme | itici kalibrasyonu [Y] |
 | Devreye alma | Aralık 2024 – Mayıs 2025 | İlk görüntü 8 Aralık; Ocak 2025 düğüm manevraları; kalibrasyon | düğüm manevraları (büyüklük [Y]) |
 | Rutin | Mayıs 2025 → | IW/EW/SM/WV gözlemi, yer izi bakımı (60 m ölü bant), çarpışmadan kaçınma | düzenli düzlem içi + düzlem dışı manevralar |
 | Takımyıldızı | Haziran 2026 | 1D ile 6 günlük tekrar için yeniden yapılandırma | faz manevraları (büyüklük [Y]) |
 | Ömür sonu | gelecekte | Bertaraf manevraları, kalan yakıtın tüketilmesi, elektriksel pasivasyon | 1B örneği: 25 yıl yeniden giriş noktasına iniş |
 
-**1B'nin gerçek bertarafı [M]:** Yörünge alçaltma manevraları Şubat 2023'te RCT1 ile
-başladı; plume çarpması nedeniyle Nisan 2023'ten itibaren dönüşle −Z yüzeyindeki yönelim
-iticileri kullanıldı. 29 Şubat 2024'te 25 yıllık yeniden giriş noktasına ulaşıldı; iticilerde
-0,47–0,58 N'a düşen performans gözlendi; pasivasyon 12 Eylül 2024. 2023 bertaraf planı
-530 km altında dairesel bir yörüngeyi ve ~12 yılda yeniden girişi hedefliyordu; Nisan 2024
-durum raporu, hızla bozulan itki sistemiyle **~88 kg kalan yakıtın** tamamen tüketilmesini
-"büyük bir zorluk" olarak tanımlar. ESA'nın son değerlendirmesi ~24 yıldır.
-[S1-SPACEOPS360], [S1-CGMS-2024] s.25, [S1B-DISPOSAL]
+**1B'nin gerçek bertarafı [M]:** Şubat 2023 RCT1 ile başlandı; plume kısıtları
+nedeniyle Nisan 2023'te pitch dönüşü ve −Z iticileriyle yeni manevralar uygulandı.
+SpaceOps #226 s.20'ye göre manevralar 23 Nisan 2024'te durduruldu; son yörünge yaklaşık
+580×610 km, kalan hidrazin yaklaşık 70 kg, balistik yeniden giriş öngörüsü 24 yıldı.
+Eski 530 km/<12 yıl hedefi ve ~88 kg ara tahmin, gerçekleşen sonuç değildir. Elektriksel
+pasivasyon Eylül 2024'te yapıldı; yakıt kaldığı için tam pasivasyon sağlanamadı.
+[S1-SPACEOPS226], [S1-SPACEOPS360], [S1B-DISPOSAL]
 
 ## D. İtki sistemi
 
@@ -242,7 +242,8 @@ durum raporu, hızla bozulan itki sistemiyle **~88 kg kalan yakıtın** tamamen 
 | Valf gücü / kütle | 9,2 W @ 28 Vdc / ≤ 310 g | aynı |
 | Lüle genleşme oranı / ömür | 130 / 15 yıl (depolama + uçuş) | aynı |
 
-Kaynak: [S1-RAFAEL] s.46. Katalog **Sentinel-1'de hangi tipin uçtuğunu belirtmez**.
+Kaynak: [S1-RAFAEL] basılı s.46 (PDF s.49). Katalog **Sentinel-1'de hangi tipin uçtuğunu belirtmez**.
+Tip 1 için 5,5 bar çalışma onayı çıkarılamaz; ortak Isp satırı uçuş haritası değildir.
 
 ### D3. İşlev
 
@@ -260,10 +261,10 @@ $\Delta V = I_{sp} g_0 \ln(m_0/m_f)$, $\dot m = F/(I_{sp} g_0)$, $t = \Delta m/\
 
 - 154 kg'ın tamamı ideal kullanılırsa (2186 → 2032 kg): Isp 205 s ile **146,9 m/s**,
   214 s ile **153,3 m/s**, 220 s ile **157,6 m/s** [H]. Isp aralığı Rafael katalog
-  değerlerine dayanır (>205 s @ 5,5 bar, >214 s @ 22 bar).
+  alt sınırlarıyla kıyaslanır; 220 s yalnız varsayımsal duyarlılık noktasıdır.
 - 1 N, 220 s: $\dot m$ = 0,4635 g/s; 1 m/s için 1,013 kg ve 36,4 dakikalık net 1 N
   ateşleme [H].
-- Ömür sonu 693 → 530 km dairesel: 88,1 m/s ve 220 s'de 87,4 kg (205 s'de 93,7 kg) [H].
+- Eski B hedefiyle ideal kıyas (C için kabul edilmiş EOL değil), 693 → 530 km dairesel: 88,1 m/s ve 220 s'de 87,4 kg (205 s'de 93,7 kg) [H].
 
 **Gerçek ateşleme sınırları [M]:** S1A/S1B'de plume çarpması OCT1/2 ateşlemelerini
 300 s yerine **35 s** ile sınırladı ve ~%30 performans kaybına yol açtı. OCT3, ±90° dönüşle
@@ -280,7 +281,7 @@ ateşleme gerektirir ve çok sayıda sonlu yanmaya bölünür (1B örneği). [H]
 ### D6. Rezerv ve ek ömür
 
 1C'nin güncel kalan yakıtı yayımlanmamıştır [Y]. Bu nedenle "taşınan − gereken" farkından
-ek ömür yılı **verilemez**. Sınırlı bir değerlendirme [HESAPLAR.md](HESAPLAR.md) §12'dedir.
+ek ömür yılı **verilemez**. Sınırlı bir değerlendirme [HESAPLAR.md](HESAPLAR.md) §7'dedir.
 Kalan yakıt uçuşta tank basıncından tahmin edilir; S1B için belirsizlik yaklaşık 5 kg
 olarak raporlanmıştır. [S1-SPACEOPS360]
 
@@ -290,8 +291,8 @@ olarak raporlanmıştır. [S1-SPACEOPS360]
   tanımlar. Dolum, sızıntı kontrolü, basınçlı sistem testleri ve fırlatma sahası tehlike
   analizi gerekir. [S1-FUEL-IMG]
 - Bertaraf: 1B, 25 yıllık yeniden giriş ölçütünü sağlayacak yörüngeye indirilip
-  pasive edildi. ESA'nın 2023 tarihli yeni enkaz politikası (5 yıl) yeni tedarikler içindir;
-  1C sözleşmesine otomatik uygulanmaz. [S1-SPACEOPS360], [DEBRIS-ESA]
+  pasive edildi. ESA'nın Kasım 2023 tarihli 5 yıl politikası için görev baseline'ı, geçiş ve
+  uzatma değerlendirmesi gerekir; otomatik muafiyet veya uyum atanamaz. [S1-SPACEOPS360], [DEBRIS-ESA]
 - Zero Debris Charter hukuken bağlayıcı bir düzenleme değildir. [DEBRIS-CHARTER]
 
 ### D8. TRL
