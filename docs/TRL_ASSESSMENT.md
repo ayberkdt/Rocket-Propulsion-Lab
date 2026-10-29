@@ -16,6 +16,12 @@ documented scaling requirements.
 
 ## Evidence that exists (software, independent references)
 
+- Frozen gas/cooling boundary: malformed and impossible states, caller-owned
+  arithmetic, lost kinetic contributions and balanced extreme Bartz expressions
+  receive independent numerical and coupled controls
+  (`HOT_GAS_CONTRACT_REVIEW.md`). These synthetic range checks do not establish
+  a relevant operating environment or certify thermal hardware margins.
+
 - Pressure-fed numerical range: independent high-precision power, inverse,
   stream-flow and ideal-gas Jacobian checks preserve finite outputs through
   overflowing intermediates and refuse unrepresentable positive results

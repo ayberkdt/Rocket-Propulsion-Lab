@@ -45,8 +45,10 @@ import itertools
 from bisect import bisect_right
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+from decimal import Context, Decimal, localcontext
 from fractions import Fraction
 from math import cos, isfinite, pi, radians, sqrt
+from sys import float_info
 from typing import Literal
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
@@ -110,6 +112,22 @@ class HotGas:
     throat_radius_of_curvature_m: float
     h2o_mole_fraction: float = 0.0
     co2_mole_fraction: float = 0.0
+
+    def __post_init__(self) -> None:
+        """Own the frozen scalar inputs and reject impossible gas-state domains."""
+        coerce_fields(self, 'Hot gas')
+        for name in ('chamber_pressure_pa', 'chamber_temperature_k',
+                     'characteristic_velocity_m_s', 'specific_heat_j_kg_k',
+                     'viscosity_pa_s', 'prandtl_number', 'throat_radius_of_curvature_m'):
+            _positive(getattr(self, name), name)
+        if self.gamma <= 1.0:
+            raise DomainError('Frozen gas gamma must exceed one.', field='gamma')
+        for name in ('h2o_mole_fraction', 'co2_mole_fraction'):
+            if not 0.0 <= getattr(self, name) <= 1.0:
+                raise DomainError('Mole fraction must lie in [0, 1].', field=name)
+        if self.h2o_mole_fraction + self.co2_mole_fraction > 1.0:
+            raise DomainError('H2O and CO2 mole fractions cannot sum above one.',
+                              field='gas_mole_fractions')
 
 
 @dataclass(frozen=True, slots=True)
@@ -435,17 +453,81 @@ def bartz_coefficient(gas: HotGas, *, throat_radius_m: float, area_ratio: float,
            https://ntrs.nasa.gov/api/citations/20120004103/downloads/20120004103.pdf
     """
 
-    diameter = 2.0 * throat_radius_m
-    compression = 1.0 + 0.5 * (gas.gamma - 1.0) * mach * mach
-    sigma_base = 0.5 * (wall_temperature_k / gas.chamber_temperature_k * compression + 1.0)
-    coefficient = (
-        0.026 * gas.specific_heat_j_kg_k * gas.viscosity_pa_s**0.2 * gas.prandtl_number**-0.6
-        * diameter**-0.2 * (gas.chamber_pressure_pa / gas.characteristic_velocity_m_s) ** 0.8
-        * (diameter / gas.throat_radius_of_curvature_m) ** 0.1 * area_ratio**-0.9
-        * sigma_base**-0.68 * compression**-0.12
-    )
-    recovery = gas.chamber_temperature_k * (1.0 + gas.prandtl_number ** (1.0 / 3.0) * (compression - 1.0)) / compression
+    if not isinstance(gas, HotGas):
+        raise DomainError('gas must be a HotGas state.', field='gas')
+    throat_radius_m = _positive(real(throat_radius_m, 'throat_radius_m'), 'throat_radius_m')
+    wall_temperature_k = _positive(real(wall_temperature_k, 'wall_temperature_k'),
+                                   'wall_temperature_k')
+    area_ratio = real(area_ratio, 'area_ratio')
+    mach = real(mach, 'mach')
+    if area_ratio < 1.0:
+        raise DomainError('Area ratio A/A* must be at least one.', field='area_ratio')
+    if mach < 0.0:
+        raise DomainError('Mach number must be non-negative.', field='mach')
+    try:
+        coefficient, recovery = _bartz_native(gas, throat_radius_m, area_ratio, mach,
+                                               wall_temperature_k)
+        if all(isfinite(v) and v > 0.0 for v in (coefficient, recovery)):
+            return coefficient, recovery
+    except (OverflowError, ZeroDivisionError):
+        pass
+    return _bartz_extended(gas, throat_radius_m, area_ratio, mach, wall_temperature_k)
+
+
+def _bartz_native(gas: HotGas, radius: float, area_ratio: float, mach: float,
+                  wall_temperature_k: float) -> tuple[float, float]:
+    diameter = 2.0 * radius
+    kinetic = 0.5 * (gas.gamma - 1.0) * mach * mach
+    compression = 1.0 + kinetic
+    pressure_ratio = gas.chamber_pressure_pa / gas.characteristic_velocity_m_s
+    curvature_ratio = diameter / gas.throat_radius_of_curvature_m
+    temperature_ratio = wall_temperature_k / gas.chamber_temperature_k
+    # A nonzero subnormal intermediate can already have large relative error,
+    # even if later scaling makes the complete output normal and finite.
+    if any(not isfinite(v) or v < float_info.min for v in
+           (diameter, pressure_ratio, curvature_ratio, temperature_ratio)):
+        raise OverflowError('Bartz ratio needs extended arithmetic')
+    sigma_base = 0.5 * (temperature_ratio * compression + 1.0)
+    coefficient = 0.026
+    for factor in (gas.specific_heat_j_kg_k, gas.viscosity_pa_s**0.2,
+                   gas.prandtl_number**-0.6, diameter**-0.2, pressure_ratio**0.8,
+                   curvature_ratio**0.1, area_ratio**-0.9, sigma_base**-0.68,
+                   compression**-0.12):
+        coefficient *= factor
+        if not isfinite(coefficient) or coefficient < float_info.min:
+            raise OverflowError('Bartz product needs extended arithmetic')
+    recovery = gas.chamber_temperature_k * (1.0 + gas.prandtl_number ** (1.0 / 3.0) * kinetic) / compression
     return coefficient, recovery
+
+
+def _bartz_extended(gas: HotGas, radius: float, area_ratio: float, mach: float,
+                    wall_temperature_k: float) -> tuple[float, float]:
+    """Evaluate the complete positive expressions before their binary64 export.
+
+    This extends arithmetic range only, not the correlation's physical validity.
+    Decimal intermediates retain ratios/products that can overflow or underflow
+    in binary64 while the complete film coefficient and recovery remain finite.
+    """
+    with localcontext(Context(prec=90)):
+        d = Decimal.from_float
+        diameter = 2 * d(radius)
+        kinetic = (d(gas.gamma) - 1) * d(mach)**2 / 2
+        compression = 1 + kinetic
+        sigma = (1 + d(wall_temperature_k) * compression / d(gas.chamber_temperature_k)) / 2
+        coefficient = (Decimal('0.026') * d(gas.specific_heat_j_kg_k)
+                       * d(gas.viscosity_pa_s)**Decimal('0.2')
+                       * d(gas.prandtl_number)**Decimal('-0.6') * diameter**Decimal('-0.2')
+                       * (d(gas.chamber_pressure_pa) / d(gas.characteristic_velocity_m_s))**Decimal('0.8')
+                       * (diameter / d(gas.throat_radius_of_curvature_m))**Decimal('0.1')
+                       * d(area_ratio)**Decimal('-0.9') * sigma**Decimal('-0.68')
+                       * compression**Decimal('-0.12'))
+        recovery = d(gas.chamber_temperature_k) * (
+            1 + d(gas.prandtl_number)**(Decimal(1) / 3) * kinetic) / compression
+        result = float(coefficient), float(recovery)
+    if not all(isfinite(v) and v > 0.0 for v in result):
+        raise DomainError('Bartz outputs exceed the positive finite float range.',
+                          code='numeric_range', field='gas')
+    return result
 
 
 def _axial_network(result: RegenChamberResult, channels: CoolingChannels | ChannelProfile, conductivity: float,
@@ -1104,6 +1186,11 @@ def hot_gas_from_reactants(*, reactants: Mapping[str, float], chamber_pressure_p
            ``data/trans.inp``. https://github.com/nasa/cea
     """
 
+    chamber_pressure_pa = _positive(real(chamber_pressure_pa, 'chamber_pressure_pa'),
+                                     'chamber_pressure_pa')
+    throat_radius_of_curvature_m = _positive(real(throat_radius_of_curvature_m,
+                                                 'throat_radius_of_curvature_m'),
+                                             'throat_radius_of_curvature_m')
     from rocket_propulsion.thermochemistry import (
         EquilibriumProblem,
         LocalEquilibriumProvider,

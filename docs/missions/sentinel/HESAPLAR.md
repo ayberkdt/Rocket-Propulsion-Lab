@@ -229,7 +229,7 @@ bilinmeden 14 ile çarpılıp gerçek modül gücü bulunamaz.
 
 ## 11. Kontroller ve doğrulama sınırı
 
-25 test yöntemi: yüksek hassasiyetli Decimal oraklı, çok küçük ΔV, kütle korunumu,
+26 test yöntemi: yüksek hassasiyetli Decimal oraklı, çok küçük ΔV, kütle korunumu,
 sıralı/tek toplam eşdeğerliği, CAM işaretleri, vektör normu, duplikasyon, yanlış araç
 eşleştirme, yakıt yetersizliği, cant, bağımsız açısal momentumla geçiş, yayımlanmış
 drift örneği, veri birimleri ve Python `-I -S` ile bağımlılıksız tekrar üretim.

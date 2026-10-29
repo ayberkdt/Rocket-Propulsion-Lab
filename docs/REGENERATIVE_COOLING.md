@@ -13,6 +13,12 @@ Tests: `tests/test_regen_chamber.py` (10 tests). HTTP route:
 
 ## Public API
 
+Frozen gas inputs and station queries have explicit ownership/domain checks;
+balanced extreme arithmetic is evaluated before float export. The scope,
+counterexamples and adversarial controls are recorded in
+[HOT_GAS_CONTRACT_REVIEW.md](HOT_GAS_CONTRACT_REVIEW.md). Arithmetic range does not
+extend the correlation's physical validation envelope.
+
 ```python
 from rocket_propulsion.heat_transfer.regen_chamber import (
     ChannelProfile, Coolant, CoolingChannels, HotGas, bartz_coefficient,
@@ -27,7 +33,7 @@ from rocket_propulsion.heat_transfer.regen_chamber import (
   thickness along the chamber (linear in x; the contour must lie inside the
   table), for example channels narrowed at the throat; `count` may be one
   value per row, so the channel count can change along the chamber
-  (bifurcation or merge). Helix angles from 0 to 75° are accepted.
+  (bifurcation or merge). Helix angles satisfy 0 ≤ β < 75°.
 - `solve_regen_chamber(..., wall_model="2d")` replaces the land-fin model by a
   two-dimensional finite-volume solution of the half-pitch wall cross-section
   at every station (`heat_transfer.channel_wall.solve_channel_wall_section`):

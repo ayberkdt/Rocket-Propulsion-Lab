@@ -130,8 +130,10 @@ def calculate(data: dict) -> dict:
                       for isp in record["assumed_isp_s"]}
     c = data["capacity_cases"]["S2C"]
     rows = ledger(c["launch_mass_kg"], c["loaded_fuel_kg"], data["s2c_events"], 220)
-    acquisition = sum(r["dv_m_s"] for r in rows[:3])
-    tandem = sum(r["dv_m_s"] for r in rows[3:])
+    # Python 3.12 changed float sum(); explicit faithful summation keeps the
+    # archived report reproducible on both supported interpreter versions.
+    acquisition = math.fsum(r["dv_m_s"] for r in rows[:3])
+    tandem = math.fsum(r["dv_m_s"] for r in rows[3:])
     s2_eol = lowering_dv(786000, 653000, 653000)
     s2_orbit = orbit(786000)
     scenarios = []

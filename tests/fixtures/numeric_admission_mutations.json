@@ -502,5 +502,89 @@
     "        weight = min(Fraction(1), max(Fraction(0), (Fraction(x_m)-x0)/(x1-x0)))",
     "        weight = min(Fraction(1), max(Fraction(0), (Fraction(x_m)-x0)/(x1-x0)))\n        weight = Fraction(float(weight))",
     "tests/test_channel_profile_contract.py::ChannelProfileContractTests::test_tiny_barycentric_terms_are_retained_before_geometry_scaling"
+  ],
+  [
+    "hot_gas_scalar_ownership_removed",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "        coerce_fields(self, 'Hot gas')\n",
+    "",
+    "tests/test_hot_gas_contract.py::HotGasContractTests::test_owned_native_floats_do_not_retain_caller_arithmetic"
+  ],
+  [
+    "hot_gas_gamma_one_admitted",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "if self.gamma <= 1.0:",
+    "if self.gamma < 1.0:",
+    "tests/test_hot_gas_contract.py::HotGasContractTests::test_physical_domains_include_gamma_and_composition_closure"
+  ],
+  [
+    "hot_gas_composition_closure_removed",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "if self.h2o_mole_fraction + self.co2_mole_fraction > 1.0:",
+    "if False:",
+    "tests/test_hot_gas_contract.py::HotGasContractTests::test_physical_domains_include_gamma_and_composition_closure"
+  ],
+  [
+    "bartz_negative_wall_admitted",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "    wall_temperature_k = _positive(real(wall_temperature_k, 'wall_temperature_k'),\n                                   'wall_temperature_k')",
+    "    wall_temperature_k = real(wall_temperature_k, 'wall_temperature_k')",
+    "tests/test_hot_gas_contract.py::HotGasContractTests::test_direct_query_refuses_invalid_scalars_and_physical_domains"
+  ],
+  [
+    "bartz_subnormal_ratio_rounded",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "not isfinite(v) or v < float_info.min for v in",
+    "not isfinite(v) or v == 0.0 for v in",
+    "tests/test_hot_gas_contract.py::HotGasContractTests::test_finite_results_survive_intermediate_overflow_and_underflow"
+  ],
+  [
+    "bartz_subnormal_product_rounded",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "not isfinite(coefficient) or coefficient < float_info.min:",
+    "not isfinite(coefficient) or coefficient == 0.0:",
+    "tests/test_hot_gas_contract.py::HotGasContractTests::test_finite_results_survive_intermediate_overflow_and_underflow"
+  ],
+  [
+    "bartz_extended_replaced_by_zero",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "return _bartz_extended(gas, throat_radius_m, area_ratio, mach, wall_temperature_k)",
+    "return 0.0, 0.0",
+    "tests/test_hot_gas_contract.py::HotGasContractTests::test_large_mach_recovery_and_film_coefficient_are_not_nan_or_false_zero"
+  ],
+  [
+    "bartz_extended_precision_reduced",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "with localcontext(Context(prec=90)):",
+    "with localcontext(Context(prec=6)):",
+    "tests/test_hot_gas_contract.py::HotGasContractTests::test_large_mach_recovery_and_film_coefficient_are_not_nan_or_false_zero"
+  ],
+  [
+    "bartz_recovery_small_term_cancelled",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "gas.prandtl_number ** (1.0 / 3.0) * kinetic) / compression",
+    "gas.prandtl_number ** (1.0 / 3.0) * (compression - 1.0)) / compression",
+    "tests/test_hot_gas_contract.py::HotGasContractTests::test_small_kinetic_term_is_not_erased_before_large_recovery_factor"
+  ],
+  [
+    "bartz_pressure_exponent_wrong",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "pressure_ratio**0.8,",
+    "pressure_ratio**0.7,",
+    "tests/test_hot_gas_contract.py::HotGasContractTests::test_normal_operating_points_agree_with_independent_log_oracle"
+  ],
+  [
+    "bartz_unrepresentable_output_exported",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "    if not all(isfinite(v) and v > 0.0 for v in result):",
+    "    if False:",
+    "tests/test_hot_gas_contract.py::HotGasContractTests::test_unrepresentable_positive_outputs_raise_typed_numeric_range"
+  ],
+  [
+    "hot_gas_factory_radius_admitted_late",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "    throat_radius_of_curvature_m = _positive(real(throat_radius_of_curvature_m,\n                                                 'throat_radius_of_curvature_m'),\n                                             'throat_radius_of_curvature_m')\n",
+    "",
+    "tests/test_hot_gas_contract.py::HotGasContractTests::test_invalid_factory_radius_precedes_expensive_chemistry"
   ]
 ]

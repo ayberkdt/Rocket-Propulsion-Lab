@@ -53,7 +53,7 @@ python scripts/sentinel_series_budget.py --output docs/missions/sentinel/SERI_SO
 python -m unittest discover -s tests -p test_sentinel_series_budget.py
 ```
 
-25 test yöntemi ve 16 alt test; bağımsız yüksek hassasiyetli denklemler, fiziksel
+26 test yöntemi ve 16 alt test; bağımsız yüksek hassasiyetli denklemler, fiziksel
 korunum, olay muhasebesi, kaynakta yayımlanmış drift örnekleri ve bağımlılıksız CLI
 tekrarını kapsar. Bunlar **sayısal kontrollerdir**; donanım/ilgili ortam doğrulaması
 veya yeni sistem için TRL belgesi değildir. Grafik üretimi ayrıca matplotlib gerektirir;

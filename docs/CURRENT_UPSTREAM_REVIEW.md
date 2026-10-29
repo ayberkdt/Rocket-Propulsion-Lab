@@ -26,10 +26,12 @@ not establish that every function, range guard or source claim has been audited.
 
 ## Reconciliation policy
 
-The previous dirty checkout is retained at the sibling directory
-`advanced-propulsion-sidera`. Its NASA9 and mixture changes were not copied over
-the new 36-species catalogue and equilibrium implementation. Those changes
-need a semantic port and renewed comparison, not a wholesale file replacement.
+The former dirty checkout was archived and removed after reconciliation. The
+remaining checkout is the independent `current-main-assurance` repository on
+`main`; preserved outputs and Git/source archives are under the workspace's
+`output/assurance/main_consolidation_20261029`. NASA9/frozen-mixture changes were
+semantically reconciled in `ef00f3e`, rather than overwriting the new catalogue.
+That merge is scoped reconciliation, not a complete review of the expanded solver.
 The shared-root repair is transferred separately; its scope is documented in
 [SHARED_ROOT_REVIEW.md](SHARED_ROOT_REVIEW.md).
 
@@ -51,6 +53,11 @@ Newton loop; see [EQUILIBRIUM_JACOBIAN_REVIEW.md](EQUILIBRIUM_JACOBIAN_REVIEW.md
 This is a scoped numerical change, not a renewed review of the entire solver.
 
 ## Current priorities and limits
+
+The Sentinel series research is now comparative A/B/C/D literature work on main
+(`191a9cd`); its numerical checks are not integrated hardware qualification.
+The next scoped cooling review repairs frozen gas ownership, station admission
+and complete Bartz arithmetic; see [HOT_GAS_CONTRACT_REVIEW.md](HOT_GAS_CONTRACT_REVIEW.md).
 
 1. Repair the reproduced Ruff 0.17.2 diagnostics and the shared-root defects;
    test them against the current tree and actual optional NASA CEA provider.

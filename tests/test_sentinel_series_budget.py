@@ -81,6 +81,16 @@ class SentinelSeriesBudgetTests(unittest.TestCase):
         self.assertEqual(record["dv_components_m_s"], [.9344, .0537])
         self.assertEqual(record["duration_s"], 314.1)
 
+    def test_report_totals_are_correctly_rounded_across_python_versions(self):
+        result = model.calculate(self.data)
+        rows = result["s2c_ledger_220s_axial1"]
+        with localcontext() as context:
+            context.prec = 80
+            for key, events in [("s2c_acquisition_dv_m_s", rows[:3]),
+                                ("s2c_table3_dv_m_s", rows[3:])]:
+                expected = float(sum(Decimal.from_float(row["dv_m_s"]) for row in events))
+                self.assertEqual(result[key], expected)
+
     def test_duplicate_phase_is_rejected(self):
         events = self.data["s2c_events"]
         with self.assertRaisesRegex(ValueError, "double-counted"):
