@@ -133,6 +133,7 @@ def calculate(data: dict) -> dict:
     acquisition = sum(r["dv_m_s"] for r in rows[:3])
     tandem = sum(r["dv_m_s"] for r in rows[3:])
     s2_eol = lowering_dv(786000, 653000, 653000)
+    s2_orbit = orbit(786000)
     scenarios = []
     for isp in (200, 220):
         for axial in (0.8, 1.0):
@@ -154,7 +155,10 @@ def calculate(data: dict) -> dict:
         "s1_693_to_580x610km_dv_m_s": lowering_dv(693000, 580000, 610000),
         "s2_786_to_653km_dv_m_s": s2_eol,
         "s2_73m_s_plan_excess_percent": 100 * (73 / s2_eol - 1),
-        "orbit_s1_693km": orbit(693000), "orbit_s2_786km": orbit(786000),
+        "orbit_s1_693km": orbit(693000), "orbit_s2_786km": s2_orbit,
+        "illustrative_s2_constant_1400W_load_Wh": 1400 * s2_orbit["period_s"] / 3600,
+        "illustrative_s2_1700W_sunlight_generation_Wh": 1700 * (
+            s2_orbit["period_s"] - s2_orbit["beta_zero_eclipse_s"]) / 3600,
         "tandem_drift_1cm_s_one_day": drift(0.01, 86400, 786000),
         "tandem_drift_3_85cm_s_one_day": drift(0.0385, 86400, 786000),
         "one_N_220s_mass_flow_kg_s": 1 / (G0 * 220),

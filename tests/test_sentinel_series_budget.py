@@ -150,6 +150,11 @@ class SentinelSeriesBudgetTests(unittest.TestCase):
                                35.30, delta=.01)
         self.assertAlmostEqual(result["rafael_heater_28V_257ohm_W_per_element"], 3.05058,
                                delta=.00001)
+        # A nominal mode load cannot be extended to the whole orbit without an energy check.
+        self.assertAlmostEqual(result["illustrative_s2_constant_1400W_load_Wh"], 2346.834,
+                               delta=.001)
+        self.assertAlmostEqual(result["illustrative_s2_1700W_sunlight_generation_Wh"], 1853.758,
+                               delta=.001)
 
     def test_radiator_scaling(self):
         a = model.thermal_radiator(300, .8, 300)

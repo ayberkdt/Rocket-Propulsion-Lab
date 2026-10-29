@@ -116,7 +116,7 @@ o sürüme aittir; C'nin doğrulanmış batarya karakterizasyonu sayılmaz.
 
 β=0 dairesel geometri örneğinde 786 km'de T≈100,58 dk, tutulma≈35,15 dk. Sürekli
 1400 W tüketim ve Güneş'te tam 1700 W üretim **varsayılsa**, kayıpsız bile yörüngede
-yaklaşık 2468 Wh tüketim ve 1854 Wh üretim çıkar; profil kapanmaz. Bu, gerçek uydunun
+yaklaşık 2347 Wh tüketim ve 1854 Wh üretim çıkar; profil kapanmaz. Bu, gerçek uydunun
 enerjisinin yetmediğini değil, **nominal mod gücünün bütün tura körlemesine yayılamayacağını**
 gösterir. Gerçek EPS bütçesi mod ve mevsim üzerinden kapatılır.
 
@@ -128,7 +128,7 @@ GCP olmadan jeolokasyon 20 m (%95,5). Güven düzeyleri farklıdır; doğrudan R
 2012 konum gereksinimi 20 m/3σ ayrı sürümdür. [S2-AOCS, S2-SP1322]
 
 Nadirde yalnız geometri için 786 km × 10 µrad = **7,86 m** [H]. 10 µrad/2σ ve
-20 m/3σ kalemleri bağımsız Gaussian **varsayılırsa**, 1σ RSS≈7,74 m, 2σ≈15,47 m
+20 m/3σ kalemleri bağımsız Gaussian **varsayılırsa**, 1σ RSS≈7,74 m, 2σ≈15,48 m
 çıkar. Bu tam uçuş pointing bütçesi değildir: hizalama, jitter, termal boresight,
 kenar bakış açısı, DEM ve korelasyon yoktur. İtici eğikliği AOCS torkuna hizmet ederken
 eksenel yakıt etkinliğini düşürür.

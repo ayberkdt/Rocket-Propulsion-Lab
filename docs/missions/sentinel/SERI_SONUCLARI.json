@@ -158,6 +158,8 @@
     "period_s": 6034.715546355497,
     "beta_zero_eclipse_s": 2109.1101224141357
   },
+  "illustrative_s2_constant_1400W_load_Wh": 2346.8338235826936,
+  "illustrative_s2_1700W_sunlight_generation_Wh": 1853.7581168611985,
   "tandem_drift_1cm_s_one_day": {
     "along_track_time_s": 0.34749459227967217,
     "ground_track_cross_track_m": 161.62013181262037
