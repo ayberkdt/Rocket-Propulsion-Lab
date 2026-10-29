@@ -185,7 +185,7 @@ def derivatives_from_composition(
     total_moles = sum(n)
     mass = sum(amount * item.molecular_mass_kg_mol for amount, item in zip(n, species, strict=True))
     rt = _R * temperature_k
-    properties = [item.properties(temperature_k) for item in species]
+    properties = [item._binary64_properties(temperature_k) for item in species]
     h = [prop.enthalpy_molar_j_mol / rt for prop in properties]
     cp_over_r = [prop.cp_molar_j_mol_k / _R for prop in properties]
     formulas = [dict(item.formula) for item in species]

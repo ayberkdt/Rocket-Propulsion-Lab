@@ -1,5 +1,23 @@
 # Release notes
 
+NASA9 species properties are now formed from exact rational terms of the
+binary inputs, with a bounded Decimal enclosure of every logarithm, and each
+exported field is rounded once. A positive cv is decided before display
+rounding, and intermediate overflow can cancel before export. Both packaged
+catalogues are read under the strict JSON rules and their model metadata,
+including the 2002 fit's defining R, is checked. Raw polynomial primitives
+still evaluate outside their interval for reference checks; species states
+still refuse it. Frozen mixtures retain their raw fractions and basis,
+normalize them exactly once, combine aliases exactly, enclose mixing and
+pressure logarithms after coprime log-basis reduction, and return result
+records that own and replay their mixture. API state output omits the nested
+mixture. Iterative solvers keep a separate binary64 path that
+reproduces the previous floating results bit-for-bit, so equilibrium and
+rocket-performance outputs and run times are unchanged. Independent 180-digit oracles and 150 frozen Cantera 3.2.0 states
+check the retained ideal-gas model; this is not physical validation. See
+[NASA9_CATALOGUE_REVIEW.md](NASA9_CATALOGUE_REVIEW.md) and
+[MIXTURE_FORWARD_REVIEW.md](MIXTURE_FORWARD_REVIEW.md).
+
 Direct blowdown mass/cutoff and pressure-map queries now normalize their real
 arguments. Volume exports use checked complete rational expressions, while
 pressure evaluation retains relative growth and can remain finite when its

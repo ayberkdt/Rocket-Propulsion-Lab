@@ -30,7 +30,7 @@ from typing import Protocol, runtime_checkable
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
 
-from .mixtures import REFERENCE_PRESSURE_PA, Mixture
+from .mixtures import REFERENCE_PRESSURE_PA, _binary64_frozen
 from .nasa_polynomials import UNIVERSAL_GAS_CONSTANT_J_MOL_K
 from .species import CondensedReactant, Species, get_reactant, get_species, species_catalog
 
@@ -764,7 +764,7 @@ class LocalEquilibriumProvider:
                         for column, element in enumerate(elements)}
         g_over_rt = []
         for species in candidates:
-            properties = species.properties(temperature_k)
+            properties = species._binary64_properties(temperature_k)
             gibbs = properties.enthalpy_molar_j_mol - (
                 temperature_k * properties.entropy_molar_j_mol_k
             )
@@ -970,7 +970,7 @@ class LocalEquilibriumProvider:
                 for species, amount in zip(basis, solution, strict=True):
                     if amount <= 0.0:
                         continue
-                    properties = species.properties(temperature_k)
+                    properties = species._binary64_properties(temperature_k)
                     standard_gibbs = properties.enthalpy_molar_j_mol - (
                         temperature_k * properties.entropy_molar_j_mol_k
                     )
@@ -1020,24 +1020,20 @@ class LocalEquilibriumProvider:
         retained = {key: value for key, value in amounts.items() if value > 1.0e-14}
         total_moles = sum(retained.values())
         mole_fractions = {key: value / total_moles for key, value in retained.items()}
-        mixture = Mixture.from_fractions(mole_fractions)
-        properties = mixture.properties(temperature_k, pressure_pa=pressure_pa)
+        # Solver result: main's binary64 frozen-mixture path, no owned records.
+        mass_fractions, properties = _binary64_frozen(mole_fractions, temperature_k, pressure_pa)
         total_mass = sum(
             amount * get_species(key).molecular_mass_kg_mol
             for key, amount in retained.items()
         )
         enthalpy = sum(
-            amount * get_species(key).properties(temperature_k).enthalpy_molar_j_mol
+            amount * get_species(key)._binary64_properties(temperature_k).enthalpy_molar_j_mol
             for key, amount in retained.items()
         )
         internal_energy = enthalpy - (
             total_moles * UNIVERSAL_GAS_CONSTANT_J_MOL_K * temperature_k
         )
         entropy = properties.entropy_j_kg_k * total_mass
-        mass_fractions = {
-            component.species.key: component.mass_fraction
-            for component in mixture.components
-        }
         inventory = self._inventory(problem)
         calculated_inventory = {
             element: sum(
@@ -1189,7 +1185,7 @@ class LocalEquilibriumProvider:
                     "Combustion problems with gas reactants require reactant_temperature_k.",
                     field="reactant_temperature_k",
                 )
-            enthalpy += reactant.moles * record.properties(temperature).enthalpy_molar_j_mol
+            enthalpy += reactant.moles * record._binary64_properties(temperature).enthalpy_molar_j_mol
             gas_pv += reactant.moles * UNIVERSAL_GAS_CONSTANT_J_MOL_K * temperature
         return enthalpy, enthalpy - gas_pv
 
@@ -1265,7 +1261,7 @@ class LocalEquilibriumProvider:
             )
             amounts, _, _ = last
             enthalpy = sum(
-                amount * get_species(key).properties(temperature).enthalpy_molar_j_mol
+                amount * get_species(key)._binary64_properties(temperature).enthalpy_molar_j_mol
                 for key, amount in amounts.items()
             )
             return (enthalpy - target) / max(abs(target), 1.0)
@@ -1347,7 +1343,7 @@ class LocalEquilibriumProvider:
             last = pressure_for_temperature(temperature)
             _, amounts, _, _ = last
             enthalpy = sum(
-                amount * get_species(key).properties(temperature).enthalpy_molar_j_mol
+                amount * get_species(key)._binary64_properties(temperature).enthalpy_molar_j_mol
                 for key, amount in amounts.items()
             )
             internal_energy = enthalpy - (

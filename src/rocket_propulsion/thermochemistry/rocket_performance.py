@@ -314,7 +314,7 @@ class _Expansion:
     def state(self, temperature_k: float, pressure_pa: float) -> _State:
         """Return the state at ``(T, p)`` with this expansion's chemistry."""
         if self.chemistry == "frozen":
-            properties = self.frozen_mixture.properties(temperature_k, pressure_pa=pressure_pa)
+            properties = self.frozen_mixture._binary64_state(temperature_k, pressure_pa)
             return _State(pressure_pa, temperature_k,
                           pressure_pa / (properties.gas_constant_j_kg_k * temperature_k),
                           properties.molecular_mass_kg_mol, properties.enthalpy_j_kg,

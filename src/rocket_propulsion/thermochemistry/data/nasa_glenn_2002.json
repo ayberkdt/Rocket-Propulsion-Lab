@@ -10,7 +10,8 @@
   "model": {
     "name": "NASA Glenn seven-term cp polynomial with two integration constants",
     "coefficient_order": ["a1", "a2", "a3", "a4", "a5", "a6", "a7", "b1", "b2"],
-    "reference_pressure_pa": 100000
+    "reference_pressure_pa": 100000,
+    "gas_constant_j_mol_k": 8.314510
   },
   "species": [
     {

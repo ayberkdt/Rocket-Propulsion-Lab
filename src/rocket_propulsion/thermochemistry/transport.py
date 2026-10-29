@@ -780,7 +780,7 @@ def mixture_transport_properties(
     count = len(names)
     thermo = [get_species(name) for name in names]
     molar_mass = [species.molecular_mass_kg_mol for species in thermo]
-    properties = [species.properties(temperature_k) for species in thermo]
+    properties = [species._binary64_properties(temperature_k) for species in thermo]
 
     extrapolated: list[str] = []
 

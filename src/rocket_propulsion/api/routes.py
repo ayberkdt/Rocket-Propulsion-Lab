@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from decimal import Decimal, InvalidOperation
 from fractions import Fraction
 from math import isfinite, log
@@ -2419,6 +2419,11 @@ def _composition(payload: dict[str, Any]) -> dict[str, float] | None:
     return result
 
 
+
+def _mixture_state(state) -> dict[str, Any]:
+    """Serialize mixture state fields; the owned defining mixture is reported separately."""
+    return {item.name: getattr(state, item.name) for item in fields(state) if item.name != "mixture"}
+
 def calculate_thermal_properties_route(payload: dict[str, Any]) -> dict[str, Any]:
     """Evaluate a species or frozen ideal mixture and return a temperature sweep.
 
@@ -2493,7 +2498,7 @@ def calculate_thermal_properties_route(payload: dict[str, Any]) -> dict[str, Any
         mixture = Mixture.from_fractions(
             composition, basis=str(payload.get("basis", "mole"))
         )
-        properties = asdict(mixture.properties(temperature_k, pressure_pa=pressure_pa))
+        properties = _mixture_state(mixture.properties(temperature_k, pressure_pa=pressure_pa))
         minimum_temperature = mixture.minimum_temperature_k
         maximum_temperature = mixture.maximum_temperature_k
         model = {
@@ -2508,7 +2513,7 @@ def calculate_thermal_properties_route(payload: dict[str, Any]) -> dict[str, Any
         }
 
         def evaluate(sample_temperature: float) -> dict[str, Any]:
-            return asdict(
+            return _mixture_state(
                 mixture.properties(sample_temperature, pressure_pa=pressure_pa)
             )
 

@@ -107,6 +107,26 @@ establish motor/feed hardware maturity, quantified physical uncertainty or
 qualification; the separate hardware evidence gates remain open, and the 1.0
 tag additionally requires the clean-machine package smoke test.
 
+## NASA9 data and numerical follow-up
+
+The [NASA9 catalogue review](NASA9_CATALOGUE_REVIEW.md) corrects two atomic-H
+coefficient transcriptions and the fit's defining gas constant, owns interval
+inputs and cached catalogue records, and checks rational/logarithmic exports.
+Twenty-three attack methods and 25 curated faults target these contracts;
+original failures and the incomplete first fault trial are retained.
+These are source and software checks. Mixture contracts, inverse certification,
+equilibrium/CEA agreement and the motor/feed hardware gates remain open.
+
+## Frozen-mixture forward follow-up
+
+The [mixture forward review](MIXTURE_FORWARD_REVIEW.md) repairs composition
+identity, explicit normalization, extreme-pressure entropy, exact weighted
+properties and owned result replay. Independent high-precision equations and
+150 Cantera 3.2.0 states check the retained ideal-gas model. A green suite
+that missed a valid shared-endpoint refusal and its failing regression are
+preserved. Neither these checks nor inverse input guards qualify physical
+applicability, inverse accuracy, equilibrium chemistry or motor/feed hardware.
+
 ## References
 
 The evidence rows above cite their sources by name; full entries and URLs are

@@ -19,22 +19,29 @@ References
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from dataclasses import dataclass
+from fractions import Fraction
 from functools import lru_cache
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict, cast
 
 from rocket_propulsion.core.errors import DomainError, InputError
 from rocket_propulsion.core.numerics import solve_bisect_monotonic
-from rocket_propulsion.core.validation import coerce_fields, numeric_range_guard, real, text
+from rocket_propulsion.core.validation import (
+    coerce_fields,
+    numeric_range_guard,
+    read_json_document,
+    real,
+    text,
+)
 
 from ._records import _caloric_identity, _owned_catalog, _owned_formula, _property_identity
 from .nasa_polynomials import (
     UNIVERSAL_GAS_CONSTANT_J_MOL_K,
     NasaIntervalRecord,
     NasaPolynomialInterval,
+    _export,
     _owned_intervals,
     interval_from_record,
 )
@@ -208,7 +215,8 @@ class Species:
         Molar properties come from the NASA Glenn polynomials [1]_; mass
         quantities divide by the molar mass, ``R/M`` uses the registered molar
         gas constant, ``cv = cp - R/M`` and ``gamma = cp/cv`` for an ideal
-        gas.
+        gas. Every field is formed from the exact retained terms and rounded
+        once, so a positive ``cv`` is decided before display rounding.
 
         References
         ----------
@@ -217,11 +225,18 @@ class Species:
                https://ntrs.nasa.gov/citations/20020085330
         """
 
+        return _species_properties(self, real(temperature_k, 'temperature_k'))
+
+    @numeric_range_guard('temperature_k')
+    def _binary64_properties(self, temperature_k: float) -> SpeciesProperties:
+        """Evaluate a species state in binary64 for iterative solver internals.
+
+        Same range checks and record identities as :meth:`properties`, but
+        with main's original floating evaluation instead of one exact rounding
+        per field. Results agree to a few ULPs.
+        """
         temperature_k = real(temperature_k, 'temperature_k')
-        interval = self._interval(temperature_k)
-        cp_molar = interval.cp_molar_j_mol_k(temperature_k)
-        enthalpy_molar = interval.enthalpy_molar_j_mol(temperature_k)
-        entropy_molar = interval.entropy_molar_j_mol_k(temperature_k)
+        cp_molar, enthalpy_molar, entropy_molar = self._interval(temperature_k)._binary64_molar(temperature_k)
         gas_constant = UNIVERSAL_GAS_CONSTANT_J_MOL_K / self.molecular_mass_kg_mol
         cp_mass = cp_molar / self.molecular_mass_kg_mol
         cv_mass = cp_mass - gas_constant
@@ -274,7 +289,7 @@ class Species:
 
         result = solve_bisect_monotonic(
             lambda temperature: self.properties(temperature).enthalpy_j_kg,
-            enthalpy_j_kg,
+            real(enthalpy_j_kg, 'enthalpy_j_kg'),
             self.minimum_temperature_k,
             self.maximum_temperature_k,
             tolerance=1.0e-10,
@@ -309,12 +324,42 @@ class Species:
 
         result = solve_bisect_monotonic(
             lambda temperature: self.properties(temperature).entropy_j_kg_k,
-            entropy_j_kg_k,
+            real(entropy_j_kg_k, 'entropy_j_kg_k'),
             self.minimum_temperature_k,
             self.maximum_temperature_k,
             tolerance=1.0e-10,
         )
         return result.value
+
+
+@lru_cache(maxsize=4096)
+def _species_properties(species: Species, temperature_k: float) -> SpeciesProperties:
+    """Evaluate one owned species state; equal immutable inputs share a result."""
+    interval = species._interval(temperature_k)
+    (cp, _), (h, hlog), (s, slog) = interval._terms(temperature_k)
+    mass = Fraction(species.molecular_mass_kg_mol)
+    r = Fraction(UNIVERSAL_GAS_CONSTANT_J_MOL_K)
+    cv = cp - r
+    if cv <= 0:
+        raise DomainError(
+            f"NASA polynomial for {species.key} produced non-positive cv.",
+            code="invalid_thermodynamic_property",
+            details={"temperature_k": temperature_k},
+        )
+    return SpeciesProperties(
+        species=species.key,
+        temperature_k=temperature_k,
+        molecular_mass_kg_mol=species.molecular_mass_kg_mol,
+        cp_molar_j_mol_k=_export(cp, 0, temperature_k, 'cp_molar_j_mol_k'),
+        enthalpy_molar_j_mol=_export(h, hlog, temperature_k, 'enthalpy_molar_j_mol'),
+        entropy_molar_j_mol_k=_export(s, slog, temperature_k, 'entropy_molar_j_mol_k'),
+        gas_constant_j_kg_k=_export(r/mass, 0, temperature_k, 'gas_constant_j_kg_k'),
+        cp_j_kg_k=_export(cp/mass, 0, temperature_k, 'cp_j_kg_k'),
+        cv_j_kg_k=_export(cv/mass, 0, temperature_k, 'cv_j_kg_k'),
+        gamma=_export(cp/cv, 0, temperature_k, 'gamma'),
+        enthalpy_j_kg=_export(h/mass, hlog/mass, temperature_k, 'enthalpy_j_kg'),
+        entropy_j_kg_k=_export(s/mass, slog/mass, temperature_k, 'entropy_j_kg_k'),
+    )
 
 
 class _SpeciesRecord(TypedDict):
@@ -343,6 +388,38 @@ def _parse_species(record: _SpeciesRecord, source: dict[str, str]) -> Species:
     )
 
 
+_COEFFICIENT_ORDER = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'b1', 'b2']
+
+
+def _catalogue_document(path: Path, *, defining_constant: bool) -> dict[str, Any]:
+    """Read one packaged catalogue under the strict JSON rules and check its model.
+
+    Duplicate members, non-finite tokens, an unsupported schema, coefficient
+    order, standard pressure or (when declared or required) defining gas
+    constant are refused. This checks packaged data integrity only.
+    """
+
+    def build(document):
+        if type(document.get('schema_version')) is not int or document['schema_version'] != 1:
+            raise InputError('Unsupported thermochemistry catalogue schema.', field='schema_version')
+        model = document['model']
+        if (model['coefficient_order'] != _COEFFICIENT_ORDER
+                or type(model['reference_pressure_pa']) not in (int, float)
+                or model['reference_pressure_pa'] != 100_000):
+            raise InputError('Unsupported NASA9 coefficient order or reference pressure.', field='model')
+        declared = defining_constant or 'gas_constant_j_mol_k' in model
+        if declared and real(model['gas_constant_j_mol_k'],
+                             'model.gas_constant_j_mol_k') != UNIVERSAL_GAS_CONSTANT_J_MOL_K:
+            raise InputError('Catalogue gas constant differs from the fit model.', field='model')
+        text(document['source']['title'], 'source.title')
+        text(document['source']['url'], 'source.url')
+        if not isinstance(document['species'], list) or not document['species']:
+            raise InputError('Catalogue species must be a nonempty array.', field='species')
+        return document
+
+    return cast(dict[str, Any], read_json_document(path.read_text(encoding='utf-8'), path.name, build))
+
+
 @lru_cache(maxsize=1)
 def _species_catalog() -> Mapping[str, Species]:
     """Load and validate the bundled, source-labelled species catalog once [1]_, [2]_.
@@ -355,8 +432,9 @@ def _species_catalog() -> Mapping[str, Species]:
 
     Raises
     ------
-    RuntimeError
-        If a species key occurs in more than one record.
+    InputError
+        If a document violates the strict JSON or catalogue schema, or a
+        species key occurs in more than one record.
 
     References
     ----------
@@ -369,15 +447,20 @@ def _species_catalog() -> Mapping[str, Species]:
 
     result: dict[str, Species] = {}
     count = 0
-    for path in (DATA_FILE, CEA_DATA_FILE):
-        document = json.loads(path.read_text(encoding="utf-8"))
+    for path, defining in ((DATA_FILE, True), (CEA_DATA_FILE, False)):
+        document = _catalogue_document(path, defining_constant=defining)
         source = document["source"]
         for record in document["species"]:
-            parsed = _parse_species(record, source)
+            if not isinstance(record, Mapping):
+                raise InputError('Malformed catalogue species record.', field='species')
+            try:
+                parsed = _parse_species(cast(_SpeciesRecord, record), source)
+            except (KeyError, TypeError, AttributeError) as error:
+                raise InputError('Malformed catalogue species record.', field='species') from error
             result[parsed.key.upper()] = parsed
         count += len(document["species"])
     if len(result) != count:
-        raise RuntimeError("Duplicate species keys in thermochemistry data files.")
+        raise InputError("Duplicate species keys in thermochemistry data files.", field='species')
     return _owned_catalog(result, Species, 'species')
 
 
@@ -494,7 +577,7 @@ def _condensed_reactant_catalog() -> Mapping[str, CondensedReactant]:
            database ``data/thermo.inp``. https://github.com/nasa/cea
     """
 
-    document = json.loads(CEA_DATA_FILE.read_text(encoding="utf-8"))
+    document = _catalogue_document(CEA_DATA_FILE, defining_constant=False)
     source = document["source"]
     result: dict[str, CondensedReactant] = {}
     for record in document['reactants']:

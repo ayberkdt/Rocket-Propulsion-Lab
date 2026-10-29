@@ -183,6 +183,26 @@ MOC_FIELD_REVIEW = {
         '_cross', '_check_cell', '_cells', '_check_front', '_flux_state', '_edge_flux',
         '_mass_metrics', '_solve', 'MocFieldResult', 'MocFieldResult.__post_init__', 'solve_moc_field'},
 }
+NASA9_CATALOGUE_REVIEW = {
+    'thermochemistry/nasa_polynomials.py': {'_rounded','_export','_exact_terms','_owned_intervals',
+        'NasaPolynomialInterval','NasaPolynomialInterval.__post_init__','NasaPolynomialInterval.contains',
+        'NasaPolynomialInterval._temperature','NasaPolynomialInterval._terms',
+        'NasaPolynomialInterval.cp_molar_j_mol_k','NasaPolynomialInterval.enthalpy_molar_j_mol',
+        'NasaPolynomialInterval.entropy_molar_j_mol_k'},
+    'thermochemistry/species.py': {'Species','Species.__post_init__','Species.minimum_temperature_k',
+        'Species.maximum_temperature_k','Species._interval','Species.properties','_species_properties',
+        '_parse_species','_catalogue_document','_catalogue_document.build','_species_catalog',
+        'species_catalog','get_species'},
+}
+MIXTURE_FORWARD_REVIEW = {
+    'thermochemistry/mixtures.py': {'_owned_species','_bounded','_basis','_positive','_canonical',
+        'MixtureComponent','MixtureComponent.__post_init__','Mixture','Mixture.__post_init__',
+        'Mixture._display_inputs','Mixture.from_fractions','Mixture.molecular_mass_kg_mol',
+        'Mixture.minimum_temperature_k','Mixture.maximum_temperature_k','Mixture.properties',
+        'MixtureProperties','MixtureProperties.__post_init__'},
+    'thermochemistry/mixture_numerics.py': {'_rational','_composition','_coalesced','_ledger','_log_basis',
+        '_log_basis.add','_integer_log','_log_export','_forward'},
+}
 HALL_THROAT_REVIEW = {
     'geometry/hall_throat.py': {'HallThroatModel', 'HallThroatModel.__post_init__', '_coefficients',
         'HallThroatInputs', 'HallThroatInputs.__post_init__', '_upper', '_signed_root', '_optional',
@@ -459,6 +479,10 @@ def _review_scopes(path, name):
     scopes = (["source_trace_and_software_verification_only"]
               if "studies/sass/" in path.as_posix() else [])
     groups = (
+        (MIXTURE_FORWARD_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_owned_frozen_ideal_mixture_exact_composition_coprime_log_enclosures_and_forward_record_replay_only_no_inverse_equilibrium_or_hardware_qualification'),
+        (NASA9_CATALOGUE_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
+         'targeted_source_checked_nasa9_gas_coefficients_defining_R_owned_catalogue_and_enclosed_fit_exports_only_no_inverse_mixture_equilibrium_or_hardware_qualification'),
         (HALL_THROAT_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),
          'targeted_constant_gamma_Hall_order1_order2_polynomial_primary_equations_full_PDE_defects_and_bracketed_sonic_curve_only_no_complete_initializer_or_physical_qualification'),
         (MOC_FIELD_REVIEW.get(path.relative_to(ROOT / 'src/rocket_propulsion').as_posix(),set()),

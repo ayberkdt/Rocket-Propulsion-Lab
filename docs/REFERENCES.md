@@ -56,6 +56,13 @@ relations. These primary NASA resources anchor terminology and screening values:
   and the source species database:
   <https://ntrs.nasa.gov/citations/20020085330>
 
+  Equations (1)--(3), printed p.2; Appendix A, printed p.7, defines the fit's
+  R=8.314510 J/(mol K); Appendix C gives fixed-column data layout. The official
+  NASA/CEA subset comparison is pinned to commit
+  `985fd33368b2334c4162a586c499e0ab41d12bd3`; its `data/thermo.inp` has the same
+  SHA-256 as the NASA-CEA-THERMO pin below:
+  <https://github.com/nasa/cea/blob/985fd33368b2334c4162a586c499e0ab41d12bd3/data/thermo.inp>
+
 - NASA Glenn, **Ideal Rocket Equation** — Tsiolkovsky equation, mass ratio,
   effective exhaust velocity, and specific impulse:
   <https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/>
@@ -623,3 +630,5 @@ pressurization chapter (download exceeded the fetch limit).
 - **NASA-SP-8087-BURNOUT-POINTER**: NASA SP-8087 (1972): the pages read (pp. 16-17, 61, 97) give no burnout correlation; Table IV (p. 17) grades the burnout-correlation quality per coolant and refers to Van Huff and Rousar, CPIA Publ. 121 (1966), ref. 34 on p. 97, marked Confidential and not on NTRS. <https://ntrs.nasa.gov/citations/19730022965>
 
 - **NIST-DLMF-4.13-LAMBERT-W**: NIST Digital Library of Mathematical Functions, §4.13, Eq. (4.13.1), defining `W exp(W)=z` and its complex branches. Used for the independent delay-characteristic root witness in `test_feed_coupled_instability.py`; the root transformation is derived in the review rather than attributed to NIST. Accessed 2026-10-27. <https://dlmf.nist.gov/4.13>
+
+- **CANTERA-32-IDEAL-MIXTURE**: IdealGasPhase, frozen ideal gas standard/partial molar thermodynamic relations. Cross-implementation comparison shares NASA coefficients and is not empirical validation. <https://cantera.org/3.2/cxx/d7/dfa/classCantera_1_1IdealGasPhase.html>

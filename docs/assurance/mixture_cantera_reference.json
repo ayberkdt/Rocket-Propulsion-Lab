@@ -1,0 +1,2632 @@
+{
+  "scope": "Independent Cantera implementation using the same pinned NASA fits. Not independent physical data, gas/hardware validation, equilibrium or certification.",
+  "cantera_version": "3.2.0",
+  "python": "3.12.1",
+  "native_binary_sha256": "00f00749cc90b76a7266656fd02e6a7d40be82e7d7e1389472ad285123064e9d",
+  "wheel_sha256": "258b95a4e29f9afd50788eab284e88440174302123c8b3a4a3a493904b40e238",
+  "source_fixture_sha256": "5cf688c5d8d3adeff775e1d770961fab3bf4d36866647001182cd104bf586e58",
+  "generator_sha256": "63199cf2e10139daadfaf16641df1312331a16a1c0072d3d24bfdaf86c3c4d51",
+  "constant_and_mass_convention": "Dimensionless molar properties remove Cantera versus NASA defining-R differences; mass-basis inputs use the pinned historical NASA molar masses. No output fitting.",
+  "tolerances": {
+    "relative": 2e-12,
+    "cp_over_R_absolute": 5e-12,
+    "enthalpy_over_R_k_absolute": 3e-08,
+    "entropy_over_R_absolute": 5e-11
+  },
+  "references": [
+    "https://cantera.org/3.2/cxx/d7/dfa/classCantera_1_1IdealGasPhase.html",
+    "https://ntrs.nasa.gov/citations/20020085330"
+  ],
+  "cases": [
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "cp_over_R": 3.501268898628924,
+      "enthalpy_over_R_k": -343.92711645343485,
+      "entropy_over_R": 29.4098928745251
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "cp_over_R": 3.501268898628924,
+      "enthalpy_over_R_k": -343.92711645343485,
+      "entropy_over_R": 22.502137595542962
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "cp_over_R": 3.501268898628924,
+      "enthalpy_over_R_k": -343.92711645343485,
+      "entropy_over_R": 17.203820228994925
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "cp_over_R": 3.5092496094851064,
+      "enthalpy_over_R_k": 2.574964465691388e-07,
+      "entropy_over_R": 30.808906178666096
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "cp_over_R": 3.5092496094851064,
+      "enthalpy_over_R_k": 2.574964465691388e-07,
+      "entropy_over_R": 23.90115089968396
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "cp_over_R": 3.5092496094851064,
+      "enthalpy_over_R_k": 2.574964465691388e-07,
+      "entropy_over_R": 18.60283353313592
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "cp_over_R": 3.987670105569589,
+      "enthalpy_over_R_k": 2612.747015425795,
+      "entropy_over_R": 35.25356038595035
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "cp_over_R": 3.987670105569589,
+      "enthalpy_over_R_k": 2612.747015425795,
+      "entropy_over_R": 28.34580510696821
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "cp_over_R": 3.987670105569589,
+      "enthalpy_over_R_k": 2612.747015425795,
+      "entropy_over_R": 23.047487740420173
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "cp_over_R": 4.579067254666862,
+      "enthalpy_over_R_k": 13564.461322573892,
+      "entropy_over_R": 40.66838494119309
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "cp_over_R": 4.579067254666862,
+      "enthalpy_over_R_k": 13564.461322573892,
+      "entropy_over_R": 33.76062966221095
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "cp_over_R": 4.579067254666862,
+      "enthalpy_over_R_k": 13564.461322573892,
+      "entropy_over_R": 28.462312295662915
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "cp_over_R": 4.759164387952084,
+      "enthalpy_over_R_k": 25244.82448714352,
+      "entropy_over_R": 43.18245175448833
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "cp_over_R": 4.759164387952084,
+      "enthalpy_over_R_k": 25244.82448714352,
+      "entropy_over_R": 36.2746964755062
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "cp_over_R": 4.759164387952084,
+      "enthalpy_over_R_k": 25244.82448714352,
+      "entropy_over_R": 30.97637910895816
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mass",
+      "temperature_k": 200,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "N2": 0.8112175310682614,
+        "O2": 0.18878246893173856
+      },
+      "cp_over_R": 3.5012216340076603,
+      "enthalpy_over_R_k": -343.8991703320353,
+      "entropy_over_R": 29.345943751074397
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mass",
+      "temperature_k": 200,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "N2": 0.8112175310682614,
+        "O2": 0.18878246893173856
+      },
+      "cp_over_R": 3.5012216340076603,
+      "enthalpy_over_R_k": -343.8991703320353,
+      "entropy_over_R": 22.43818847209226
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mass",
+      "temperature_k": 200,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "N2": 0.8112175310682614,
+        "O2": 0.18878246893173856
+      },
+      "cp_over_R": 3.5012216340076603,
+      "enthalpy_over_R_k": -343.8991703320353,
+      "entropy_over_R": 17.139871105544223
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mass",
+      "temperature_k": 298.15,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "N2": 0.8112175310682614,
+        "O2": 0.18878246893173856
+      },
+      "cp_over_R": 3.5086014272678967,
+      "enthalpy_over_R_k": 3.0578242457350307e-07,
+      "entropy_over_R": 30.744850548300484
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mass",
+      "temperature_k": 298.15,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "N2": 0.8112175310682614,
+        "O2": 0.18878246893173856
+      },
+      "cp_over_R": 3.5086014272678967,
+      "enthalpy_over_R_k": 3.0578242457350307e-07,
+      "entropy_over_R": 23.837095269318347
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mass",
+      "temperature_k": 298.15,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "N2": 0.8112175310682614,
+        "O2": 0.18878246893173856
+      },
+      "cp_over_R": 3.5086014272678967,
+      "enthalpy_over_R_k": 3.0578242457350307e-07,
+      "entropy_over_R": 18.53877790277031
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mass",
+      "temperature_k": 1000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "N2": 0.8112175310682614,
+        "O2": 0.18878246893173856
+      },
+      "cp_over_R": 3.9820914574047483,
+      "enthalpy_over_R_k": 2609.5701028866183,
+      "entropy_over_R": 35.184715239843314
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mass",
+      "temperature_k": 1000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "N2": 0.8112175310682614,
+        "O2": 0.18878246893173856
+      },
+      "cp_over_R": 3.9820914574047483,
+      "enthalpy_over_R_k": 2609.5701028866183,
+      "entropy_over_R": 28.27695996086118
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mass",
+      "temperature_k": 1000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "N2": 0.8112175310682614,
+        "O2": 0.18878246893173856
+      },
+      "cp_over_R": 3.9820914574047483,
+      "enthalpy_over_R_k": 2609.5701028866183,
+      "entropy_over_R": 22.978642594313143
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mass",
+      "temperature_k": 3500,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "N2": 0.8112175310682614,
+        "O2": 0.18878246893173856
+      },
+      "cp_over_R": 4.569920917461505,
+      "enthalpy_over_R_k": 13546.495528199463,
+      "entropy_over_R": 40.59260771237128
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mass",
+      "temperature_k": 3500,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "N2": 0.8112175310682614,
+        "O2": 0.18878246893173856
+      },
+      "cp_over_R": 4.569920917461505,
+      "enthalpy_over_R_k": 13546.495528199463,
+      "entropy_over_R": 33.684852433389146
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mass",
+      "temperature_k": 3500,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "N2": 0.8112175310682614,
+        "O2": 0.18878246893173856
+      },
+      "cp_over_R": 4.569920917461505,
+      "enthalpy_over_R_k": 13546.495528199463,
+      "entropy_over_R": 28.38653506684111
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mass",
+      "temperature_k": 6000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "N2": 0.8112175310682614,
+        "O2": 0.18878246893173856
+      },
+      "cp_over_R": 4.745017324181786,
+      "enthalpy_over_R_k": 25196.418858060788,
+      "entropy_over_R": 43.10023714454345
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mass",
+      "temperature_k": 6000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "N2": 0.8112175310682614,
+        "O2": 0.18878246893173856
+      },
+      "cp_over_R": 4.745017324181786,
+      "enthalpy_over_R_k": 25196.418858060788,
+      "entropy_over_R": 36.19248186556131
+    },
+    {
+      "input_fractions": {
+        "N2": 0.79,
+        "O2": 0.21
+      },
+      "basis": "mass",
+      "temperature_k": 6000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "N2": 0.8112175310682614,
+        "O2": 0.18878246893173856
+      },
+      "cp_over_R": 4.745017324181786,
+      "enthalpy_over_R_k": 25196.418858060788,
+      "entropy_over_R": 30.894164499013275
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "cp_over_R": 3.9753408479121273,
+      "enthalpy_over_R_k": -34957.31327882359,
+      "entropy_over_R": 29.50726092918632
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "cp_over_R": 3.9753408479121273,
+      "enthalpy_over_R_k": -34957.31327882359,
+      "entropy_over_R": 22.599505650204183
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "cp_over_R": 3.9753408479121273,
+      "enthalpy_over_R_k": -34957.31327882359,
+      "entropy_over_R": 17.301188283656145
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "cp_over_R": 4.16765552373391,
+      "enthalpy_over_R_k": -34557.80319553986,
+      "entropy_over_R": 31.129944973066998
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "cp_over_R": 4.16765552373391,
+      "enthalpy_over_R_k": -34557.80319553986,
+      "entropy_over_R": 24.22218969408486
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "cp_over_R": 4.16765552373391,
+      "enthalpy_over_R_k": -34557.80319553986,
+      "entropy_over_R": 18.923872327536824
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "cp_over_R": 5.4358399215371,
+      "enthalpy_over_R_k": -31163.461826008075,
+      "entropy_over_R": 36.82940023751867
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "cp_over_R": 5.4358399215371,
+      "enthalpy_over_R_k": -31163.461826008075,
+      "entropy_over_R": 29.92164495853653
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "cp_over_R": 5.4358399215371,
+      "enthalpy_over_R_k": -31163.461826008075,
+      "entropy_over_R": 24.62332759198849
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "cp_over_R": 7.166469421390272,
+      "enthalpy_over_R_k": -14746.32607645661,
+      "entropy_over_R": 44.83158325486049
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "cp_over_R": 7.166469421390272,
+      "enthalpy_over_R_k": -14746.32607645661,
+      "entropy_over_R": 37.92382797587835
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "cp_over_R": 7.166469421390272,
+      "enthalpy_over_R_k": -14746.32607645661,
+      "entropy_over_R": 32.62551060933032
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "cp_over_R": 7.6755386310976546,
+      "enthalpy_over_R_k": 3805.1950732736864,
+      "entropy_over_R": 48.819320342070995
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "cp_over_R": 7.6755386310976546,
+      "enthalpy_over_R_k": 3805.1950732736864,
+      "entropy_over_R": 41.91156506308886
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "cp_over_R": 7.6755386310976546,
+      "enthalpy_over_R_k": 3805.1950732736864,
+      "entropy_over_R": 36.613247696540824
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mass",
+      "temperature_k": 200,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2O": 0.8507484169139333,
+        "CO2": 0.14925158308606662
+      },
+      "cp_over_R": 3.993259126099064,
+      "enthalpy_over_R_k": -32204.815888101562,
+      "entropy_over_R": 28.873748868830354
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mass",
+      "temperature_k": 200,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2O": 0.8507484169139333,
+        "CO2": 0.14925158308606662
+      },
+      "cp_over_R": 3.993259126099064,
+      "enthalpy_over_R_k": -32204.815888101562,
+      "entropy_over_R": 21.965993589848217
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mass",
+      "temperature_k": 200,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2O": 0.8507484169139333,
+        "CO2": 0.14925158308606662
+      },
+      "cp_over_R": 3.993259126099064,
+      "enthalpy_over_R_k": -32204.815888101562,
+      "entropy_over_R": 16.66767622330018
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mass",
+      "temperature_k": 298.15,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2O": 0.8507484169139333,
+        "CO2": 0.14925158308606662
+      },
+      "cp_over_R": 4.1033334235886345,
+      "enthalpy_over_R_k": -31807.656425037298,
+      "entropy_over_R": 30.487976580185048
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mass",
+      "temperature_k": 298.15,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2O": 0.8507484169139333,
+        "CO2": 0.14925158308606662
+      },
+      "cp_over_R": 4.1033334235886345,
+      "enthalpy_over_R_k": -31807.656425037298,
+      "entropy_over_R": 23.58022130120291
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mass",
+      "temperature_k": 298.15,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2O": 0.8507484169139333,
+        "CO2": 0.14925158308606662
+      },
+      "cp_over_R": 4.1033334235886345,
+      "enthalpy_over_R_k": -31807.656425037298,
+      "entropy_over_R": 18.281903934654874
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mass",
+      "temperature_k": 1000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2O": 0.8507484169139333,
+        "CO2": 0.14925158308606662
+      },
+      "cp_over_R": 5.199819135128872,
+      "enthalpy_over_R_k": -28547.418675609213,
+      "entropy_over_R": 35.97707989378326
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mass",
+      "temperature_k": 1000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2O": 0.8507484169139333,
+        "CO2": 0.14925158308606662
+      },
+      "cp_over_R": 5.199819135128872,
+      "enthalpy_over_R_k": -28547.418675609213,
+      "entropy_over_R": 29.069324614801126
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mass",
+      "temperature_k": 1000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2O": 0.8507484169139333,
+        "CO2": 0.14925158308606662
+      },
+      "cp_over_R": 5.199819135128872,
+      "enthalpy_over_R_k": -28547.418675609213,
+      "entropy_over_R": 23.77100724825309
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mass",
+      "temperature_k": 3500,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2O": 0.8507484169139333,
+        "CO2": 0.14925158308606662
+      },
+      "cp_over_R": 7.085870897061913,
+      "enthalpy_over_R_k": -12496.341149844257,
+      "entropy_over_R": 43.77350450825728
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mass",
+      "temperature_k": 3500,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2O": 0.8507484169139333,
+        "CO2": 0.14925158308606662
+      },
+      "cp_over_R": 7.085870897061913,
+      "enthalpy_over_R_k": -12496.341149844257,
+      "entropy_over_R": 36.865749229275146
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mass",
+      "temperature_k": 3500,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2O": 0.8507484169139333,
+        "CO2": 0.14925158308606662
+      },
+      "cp_over_R": 7.085870897061913,
+      "enthalpy_over_R_k": -12496.341149844257,
+      "entropy_over_R": 31.56743186272711
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mass",
+      "temperature_k": 6000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2O": 0.8507484169139333,
+        "CO2": 0.14925158308606662
+      },
+      "cp_over_R": 7.599145756650613,
+      "enthalpy_over_R_k": 5885.315016606799,
+      "entropy_over_R": 47.72442104567777
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mass",
+      "temperature_k": 6000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2O": 0.8507484169139333,
+        "CO2": 0.14925158308606662
+      },
+      "cp_over_R": 7.599145756650613,
+      "enthalpy_over_R_k": 5885.315016606799,
+      "entropy_over_R": 40.816665766695635
+    },
+    {
+      "input_fractions": {
+        "H2O": 0.7,
+        "CO2": 0.3
+      },
+      "basis": "mass",
+      "temperature_k": 6000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2O": 0.8507484169139333,
+        "CO2": 0.14925158308606662
+      },
+      "cp_over_R": 7.599145756650613,
+      "enthalpy_over_R_k": 5885.315016606799,
+      "entropy_over_R": 35.5183484001476
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "cp_over_R": 3.5461718877200403,
+      "enthalpy_over_R_k": 1893.5285766000388,
+      "entropy_over_R": 28.1157391147861
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "cp_over_R": 3.5461718877200403,
+      "enthalpy_over_R_k": 1893.5285766000388,
+      "entropy_over_R": 21.20798383580396
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "cp_over_R": 3.5461718877200403,
+      "enthalpy_over_R_k": 1893.5285766000388,
+      "entropy_over_R": 15.909666469255923
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "cp_over_R": 3.5508953740579057,
+      "enthalpy_over_R_k": 2241.7560377401687,
+      "entropy_over_R": 29.532291128781996
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "cp_over_R": 3.5508953740579057,
+      "enthalpy_over_R_k": 2241.7560377401687,
+      "entropy_over_R": 22.62453584979986
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "cp_over_R": 3.5508953740579057,
+      "enthalpy_over_R_k": 2241.7560377401687,
+      "entropy_over_R": 17.32621848325182
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "cp_over_R": 3.8302965524215,
+      "enthalpy_over_R_k": 4816.6008375146575,
+      "entropy_over_R": 33.93848865779279
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "cp_over_R": 3.8302965524215,
+      "enthalpy_over_R_k": 4816.6008375146575,
+      "entropy_over_R": 27.030733378810655
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "cp_over_R": 3.8302965524215,
+      "enthalpy_over_R_k": 4816.6008375146575,
+      "entropy_over_R": 21.732416012262618
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "cp_over_R": 4.66874903839492,
+      "enthalpy_over_R_k": 15624.712315842686,
+      "entropy_over_R": 39.24517723960591
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "cp_over_R": 4.66874903839492,
+      "enthalpy_over_R_k": 15624.712315842686,
+      "entropy_over_R": 32.33742196062377
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "cp_over_R": 4.66874903839492,
+      "enthalpy_over_R_k": 15624.712315842686,
+      "entropy_over_R": 27.039104594075734
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "cp_over_R": 5.01684354897011,
+      "enthalpy_over_R_k": 27801.309167269028,
+      "entropy_over_R": 41.86175563155983
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "cp_over_R": 5.01684354897011,
+      "enthalpy_over_R_k": 27801.309167269028,
+      "entropy_over_R": 34.954000352577694
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "cp_over_R": 5.01684354897011,
+      "enthalpy_over_R_k": 27801.309167269028,
+      "entropy_over_R": 29.655682986029657
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mass",
+      "temperature_k": 200,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 0.7189987939175599,
+        "O2": 0.06794388955285185,
+        "OH": 0.21305731652958823
+      },
+      "cp_over_R": 3.3932849239647385,
+      "enthalpy_over_R_k": 615.9737309084255,
+      "entropy_over_R": 23.963692628637713
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mass",
+      "temperature_k": 200,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 0.7189987939175599,
+        "O2": 0.06794388955285185,
+        "OH": 0.21305731652958823
+      },
+      "cp_over_R": 3.3932849239647385,
+      "enthalpy_over_R_k": 615.9737309084255,
+      "entropy_over_R": 17.055937349655576
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mass",
+      "temperature_k": 200,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 0.7189987939175599,
+        "O2": 0.06794388955285185,
+        "OH": 0.21305731652958823
+      },
+      "cp_over_R": 3.3932849239647385,
+      "enthalpy_over_R_k": 615.9737309084255,
+      "entropy_over_R": 11.757619983107539
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mass",
+      "temperature_k": 298.15,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 0.7189987939175599,
+        "O2": 0.06794388955285185,
+        "OH": 0.21305731652958823
+      },
+      "cp_over_R": 3.4995310266836928,
+      "enthalpy_over_R_k": 955.24505131501,
+      "entropy_over_R": 25.342458183902096
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mass",
+      "temperature_k": 298.15,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 0.7189987939175599,
+        "O2": 0.06794388955285185,
+        "OH": 0.21305731652958823
+      },
+      "cp_over_R": 3.4995310266836928,
+      "enthalpy_over_R_k": 955.24505131501,
+      "entropy_over_R": 18.43470290491996
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mass",
+      "temperature_k": 298.15,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 0.7189987939175599,
+        "O2": 0.06794388955285185,
+        "OH": 0.21305731652958823
+      },
+      "cp_over_R": 3.4995310266836928,
+      "enthalpy_over_R_k": 955.24505131501,
+      "entropy_over_R": 13.136385538371922
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mass",
+      "temperature_k": 1000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 0.7189987939175599,
+        "O2": 0.06794388955285185,
+        "OH": 0.21305731652958823
+      },
+      "cp_over_R": 3.683366557400075,
+      "enthalpy_over_R_k": 3465.124879875043,
+      "entropy_over_R": 29.651848032586866
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mass",
+      "temperature_k": 1000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 0.7189987939175599,
+        "O2": 0.06794388955285185,
+        "OH": 0.21305731652958823
+      },
+      "cp_over_R": 3.683366557400075,
+      "enthalpy_over_R_k": 3465.124879875043,
+      "entropy_over_R": 22.74409275360473
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mass",
+      "temperature_k": 1000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 0.7189987939175599,
+        "O2": 0.06794388955285185,
+        "OH": 0.21305731652958823
+      },
+      "cp_over_R": 3.683366557400075,
+      "enthalpy_over_R_k": 3465.124879875043,
+      "entropy_over_R": 17.445775387056692
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mass",
+      "temperature_k": 3500,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 0.7189987939175599,
+        "O2": 0.06794388955285185,
+        "OH": 0.21305731652958823
+      },
+      "cp_over_R": 4.601601731311135,
+      "enthalpy_over_R_k": 14002.71515028584,
+      "entropy_over_R": 34.81047858119392
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mass",
+      "temperature_k": 3500,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 0.7189987939175599,
+        "O2": 0.06794388955285185,
+        "OH": 0.21305731652958823
+      },
+      "cp_over_R": 4.601601731311135,
+      "enthalpy_over_R_k": 14002.71515028584,
+      "entropy_over_R": 27.90272330221178
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mass",
+      "temperature_k": 3500,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 0.7189987939175599,
+        "O2": 0.06794388955285185,
+        "OH": 0.21305731652958823
+      },
+      "cp_over_R": 4.601601731311135,
+      "enthalpy_over_R_k": 14002.71515028584,
+      "entropy_over_R": 22.604405935663742
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mass",
+      "temperature_k": 6000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 0.7189987939175599,
+        "O2": 0.06794388955285185,
+        "OH": 0.21305731652958823
+      },
+      "cp_over_R": 5.019702276085367,
+      "enthalpy_over_R_k": 26101.582693596036,
+      "entropy_over_R": 37.408495496116004
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mass",
+      "temperature_k": 6000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 0.7189987939175599,
+        "O2": 0.06794388955285185,
+        "OH": 0.21305731652958823
+      },
+      "cp_over_R": 5.019702276085367,
+      "enthalpy_over_R_k": 26101.582693596036,
+      "entropy_over_R": 30.50074021713387
+    },
+    {
+      "input_fractions": {
+        "H2": 0.2,
+        "O2": 0.3,
+        "OH": 0.5
+      },
+      "basis": "mass",
+      "temperature_k": 6000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 0.7189987939175599,
+        "O2": 0.06794388955285185,
+        "OH": 0.21305731652958823
+      },
+      "cp_over_R": 5.019702276085367,
+      "enthalpy_over_R_k": 26101.582693596036,
+      "entropy_over_R": 25.202422850585833
+    },
+    {
+      "input_fractions": {
+        "H2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 1.0
+      },
+      "cp_over_R": 3.300863036884,
+      "enthalpy_over_R_k": -333.78801473458253,
+      "entropy_over_R": 21.26933084306154
+    },
+    {
+      "input_fractions": {
+        "H2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 1.0
+      },
+      "cp_over_R": 3.300863036884,
+      "enthalpy_over_R_k": -333.78801473458253,
+      "entropy_over_R": 14.3615755640794
+    },
+    {
+      "input_fractions": {
+        "H2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 1.0
+      },
+      "cp_over_R": 3.300863036884,
+      "enthalpy_over_R_k": -333.78801473458253,
+      "entropy_over_R": 9.063258197531365
+    },
+    {
+      "input_fractions": {
+        "H2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 1.0
+      },
+      "cp_over_R": 3.4681955770788013,
+      "enthalpy_over_R_k": -3.2675272514381955e-07,
+      "entropy_over_R": 22.624979057405202
+    },
+    {
+      "input_fractions": {
+        "H2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 1.0
+      },
+      "cp_over_R": 3.4681955770788013,
+      "enthalpy_over_R_k": -3.2675272514381955e-07,
+      "entropy_over_R": 15.717223778423065
+    },
+    {
+      "input_fractions": {
+        "H2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 1.0
+      },
+      "cp_over_R": 3.4681955770788013,
+      "enthalpy_over_R_k": -3.2675272514381955e-07,
+      "entropy_over_R": 10.418906411875028
+    },
+    {
+      "input_fractions": {
+        "H2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 1.0
+      },
+      "cp_over_R": 3.6329636219000006,
+      "enthalpy_over_R_k": 2487.0997214374347,
+      "entropy_over_R": 26.89891495294302
+    },
+    {
+      "input_fractions": {
+        "H2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 1.0
+      },
+      "cp_over_R": 3.6329636219000006,
+      "enthalpy_over_R_k": 2487.0997214374347,
+      "entropy_over_R": 19.991159673960883
+    },
+    {
+      "input_fractions": {
+        "H2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 1.0
+      },
+      "cp_over_R": 3.6329636219000006,
+      "enthalpy_over_R_k": 2487.0997214374347,
+      "entropy_over_R": 14.692842307412846
+    },
+    {
+      "input_fractions": {
+        "H2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 1.0
+      },
+      "cp_over_R": 4.58650742272079,
+      "enthalpy_over_R_k": 12933.975181668702,
+      "entropy_over_R": 32.00659991199714
+    },
+    {
+      "input_fractions": {
+        "H2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 1.0
+      },
+      "cp_over_R": 4.58650742272079,
+      "enthalpy_over_R_k": 12933.975181668702,
+      "entropy_over_R": 25.09884463301501
+    },
+    {
+      "input_fractions": {
+        "H2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 1.0
+      },
+      "cp_over_R": 4.58650742272079,
+      "enthalpy_over_R_k": 12933.975181668702,
+      "entropy_over_R": 19.800527266466972
+    },
+    {
+      "input_fractions": {
+        "H2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 1.0
+      },
+      "cp_over_R": 5.046780124761113,
+      "enthalpy_over_R_k": 25048.135994479184,
+      "entropy_over_R": 34.60685380733709
+    },
+    {
+      "input_fractions": {
+        "H2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 1.0
+      },
+      "cp_over_R": 5.046780124761113,
+      "enthalpy_over_R_k": 25048.135994479184,
+      "entropy_over_R": 27.699098528354956
+    },
+    {
+      "input_fractions": {
+        "H2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 1.0
+      },
+      "cp_over_R": 5.046780124761113,
+      "enthalpy_over_R_k": 25048.135994479184,
+      "entropy_over_R": 22.40078116180692
+    },
+    {
+      "input_fractions": {
+        "O2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "O2": 1.0
+      },
+      "cp_over_R": 3.5030287193488006,
+      "enthalpy_over_R_k": -344.96764448822927,
+      "entropy_over_R": 30.178445331939912
+    },
+    {
+      "input_fractions": {
+        "O2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "O2": 1.0
+      },
+      "cp_over_R": 3.5030287193488006,
+      "enthalpy_over_R_k": -344.96764448822927,
+      "entropy_over_R": 23.270690052957775
+    },
+    {
+      "input_fractions": {
+        "O2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "O2": 1.0
+      },
+      "cp_over_R": 3.5030287193488006,
+      "enthalpy_over_R_k": -344.96764448822927,
+      "entropy_over_R": 17.972372686409738
+    },
+    {
+      "input_fractions": {
+        "O2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "O2": 1.0
+      },
+      "cp_over_R": 3.533383612161839,
+      "enthalpy_over_R_k": -1.5403528178303815e-06,
+      "entropy_over_R": 31.581424246523703
+    },
+    {
+      "input_fractions": {
+        "O2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "O2": 1.0
+      },
+      "cp_over_R": 3.533383612161839,
+      "enthalpy_over_R_k": -1.5403528178303815e-06,
+      "entropy_over_R": 24.67366896754157
+    },
+    {
+      "input_fractions": {
+        "O2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "O2": 1.0
+      },
+      "cp_over_R": 3.533383612161839,
+      "enthalpy_over_R_k": -1.5403528178303815e-06,
+      "entropy_over_R": 19.375351600993532
+    },
+    {
+      "input_fractions": {
+        "O2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "O2": 1.0
+      },
+      "cp_over_R": 4.195381928215,
+      "enthalpy_over_R_k": 2731.0341477916677,
+      "entropy_over_R": 36.204408223824466
+    },
+    {
+      "input_fractions": {
+        "O2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "O2": 1.0
+      },
+      "cp_over_R": 4.195381928215,
+      "enthalpy_over_R_k": 2731.0341477916677,
+      "entropy_over_R": 29.29665294484233
+    },
+    {
+      "input_fractions": {
+        "O2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "O2": 1.0
+      },
+      "cp_over_R": 4.195381928215,
+      "enthalpy_over_R_k": 2731.0341477916677,
+      "entropy_over_R": 23.99833557829429
+    },
+    {
+      "input_fractions": {
+        "O2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "O2": 1.0
+      },
+      "cp_over_R": 4.919616132337162,
+      "enthalpy_over_R_k": 14233.38823542432,
+      "entropy_over_R": 41.87733751929605
+    },
+    {
+      "input_fractions": {
+        "O2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "O2": 1.0
+      },
+      "cp_over_R": 4.919616132337162,
+      "enthalpy_over_R_k": 14233.38823542432,
+      "entropy_over_R": 34.96958224031391
+    },
+    {
+      "input_fractions": {
+        "O2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "O2": 1.0
+      },
+      "cp_over_R": 4.919616132337162,
+      "enthalpy_over_R_k": 14233.38823542432,
+      "entropy_over_R": 29.671264873765875
+    },
+    {
+      "input_fractions": {
+        "O2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "O2": 1.0
+      },
+      "cp_over_R": 5.28590712454,
+      "enthalpy_over_R_k": 27047.128763372864,
+      "entropy_over_R": 44.6310896697247
+    },
+    {
+      "input_fractions": {
+        "O2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "O2": 1.0
+      },
+      "cp_over_R": 5.28590712454,
+      "enthalpy_over_R_k": 27047.128763372864,
+      "entropy_over_R": 37.723334390742565
+    },
+    {
+      "input_fractions": {
+        "O2": 1
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "O2": 1.0
+      },
+      "cp_over_R": 5.28590712454,
+      "enthalpy_over_R_k": 27047.128763372864,
+      "entropy_over_R": 32.42501702419453
+    },
+    {
+      "input_fractions": {
+        "H2O": 1
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2O": 1.0
+      },
+      "cp_over_R": 4.0109994874264,
+      "enthalpy_over_R_k": -29479.64900797389,
+      "entropy_over_R": 28.012692935578507
+    },
+    {
+      "input_fractions": {
+        "H2O": 1
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2O": 1.0
+      },
+      "cp_over_R": 4.0109994874264,
+      "enthalpy_over_R_k": -29479.64900797389,
+      "entropy_over_R": 21.10493765659637
+    },
+    {
+      "input_fractions": {
+        "H2O": 1
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2O": 1.0
+      },
+      "cp_over_R": 4.0109994874264,
+      "enthalpy_over_R_k": -29479.64900797389,
+      "entropy_over_R": 15.80662029004833
+    },
+    {
+      "input_fractions": {
+        "H2O": 1
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2O": 1.0
+      },
+      "cp_over_R": 4.039650000103108,
+      "enthalpy_over_R_k": -29084.816824997684,
+      "entropy_over_R": 29.61854828029451
+    },
+    {
+      "input_fractions": {
+        "H2O": 1
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2O": 1.0
+      },
+      "cp_over_R": 4.039650000103108,
+      "enthalpy_over_R_k": -29084.816824997684,
+      "entropy_over_R": 22.710793001312375
+    },
+    {
+      "input_fractions": {
+        "H2O": 1
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2O": 1.0
+      },
+      "cp_over_R": 4.039650000103108,
+      "enthalpy_over_R_k": -29084.816824997684,
+      "entropy_over_R": 17.412475634764338
+    },
+    {
+      "input_fractions": {
+        "H2O": 1
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2O": 1.0
+      },
+      "cp_over_R": 4.96614188177,
+      "enthalpy_over_R_k": -25957.351133862445,
+      "entropy_over_R": 34.899388301230445
+    },
+    {
+      "input_fractions": {
+        "H2O": 1
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2O": 1.0
+      },
+      "cp_over_R": 4.96614188177,
+      "enthalpy_over_R_k": -25957.351133862445,
+      "entropy_over_R": 27.991633022248312
+    },
+    {
+      "input_fractions": {
+        "H2O": 1
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2O": 1.0
+      },
+      "cp_over_R": 4.96614188177,
+      "enthalpy_over_R_k": -25957.351133862445,
+      "entropy_over_R": 22.693315655700275
+    },
+    {
+      "input_fractions": {
+        "H2O": 1
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2O": 1.0
+      },
+      "cp_over_R": 7.006072663709477,
+      "enthalpy_over_R_k": -10268.697111576139,
+      "entropy_over_R": 42.49209756008111
+    },
+    {
+      "input_fractions": {
+        "H2O": 1
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2O": 1.0
+      },
+      "cp_over_R": 7.006072663709477,
+      "enthalpy_over_R_k": -10268.697111576139,
+      "entropy_over_R": 35.58434228109898
+    },
+    {
+      "input_fractions": {
+        "H2O": 1
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2O": 1.0
+      },
+      "cp_over_R": 7.006072663709477,
+      "enthalpy_over_R_k": -10268.697111576139,
+      "entropy_over_R": 30.28602491455094
+    },
+    {
+      "input_fractions": {
+        "H2O": 1
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2O": 1.0
+      },
+      "cp_over_R": 7.5235114138088885,
+      "enthalpy_over_R_k": 7944.78072050615,
+      "entropy_over_R": 46.406559151846054
+    },
+    {
+      "input_fractions": {
+        "H2O": 1
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2O": 1.0
+      },
+      "cp_over_R": 7.5235114138088885,
+      "enthalpy_over_R_k": 7944.78072050615,
+      "entropy_over_R": 39.49880387286392
+    },
+    {
+      "input_fractions": {
+        "H2O": 1
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2O": 1.0
+      },
+      "cp_over_R": 7.5235114138088885,
+      "enthalpy_over_R_k": 7944.78072050615,
+      "entropy_over_R": 34.20048650631588
+    },
+    {
+      "input_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "cp_over_R": 3.464305030605201,
+      "enthalpy_over_R_k": -4144.9604232612455,
+      "entropy_over_R": 29.1429629934675
+    },
+    {
+      "input_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "cp_over_R": 3.464305030605201,
+      "enthalpy_over_R_k": -4144.9604232612455,
+      "entropy_over_R": 22.235207714485362
+    },
+    {
+      "input_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "basis": "mole",
+      "temperature_k": 200,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "cp_over_R": 3.464305030605201,
+      "enthalpy_over_R_k": -4144.9604232612455,
+      "entropy_over_R": 16.936890347937325
+    },
+    {
+      "input_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "cp_over_R": 3.5537756647423278,
+      "enthalpy_over_R_k": -3800.8151965966067,
+      "entropy_over_R": 30.54179074733922
+    },
+    {
+      "input_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "cp_over_R": 3.5537756647423278,
+      "enthalpy_over_R_k": -3800.8151965966067,
+      "entropy_over_R": 23.634035468357084
+    },
+    {
+      "input_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "basis": "mole",
+      "temperature_k": 298.15,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "cp_over_R": 3.5537756647423278,
+      "enthalpy_over_R_k": -3800.8151965966067,
+      "entropy_over_R": 18.335718101809046
+    },
+    {
+      "input_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "cp_over_R": 4.481610029020986,
+      "enthalpy_over_R_k": -974.5058360194217,
+      "entropy_over_R": 35.30061237253084
+    },
+    {
+      "input_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "cp_over_R": 4.481610029020986,
+      "enthalpy_over_R_k": -974.5058360194217,
+      "entropy_over_R": 28.392857093548706
+    },
+    {
+      "input_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "basis": "mole",
+      "temperature_k": 1000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "cp_over_R": 4.481610029020986,
+      "enthalpy_over_R_k": -974.5058360194217,
+      "entropy_over_R": 23.09453972700067
+    },
+    {
+      "input_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "cp_over_R": 5.704902977989173,
+      "enthalpy_over_R_k": 12167.12485405317,
+      "entropy_over_R": 41.731482302269406
+    },
+    {
+      "input_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "cp_over_R": 5.704902977989173,
+      "enthalpy_over_R_k": 12167.12485405317,
+      "entropy_over_R": 34.82372702328727
+    },
+    {
+      "input_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "basis": "mole",
+      "temperature_k": 3500,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "cp_over_R": 5.704902977989173,
+      "enthalpy_over_R_k": 12167.12485405317,
+      "entropy_over_R": 29.52540965673923
+    },
+    {
+      "input_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 100,
+      "cantera_mole_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "cp_over_R": 6.274104464155174,
+      "enthalpy_over_R_k": 27140.56905786678,
+      "entropy_over_R": 44.94613381374164
+    },
+    {
+      "input_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 100000,
+      "cantera_mole_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "cp_over_R": 6.274104464155174,
+      "enthalpy_over_R_k": 27140.56905786678,
+      "entropy_over_R": 38.0383785347595
+    },
+    {
+      "input_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "basis": "mole",
+      "temperature_k": 6000,
+      "pressure_pa": 20000000.0,
+      "cantera_mole_fractions": {
+        "H2": 0.1,
+        "O2": 0.1,
+        "H2O": 0.1,
+        "OH": 0.1,
+        "H": 0.1,
+        "O": 0.1,
+        "N2": 0.1,
+        "CO": 0.1,
+        "CO2": 0.1,
+        "CH4": 0.1
+      },
+      "cp_over_R": 6.274104464155174,
+      "enthalpy_over_R_k": 27140.56905786678,
+      "entropy_over_R": 32.74006116821147
+    }
+  ]
+}

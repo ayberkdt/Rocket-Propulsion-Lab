@@ -6,3 +6,6 @@ docs/assurance/lunaris_impulse.patch -text whitespace=-blank-at-eol
 *.cmd text eol=crlf
 # Vendored presets are pinned by SHA-256 in PROVENANCE.json: keep their bytes exactly.
 src/rocket_propulsion/web/vendor/** -text
+# Mixture reference fixtures are pinned by SHA-256 in mixture_cantera_reference.json: keep their bytes exactly.
+docs/assurance/nasa9_catalogue_reference.json -text
+scripts/generate_mixture_cantera_reference.py -text

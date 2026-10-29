@@ -896,7 +896,7 @@ class CondensedEquilibriumProvider:
                     if reactant_temperature is None:
                         raise InputError("HP problems with gas reactants need reactant_temperature_k.",
                                          field="reactant_temperature_k")
-                    enthalpy += reactant.moles * record.properties(reactant_temperature).enthalpy_molar_j_mol
+                    enthalpy += reactant.moles * record._binary64_properties(reactant_temperature).enthalpy_molar_j_mol
         elements = tuple(sorted(inventory))
         allowed = set(elements)
         if problem.candidate_species is None:
