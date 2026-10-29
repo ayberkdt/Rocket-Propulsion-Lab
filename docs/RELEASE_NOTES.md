@@ -1,5 +1,12 @@
 # Release notes
 
+Variable cooling-channel profiles now capture single-pass columns once,
+normalize physical values and own channel counts and helix inputs. Direct
+queries refuse malformed coordinates; interpolation preserves finite geometry
+through unrepresentable spans or tiny barycentric weights. Caller-side mutation
+cannot change a constructed profile's coupled cooling result. See
+[REGEN_ADMISSION_REVIEW.md](REGEN_ADMISSION_REVIEW.md).
+
 NASA9 species properties are now formed from exact rational terms of the
 binary inputs, with a bounded Decimal enclosure of every logarithm, and each
 exported field is rounded once. A positive cv is decided before display

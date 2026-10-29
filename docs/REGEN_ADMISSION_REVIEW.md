@@ -62,6 +62,32 @@ catalog's primary equations of state). Relevant-environment hardware,
 measurement uncertainty and independent held-out data are still required
 for hardware maturity evidence.
 
+## Owned variable channel profiles
+
+The same ownership contract now covers `ChannelProfile`. Ordered finite
+columns are captured once, with typed field errors for malformed scalars or
+unordered containers. Roughness, helix angle and scalar/per-row counts become
+owned native values. Direct geometry/count coordinates are normalized before
+use, including the constant-count shortcut. Finite count queries retain their
+existing endpoint clamping and right-continuous bifurcation convention.
+
+Interpolation forms the complete convex combination from exact representations
+of the supplied floats before one output conversion. A finite interpolated
+dimension must not be lost because an axial span overflows or a barycentric
+weight underflows. The existing normal-span extent tolerance is retained;
+unrepresentable spans use an exact bound comparison.
+
+The retained baseline showed raw errors from double-consumed iterators, accepted
+boolean/text dimensions, caller-owned count/helix arithmetic and incorrect
+interpolation at synthetic extreme scales. In a real coupled methane-cooling
+calculation, mutating an accepted helix object changed total heat load from
+7429071.108330447 W to 7450866.895891617 W without replacing the profile. The new
+contract tests require the coupled solution to remain unchanged, preserve affine
+interpolation and count transitions, and check malformed-field refusals. These
+are equation/ownership checks; they are not physical heat-load validation or
+hardware qualification. Hot-gas records and other unreviewed boundaries remain
+outside this scoped repair.
+
 ## References
 
 - M. F. Wadel, NASA/TM-1998-206313, *Comparison of High Aspect Ratio Cooling

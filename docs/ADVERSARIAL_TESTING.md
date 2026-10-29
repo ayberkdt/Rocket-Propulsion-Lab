@@ -117,7 +117,7 @@ python scripts/run_numeric_mutations.py --output-dir output/assurance/numeric_mu
 ```
 
 `--case NAME` selects a particular fault and can be repeated. The current case
-file contains 63 selected admission, integer-budget, ownership, range, reuse and
+file contains 72 selected admission, integer-budget, ownership, range, profile, reuse and
 test-oracle faults. That count is an inventory, not a passing result or an
 exhaustive mutation score. Each case loads a fresh source/test copy, runs its
 original control, applies one compilable change, restores the exact original

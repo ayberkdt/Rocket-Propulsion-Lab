@@ -439,5 +439,68 @@
     "return _positive_decimal(logarithm.exp(), 'Ullage pressure')",
     "return 0.0",
     "tests/test_blowdown_range_numerics.py::BlowdownPressureRangeTests::test_forward_pressure_recovers_underflowed_power_after_scaling"
+  ],
+  [
+    "profile_scalar_ownership_removed",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "        coerce_fields(self, 'Channel profile')\n",
+    "",
+    "tests/test_channel_profile_contract.py::ChannelProfileContractTests::test_scalar_roughness_and_helix_do_not_retain_caller_conversion"
+  ],
+  [
+    "profile_columns_untyped",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "columns = {name: real_tuple(getattr(self, name), name) for name in",
+    "columns = {name: tuple(float(v) for v in getattr(self, name)) for name in",
+    "tests/test_channel_profile_contract.py::ChannelProfileContractTests::test_columns_refuse_invalid_scalars_with_correct_field"
+  ],
+  [
+    "profile_columns_consumed_twice",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "        columns = {name: real_tuple(getattr(self, name), name) for name in",
+    "        for name in ('x_m','width_m','height_m','hot_wall_thickness_m'): tuple(getattr(self,name))\n        columns = {name: real_tuple(getattr(self, name), name) for name in",
+    "tests/test_channel_profile_contract.py::ChannelProfileContractTests::test_single_pass_columns_retain_interpolation_and_nodes"
+  ],
+  [
+    "profile_scalar_count_ownership_removed",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "            object.__setattr__(self, 'count', integer(self.count, 'count'))\n",
+    "",
+    "tests/test_channel_profile_contract.py::ChannelProfileContractTests::test_native_counts_prevent_post_validation_flow_divisor_mutation"
+  ],
+  [
+    "profile_row_count_ownership_removed",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "counts = tuple(integer(value, 'count') for value in self.count)",
+    "counts = tuple(self.count)",
+    "tests/test_channel_profile_contract.py::ChannelProfileContractTests::test_native_counts_prevent_post_validation_flow_divisor_mutation"
+  ],
+  [
+    "profile_geometry_query_untyped",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "        \"\"\"Return ``(width, height, hot-wall thickness)`` at ``x_m`` by linear interpolation.\"\"\"\n        x_m = real(x_m, 'x_m')\n",
+    "        \"\"\"Return ``(width, height, hot-wall thickness)`` at ``x_m`` by linear interpolation.\"\"\"\n",
+    "tests/test_channel_profile_contract.py::ChannelProfileContractTests::test_direct_queries_refuse_malformed_coordinates_even_for_constant_count"
+  ],
+  [
+    "profile_count_query_untyped",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "        \"\"\"Return the channel count at ``x_m`` (piecewise constant, right-continuous).\"\"\"\n        x_m = real(x_m, 'x_m')\n",
+    "        \"\"\"Return the channel count at ``x_m`` (piecewise constant, right-continuous).\"\"\"\n",
+    "tests/test_channel_profile_contract.py::ChannelProfileContractTests::test_direct_queries_refuse_malformed_coordinates_even_for_constant_count"
+  ],
+  [
+    "profile_axial_span_rounded",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "        weight = min(Fraction(1), max(Fraction(0), (Fraction(x_m)-x0)/(x1-x0)))",
+    "        weight = Fraction(min(1.,max(0.,(x_m-float(x0))/(float(x1)-float(x0)))))",
+    "tests/test_channel_profile_contract.py::ChannelProfileContractTests::test_affine_geometry_survives_unrepresentable_axial_span"
+  ],
+  [
+    "profile_tiny_weight_erased",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "        weight = min(Fraction(1), max(Fraction(0), (Fraction(x_m)-x0)/(x1-x0)))",
+    "        weight = min(Fraction(1), max(Fraction(0), (Fraction(x_m)-x0)/(x1-x0)))\n        weight = Fraction(float(weight))",
+    "tests/test_channel_profile_contract.py::ChannelProfileContractTests::test_tiny_barycentric_terms_are_retained_before_geometry_scaling"
   ]
 ]

@@ -45,12 +45,19 @@ import itertools
 from bisect import bisect_right
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+from fractions import Fraction
 from math import cos, isfinite, pi, radians, sqrt
 from typing import Literal
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
-from rocket_propulsion.core.validation import coerce_fields, numeric_range_guard
+from rocket_propulsion.core.validation import (
+    coerce_fields,
+    integer,
+    numeric_range_guard,
+    real,
+    real_tuple,
+)
 from rocket_propulsion.geometry import NozzleContour
 from rocket_propulsion.heat_transfer import conduction, convection, radiation
 from rocket_propulsion.heat_transfer.channel_wall import solve_channel_wall_section
@@ -192,32 +199,32 @@ class ChannelProfile:
     helix_angle_deg: float = 0.0
 
     def __post_init__(self) -> None:
-        columns = {"x_m": self.x_m, "width_m": self.width_m, "height_m": self.height_m,
-                   "hot_wall_thickness_m": self.hot_wall_thickness_m}
-        sizes = {len(tuple(column)) for column in columns.values()}
+        coerce_fields(self, 'Channel profile')
+        columns = {name: real_tuple(getattr(self, name), name) for name in
+                   ('x_m', 'width_m', 'height_m', 'hot_wall_thickness_m')}
+        sizes = {len(column) for column in columns.values()}
         if len(sizes) != 1 or sizes.pop() < 2:
             raise DomainError("Channel profile columns need equal lengths of at least two.", field="x_m")
-        for name, column in columns.items():
-            values = tuple(float(value) for value in column)
-            if not all(isfinite(value) for value in values):
-                raise DomainError(f"{name} must be finite.", field=name)
+        for name, values in columns.items():
             if name != "x_m" and min(values) <= 0.0:
                 raise DomainError(f"{name} must be positive.", field=name)
             object.__setattr__(self, name, values)
         if any(b <= a for a, b in zip(self.x_m, self.x_m[1:], strict=False)):
             raise DomainError("x_m must be strictly increasing.", field="x_m")
         if isinstance(self.count, tuple | list):
-            counts = tuple(self.count)
+            counts = tuple(integer(value, 'count') for value in self.count)
             if len(counts) != len(self.x_m):
                 raise DomainError("count needs one entry per table row.", field="count")
             for value in counts:
                 _channel_scalars(value, self.roughness_m, self.helix_angle_deg)
             object.__setattr__(self, "count", counts)
         else:
+            object.__setattr__(self, 'count', integer(self.count, 'count'))
             _channel_scalars(self.count, self.roughness_m, self.helix_angle_deg)
 
     def count_at(self, x_m: float) -> int:
         """Return the channel count at ``x_m`` (piecewise constant, right-continuous)."""
+        x_m = real(x_m, 'x_m')
         if isinstance(self.count, int):
             return self.count
         index = min(max(bisect_right(self.x_m, x_m) - 1, 0), len(self.x_m) - 1)
@@ -225,14 +232,26 @@ class ChannelProfile:
 
     def geometry_at(self, x_m: float) -> tuple[float, float, float]:
         """Return ``(width, height, hot-wall thickness)`` at ``x_m`` by linear interpolation."""
+        x_m = real(x_m, 'x_m')
         span = self.x_m[-1] - self.x_m[0]
-        if not (self.x_m[0] - 1.0e-9 * span <= x_m <= self.x_m[-1] + 1.0e-9 * span):
+        if isfinite(span):
+            within = self.x_m[0] - 1.0e-9 * span <= x_m <= self.x_m[-1] + 1.0e-9 * span
+        else:
+            low, high, coordinate = map(Fraction, (self.x_m[0], self.x_m[-1], x_m))
+            tolerance = Fraction(1e-9) * (high-low)
+            within = low-tolerance <= coordinate <= high+tolerance
+        if not within:
             raise DomainError(f"x = {x_m:.6g} m lies outside the channel profile "
                               f"[{self.x_m[0]:.6g}, {self.x_m[-1]:.6g}] m.", field="x_m")
         index = min(max(bisect_right(self.x_m, x_m), 1), len(self.x_m) - 1)
-        x0, x1 = self.x_m[index - 1], self.x_m[index]
-        weight = min(1.0, max(0.0, (x_m - x0) / (x1 - x0)))
-        return tuple(column[index - 1] + weight * (column[index] - column[index - 1])  # type: ignore[return-value]
+        x0, x1 = map(Fraction, (self.x_m[index - 1], self.x_m[index]))
+        weight = min(Fraction(1), max(Fraction(0), (Fraction(x_m)-x0)/(x1-x0)))
+        # Evaluate each complete convex combination before exporting it. Both
+        # axial span and an individual weight can be unrepresentable while
+        # the positive interpolated geometry is finite. The result lies
+        # between the owned, positive finite endpoint dimensions.
+        return tuple(float((1-weight)*Fraction(column[index-1])
+                           + weight*Fraction(column[index]))  # type: ignore[return-value]
                      for column in (self.width_m, self.height_m, self.hot_wall_thickness_m))
 
 
