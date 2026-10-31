@@ -16,6 +16,11 @@ documented scaling requirements.
 
 ## Evidence that exists (software, independent references)
 
+- Geometry generators own physical inputs and discrete resolutions before flow
+  work, preserve the converging-only sonic limit, and refuse invalid sampled
+  output (`GEOMETRY_GENERATOR_REVIEW.md`). Independent equation, scale, export
+  and real-cooling controls do not qualify manufactured geometry or hardware.
+
 - Cooling contour admission now shares the prescribed Bartz geometry snapshot,
   with ordering/coherence and caller-mutation controls before EOS/axial work
   (`REGEN_CONTOUR_CONTRACT_REVIEW.md`). Conservation and generator regressions

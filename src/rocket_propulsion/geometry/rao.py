@@ -14,14 +14,16 @@ References
 from __future__ import annotations
 
 from itertools import pairwise
-from math import cos, isfinite, pi, radians, sqrt, tan
+from math import cos, pi, radians, sqrt, tan
 
 from rocket_propulsion.compressible import calculate_isentropic, mach_from_isentropic
 from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.validation import integer, numeric_range_guard, real
 
-from .nozzle_contour import NozzleContour, NozzleStation
+from .nozzle_contour import NozzleContour, NozzleStation, _checked_contour, _positive
 
 
+@numeric_range_guard('geometry')
 def generate_rao_contour(
     *,
     throat_area_m2: float,
@@ -90,27 +92,28 @@ def generate_rao_contour(
            Elements", 9th ed., Wiley, 2017.
     """
 
-    values = (
-        (throat_area_m2, "throat_area_m2"),
-        (area_ratio, "area_ratio"),
-        (length_fraction, "length_fraction"),
-        (chamber_radius_ratio, "chamber_radius_ratio"),
-    )
-    for value, field in values:
-        if not isfinite(value) or value <= 0.0:
-            raise DomainError(f"{field} must be finite and positive.", field=field)
+    throat_area_m2 = _positive(throat_area_m2, 'throat_area_m2')
+    area_ratio = _positive(area_ratio, 'area_ratio')
+    gamma = _positive(gamma, 'gamma')
+    length_fraction = _positive(length_fraction, 'length_fraction')
+    chamber_radius_ratio = _positive(chamber_radius_ratio, 'chamber_radius_ratio')
+    throat_angle_deg = real(throat_angle_deg, 'throat_angle_deg')
+    exit_angle_deg = real(exit_angle_deg, 'exit_angle_deg')
+    station_count = integer(station_count, 'station_count')
+    if gamma <= 1.0:
+        raise DomainError('Gamma must exceed one.', field='gamma')
     if area_ratio <= 1.0:
         raise DomainError("Rao area ratio must exceed one.", field="area_ratio")
     if not 0.6 <= length_fraction <= 1.0:
-        raise DomainError("Rao length fraction must be in [0.6, 1.0].")
+        raise DomainError("Rao length fraction must be in [0.6, 1.0].", field='length_fraction')
     if not 15.0 <= throat_angle_deg <= 40.0:
-        raise DomainError("Rao throat angle must be in [15, 40] degrees.")
+        raise DomainError("Rao throat angle must be in [15, 40] degrees.", field='throat_angle_deg')
     if not 0.0 <= exit_angle_deg < throat_angle_deg:
-        raise DomainError("Rao exit angle must be non-negative and below throat angle.")
+        raise DomainError("Rao exit angle must be non-negative and below throat angle.", field='exit_angle_deg')
     if chamber_radius_ratio <= 1.0:
-        raise DomainError("Chamber radius ratio must exceed one.")
+        raise DomainError("Chamber radius ratio must exceed one.", field='chamber_radius_ratio')
     if not 41 <= station_count <= 401:
-        raise DomainError("Station count must be between 41 and 401.")
+        raise DomainError("Station count must be between 41 and 401.", field='station_count')
 
     throat_radius = sqrt(throat_area_m2 / pi)
     exit_radius = throat_radius * sqrt(area_ratio)
@@ -180,7 +183,7 @@ def generate_rao_contour(
         for left, right in pairwise(stations)
     )
     effective_angle = 0.5 * (throat_angle_deg + exit_angle_deg)
-    return NozzleContour(
+    return _checked_contour(NozzleContour(
         contour="rao",
         throat_radius_m=throat_radius,
         chamber_radius_m=chamber_radius,
@@ -198,5 +201,5 @@ def generate_rao_contour(
         estimated_divergence_efficiency=0.5 * (1.0 + cos(radians(effective_angle))),
         surface_area_m2=surface_area,
         source="Rao-style quadratic tangent construction; NASA SP-8120 context",
-    )
+    ))
 

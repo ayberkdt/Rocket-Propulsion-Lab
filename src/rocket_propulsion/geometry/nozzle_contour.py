@@ -11,7 +11,7 @@ References
        Compressible Flow", NACA Report 1135, 1953.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from itertools import pairwise
 from math import cos, isfinite, pi, radians, sqrt, tan
 
@@ -20,6 +20,7 @@ from rocket_propulsion.compressible.isentropic import (
     mach_from_isentropic,
 )
 from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.validation import integer, numeric_range_guard, real, text
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,10 +121,41 @@ class NozzleContour:
     source: str | None = None
 
 
-def _positive(value: float, label: str) -> None:
-    """Raise :class:`DomainError` unless ``value`` is finite and positive."""
-    if not isfinite(value) or value <= 0.0:
-        raise DomainError(f"{label} must be finite and greater than zero.")
+def _positive(value: float, label: str) -> float:
+    """Own a finite positive scalar before geometry or flow work."""
+    value = real(value, label)
+    if value <= 0.0:
+        raise DomainError(f"{label} must be finite and greater than zero.", field=label)
+    return value
+
+
+def _checked_contour(contour: NozzleContour) -> NozzleContour:
+    """Refuse nonfinite, erased positive or unordered generated output.
+
+    This postflight is for producer-owned records. It does not change the
+    separate admission contracts of caller-created NozzleContour records or
+    certify a continuous wall, a flow field, or a manufactured nozzle.
+    """
+    positive = {'throat_radius_m', 'chamber_radius_m', 'exit_radius_m',
+                'converging_length_m', 'total_length_m', 'throat_area_m2',
+                'exit_area_m2', 'area_ratio', 'surface_area_m2'}
+    for item in fields(contour):
+        value = getattr(contour, item.name)
+        if isinstance(value, (float, int)) and (not isfinite(value) or value < 0.
+                                               or (item.name in positive and value == 0.)):
+            raise DomainError('Generated contour is outside its finite output range.',
+                              code='numeric_range', field=item.name)
+    for index, station in enumerate(contour.stations):
+        for item in fields(station):
+            value = getattr(station, item.name)
+            if (not isfinite(value) or (item.name not in ('x_m', 'mach') and value <= 0.)
+                    or (item.name == 'mach' and value < 0.)):
+                raise DomainError('Generated station is outside its finite output range.',
+                                  code='numeric_range', field=item.name)
+        if index and station.x_m <= contour.stations[index-1].x_m:
+            raise DomainError('Generated axial stations cannot be resolved as increasing floats.',
+                              code='numeric_range', field='x_m')
+    return contour
 
 
 def _hermite_radius(
@@ -166,6 +198,7 @@ def _hermite_radius(
     )
 
 
+@numeric_range_guard('geometry')
 def generate_nozzle_contour(
     *,
     throat_area_m2: float,
@@ -184,7 +217,8 @@ def generate_nozzle_contour(
     throat_area_m2 : float
         Throat area in m^2, finite and positive.
     area_ratio : float
-        Exit-to-throat area ratio, at least one.
+        Exit-to-throat area ratio, at least one. At one, all stations sample
+        the converging section ending at the sonic throat; no diverging span.
     gamma : float, default 1.22
         Ratio of specific heats for the station solution, greater than one.
     contour : str, default "preliminary"
@@ -220,7 +254,9 @@ def generate_nozzle_contour(
     ``(1 + cos(alpha))/2`` [1]_ with ``alpha`` the conical half-angle, or a
     representative 19 degrees for the preliminary contour. The wall area sums
     conical frusta between stations. Use :func:`generate_rao_contour` when an
-    explicit Rao/TOP construction is needed.
+    explicit Rao/TOP construction is needed. At unit area ratio the entire
+    sample budget resolves the cosine contraction ending at the sonic exit;
+    reported divergence angle and length are zero and divergence factor one.
 
     References
     ----------
@@ -230,31 +266,30 @@ def generate_nozzle_contour(
            Compressible Flow", NACA Report 1135, 1953.
     """
 
-    for value, label in (
-        (throat_area_m2, "Throat area"),
-        (area_ratio, "Area ratio"),
-        (half_angle_deg, "Half-angle"),
-        (chamber_radius_ratio, "Chamber radius ratio"),
-        (bell_length_fraction, "Bell length fraction"),
-    ):
-        _positive(value, label)
+    throat_area_m2 = _positive(throat_area_m2, 'throat_area_m2')
+    area_ratio = _positive(area_ratio, 'area_ratio')
+    gamma = _positive(gamma, 'gamma')
+    half_angle_deg = _positive(half_angle_deg, 'half_angle_deg')
+    chamber_radius_ratio = _positive(chamber_radius_ratio, 'chamber_radius_ratio')
+    bell_length_fraction = _positive(bell_length_fraction, 'bell_length_fraction')
+    station_count = integer(station_count, 'station_count')
+    normalized_contour = text(contour, 'contour').strip().lower()
     if area_ratio < 1.0:
-        raise DomainError("Exit-to-throat area ratio must be at least one.")
+        raise DomainError("Exit-to-throat area ratio must be at least one.", field='area_ratio')
     if not 1.0 < gamma:
-        raise DomainError("Gamma must be greater than one.")
-    normalized_contour = contour.strip().lower()
+        raise DomainError("Gamma must be greater than one.", field='gamma')
     if normalized_contour == "bell":
         normalized_contour = "preliminary"
     if normalized_contour not in {"conical", "preliminary"}:
-        raise DomainError("Nozzle contour must be conical or preliminary.")
+        raise DomainError("Nozzle contour must be conical or preliminary.", field='contour')
     if not 2.0 <= half_angle_deg < 45.0:
-        raise DomainError("Conical half-angle must be in [2, 45) degrees.")
+        raise DomainError("Conical half-angle must be in [2, 45) degrees.", field='half_angle_deg')
     if chamber_radius_ratio <= 1.0:
-        raise DomainError("Chamber radius ratio must be greater than one.")
+        raise DomainError("Chamber radius ratio must be greater than one.", field='chamber_radius_ratio')
     if not 0.5 <= bell_length_fraction <= 1.2:
-        raise DomainError("Bell length fraction must be in [0.5, 1.2].")
+        raise DomainError("Bell length fraction must be in [0.5, 1.2].", field='bell_length_fraction')
     if not 41 <= station_count <= 401:
-        raise DomainError("Station count must be between 41 and 401.")
+        raise DomainError("Station count must be between 41 and 401.", field='station_count')
 
     throat_radius = sqrt(throat_area_m2 / pi)
     exit_radius = throat_radius * sqrt(area_ratio)
@@ -266,7 +301,7 @@ def generate_nozzle_contour(
     else:
         diverging_length = bell_length_fraction * reference_cone_length
 
-    converging_count = max(15, round(station_count * 0.3))
+    converging_count = station_count if area_ratio == 1.0 else max(15, round(station_count * 0.3))
     diverging_count = station_count - converging_count + 1
     stations: list[NozzleStation] = []
 
@@ -311,8 +346,9 @@ def generate_nozzle_contour(
     for left, right in pairwise(stations):
         segment = sqrt((right.x_m - left.x_m) ** 2 + (right.radius_m - left.radius_m) ** 2)
         surface_area += pi * (left.radius_m + right.radius_m) * segment
-    effective_angle = half_angle_deg if normalized_contour == "conical" else 19.0
-    return NozzleContour(
+    effective_angle = (0.0 if area_ratio == 1.0 else
+                       half_angle_deg if normalized_contour == "conical" else 19.0)
+    return _checked_contour(NozzleContour(
         contour=normalized_contour,
         throat_radius_m=throat_radius,
         chamber_radius_m=chamber_radius,
@@ -323,17 +359,19 @@ def generate_nozzle_contour(
         throat_area_m2=throat_area_m2,
         exit_area_m2=area_ratio * throat_area_m2,
         area_ratio=area_ratio,
-        half_angle_deg=half_angle_deg,
+        half_angle_deg=0.0 if area_ratio == 1.0 else half_angle_deg,
         stations=tuple(stations),
         model_fidelity=(
+            "analytical cosine contraction; sonic exit" if area_ratio == 1.0 else
             "analytical conical" if normalized_contour == "conical" else "preliminary Hermite"
         ),
         estimated_divergence_efficiency=0.5 * (1.0 + cos(radians(effective_angle))),
         surface_area_m2=surface_area,
         source=(
-            "analytical cone"
+            "cosine contraction ending at sonic throat; no diverging span"
+            if area_ratio == 1.0 else "analytical cone"
             if normalized_contour == "conical"
             else "cubic Hermite preliminary contour; not Rao optimized"
         ),
-    )
+    ))
 

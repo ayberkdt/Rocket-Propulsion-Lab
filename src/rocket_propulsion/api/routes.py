@@ -971,7 +971,7 @@ def calculate_nozzle_contour_route(payload: dict[str, Any]) -> dict[str, Any]:
         station_count = _integer(payload, "station_count", default=121)
         chamber_ratio = _number(payload, "chamber_radius_ratio", default=2.5)
         length_fraction = _number(payload, "bell_length_fraction", default=0.8)
-        contours = (
+        contours: tuple[NozzleContour, ...] = (
             generate_nozzle_contour(
                 throat_area_m2=throat_area,
                 area_ratio=area_ratio,
@@ -990,26 +990,34 @@ def calculate_nozzle_contour_route(payload: dict[str, Any]) -> dict[str, Any]:
                 bell_length_fraction=length_fraction,
                 station_count=station_count,
             ),
-            generate_rao_contour(
-                throat_area_m2=throat_area,
-                area_ratio=area_ratio,
-                gamma=gamma,
-                length_fraction=length_fraction,
-                throat_angle_deg=_number(payload, "throat_angle_deg", default=30.0),
-                exit_angle_deg=_number(payload, "exit_angle_deg", default=8.0),
-                chamber_radius_ratio=chamber_ratio,
-                station_count=station_count,
-            ),
-            generate_moc_nozzle(
-                throat_area_m2=throat_area,
-                area_ratio=area_ratio,
-                gamma=gamma,
-                characteristic_count=_integer(
-                    payload, "characteristic_count", default=20
-                ),
-                axisymmetric_correction=True,
-            ).contour,
         )
+        if area_ratio > 1.0:
+            contours += (
+                generate_rao_contour(
+                    throat_area_m2=throat_area,
+                    area_ratio=area_ratio,
+                    gamma=gamma,
+                    length_fraction=length_fraction,
+                    throat_angle_deg=_number(payload, "throat_angle_deg", default=30.0),
+                    exit_angle_deg=_number(payload, "exit_angle_deg", default=8.0),
+                    chamber_radius_ratio=chamber_ratio,
+                    station_count=station_count,
+                ),
+                generate_moc_nozzle(
+                    throat_area_m2=throat_area,
+                    area_ratio=area_ratio,
+                    gamma=gamma,
+                    characteristic_count=_integer(
+                        payload, "characteristic_count", default=20
+                    ),
+                    axisymmetric_correction=True,
+                ).contour,
+            )
+        else:
+            result['comparison_exclusions'] = {
+                'rao': 'Rao construction requires area_ratio > 1.',
+                'moc': 'Supersonic MOC construction requires area_ratio > 1.',
+            }
         result["comparison"] = [
             asdict(record) for record in compare_nozzle_contours(contours)
         ]

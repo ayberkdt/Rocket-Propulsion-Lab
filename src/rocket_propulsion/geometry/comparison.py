@@ -62,12 +62,15 @@ class ContourComparison:
 def _exit_angle(contour: NozzleContour) -> float:
     """Return the nominal exit flow angle in degrees for a contour family.
 
-    Conical contours use their half-angle. The preliminary Hermite and Rao
+    A converging-only sonic exit has no divergence angle. Conical contours
+    with a diverging span use their half-angle. The preliminary Hermite and Rao
     parabola contours are assigned a nominal 8 degree exit angle (the default
     exit slope of both constructions), independent of a non-default Rao exit
     angle. Method-of-characteristics contours are designed for axial exit flow
     (0 degrees). Unknown families fall back to the reported half-angle.
     """
+    if contour.diverging_length_m == 0.0:
+        return 0.0
     if contour.contour == "conical":
         return contour.half_angle_deg
     if contour.contour == "preliminary":

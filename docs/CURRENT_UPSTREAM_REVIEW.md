@@ -67,6 +67,11 @@ The consumed thermal contour is reviewed separately in
 pre-EOS/axial ownership and geometry checks, without qualifying the general
 contour constructors, flow-field accuracy or unused metadata.
 
+Generator admission and the sonic, converging-only limit are reviewed in
+[GEOMETRY_GENERATOR_REVIEW.md](GEOMETRY_GENERATOR_REVIEW.md), including the API
+comparison boundary and finite sampled-output guards. This is separate from
+flow-model, continuous-wall and hardware validation.
+
 1. Repair the reproduced Ruff 0.17.2 diagnostics and the shared-root defects;
    test them against the current tree and actual optional NASA CEA provider.
 2. Reconcile prior thermochemistry corrections with the expanded catalogue,

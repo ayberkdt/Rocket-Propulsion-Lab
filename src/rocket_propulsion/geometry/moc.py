@@ -24,12 +24,13 @@ from __future__ import annotations
 from bisect import bisect_right
 from dataclasses import dataclass
 from itertools import pairwise
-from math import asin, atan2, cos, degrees, isfinite, pi, radians, sqrt, tan
+from math import asin, atan2, cos, degrees, pi, radians, sqrt, tan
 
 from rocket_propulsion.compressible import calculate_isentropic, mach_from_isentropic
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
+from rocket_propulsion.core.validation import integer, numeric_range_guard
 
-from .nozzle_contour import NozzleContour, NozzleStation
+from .nozzle_contour import NozzleContour, NozzleStation, _checked_contour, _positive
 
 
 @dataclass(frozen=True, slots=True)
@@ -564,9 +565,10 @@ def _build_design(
         surface_area_m2=surface_area,
         source="planar characteristic compatibility; NASA MOC design context",
     )
-    return contour, tuple(characteristic_lines), residuals
+    return _checked_contour(contour), tuple(characteristic_lines), residuals
 
 
+@numeric_range_guard('geometry')
 def generate_moc_nozzle(
     *,
     throat_area_m2: float,
@@ -628,14 +630,18 @@ def generate_moc_nozzle(
            https://www.nasa.gov/glenn/research/inlets-and-nozzles/design-analysis-software/
     """
 
-    if not isfinite(throat_area_m2) or throat_area_m2 <= 0.0:
-        raise DomainError("Throat area must be finite and positive.")
-    if not isfinite(area_ratio) or area_ratio <= 1.0:
-        raise DomainError("MOC area ratio must exceed one.")
-    if not isfinite(gamma) or gamma <= 1.0:
-        raise DomainError("Gamma must exceed one.")
+    throat_area_m2 = _positive(throat_area_m2, 'throat_area_m2')
+    area_ratio = _positive(area_ratio, 'area_ratio')
+    gamma = _positive(gamma, 'gamma')
+    characteristic_count = integer(characteristic_count, 'characteristic_count')
+    if not isinstance(axisymmetric_correction, bool):
+        raise DomainError('axisymmetric_correction must be a boolean.', field='axisymmetric_correction')
+    if area_ratio <= 1.0:
+        raise DomainError("MOC area ratio must exceed one.", field='area_ratio')
+    if gamma <= 1.0:
+        raise DomainError("Gamma must exceed one.", field='gamma')
     if not 5 <= characteristic_count <= 80:
-        raise DomainError("Characteristic count must be between 5 and 80.")
+        raise DomainError("Characteristic count must be between 5 and 80.", field='characteristic_count')
     contour, lines, residuals = _build_design(
         throat_area_m2=throat_area_m2,
         area_ratio=area_ratio,

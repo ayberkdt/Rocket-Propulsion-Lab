@@ -754,5 +754,117 @@
     "if _axial_sources is not None\n           else",
     "if False\n           else",
     "tests/test_regen_contour_contract.py::RegenContourContractTests::test_real_axial_solve_reuses_the_owned_profile_and_reports_its_model"
+  ],
+  [
+    "geometry_positive_scalar_untyped",
+    "src/rocket_propulsion/geometry/nozzle_contour.py",
+    "    value = real(value, label)",
+    "    value = float(value)",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_every_physical_scalar_rejects_malformed_values_before_flow"
+  ],
+  [
+    "geometry_general_count_untyped",
+    "src/rocket_propulsion/geometry/nozzle_contour.py",
+    "    station_count = integer(station_count, 'station_count')\n",
+    "",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_counts_require_bounded_actual_integers"
+  ],
+  [
+    "geometry_rao_count_untyped",
+    "src/rocket_propulsion/geometry/rao.py",
+    "    station_count = integer(station_count, 'station_count')\n",
+    "",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_counts_require_bounded_actual_integers"
+  ],
+  [
+    "geometry_moc_count_untyped",
+    "src/rocket_propulsion/geometry/moc.py",
+    "    characteristic_count = integer(characteristic_count, 'characteristic_count')\n",
+    "",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_counts_require_bounded_actual_integers"
+  ],
+  [
+    "geometry_family_text_unowned",
+    "src/rocket_propulsion/geometry/nozzle_contour.py",
+    "    normalized_contour = text(contour, 'contour').strip().lower()",
+    "    normalized_contour = contour.strip().lower()",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_family_name_is_owned_and_bad_names_are_typed"
+  ],
+  [
+    "geometry_moc_boolean_guard_removed",
+    "src/rocket_propulsion/geometry/moc.py",
+    "    if not isinstance(axisymmetric_correction, bool):\n        raise DomainError('axisymmetric_correction must be a boolean.', field='axisymmetric_correction')\n",
+    "",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_moc_correction_is_an_actual_boolean_before_any_build"
+  ],
+  [
+    "geometry_rao_gamma_guard_removed",
+    "src/rocket_propulsion/geometry/rao.py",
+    "    if gamma <= 1.0:\n        raise DomainError('Gamma must exceed one.', field='gamma')\n",
+    "",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_nonphysical_domains_are_labelled_before_flow"
+  ],
+  [
+    "geometry_unity_duplicate_sampling",
+    "src/rocket_propulsion/geometry/nozzle_contour.py",
+    "    converging_count = station_count if area_ratio == 1.0 else max(15, round(station_count * 0.3))",
+    "    converging_count = max(15, round(station_count * 0.3))",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_unity_ratio_is_a_resolved_converging_only_sonic_exit"
+  ],
+  [
+    "geometry_unity_divergence_forged",
+    "src/rocket_propulsion/geometry/nozzle_contour.py",
+    "    effective_angle = (0.0 if area_ratio == 1.0 else",
+    "    effective_angle = (15.0 if area_ratio == 1.0 else",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_unity_ratio_is_a_resolved_converging_only_sonic_exit"
+  ],
+  [
+    "geometry_unity_fidelity_forged",
+    "src/rocket_propulsion/geometry/nozzle_contour.py",
+    "\"analytical cosine contraction; sonic exit\" if area_ratio == 1.0 else",
+    "\"preliminary Hermite\" if area_ratio == 1.0 else",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_unity_ratio_is_a_resolved_converging_only_sonic_exit"
+  ],
+  [
+    "geometry_nonfinite_total_exported",
+    "src/rocket_propulsion/geometry/nozzle_contour.py",
+    "        if isinstance(value, (float, int)) and (not isfinite(value) or value < 0.\n                                               or (item.name in positive and value == 0.)):",
+    "        if False:",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_unrepresentable_total_wall_area_is_not_a_successful_infinite_result"
+  ],
+  [
+    "geometry_conical_angle_ignored",
+    "src/rocket_propulsion/geometry/nozzle_contour.py",
+    "        diverging_length = (exit_radius - throat_radius) / tan(radians(half_angle_deg))",
+    "        diverging_length = (exit_radius - throat_radius) / tan(radians(15.0))",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_nondefault_conical_lengths_match_independent_tangent_geometry"
+  ],
+  [
+    "geometry_general_mach_forged",
+    "src/rocket_propulsion/geometry/nozzle_contour.py",
+    "                mach=mach,",
+    "                mach=1.0,",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_independent_dimensions_area_mach_and_wall_area"
+  ],
+  [
+    "geometry_general_wall_area_scaled",
+    "src/rocket_propulsion/geometry/nozzle_contour.py",
+    "        surface_area += pi * (left.radius_m + right.radius_m) * segment",
+    "        surface_area += 1.1 * pi * (left.radius_m + right.radius_m) * segment",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_independent_dimensions_area_mach_and_wall_area"
+  ],
+  [
+    "geometry_unity_comparison_angle_forged",
+    "src/rocket_propulsion/geometry/comparison.py",
+    "    if contour.diverging_length_m == 0.0:\n        return 0.0\n",
+    "",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_http_unity_comparison_keeps_supported_models_and_explains_exclusions"
+  ],
+  [
+    "geometry_unity_comparison_dispatch_invalid",
+    "src/rocket_propulsion/api/routes.py",
+    "        if area_ratio > 1.0:\n            contours += (",
+    "        if area_ratio >= 1.0:\n            contours += (",
+    "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_http_unity_comparison_keeps_supported_models_and_explains_exclusions"
   ]
 ]
