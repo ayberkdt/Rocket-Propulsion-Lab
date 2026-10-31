@@ -84,3 +84,12 @@ burn duration, chamber lifetime or safe wall margin from this repair.
 The actual motor/feed configuration, mission requirements, relevant environment,
 instrumented brassboard, uncertainty, holdout comparison and scaling evidence are
 still needed; see [TRL_ASSESSMENT.md](TRL_ASSESSMENT.md).
+
+## References
+
+- NASA SP-125, printed pp.100–101, Bartz equations 4-10, 4-13 and 4-14:
+  https://ntrs.nasa.gov/api/citations/19710019929/downloads/19710019929.pdf
+- Linne et al., AIAA 2012-0806, printed p.8, recovery-temperature convention:
+  https://ntrs.nasa.gov/api/citations/20120004103/downloads/20120004103.pdf
+- Python Decimal precision, contexts and exact float conversion:
+  https://docs.python.org/3.12/library/decimal.html

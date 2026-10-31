@@ -16,6 +16,12 @@ documented scaling requirements.
 
 ## Evidence that exists (software, independent references)
 
+- Cooling controls and material use retain strict physical scalar admission,
+  ownership before axial iteration and the actual conductivity/temperature-source
+  conditions in results (`REGEN_SOLVER_ADMISSION_REVIEW.md`). A temperature
+  difference to a conditional material criterion is not a structural or lifetime
+  acceptance result.
+
 - Frozen gas/cooling boundary: malformed and impossible states, caller-owned
   arithmetic, lost kinetic contributions and balanced extreme Bartz expressions
   receive independent numerical and coupled controls

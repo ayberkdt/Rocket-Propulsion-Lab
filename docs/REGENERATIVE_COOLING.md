@@ -19,6 +19,13 @@ counterexamples and adversarial controls are recorded in
 [HOT_GAS_CONTRACT_REVIEW.md](HOT_GAS_CONTRACT_REVIEW.md). Arithmetic range does not
 extend the correlation's physical validation envelope.
 
+Solver option admission and material applicability are documented in
+[REGEN_SOLVER_ADMISSION_REVIEW.md](REGEN_SOLVER_ADMISSION_REVIEW.md).
+`result.wall_property_use` records the conductivity actually selected and the
+source/condition of its material temperature comparison. User overrides carry
+their own basis; positive temperature differences alone do not assess liner
+stress, creep, fatigue or life.
+
 ```python
 from rocket_propulsion.heat_transfer.regen_chamber import (
     ChannelProfile, Coolant, CoolingChannels, HotGas, bartz_coefficient,

@@ -586,5 +586,89 @@
     "    throat_radius_of_curvature_m = _positive(real(throat_radius_of_curvature_m,\n                                                 'throat_radius_of_curvature_m'),\n                                             'throat_radius_of_curvature_m')\n",
     "",
     "tests/test_hot_gas_contract.py::HotGasContractTests::test_invalid_factory_radius_precedes_expensive_chemistry"
+  ],
+  [
+    "regen_closeout_scalar_untyped",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "closeout = real(closeout_thickness_m, 'closeout_thickness_m')",
+    "closeout = float(closeout_thickness_m)",
+    "tests/test_regen_solver_contract.py::RegenSolverContractTests::test_optional_numbers_are_rejected_before_fluid_work_even_when_inactive"
+  ],
+  [
+    "regen_wall_conductivity_untyped",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "real(wall_thermal_conductivity_w_m_k, 'wall_thermal_conductivity_w_m_k')",
+    "float(wall_thermal_conductivity_w_m_k)",
+    "tests/test_regen_solver_contract.py::RegenSolverContractTests::test_optional_numbers_are_rejected_before_fluid_work_even_when_inactive"
+  ],
+  [
+    "regen_closeout_conductivity_untyped",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "real(closeout_conductivity_w_m_k, 'closeout_conductivity_w_m_k')",
+    "float(closeout_conductivity_w_m_k)",
+    "tests/test_regen_solver_contract.py::RegenSolverContractTests::test_optional_numbers_are_rejected_before_fluid_work_even_when_inactive"
+  ],
+  [
+    "regen_option_text_ownership_removed",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "    coolant_correlation = cast(CoolantCorrelation, text(coolant_correlation, 'coolant_correlation'))\n",
+    "",
+    "tests/test_regen_solver_contract.py::RegenSolverContractTests::test_options_use_owned_text_not_subclass_equality"
+  ],
+  [
+    "regen_radiation_guard_removed",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "    if gas_radiation not in (\"none\", \"wsgg\"):\n        raise InputError(\"Gas radiation must be none or wsgg.\", field=\"gas_radiation\")\n",
+    "",
+    "tests/test_regen_solver_contract.py::RegenSolverContractTests::test_bad_options_are_rejected_before_axial_dispatch"
+  ],
+  [
+    "regen_required_record_guard_removed",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "        if not isinstance(value, record_type):\n            raise DomainError(f'{field} has the wrong record type.', field=field)",
+    "        pass",
+    "tests/test_regen_solver_contract.py::RegenSolverContractTests::test_required_records_fail_with_their_field_before_fluid_or_axial_work"
+  ],
+  [
+    "regen_material_selection_delayed",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "    conductivity, limit, wall_use, wall_notes = _wall_property_use(\n        wall_material, wall_thermal_conductivity_w_m_k)\n",
+    "",
+    "tests/test_regen_solver_contract.py::RegenSolverContractTests::test_bad_options_are_rejected_before_axial_dispatch"
+  ],
+  [
+    "regen_override_basis_forged",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "basis: Literal['catalog_reference_constant', 'user_constant'] = 'user_constant'",
+    "basis: Literal['catalog_reference_constant', 'user_constant'] = 'catalog_reference_constant'",
+    "tests/test_regen_solver_contract.py::RegenSolverContractTests::test_override_does_not_claim_the_catalog_conductivity_source"
+  ],
+  [
+    "regen_override_citation_forged",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "    else:\n        conductivity = override\n    limit_reference:",
+    "    else:\n        conductivity = override\n        conductivity_reference = None if record is None else record.thermal_conductivity\n    limit_reference:",
+    "tests/test_regen_solver_contract.py::RegenSolverContractTests::test_override_does_not_claim_the_catalog_conductivity_source"
+  ],
+  [
+    "regen_melting_limit_relabelled",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "        limit_reference, limit_basis = record.temperature_limit()\n",
+    "        limit_reference, limit_basis = record.temperature_limit()\n        limit_basis = 'maximum_service_temperature'\n",
+    "tests/test_regen_solver_contract.py::RegenSolverContractTests::test_copper_melting_limit_is_not_relabelled_as_service_limit"
+  ],
+  [
+    "regen_material_evidence_omitted",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "        wall_property_use=wall_use,\n",
+    "",
+    "tests/test_regen_solver_contract.py::RegenSolverContractTests::test_grcop_source_and_conditional_limit_survive_the_real_solver"
+  ],
+  [
+    "regen_material_notes_omitted",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "    warnings: list[WarningMessage] = list(wall_notes)",
+    "    warnings: list[WarningMessage] = []",
+    "tests/test_regen_solver_contract.py::RegenSolverContractTests::test_grcop_source_and_conditional_limit_survive_the_real_solver"
   ]
 ]

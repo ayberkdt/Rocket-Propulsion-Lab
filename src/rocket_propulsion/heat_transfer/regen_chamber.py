@@ -49,7 +49,7 @@ from decimal import Context, Decimal, localcontext
 from fractions import Fraction
 from math import cos, isfinite, pi, radians, sqrt
 from sys import float_info
-from typing import Literal
+from typing import Literal, cast
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError, InputError
 from rocket_propulsion.core.metadata import WarningMessage
@@ -59,11 +59,12 @@ from rocket_propulsion.core.validation import (
     numeric_range_guard,
     real,
     real_tuple,
+    text,
 )
 from rocket_propulsion.geometry import NozzleContour
 from rocket_propulsion.heat_transfer import conduction, convection, radiation
 from rocket_propulsion.heat_transfer.channel_wall import solve_channel_wall_section
-from rocket_propulsion.thermodynamics.materials import get_wall_material
+from rocket_propulsion.thermodynamics.materials import CitedProperty, get_wall_material
 from rocket_propulsion.thermodynamics.real_fluids import reference_fluid
 from rocket_propulsion.thermodynamics.real_fluids.transport import transport_tp
 
@@ -396,6 +397,23 @@ COOLANT_MACH_WARNING = 0.5
 
 
 @dataclass(frozen=True, slots=True)
+class WallPropertyUse:
+    """Material evidence actually selected by the solver, not a strength approval.
+
+    A user override has no catalog conductivity citation. A retained material
+    can still provide its separate, conditional temperature comparison. The
+    cited property carries its units, conditions, range and exact locator.
+    """
+
+    material_key: str | None
+    conductivity_w_m_k: float
+    conductivity_basis: Literal['catalog_reference_constant', 'user_constant']
+    conductivity_reference: CitedProperty | None
+    limit_basis: str | None
+    limit_reference: CitedProperty | None
+
+
+@dataclass(frozen=True, slots=True)
 class RegenChamberResult:
     """Station results and totals of a regenerative cooling solution.
 
@@ -412,12 +430,16 @@ class RegenChamberResult:
     maximum_hot_wall_temperature_k : float
         Largest gas-side wall temperature.
     wall_limit_temperature_k : float or None
-        Material limit when a catalog material is used.
+        Catalog comparison criterion when a material is used. Its source and
+        applicability condition are retained in ``wall_property_use``.
     energy_balance_residual_w : float
         ``mdot (h_out - h_in) - Q`` with ``h`` re-evaluated from the EOS at the
         outlet state; measures the enthalpy inversion, not the march.
     warnings : tuple of WarningMessage
         Model statements and range notes.
+    wall_property_use : WallPropertyUse or None
+        Conductivity selection and conditional temperature-criterion evidence.
+        Populated by this solver; ``None`` is retained for legacy manual records.
     wall_model : {"fin", "2d"}
         Wall conduction model used.
     """
@@ -432,6 +454,48 @@ class RegenChamberResult:
     energy_balance_residual_w: float
     warnings: tuple[WarningMessage, ...]
     wall_model: str = "fin"
+    wall_property_use: WallPropertyUse | None = None
+
+
+def _wall_property_use(material: str | None, override: float | None
+                       ) -> tuple[float, float | None, WallPropertyUse, tuple[WarningMessage, ...]]:
+    """Select one coherent catalog record and preserve its applicability context."""
+    record = None if material is None else get_wall_material(material)
+    conductivity_reference = None
+    basis: Literal['catalog_reference_constant', 'user_constant'] = 'user_constant'
+    if override is None:
+        if record is None or record.thermal_conductivity is None:
+            raise InputError('Give a sourced wall material or an explicit conductivity.',
+                             code='wall_conductivity_unavailable',
+                             field='wall_thermal_conductivity_w_m_k')
+        conductivity_reference = record.thermal_conductivity
+        conductivity = conductivity_reference.value
+        basis = 'catalog_reference_constant'
+    else:
+        conductivity = override
+    limit_reference: CitedProperty | None = None
+    limit_basis: str | None = None
+    if record is not None:
+        limit_reference, limit_basis = record.temperature_limit()
+    use = WallPropertyUse(None if record is None else record.key, conductivity, basis,
+                          conductivity_reference, limit_basis, limit_reference)
+    notes = [WarningMessage(
+        'wall_conductivity_constant',
+        f'Wall conduction holds k={conductivity:g} W/(m K) constant ({basis}); '
+        'temperature, lot and processing variation require separate assessment.',
+        severity='warning', field='wall_thermal_conductivity_w_m_k')]
+    if limit_reference is None:
+        notes.append(WarningMessage(
+            'wall_limit_not_assessed', 'No material temperature criterion was selected; '
+            'wall integrity and life remain unassessed.', field='wall_material'))
+    else:
+        notes.append(WarningMessage(
+            'wall_limit_reference_only',
+            f'{use.material_key}: {limit_basis} comparison at {limit_reference.value:g} K. '
+            f'Condition: {limit_reference.condition}. '
+            f'Source: {limit_reference.citation.source_id}, {limit_reference.citation.locator}. '
+            'Stress, creep, fatigue and life require separate validation.', field='wall_material'))
+    return conductivity, None if limit_reference is None else limit_reference.value, use, tuple(notes)
 
 
 def bartz_coefficient(gas: HotGas, *, throat_radius_m: float, area_ratio: float, mach: float,
@@ -725,7 +789,8 @@ def solve_regen_chamber(
     coolant : Coolant
         Coolant fluid, inlet state, flow and direction.
     wall_material : str or None, default "grcop-84"
-        Catalog material for conductivity and the temperature limit.
+        Catalog material for reference-constant conductivity and a conditional
+        temperature comparison. Stress and cyclic life are not computed.
     wall_thermal_conductivity_w_m_k : float, optional
         Overrides the catalog conductivity.
     coolant_correlation : {"auto", "gnielinski", "taylor"}, default "auto"
@@ -809,6 +874,16 @@ def solve_regen_chamber(
     .. [5] NASA-GFSSP6-AREA-CHANGE. GFSSP v6 user manual, Eqs. (33), (38)-(41).
     """
 
+    for value, record_type, field in ((contour, NozzleContour, 'contour'),
+                                      (gas, HotGas, 'gas'),
+                                      (channels, (CoolingChannels, ChannelProfile), 'channels'),
+                                      (coolant, Coolant, 'coolant')):
+        if not isinstance(value, record_type):
+            raise DomainError(f'{field} has the wrong record type.', field=field)
+    coolant_correlation = cast(CoolantCorrelation, text(coolant_correlation, 'coolant_correlation'))
+    wall_model = text(wall_model, 'wall_model')
+    gas_radiation = cast(GasRadiation, text(gas_radiation, 'gas_radiation'))
+    wall_material = None if wall_material is None else text(wall_material, 'wall_material')
     if coolant_correlation not in ("auto", "gnielinski", "taylor"):
         raise InputError("Coolant correlation must be auto, gnielinski or taylor.", field="coolant_correlation")
     if coolant_correlation == "auto":
@@ -817,13 +892,25 @@ def solve_regen_chamber(
         raise InputError("Taylor's correlation applies to hydrogen coolant only.", field="coolant_correlation")
     if wall_model not in ("fin", "2d"):
         raise InputError("Wall model must be fin or 2d.", field="wall_model")
-    closeout = float(closeout_thickness_m)
+    if gas_radiation not in ("none", "wsgg"):
+        raise InputError("Gas radiation must be none or wsgg.", field="gas_radiation")
+    closeout = real(closeout_thickness_m, 'closeout_thickness_m')
     if not isfinite(closeout) or closeout < 0.0:
         raise DomainError("Closeout thickness must be finite and non-negative.", field="closeout_thickness_m")
     if closeout > 0.0 and wall_model != "2d":
         raise InputError("A closeout needs wall_model='2d'.", field="closeout_thickness_m")
     if not isinstance(axial_conduction, bool):
         raise InputError("axial_conduction must be a boolean.", field="axial_conduction")
+    if wall_thermal_conductivity_w_m_k is not None:
+        wall_thermal_conductivity_w_m_k = _positive(
+            real(wall_thermal_conductivity_w_m_k, 'wall_thermal_conductivity_w_m_k'),
+            'wall_thermal_conductivity_w_m_k')
+    if closeout_conductivity_w_m_k is not None:
+        closeout_conductivity_w_m_k = _positive(
+            real(closeout_conductivity_w_m_k, 'closeout_conductivity_w_m_k'),
+            'closeout_conductivity_w_m_k')
+    conductivity, limit, wall_use, wall_notes = _wall_property_use(
+        wall_material, wall_thermal_conductivity_w_m_k)
     if axial_conduction:
         return _with_axial_conduction(
             contour=contour, gas=gas, channels=channels, coolant=coolant, wall_material=wall_material,
@@ -831,8 +918,6 @@ def solve_regen_chamber(
             coolant_correlation=coolant_correlation, gas_radiation=gas_radiation, wall_model=wall_model,
             closeout_thickness_m=closeout, closeout_conductivity_w_m_k=closeout_conductivity_w_m_k)
     sources = dict(_axial_sources or {})
-    if gas_radiation not in ("none", "wsgg"):
-        raise InputError("Gas radiation must be none or wsgg.", field="gas_radiation")
     if isinstance(channels, ChannelProfile):
         geometry_at = channels.geometry_at
         count_at = channels.count_at
@@ -851,21 +936,6 @@ def solve_regen_chamber(
         def geometry_at(x_m: float) -> tuple[float, float, float]:
             return constant
     mass_flow = _positive(coolant.mass_flow_kg_s, "mass_flow_kg_s")
-    limit = None
-    if wall_thermal_conductivity_w_m_k is not None:
-        conductivity = _positive(wall_thermal_conductivity_w_m_k, "wall_thermal_conductivity_w_m_k")
-    elif wall_material is not None:
-        catalog = get_wall_material(wall_material).thermal_conductivity
-        if catalog is None:
-            raise InputError(f"{wall_material} has no verified catalog conductivity; give "
-                             "wall_thermal_conductivity_w_m_k.",
-                             code="wall_conductivity_unavailable",
-                             field="wall_thermal_conductivity_w_m_k")
-        conductivity = catalog.value
-    else:
-        raise InputError("Give a wall material or a wall conductivity.", field="wall_material")
-    if wall_material is not None:
-        limit = get_wall_material(wall_material).temperature_limit()[0].value
 
     stations = list(contour.stations)
     order = list(reversed(range(len(stations)))) if coolant.counterflow else list(range(len(stations)))
@@ -887,7 +957,7 @@ def solve_regen_chamber(
     radiation_skipped = 0
     distance = 0.0
     solved: dict[int, ThermalStation] = {}
-    warnings: list[WarningMessage] = []
+    warnings: list[WarningMessage] = list(wall_notes)
     # Coolant correlations run with extrapolate=True so the march can finish. Their range
     # warnings are kept only for the converged wall temperature (not for bisection probes)
     # and are reported once per out-of-range parameter at the end.
@@ -1164,6 +1234,7 @@ def solve_regen_chamber(
         energy_balance_residual_w=residual,
         warnings=tuple(warnings),
         wall_model=wall_model,
+        wall_property_use=wall_use,
     )
 
 
@@ -1250,6 +1321,7 @@ __all__: Sequence[str] = (
     "HotGas",
     "RegenChamberResult",
     "ThermalStation",
+    "WallPropertyUse",
     "bartz_coefficient",
     "hot_gas_from_propellant",
     "hot_gas_from_reactants",

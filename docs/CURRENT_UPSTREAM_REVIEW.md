@@ -58,6 +58,10 @@ The Sentinel series research is now comparative A/B/C/D literature work on main
 (`191a9cd`); its numerical checks are not integrated hardware qualification.
 The next scoped cooling review repairs frozen gas ownership, station admission
 and complete Bartz arithmetic; see [HOT_GAS_CONTRACT_REVIEW.md](HOT_GAS_CONTRACT_REVIEW.md).
+Solver option admission and the actual material-property/temperature-criterion
+provenance are reviewed separately in
+[REGEN_SOLVER_ADMISSION_REVIEW.md](REGEN_SOLVER_ADMISSION_REVIEW.md). No contour-wide,
+thermomechanical or hardware acceptance is implied by these scoped reviews.
 
 1. Repair the reproduced Ruff 0.17.2 diagnostics and the shared-root defects;
    test them against the current tree and actual optional NASA CEA provider.
