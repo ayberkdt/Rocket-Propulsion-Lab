@@ -41,6 +41,7 @@
 - NASA Glenn, **Specific Heats**, ideal-gas cp=cv+R and gamma=cp/cv. <https://www.grc.nasa.gov/www/k-12/airplane/specheat.html>
 
 - **NASA-TRL**: NASA ESTO, hardware TRL definitions and exit criteria. <https://esto.nasa.gov/trl/>
+- **NASA-TRL-OVERVIEW**: NASA, technology readiness overview and the relevant-environment distinction. Accessed 2026-10-31. <https://www.nasa.gov/directorates/somd/space-communications-navigation-program/technology-readiness-levels/>
 - **NASA-7009B**: NASA-STD-7009B, approved 2024-03-05; verification, empirical validation, uncertainty and reporting. <https://standards.nasa.gov/sites/default/files/standards/NASA/B/1/NASA-STD-7009B-Final-3-5-2024.pdf>
 - **SAMSON-2019**: Zaberchik et al., Aerospace 2019, 6(8), 91; measured cold-gas performance and component/system testing of their hardware. <https://www.mdpi.com/2226-4310/6/8/91>
 - **NASA-GFSSP6**: NASA/TP-2016-218218, fluid network examples and comparisons; not an executed comparison against this library. <https://ntrs.nasa.gov/citations/20160005401>

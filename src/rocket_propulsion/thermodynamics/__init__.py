@@ -14,6 +14,7 @@ from .heat_transfer import (
     BartzInputs,
     HeatFluxStation,
     calculate_bartz_heat_transfer,
+    snapshot_thermal_contour,
 )
 from .ideal_gas import IdealGasState, complete_ideal_gas_state
 from .materials import (
@@ -70,5 +71,6 @@ __all__ = [
     "get_coolant",
     "get_wall_material",
     "real_fluids",
+    "snapshot_thermal_contour",
     "wall_material_catalog",
 ]

@@ -62,6 +62,10 @@ Solver option admission and the actual material-property/temperature-criterion
 provenance are reviewed separately in
 [REGEN_SOLVER_ADMISSION_REVIEW.md](REGEN_SOLVER_ADMISSION_REVIEW.md). No contour-wide,
 thermomechanical or hardware acceptance is implied by these scoped reviews.
+The consumed thermal contour is reviewed separately in
+[REGEN_CONTOUR_CONTRACT_REVIEW.md](REGEN_CONTOUR_CONTRACT_REVIEW.md); this adds
+pre-EOS/axial ownership and geometry checks, without qualifying the general
+contour constructors, flow-field accuracy or unused metadata.
 
 1. Repair the reproduced Ruff 0.17.2 diagnostics and the shared-root defects;
    test them against the current tree and actual optional NASA CEA provider.

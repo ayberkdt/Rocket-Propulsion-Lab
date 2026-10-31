@@ -168,12 +168,35 @@ class BartzContour:
         object.__setattr__(self,'stations',points)
 
 
-def _contour(value):
+def snapshot_thermal_contour(value: NozzleContour | BartzContour | Mapping) -> BartzContour:
     """Convert a :class:`NozzleContour`, mapping or record into a :class:`BartzContour`.
 
-    Only the throat radius and each station's ``x_m``, ``radius_m``,
+    Parameters
+    ----------
+    value : NozzleContour, BartzContour or mapping
+        Sampled geometry, an existing thermal profile or its serialized record.
+
+    Returns
+    -------
+    BartzContour
+        A fresh immutable thermal profile. Only the throat radius and each station's ``x_m``, ``radius_m``,
     ``area_ratio`` and ``mach`` are retained; other contour metadata is not
-    used.
+    used. The returned record owns native-float copies and checks ordering and
+    radius/area-ratio coherence within binary64 representation cells. This is
+    shared admission for prescribed and coupled thermal calculations, not
+    verification of an isentropic flow solution or unused contour metadata.
+
+    Raises
+    ------
+    DomainError
+        If records, numeric values, station count/order or radius/area-ratio
+        consistency violate :class:`BartzContour`'s admission rules.
+
+    References
+    ----------
+    .. [1] PYTHON-3.12-FRACTION. Python, ``fractions``; exact rational arithmetic
+           on the binary64 representation cells used by :class:`BartzContour`.
+           https://docs.python.org/3.12/library/fractions.html
     """
     if isinstance(value,NozzleContour):
         points=[]
@@ -242,7 +265,7 @@ class BartzInputs:
     throat_radius_of_curvature_m:float
 
     def __post_init__(self):
-        object.__setattr__(self,'contour',_contour(self.contour))
+        object.__setattr__(self,'contour',snapshot_thermal_contour(self.contour))
         for f in fields(self):
             if f.name=='contour':continue
             value=real(getattr(self,f.name),f.name)

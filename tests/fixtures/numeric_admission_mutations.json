@@ -670,5 +670,89 @@
     "    warnings: list[WarningMessage] = list(wall_notes)",
     "    warnings: list[WarningMessage] = []",
     "tests/test_regen_solver_contract.py::RegenSolverContractTests::test_grcop_source_and_conditional_limit_survive_the_real_solver"
+  ],
+  [
+    "regen_contour_snapshot_removed",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "    contour = snapshot_thermal_contour(contour)\n",
+    "",
+    "tests/test_regen_contour_contract.py::RegenContourContractTests::test_malformed_consumed_quantities_fail_before_eos_and_axial_work"
+  ],
+  [
+    "regen_contour_snapshot_skips_axial",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "    contour = snapshot_thermal_contour(contour)\n",
+    "    contour = contour if axial_conduction else snapshot_thermal_contour(contour)\n",
+    "tests/test_regen_contour_contract.py::RegenContourContractTests::test_duplicate_or_reversed_positions_fail_before_work"
+  ],
+  [
+    "regen_contour_subunity_guard_removed",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "    if any(station.area_ratio < 1.0 for station in contour.stations):\n        raise DomainError('Cooling station area ratio must be at least one.', field='area_ratio')\n",
+    "",
+    "tests/test_regen_contour_contract.py::RegenContourContractTests::test_subunity_area_ratio_is_not_clamped_even_with_overlapping_cells"
+  ],
+  [
+    "thermal_station_scalar_ownership_removed",
+    "src/rocket_propulsion/thermodynamics/heat_transfer.py",
+    "        for f in fields(self):object.__setattr__(self,f.name,real(getattr(self,f.name),f.name))\n        if self.radius_m<=0 or self.area_ratio<=0 or self.mach<0:",
+    "        for f in fields(self):object.__setattr__(self,f.name,getattr(self,f.name))\n        if self.radius_m<=0 or self.area_ratio<=0 or self.mach<0:",
+    "tests/test_regen_contour_contract.py::RegenContourContractTests::test_axial_dispatch_owns_container_stations_and_native_scalars"
+  ],
+  [
+    "thermal_throat_scalar_ownership_removed",
+    "src/rocket_propulsion/thermodynamics/heat_transfer.py",
+    "        object.__setattr__(self,'throat_radius_m',radius)",
+    "        object.__setattr__(self,'throat_radius_m',self.throat_radius_m)",
+    "tests/test_regen_contour_contract.py::RegenContourContractTests::test_axial_dispatch_owns_container_stations_and_native_scalars"
+  ],
+  [
+    "thermal_contour_order_guard_removed",
+    "src/rocket_propulsion/thermodynamics/heat_transfer.py",
+    "            if index and point.x_m<=points[index-1].x_m:",
+    "            if False:",
+    "tests/test_regen_contour_contract.py::RegenContourContractTests::test_duplicate_or_reversed_positions_fail_before_work"
+  ],
+  [
+    "thermal_contour_cardinality_guard_removed",
+    "src/rocket_propulsion/thermodynamics/heat_transfer.py",
+    "        if len(points)<2:raise DomainError('A surface profile needs at least two stations.',field='Contour stations')",
+    "        if False:raise DomainError('A surface profile needs at least two stations.',field='Contour stations')",
+    "tests/test_regen_contour_contract.py::RegenContourContractTests::test_invalid_station_container_or_record_fails_before_work"
+  ],
+  [
+    "thermal_contour_coherence_guard_removed",
+    "src/rocket_propulsion/thermodynamics/heat_transfer.py",
+    "            if hi<rlo or ahi<(lo/rhi)**2 or alo>(hi/rlo)**2:",
+    "            if False:",
+    "tests/test_regen_contour_contract.py::RegenContourContractTests::test_incoherent_geometry_and_negative_physical_values_fail_before_work"
+  ],
+  [
+    "thermal_negative_mach_admitted",
+    "src/rocket_propulsion/thermodynamics/heat_transfer.py",
+    "        if self.radius_m<=0 or self.area_ratio<=0 or self.mach<0:",
+    "        if self.radius_m<=0 or self.area_ratio<=0:",
+    "tests/test_regen_contour_contract.py::RegenContourContractTests::test_incoherent_geometry_and_negative_physical_values_fail_before_work"
+  ],
+  [
+    "thermal_snapshot_mach_dropped",
+    "src/rocket_propulsion/thermodynamics/heat_transfer.py",
+    "            points.append(BartzContourStation(s.x_m,s.radius_m,s.area_ratio,s.mach))",
+    "            points.append(BartzContourStation(s.x_m,s.radius_m,s.area_ratio,0.))",
+    "tests/test_regen_contour_contract.py::RegenContourContractTests::test_axial_dispatch_owns_container_stations_and_native_scalars"
+  ],
+  [
+    "thermal_snapshot_profile_truncated",
+    "src/rocket_propulsion/thermodynamics/heat_transfer.py",
+    "        return BartzContour(value.throat_radius_m,tuple(points))",
+    "        return BartzContour(value.throat_radius_m,tuple(points[:2]))",
+    "tests/test_regen_contour_contract.py::RegenContourContractTests::test_axial_dispatch_owns_container_stations_and_native_scalars"
+  ],
+  [
+    "regen_axial_model_evidence_denied",
+    "src/rocket_propulsion/heat_transfer/regen_chamber.py",
+    "if _axial_sources is not None\n           else",
+    "if False\n           else",
+    "tests/test_regen_contour_contract.py::RegenContourContractTests::test_real_axial_solve_reuses_the_owned_profile_and_reports_its_model"
   ]
 ]

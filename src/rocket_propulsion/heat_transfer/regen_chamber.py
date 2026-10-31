@@ -64,6 +64,7 @@ from rocket_propulsion.core.validation import (
 from rocket_propulsion.geometry import NozzleContour
 from rocket_propulsion.heat_transfer import conduction, convection, radiation
 from rocket_propulsion.heat_transfer.channel_wall import solve_channel_wall_section
+from rocket_propulsion.thermodynamics.heat_transfer import BartzContour, snapshot_thermal_contour
 from rocket_propulsion.thermodynamics.materials import CitedProperty, get_wall_material
 from rocket_propulsion.thermodynamics.real_fluids import reference_fluid
 from rocket_propulsion.thermodynamics.real_fluids.transport import transport_tp
@@ -761,7 +762,7 @@ def _temperature_from_enthalpy(fluid: str, enthalpy: float, pressure: float, gue
 @numeric_range_guard("contour")
 def solve_regen_chamber(
     *,
-    contour: NozzleContour,
+    contour: NozzleContour | BartzContour,
     gas: HotGas,
     channels: CoolingChannels | ChannelProfile,
     coolant: Coolant,
@@ -779,7 +780,7 @@ def solve_regen_chamber(
 
     Parameters
     ----------
-    contour : NozzleContour
+    contour : NozzleContour or BartzContour
         Wall stations with radius, area ratio and Mach number.
     gas : HotGas
         Chamber state and frozen gas properties.
@@ -874,12 +875,15 @@ def solve_regen_chamber(
     .. [5] NASA-GFSSP6-AREA-CHANGE. GFSSP v6 user manual, Eqs. (33), (38)-(41).
     """
 
-    for value, record_type, field in ((contour, NozzleContour, 'contour'),
+    for value, record_type, field in ((contour, (NozzleContour, BartzContour), 'contour'),
                                       (gas, HotGas, 'gas'),
                                       (channels, (CoolingChannels, ChannelProfile), 'channels'),
                                       (coolant, Coolant, 'coolant')):
         if not isinstance(value, record_type):
             raise DomainError(f'{field} has the wrong record type.', field=field)
+    contour = snapshot_thermal_contour(contour)
+    if any(station.area_ratio < 1.0 for station in contour.stations):
+        raise DomainError('Cooling station area ratio must be at least one.', field='area_ratio')
     coolant_correlation = cast(CoolantCorrelation, text(coolant_correlation, 'coolant_correlation'))
     wall_model = text(wall_model, 'wall_model')
     gas_radiation = cast(GasRadiation, text(gas_radiation, 'gas_radiation'))
@@ -1190,7 +1194,9 @@ def solve_regen_chamber(
         "One-dimensional gas and coolant march with "
         + ("two-dimensional wall conduction across channel and land" if wall_model == "2d"
            else "a fin model of the land")
-        + "; no axial wall conduction, no curvature or entrance enhancement, frozen chamber gas "
+        + ("; axial wall conduction coupled; " if _axial_sources is not None
+           else "; no axial wall conduction; ")
+        + "no curvature or entrance enhancement, frozen chamber gas "
         "properties; not validated against hardware data.",
         severity="info"))
     for parameter, (stated, indices) in extrapolated.items():

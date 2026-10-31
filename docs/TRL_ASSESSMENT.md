@@ -16,6 +16,11 @@ documented scaling requirements.
 
 ## Evidence that exists (software, independent references)
 
+- Cooling contour admission now shares the prescribed Bartz geometry snapshot,
+  with ordering/coherence and caller-mutation controls before EOS/axial work
+  (`REGEN_CONTOUR_CONTRACT_REVIEW.md`). Conservation and generator regressions
+  do not qualify a continuous wall, a prescribed flow field or physical hardware.
+
 - Cooling controls and material use retain strict physical scalar admission,
   ownership before axial iteration and the actual conductivity/temperature-source
   conditions in results (`REGEN_SOLVER_ADMISSION_REVIEW.md`). A temperature

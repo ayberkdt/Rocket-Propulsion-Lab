@@ -26,6 +26,13 @@ source/condition of its material temperature comparison. User overrides carry
 their own basis; positive temperature differences alone do not assess liner
 stress, creep, fatigue or life.
 
+The consumed contour is copied and checked before fluid work or axial dispatch;
+the prescribed and coupled Bartz paths share `snapshot_thermal_contour`.
+See [REGEN_CONTOUR_CONTRACT_REVIEW.md](REGEN_CONTOUR_CONTRACT_REVIEW.md) for station
+ordering, representation coherence, ownership attacks and the limits of this
+check. Unused contour metadata and prescribed flow-field accuracy remain outside
+its scope.
+
 ```python
 from rocket_propulsion.heat_transfer.regen_chamber import (
     ChannelProfile, Coolant, CoolingChannels, HotGas, bartz_coefficient,
