@@ -1,0 +1,723 @@
+{
+  "scope": "V5 academic derivations. ASSUMED labels are scenarios, not flight data.",
+  "density_basis": "NASA/TM-2013-216560 Table 1: 1004 kg/m3 at 300 K",
+  "feed_scope": "S1 family 204 L and C load combined for sensitivity. Initial pressures, n and 0.5 bar loss assumed. No S2 tank volume inferred.",
+  "feed_cutoff_sensitivity": [
+    {
+      "P0_bar_abs_ASSUMED": 22.0,
+      "n_ASSUMED": 1.0,
+      "initial_gas_L": 50.61354581673305,
+      "cutoff_gas_L": 185.5830013280212,
+      "residual_kg": 18.490666666666712,
+      "accessible_kg": 135.5093333333333,
+      "empty_pressure_bar_abs": 5.4583235684712115
+    },
+    {
+      "P0_bar_abs_ASSUMED": 22.0,
+      "n_ASSUMED": 1.2,
+      "initial_gas_L": 50.61354581673305,
+      "cutoff_gas_L": 149.44898011688693,
+      "residual_kg": 54.76922396264551,
+      "accessible_kg": 99.23077603735449,
+      "empty_pressure_bar_abs": 4.13034754172579
+    },
+    {
+      "P0_bar_abs_ASSUMED": 22.0,
+      "n_ASSUMED": 1.6666666666666667,
+      "initial_gas_L": 50.61354581673305,
+      "cutoff_gas_L": 110.36455636009185,
+      "residual_kg": 94.00998541446778,
+      "accessible_kg": 59.99001458553222,
+      "empty_pressure_bar_abs": 2.1551806267124047
+    },
+    {
+      "P0_bar_abs_ASSUMED": 24.5,
+      "n_ASSUMED": 1.0,
+      "initial_gas_L": 50.61354581673305,
+      "cutoff_gas_L": 204.0,
+      "residual_kg": 0.0,
+      "accessible_kg": 154.0,
+      "empty_pressure_bar_abs": 6.07858761034294
+    },
+    {
+      "P0_bar_abs_ASSUMED": 24.5,
+      "n_ASSUMED": 1.2,
+      "initial_gas_L": 50.61354581673305,
+      "cutoff_gas_L": 163.47290936047102,
+      "residual_kg": 40.689199002087086,
+      "accessible_kg": 113.3108009979129,
+      "empty_pressure_bar_abs": 4.599705216921903
+    },
+    {
+      "P0_bar_abs_ASSUMED": 24.5,
+      "n_ASSUMED": 1.6666666666666667,
+      "initial_gas_L": 50.61354581673305,
+      "cutoff_gas_L": 117.72688799675646,
+      "residual_kg": 86.6182044512565,
+      "accessible_kg": 67.3817955487435,
+      "empty_pressure_bar_abs": 2.4000875161115416
+    }
+  ],
+  "one_m_s_burn_sensitivity": [
+    {
+      "vehicle": "S1C",
+      "cant_deg_ASSUMED": 0.0,
+      "force_each_N_ASSUMED": 0.5,
+      "axial_factor": 1.0,
+      "effective_isp_s": 205.0,
+      "scalar_thrust_N": 0.5,
+      "axial_thrust_N": 0.5,
+      "mass_flow_kg_s": 0.0002487112714580313,
+      "propellant_kg": 1.0870952835494203,
+      "duration_s": 4370.912814592169,
+      "total_scalar_impulse_Ns": 2185.456407296084
+    },
+    {
+      "vehicle": "S1C",
+      "cant_deg_ASSUMED": 0.0,
+      "force_each_N_ASSUMED": 1.0,
+      "axial_factor": 1.0,
+      "effective_isp_s": 205.0,
+      "scalar_thrust_N": 1.0,
+      "axial_thrust_N": 1.0,
+      "mass_flow_kg_s": 0.0004974225429160626,
+      "propellant_kg": 1.0870952835494203,
+      "duration_s": 2185.4564072960843,
+      "total_scalar_impulse_Ns": 2185.456407296084
+    },
+    {
+      "vehicle": "S1C",
+      "cant_deg_ASSUMED": 20.0,
+      "force_each_N_ASSUMED": 0.5,
+      "axial_factor": 0.9396926207859084,
+      "effective_isp_s": 192.63698726111122,
+      "scalar_thrust_N": 0.5,
+      "axial_thrust_N": 0.4698463103929542,
+      "mass_flow_kg_s": 0.0002487112714580313,
+      "propellant_kg": 1.1568441735087216,
+      "duration_s": 4651.354024797115,
+      "total_scalar_impulse_Ns": 2325.677012398557
+    },
+    {
+      "vehicle": "S1C",
+      "cant_deg_ASSUMED": 20.0,
+      "force_each_N_ASSUMED": 1.0,
+      "axial_factor": 0.9396926207859084,
+      "effective_isp_s": 192.63698726111122,
+      "scalar_thrust_N": 1.0,
+      "axial_thrust_N": 0.9396926207859084,
+      "mass_flow_kg_s": 0.0004974225429160626,
+      "propellant_kg": 1.1568441735087216,
+      "duration_s": 2325.6770123985575,
+      "total_scalar_impulse_Ns": 2325.677012398557
+    },
+    {
+      "vehicle": "S1C",
+      "cant_deg_ASSUMED": 30.0,
+      "force_each_N_ASSUMED": 0.5,
+      "axial_factor": 0.8660254037844387,
+      "effective_isp_s": 177.53520777580994,
+      "scalar_thrust_N": 0.5,
+      "axial_thrust_N": 0.43301270189221935,
+      "mass_flow_kg_s": 0.0002487112714580313,
+      "propellant_kg": 1.2552212169688726,
+      "duration_s": 5046.901210428996,
+      "total_scalar_impulse_Ns": 2523.4506052144975
+    },
+    {
+      "vehicle": "S1C",
+      "cant_deg_ASSUMED": 30.0,
+      "force_each_N_ASSUMED": 1.0,
+      "axial_factor": 0.8660254037844387,
+      "effective_isp_s": 177.53520777580994,
+      "scalar_thrust_N": 1.0,
+      "axial_thrust_N": 0.8660254037844387,
+      "mass_flow_kg_s": 0.0004974225429160626,
+      "propellant_kg": 1.2552212169688726,
+      "duration_s": 2523.450605214498,
+      "total_scalar_impulse_Ns": 2523.4506052144975
+    },
+    {
+      "vehicle": "S2C",
+      "cant_deg_ASSUMED": 0.0,
+      "force_each_N_ASSUMED": 0.5,
+      "axial_factor": 1.0,
+      "effective_isp_s": 220.0,
+      "scalar_thrust_N": 2.0,
+      "axial_thrust_N": 2.0,
+      "mass_flow_kg_s": 0.000927014739070844,
+      "propellant_kg": 0.5296661618115415,
+      "duration_s": 571.3675732302067,
+      "total_scalar_impulse_Ns": 1142.7351464604137
+    },
+    {
+      "vehicle": "S2C",
+      "cant_deg_ASSUMED": 0.0,
+      "force_each_N_ASSUMED": 1.0,
+      "axial_factor": 1.0,
+      "effective_isp_s": 220.0,
+      "scalar_thrust_N": 4.0,
+      "axial_thrust_N": 4.0,
+      "mass_flow_kg_s": 0.001854029478141688,
+      "propellant_kg": 0.5296661618115415,
+      "duration_s": 285.6837866151034,
+      "total_scalar_impulse_Ns": 1142.7351464604137
+    },
+    {
+      "vehicle": "S2C",
+      "cant_deg_ASSUMED": 20.0,
+      "force_each_N_ASSUMED": 0.5,
+      "axial_factor": 0.9396926207859084,
+      "effective_isp_s": 206.73237657289985,
+      "scalar_thrust_N": 2.0,
+      "axial_thrust_N": 1.8793852415718169,
+      "mass_flow_kg_s": 0.000927014739070844,
+      "propellant_kg": 0.5636505734182398,
+      "duration_s": 608.0276285393178,
+      "total_scalar_impulse_Ns": 1216.0552570786358
+    },
+    {
+      "vehicle": "S2C",
+      "cant_deg_ASSUMED": 20.0,
+      "force_each_N_ASSUMED": 1.0,
+      "axial_factor": 0.9396926207859084,
+      "effective_isp_s": 206.73237657289985,
+      "scalar_thrust_N": 4.0,
+      "axial_thrust_N": 3.7587704831436337,
+      "mass_flow_kg_s": 0.001854029478141688,
+      "propellant_kg": 0.5636505734182398,
+      "duration_s": 304.0138142696589,
+      "total_scalar_impulse_Ns": 1216.0552570786358
+    },
+    {
+      "vehicle": "S2C",
+      "cant_deg_ASSUMED": 30.0,
+      "force_each_N_ASSUMED": 0.5,
+      "axial_factor": 0.8660254037844387,
+      "effective_isp_s": 190.52558883257652,
+      "scalar_thrust_N": 2.0,
+      "axial_thrust_N": 1.7320508075688774,
+      "mass_flow_kg_s": 0.000927014739070844,
+      "propellant_kg": 0.6115838768750466,
+      "duration_s": 659.7347928772342,
+      "total_scalar_impulse_Ns": 1319.4695857544684
+    },
+    {
+      "vehicle": "S2C",
+      "cant_deg_ASSUMED": 30.0,
+      "force_each_N_ASSUMED": 1.0,
+      "axial_factor": 0.8660254037844387,
+      "effective_isp_s": 190.52558883257652,
+      "scalar_thrust_N": 4.0,
+      "axial_thrust_N": 3.464101615137755,
+      "mass_flow_kg_s": 0.001854029478141688,
+      "propellant_kg": 0.6115838768750466,
+      "duration_s": 329.8673964386171,
+      "total_scalar_impulse_Ns": 1319.4695857544684
+    }
+  ],
+  "s2c_delta_v_sum_m_s": 7.968441798404153,
+  "s2c_bounded_scenarios": [
+    {
+      "mass_kg_ASSUMED": 1140,
+      "isp_s_ASSUMED": 200,
+      "cant_deg_ASSUMED": 0.0,
+      "propellant_kg": 4.622167327623183
+    },
+    {
+      "mass_kg_ASSUMED": 1140,
+      "isp_s_ASSUMED": 200,
+      "cant_deg_ASSUMED": 20.0,
+      "propellant_kg": 4.918166956075744
+    },
+    {
+      "mass_kg_ASSUMED": 1140,
+      "isp_s_ASSUMED": 200,
+      "cant_deg_ASSUMED": 30.0,
+      "propellant_kg": 5.335543331456152
+    },
+    {
+      "mass_kg_ASSUMED": 1140,
+      "isp_s_ASSUMED": 220,
+      "cant_deg_ASSUMED": 0.0,
+      "propellant_kg": 4.202745852316801
+    },
+    {
+      "mass_kg_ASSUMED": 1140,
+      "isp_s_ASSUMED": 220,
+      "cant_deg_ASSUMED": 20.0,
+      "propellant_kg": 4.471939019027756
+    },
+    {
+      "mass_kg_ASSUMED": 1140,
+      "isp_s_ASSUMED": 220,
+      "cant_deg_ASSUMED": 30.0,
+      "propellant_kg": 4.851527596960911
+    },
+    {
+      "mass_kg_ASSUMED": 1140,
+      "isp_s_ASSUMED": 223,
+      "cant_deg_ASSUMED": 0.0,
+      "propellant_kg": 4.146309615897828
+    },
+    {
+      "mass_kg_ASSUMED": 1140,
+      "isp_s_ASSUMED": 223,
+      "cant_deg_ASSUMED": 20.0,
+      "propellant_kg": 4.411894969210716
+    },
+    {
+      "mass_kg_ASSUMED": 1140,
+      "isp_s_ASSUMED": 223,
+      "cant_deg_ASSUMED": 30.0,
+      "propellant_kg": 4.786397618252555
+    },
+    {
+      "mass_kg_ASSUMED": 1143,
+      "isp_s_ASSUMED": 200,
+      "cant_deg_ASSUMED": 0.0,
+      "propellant_kg": 4.63433092585377
+    },
+    {
+      "mass_kg_ASSUMED": 1143,
+      "isp_s_ASSUMED": 200,
+      "cant_deg_ASSUMED": 20.0,
+      "propellant_kg": 4.931109500696996
+    },
+    {
+      "mass_kg_ASSUMED": 1143,
+      "isp_s_ASSUMED": 200,
+      "cant_deg_ASSUMED": 30.0,
+      "propellant_kg": 5.349584234959983
+    },
+    {
+      "mass_kg_ASSUMED": 1143,
+      "isp_s_ASSUMED": 220,
+      "cant_deg_ASSUMED": 0.0,
+      "propellant_kg": 4.213805709822899
+    },
+    {
+      "mass_kg_ASSUMED": 1143,
+      "isp_s_ASSUMED": 220,
+      "cant_deg_ASSUMED": 20.0,
+      "propellant_kg": 4.483707279604145
+    },
+    {
+      "mass_kg_ASSUMED": 1143,
+      "isp_s_ASSUMED": 220,
+      "cant_deg_ASSUMED": 30.0,
+      "propellant_kg": 4.86429477484765
+    },
+    {
+      "mass_kg_ASSUMED": 1143,
+      "isp_s_ASSUMED": 223,
+      "cant_deg_ASSUMED": 0.0,
+      "propellant_kg": 4.157220956992296
+    },
+    {
+      "mass_kg_ASSUMED": 1143,
+      "isp_s_ASSUMED": 223,
+      "cant_deg_ASSUMED": 20.0,
+      "propellant_kg": 4.423505219129692
+    },
+    {
+      "mass_kg_ASSUMED": 1143,
+      "isp_s_ASSUMED": 223,
+      "cant_deg_ASSUMED": 30.0,
+      "propellant_kg": 4.798993401458483
+    },
+    {
+      "mass_kg_ASSUMED": 1146,
+      "isp_s_ASSUMED": 200,
+      "cant_deg_ASSUMED": 0.0,
+      "propellant_kg": 4.646494524084358
+    },
+    {
+      "mass_kg_ASSUMED": 1146,
+      "isp_s_ASSUMED": 200,
+      "cant_deg_ASSUMED": 20.0,
+      "propellant_kg": 4.944052045318248
+    },
+    {
+      "mass_kg_ASSUMED": 1146,
+      "isp_s_ASSUMED": 200,
+      "cant_deg_ASSUMED": 30.0,
+      "propellant_kg": 5.363625138463815
+    },
+    {
+      "mass_kg_ASSUMED": 1146,
+      "isp_s_ASSUMED": 220,
+      "cant_deg_ASSUMED": 0.0,
+      "propellant_kg": 4.224865567328996
+    },
+    {
+      "mass_kg_ASSUMED": 1146,
+      "isp_s_ASSUMED": 220,
+      "cant_deg_ASSUMED": 20.0,
+      "propellant_kg": 4.495475540180534
+    },
+    {
+      "mass_kg_ASSUMED": 1146,
+      "isp_s_ASSUMED": 220,
+      "cant_deg_ASSUMED": 30.0,
+      "propellant_kg": 4.8770619527343895
+    },
+    {
+      "mass_kg_ASSUMED": 1146,
+      "isp_s_ASSUMED": 223,
+      "cant_deg_ASSUMED": 0.0,
+      "propellant_kg": 4.168132298086764
+    },
+    {
+      "mass_kg_ASSUMED": 1146,
+      "isp_s_ASSUMED": 223,
+      "cant_deg_ASSUMED": 20.0,
+      "propellant_kg": 4.435115469048668
+    },
+    {
+      "mass_kg_ASSUMED": 1146,
+      "isp_s_ASSUMED": 223,
+      "cant_deg_ASSUMED": 30.0,
+      "propellant_kg": 4.8115891846644105
+    }
+  ],
+  "s2c_bounded_scenarios_min_max_kg": [
+    4.146309615897828,
+    5.363625138463815
+  ],
+  "s2c_ledger_220s_eta1": [
+    {
+      "id": "four-large-IP-aggregate",
+      "dv_m_s": 6.33,
+      "mass_before_kg": 1143.0,
+      "propellant_ideal_kg": 3.3486490119280066,
+      "mass_after_kg": 1139.651350988072,
+      "fuel_remaining_ideal_kg": 129.65135098807198
+    },
+    {
+      "id": "2024-10-29-fine-acquisition",
+      "dv_m_s": 0.012,
+      "mass_before_kg": 1139.651350988072,
+      "propellant_ideal_kg": 0.0063388239700415665,
+      "mass_after_kg": 1139.645012164102,
+      "fuel_remaining_ideal_kg": 129.64501216410193
+    },
+    {
+      "id": "two-early-OOP-aggregate",
+      "dv_m_s": 0.57,
+      "mass_before_kg": 1139.645012164102,
+      "propellant_ideal_kg": 0.3010535304194365,
+      "mass_after_kg": 1139.3439586336824,
+      "fuel_remaining_ideal_kg": 129.3439586336825
+    },
+    {
+      "id": "2024-10-31T14:32:37.650",
+      "dv_m_s": 0.0146,
+      "mass_before_kg": 1139.3439586336824,
+      "propellant_ideal_kg": 0.007710151002305008,
+      "mass_after_kg": 1139.33624848268,
+      "fuel_remaining_ideal_kg": 129.3362484826802,
+      "duration_s": 5.3,
+      "inferred_average_axial_thrust_N": 3.1385595305445224
+    },
+    {
+      "id": "2024-11-06T09:51:18.898",
+      "dv_m_s": 0.9359417984041529,
+      "mass_before_kg": 1139.33624848268,
+      "propellant_ideal_kg": 0.49415501007781304,
+      "mass_after_kg": 1138.8420934726023,
+      "fuel_remaining_ideal_kg": 128.8420934726024,
+      "duration_s": 314.1,
+      "inferred_average_axial_thrust_N": 3.394209329855169
+    },
+    {
+      "id": "2024-11-08T12:00:00.440",
+      "dv_m_s": 0.0025,
+      "mass_before_kg": 1138.8420934726023,
+      "propellant_ideal_kg": 0.0013196534930677009,
+      "mass_after_kg": 1138.8407738191092,
+      "fuel_remaining_ideal_kg": 128.84077381910933,
+      "duration_s": 0.9,
+      "inferred_average_axial_thrust_N": 3.16344842679369
+    },
+    {
+      "id": "2024-11-23T03:21:56.081",
+      "dv_m_s": 0.0207,
+      "mass_before_kg": 1138.8407738191092,
+      "propellant_ideal_kg": 0.010926672173204236,
+      "mass_after_kg": 1138.8298471469361,
+      "fuel_remaining_ideal_kg": 128.82984714693612,
+      "duration_s": 7.3,
+      "inferred_average_axial_thrust_N": 3.229300126961333
+    },
+    {
+      "id": "2024-11-23T05:02:38.069",
+      "dv_m_s": 0.0206,
+      "mass_before_kg": 1138.8298471469361,
+      "propellant_ideal_kg": 0.010873782239181663,
+      "mass_after_kg": 1138.8189733646968,
+      "fuel_remaining_ideal_kg": 128.81897336469694,
+      "duration_s": 7.3,
+      "inferred_average_axial_thrust_N": 3.213668883711176
+    },
+    {
+      "id": "2024-11-27T10:52:04.896",
+      "dv_m_s": 0.0309,
+      "mass_before_kg": 1138.8189733646968,
+      "propellant_ideal_kg": 0.016310478686991106,
+      "mass_after_kg": 1138.8026628860098,
+      "fuel_remaining_ideal_kg": 128.80266288600995,
+      "duration_s": 11.0,
+      "inferred_average_axial_thrust_N": 3.1990231163156264
+    },
+    {
+      "id": "2024-11-29T11:32:17.614",
+      "dv_m_s": 0.0029,
+      "mass_before_kg": 1138.8026628860098,
+      "propellant_ideal_kg": 0.0015307449086212899,
+      "mass_after_kg": 1138.801132141101,
+      "fuel_remaining_ideal_kg": 128.80113214110133,
+      "duration_s": 1.0,
+      "inferred_average_axial_thrust_N": 3.302525502788814
+    },
+    {
+      "id": "2024-12-18T10:48:25.601",
+      "dv_m_s": 0.0283,
+      "mass_before_kg": 1138.801132141101,
+      "propellant_ideal_kg": 0.014937850924229282,
+      "mass_after_kg": 1138.7861942901768,
+      "fuel_remaining_ideal_kg": 128.7861942901771,
+      "duration_s": 10.0,
+      "inferred_average_axial_thrust_N": 3.222786066854048
+    }
+  ],
+  "s1b_published_simulator_forces_N": [
+    0.57,
+    0.56,
+    0.47,
+    0.58
+  ],
+  "s1b_scalar_force_sum_N": 2.1799999999999997,
+  "s1b_force_spread_percent_of_mean": 20.183486238532108,
+  "life_allocation_screen": [
+    {
+      "vehicle": "S1C",
+      "engines_equal_share_ASSUMED": 1,
+      "load_kg": 154,
+      "Isp_s_ASSUMED": 205,
+      "impulse_each_Ns": 309595.94049999997,
+      "catalogue_limit_Ns": 60000,
+      "impulse_fraction": 5.159932341666666,
+      "mass_each_kg": 154.0
+    },
+    {
+      "vehicle": "S1C",
+      "engines_equal_share_ASSUMED": 4,
+      "load_kg": 154,
+      "Isp_s_ASSUMED": 205,
+      "impulse_each_Ns": 77398.98512499999,
+      "catalogue_limit_Ns": 60000,
+      "impulse_fraction": 1.2899830854166665,
+      "mass_each_kg": 38.5
+    },
+    {
+      "vehicle": "S2C",
+      "engines_equal_share_ASSUMED": 1,
+      "load_kg": 133,
+      "Isp_s_ASSUMED": 220,
+      "impulse_each_Ns": 286942.57899999997,
+      "catalogue_limit_Ns": 135000,
+      "impulse_fraction": 2.125500585185185,
+      "mass_each_kg": 133.0
+    },
+    {
+      "vehicle": "S2C",
+      "engines_equal_share_ASSUMED": 4,
+      "load_kg": 133,
+      "Isp_s_ASSUMED": 220,
+      "impulse_each_Ns": 71735.64474999999,
+      "catalogue_limit_Ns": 135000,
+      "impulse_fraction": 0.5313751462962962,
+      "mass_each_kg": 33.25
+    }
+  ],
+  "MIB_velocity_quanta_m_s": {
+    "S1C_0.008Ns": 3.6596523330283626e-06,
+    "S2C_0.01Ns": 8.748906386701662e-06,
+    "S2C_0.043Ns": 3.7620297462817144e-05
+  },
+  "plane_change_0.01deg_m_s": {
+    "S1": 1.310393195075115,
+    "S2": 1.3018600910446567
+  },
+  "drag_scenarios": [
+    {
+      "vehicle": "S1C",
+      "rho_kg_m3_ASSUMED": 1e-14,
+      "Cd_ASSUMED": 2.2,
+      "area_m2_ASSUMED": 10.0,
+      "dv_per_year_m_s": 0.08951483567950289
+    },
+    {
+      "vehicle": "S1C",
+      "rho_kg_m3_ASSUMED": 1e-14,
+      "Cd_ASSUMED": 2.2,
+      "area_m2_ASSUMED": 20.0,
+      "dv_per_year_m_s": 0.17902967135900577
+    },
+    {
+      "vehicle": "S1C",
+      "rho_kg_m3_ASSUMED": 1e-13,
+      "Cd_ASSUMED": 2.2,
+      "area_m2_ASSUMED": 10.0,
+      "dv_per_year_m_s": 0.895148356795029
+    },
+    {
+      "vehicle": "S1C",
+      "rho_kg_m3_ASSUMED": 1e-13,
+      "Cd_ASSUMED": 2.2,
+      "area_m2_ASSUMED": 20.0,
+      "dv_per_year_m_s": 1.790296713590058
+    },
+    {
+      "vehicle": "S1C",
+      "rho_kg_m3_ASSUMED": 1e-12,
+      "Cd_ASSUMED": 2.2,
+      "area_m2_ASSUMED": 10.0,
+      "dv_per_year_m_s": 8.951483567950289
+    },
+    {
+      "vehicle": "S1C",
+      "rho_kg_m3_ASSUMED": 1e-12,
+      "Cd_ASSUMED": 2.2,
+      "area_m2_ASSUMED": 20.0,
+      "dv_per_year_m_s": 17.902967135900578
+    },
+    {
+      "vehicle": "S2C",
+      "rho_kg_m3_ASSUMED": 1e-14,
+      "Cd_ASSUMED": 2.2,
+      "area_m2_ASSUMED": 10.0,
+      "dv_per_year_m_s": 0.16897572375812742
+    },
+    {
+      "vehicle": "S2C",
+      "rho_kg_m3_ASSUMED": 1e-14,
+      "Cd_ASSUMED": 2.2,
+      "area_m2_ASSUMED": 20.0,
+      "dv_per_year_m_s": 0.33795144751625483
+    },
+    {
+      "vehicle": "S2C",
+      "rho_kg_m3_ASSUMED": 1e-13,
+      "Cd_ASSUMED": 2.2,
+      "area_m2_ASSUMED": 10.0,
+      "dv_per_year_m_s": 1.6897572375812744
+    },
+    {
+      "vehicle": "S2C",
+      "rho_kg_m3_ASSUMED": 1e-13,
+      "Cd_ASSUMED": 2.2,
+      "area_m2_ASSUMED": 20.0,
+      "dv_per_year_m_s": 3.3795144751625488
+    },
+    {
+      "vehicle": "S2C",
+      "rho_kg_m3_ASSUMED": 1e-12,
+      "Cd_ASSUMED": 2.2,
+      "area_m2_ASSUMED": 10.0,
+      "dv_per_year_m_s": 16.897572375812743
+    },
+    {
+      "vehicle": "S2C",
+      "rho_kg_m3_ASSUMED": 1e-12,
+      "Cd_ASSUMED": 2.2,
+      "area_m2_ASSUMED": 20.0,
+      "dv_per_year_m_s": 33.795144751625486
+    }
+  ],
+  "finite_burn_assumptions": {
+    "altitude_m": 693000,
+    "mass_kg": 2100,
+    "scalar_dv_m_s": 0.7,
+    "isp_s": 205,
+    "guidance": "instantaneously anti-velocity; no J2/drag/plume/attitude"
+  },
+  "finite_burn_cases": [
+    {
+      "force_N_ASSUMED": 1.0,
+      "duration_s": 1469.7441058029578,
+      "steps": 1470,
+      "step_s": 0.9998259223149373,
+      "propellant_kg": 0.7310838505444018,
+      "final_mass_kg": 2099.2689161494036,
+      "perigee_km": 690.4932775565804,
+      "apogee_km": 692.8702126910127,
+      "eccentricity": 0.0001681043899514405,
+      "impulsive_perigee_km": 690.3635362505512,
+      "impulsive_apogee_km": 693.0,
+      "energy_work_residual_J_kg": -1.5431760402861983e-07,
+      "angular_momentum_residual_m2_s": -0.00014466885477304459,
+      "mass_residual_kg": -5.184119800105691e-11,
+      "burn_orbit_fraction": 0.24836870295711316
+    },
+    {
+      "force_N_ASSUMED": 2.18,
+      "duration_s": 674.1945439463109,
+      "steps": 675,
+      "step_s": 0.9988067317723124,
+      "propellant_kg": 0.7310838505444018,
+      "final_mass_kg": 2099.26891614939,
+      "perigee_km": 690.3915003999425,
+      "apogee_km": 692.9720255326918,
+      "eccentricity": 0.0001825029197542296,
+      "impulsive_perigee_km": 690.3635362505512,
+      "impulsive_apogee_km": 693.0,
+      "energy_work_residual_J_kg": 3.3769538276828825e-08,
+      "angular_momentum_residual_m2_s": 2.7499161660671234e-05,
+      "mass_residual_kg": -6.548361852765083e-11,
+      "burn_orbit_fraction": 0.11393059768674915
+    },
+    {
+      "force_N_ASSUMED": 4.0,
+      "duration_s": 367.43602645073946,
+      "steps": 368,
+      "step_s": 0.9984674631813573,
+      "propellant_kg": 0.7310838505444018,
+      "final_mass_kg": 2099.268916149391,
+      "perigee_km": 690.3718797505051,
+      "apogee_km": 692.9916533983871,
+      "eccentricity": 0.00018527869909964895,
+      "impulsive_perigee_km": 690.3635362505512,
+      "impulsive_apogee_km": 693.0,
+      "energy_work_residual_J_kg": 5.0767994252964854e-09,
+      "angular_momentum_residual_m2_s": 7.510185241699219e-06,
+      "mass_residual_kg": -6.45741238258779e-11,
+      "burn_orbit_fraction": 0.06209217573927829
+    }
+  ],
+  "finite_burn_half_step": {
+    "duration_s": 674.1945439463109,
+    "steps": 1349,
+    "step_s": 0.4997735685295114,
+    "propellant_kg": 0.7310838505444018,
+    "final_mass_kg": 2099.2689161497456,
+    "perigee_km": 690.3915003999965,
+    "apogee_km": 692.9720255326909,
+    "eccentricity": 0.00018250291975035852,
+    "impulsive_perigee_km": 690.3635362505512,
+    "impulsive_apogee_km": 693.0,
+    "energy_work_residual_J_kg": 1.3752924132859334e-07,
+    "angular_momentum_residual_m2_s": 0.00013380590826272964,
+    "mass_residual_kg": 2.901288098655641e-10,
+    "burn_orbit_fraction": 0.11393059768674915
+  },
+  "reserve_example": {
+    "current_mass_kg_ASSUMED": 2100,
+    "remaining_fuel_kg_ASSUMED": 70,
+    "withheld_fuel_kg_ASSUMED": 60,
+    "annual_dv_m_s_ASSUMED": 1,
+    "Isp_s_ASSUMED": 205,
+    "ideal_years": 9.596024186348833
+  }
+}

@@ -72,6 +72,21 @@ Planlanan zamanla gerçekleşen uçuş olayı ayrıdır. Dinamik operasyon sayfa
 | DEBRIS-ESA | ESA, yeni enkaz azaltma politikası (2023) — https://esoc.esa.int/new-space-debris-mitigation-policy-and-requirements-effect | V2 |
 | DEBRIS-CHARTER | ESA, Zero Debris Charter SSS — https://www.esa.int/Space_Safety/Clean_Space/Zero_Debris_Charter_-_Frequently_Asked_Questions | V2 |
 
+## V5 ek kaynak kontrolü — 1 Kasım 2026
+
+| Kod | Birincil kaynak / yer | Kullanım ve erişim |
+|---|---|---|
+| S2-AG-WEB-V5 | [Üretici 1 N ürün sayfası](https://www.space-propulsion.com/spacecraft-propulsion/hydrazine-thrusters/1n-hydrazine-thruster.html) | Boyut/arayüz çizimleri ve ürün fotoğrafı indirildi. MIB birimi webde N, PDF s.6'da doğru N·s. C/D as-built ICD değil. |
+| N2H4-NASA-V5 | [NASA/TM-2013-216560](https://ntrs.nasa.gov/api/citations/20140009582/downloads/20140009582.pdf) | Tablo 1, basılı s.5/PDF s.8, 300 K'de 1004 kg/m³. Hidrazin genel özelliği, Sentinel tank telemetrisi değil. |
+| S1D-RECOVERY-V5 | [CDSE 30 Ekim 2026 bülteni](https://dataspace.copernicus.eu/news/2026-10-30-copernicus-sentinel-1d-data-unavailability-28-october-2026) | 28–29 Ekim veri kesintisi ve geri kazanılamayan veri kaybı. |
+| S1-DASH-V5 | [Operasyon panosu](https://operations.dashboard.copernicus.eu/index) | 1 Kasım erişimi, 29 Ekim 15:29 UTC'de nominale dönüş. |
+| NASA-SOA-V5 | [NASA 2026 itki durum raporu](https://www.nasa.gov/smallsat-institute/sst-soa/in-space_propulsion/) | Üretici ürün aileleriyle çapraz kontrol, görev özelinde kabul raporu değil. |
+
+Airbus 2014 GNC yazar metni tekrar okundu: s.9 Tablo 5 CHT1N-6, s.12 eğik
+iki dal, s.24 EOL. Metin webde okunabildi; otomatik PDF/HTML indirmesi engellendi.
+ESA LPS2025 C/D sunumu indirmesi de başarısız oldu. Bu belgeler yerel tam kopya
+sayılmadı. V5 kaynak arşivindeki JSON, başarılı/başarısız erişimleri ayrı kaydeder.
+
 ## Fotoğraflar ve lisans
 
 | Görev | Sayfa | Kredi / lisans |

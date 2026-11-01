@@ -1,8 +1,14 @@
-# Sentinel-1 ve Sentinel-2 serileri — karşılaştırmalı SASS raporu (V4)
+# Sentinel-1 ve Sentinel-2 serileri — karşılaştırmalı SASS raporu (V5)
 
 **Kapsam:** Kullanıcının teyidiyle ilk nesil A/B/C/D araçları karşılaştırılır.
 C araçları, dolum bilgisi ve ayrıntılı manevra kayıtlarıyla hesap örnekleridir.
-**Kaynak kesiti:** 29 Ekim 2026. Ders: [SASS hazırlığı](../../SASS_PROJECT_PREPARATION.md).
+**Kaynak kesiti:** V4 ana raporlar 29 Ekim, V5 itki eki ve S1D durum güncellemesi
+1 Kasım 2026. Ders: [SASS hazırlığı](../../SASS_PROJECT_PREPARATION.md).
+
+**Yeni ayrıntılı ek:** [Motor, besleme ve itki hesapları](DERIN_ITKI_ANALIZI.md).
+Motor modelinin araçla kanıt bağı, nominal katalog tutarlılığı, cant/duty, tank basınç
+kesimi, 27 yakıt duyarlılık senaryosu, motor başına ömür tahsisi, sürüklenme/eğim
+bütçesi ve RK4 sonlu yanma deneyi içerir. [Sayısal sonuçlar](DERIN_ITKI_SONUCLARI.json).
 
 ## İki serinin doğrudan karşılaştırması
 

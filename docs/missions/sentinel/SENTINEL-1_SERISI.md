@@ -6,6 +6,9 @@ aracın bir varyantı sayılmaz. Ayrıntılı C örneği: [Sentinel-1C](SENTINEL
 Seriler arası hesaplar: [HESAPLAR.md](HESAPLAR.md). Kaynak kodları ve erişim sınırları:
 [KAYNAKLAR.md](KAYNAKLAR.md).
 
+**V5 / 1 Kasım ek incelemesi:** [Ayrıntılı motor ve itki hesabı](DERIN_ITKI_ANALIZI.md).
+28–29 Ekim S1D olayının kapanışı aşağıda güncellendi. Ana bütçe kaynak sürümleri korunur.
+
 **K:** doğrudan yayımlanan değer; **M:** aile/tasarım/katalog mirası; **H:** bu çalışmanın
 türetimi; **V:** varsayım; **A:** açık veri ihtiyacı. Katalogdaki sınır, uçuş telemetrisi
 değildir. Örneğin 154 kg, 1C'nin yüklenen hidrazinidir; otomatik olarak A/B/D yükü sayılmaz.
@@ -90,9 +93,10 @@ pasivasyon ve yaklaşık 24 yıllık yeniden giriş öngörüsü, yeniden giriş
 anlamına gelmez. 1A'nın 2026 bilimsel işletme sonu da bertarafın tamamlandığını kanıtlamaz.
 1C/1D nominal ikilisi Haziran 2026'da 6 günlük yapılandırmaya geçti.
 
-**Dinamik durum:** 26–27 Ekim 2026 1D olayı çözüldü; 29 Ekim'de açılan operasyon panosu,
-28 Ekim tarihli yeni bir 1D veri olayını ayrıca gösteriyordu. Statik indirilen HTML ayrıntılı
-telemetri içermez; olayın bitişi ve kesin arıza nedeni bu incelemede doğrulanmadı.
+**Dinamik durum, 1 Kasım 2026 kontrolü:** 26–27 Ekim 1D olayı çözüldü. 30 Ekim CDSE
+bülteni 28–29 Ekim olayını doğrular; operasyon panosu 29 Ekim 15:29 UTC'de nominale
+dönüş bildirir. Kesinti sırasındaki veri kaybı geri kazanılamaz. Kesin arıza nedeni
+yayımlanmadı; itki arızası olarak nitelendirilmez. [S1D-RECOVERY-V5, S1-DASH-V5]
 "Operasyonel kabul" ile "bütün verileri şu an eksiksiz üretiyor" ayrı ifadelerdir. [S1-DASH]
 
 ## B. Bütçeler ve alt sistem bağlantıları

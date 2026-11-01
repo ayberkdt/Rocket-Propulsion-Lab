@@ -5,6 +5,10 @@
 dosyası: [Sentinel-2C](SENTINEL-2C.md). Denklemler ve yeniden üretim:
 [HESAPLAR.md](HESAPLAR.md). Tam kaynak bağlantıları: [KAYNAKLAR.md](KAYNAKLAR.md).
 
+**V5 / 1 Kasım ek incelemesi:** [Ayrıntılı motor ve itki hesabı](DERIN_ITKI_ANALIZI.md).
+CHT1N-6 kanıtı, üretici çizimleri, cant/duty ayrımı, olay bazlı tüketim, motor başına
+ömür ve basınçla erişilebilir yakıt değerlendirmesi burada derinleştirildi.
+
 **K:** yayımlanmış doğrudan bilgi; **M:** aile/tasarım/katalog mirası; **H:** hesap;
 **V:** varsayım; **A:** açık veri ihtiyacı. Tasarım, dolum, uçuşta kalibre edilmiş ΔV
 ve hesaplanan yakıt birbirinden ayrılmıştır.
