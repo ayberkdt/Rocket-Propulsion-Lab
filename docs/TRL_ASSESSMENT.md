@@ -16,6 +16,11 @@ documented scaling requirements.
 
 ## Evidence that exists (software, independent references)
 
+- Static/total and static/sonic scalar ratio inverses have exact-input
+  entropy/energy controls and logarithmic bracket screening
+  (`ISENTROPIC_RATIO_INVERSE_REVIEW.md`). This does not establish all inverse
+  algorithms, a real-gas operating domain or hardware readiness.
+
 - Complete forward isentropic ratios retain balanced extreme outputs and sonic
   normalization, with entropy/continuity oracles and checked positive exports
   (`ISENTROPIC_FORWARD_RANGE_REVIEW.md`). Synthetic arithmetic coverage does not

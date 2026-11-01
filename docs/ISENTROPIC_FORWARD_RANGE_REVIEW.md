@@ -92,14 +92,17 @@ inverse, shock/real-gas relation, nozzle discretization, continuous flow or
 manufactured hardware correct. Relevant-environment motor/feed evidence is
 still required for the user's TRL 5 target.
 
-Four inverse false refusals are confirmed independently by inverting the exact
+At this checkpoint, four inverse false refusals were confirmed by inverting the exact
 supplied floats, rather than a forward/inverse round trip. At gamma=1e308,
 T/T0=5e-309 and T/T*=0.25 each imply M≈2. At gamma=nextafter(1,+inf),
-T/T*=1 and p/p*=1 each imply exactly M=1. The current inverse rejects all four
+T/T*=1 and p/p*=1 each imply exactly M=1. The checkpoint inverse rejected all four
 as outside [1e-8,1000]. Its 700 log cutoff and rounded sonic normalization
-remain open defects. The docstring's claim of "exact" critical-ratio conversion
-is also unproven and contradicted by these cases; it is not endorsed by this
-forward review. These are synthetic arithmetic cases, not a real-gas envelope.
+were open defects. The checkpoint docstring's claim of "exact" critical-ratio
+conversion was contradicted by these cases. Their subsequent scalar-ratio repair
+is tracked in [ISENTROPIC_RATIO_INVERSE_REVIEW.md](ISENTROPIC_RATIO_INVERSE_REVIEW.md).
+The original receipts below remain historical evidence for their archived bytes;
+they are not silently renewed for the inverse change. These are synthetic
+arithmetic cases, not a real-gas envelope.
 
 ## Measured checkpoint
 

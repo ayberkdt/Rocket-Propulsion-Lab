@@ -9,6 +9,11 @@ function counts.
 
 ## Added scope
 
+- Six scalar flow-ratio inverses now retain complete sonic normalization and
+  compare the logarithmic root against the existing numerical bracket before
+  export (`ISENTROPIC_RATIO_INVERSE_REVIEW.md`). Angle/area inversion and
+  empirical hardware qualification remain separate reviews.
+
 - Forward isentropic arithmetic now has separate complete-expression,
   positive-export and independent entropy/continuity controls
   (`ISENTROPIC_FORWARD_RANGE_REVIEW.md`). Its tests remain numerical evidence,

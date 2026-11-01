@@ -12,11 +12,12 @@ References
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import asin, atan, degrees, expm1, isfinite, log, radians, sin, sqrt
+from math import asin, atan, degrees, isfinite, radians, sin, sqrt
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
 from rocket_propulsion.core.validation import real, text
 
+from .isentropic_inverse import ratio_inverse
 from .isentropic_numerics import precise_area, precise_ratios, requires_precise_ratios
 from .sonic_numerics import sonic_area, sonic_inverse, sonic_pm
 
@@ -94,7 +95,9 @@ def calculate_isentropic(mach: float, gamma: float = 1.4) -> IsentropicResult:
     Raises
     ------
     DomainError
-        If ``mach`` or ``gamma`` is outside its domain.
+        If ``mach`` or ``gamma`` is outside its domain, or a positive output
+        ratio is not representable as a finite nonzero float. The latter
+        carries ``numeric_range`` and the affected computed field.
 
     Notes
     -----
@@ -174,8 +177,9 @@ def mach_from_isentropic(
     Returns
     -------
     float
-        Mach number that reproduces ``value`` under
-        :func:`calculate_isentropic`.
+        Mach inferred from the supplied rounded float, with the conditioning
+        limits described below. A rounded forward value need not recover the
+        Mach that generated it.
 
     Raises
     ------
@@ -194,19 +198,21 @@ def mach_from_isentropic(
     * stagnation ratios, with ``X = 1 + (gamma-1) M^2/2``:
       ``M^2 = 2 (X - 1)/(gamma - 1)`` and ``X - 1`` from ``T/T0 = 1/X``,
       ``p/p0 = X^(-gamma/(gamma-1))`` or ``rho/rho0 = X^(-1/(gamma-1))``
-      in closed form, written with ``expm1``/``log`` so that ratios near 1
-      (``M -> 0``) keep full relative precision;
-    * critical ratios: converted exactly to stagnation ratios with the sonic
-      values ``T*/T0 = 2/(gamma+1)`` (and its powers), then as above;
+      in closed form using private complete logarithmic expressions;
+    * critical ratios: retain the sonic factor ``(gamma+1)/2`` before the
+      logarithm, without first rounding the sonic temperature ratio;
     * area ratio and Prandtl-Meyer angle: Newton iteration with the analytic
       derivatives ``d(A/A*)/dM = (A/A*)(M^2-1)/(M X)`` and
       ``d nu/dM = sqrt(M^2-1)/(M X)``, kept inside a shrinking bracket
       (bisection step whenever Newton would leave it) and stopped when the
       bracket or the step falls below 4 ulp of ``M``.
 
-    The result lies in ``[1e-8, 1000]``; a value whose Mach number falls
-    outside is refused. The area ratio is double-valued, so the subsonic or
-    supersonic branch must be named explicitly; ``A/A* = 1`` returns
+    Derived results lie in ``[1e-8, 1000]``; the six scalar flow-ratio inverses
+    compare their complete logarithmic root with these bounds before float
+    export. Direct ``input_kind='mach'`` validates and returns any positive
+    finite Mach without imposing this inverse bracket. The area ratio is
+    double-valued, so the subsonic or supersonic branch must be named explicitly;
+    ``A/A* = 1`` returns
     ``M = 1`` on either branch.
 
     References
@@ -238,24 +244,14 @@ def mach_from_isentropic(
         return _newton_bracketed(lambda m: _prandtl_meyer_deg(m, gamma), _prandtl_meyer_slope(gamma),
                                  value, 1.0, _MAXIMUM_MACH, input_kind)
 
-    stagnation_exponent = {
-        "pressure_total_ratio": gamma / (gamma - 1.0), "pressure_critical_ratio": gamma / (gamma - 1.0),
-        "density_total_ratio": 1.0 / (gamma - 1.0), "density_critical_ratio": 1.0 / (gamma - 1.0),
-        "temperature_total_ratio": 1.0, "temperature_critical_ratio": 1.0,
-    }
-    if input_kind in stagnation_exponent:
+    if input_kind in {
+        'pressure_total_ratio', 'pressure_critical_ratio',
+        'density_total_ratio', 'density_critical_ratio',
+        'temperature_total_ratio', 'temperature_critical_ratio',
+    }:
         if value <= 0.0:
-            raise DomainError("Flow ratios must be greater than zero.")
-        exponent = stagnation_exponent[input_kind]
-        # ln X = -ln(ratio)/exponent; critical ratios first become stagnation ratios.
-        log_x = -log(value) / exponent
-        if input_kind.endswith("_critical_ratio"):
-            log_x -= log(2.0 / (gamma + 1.0))
-        if log_x < 0.0:
-            raise DomainError(f"{input_kind} = {value:g} exceeds its stagnation (M = 0) value.",
-                              field="value")
-        mach = sqrt(2.0 * expm1(log_x) / (gamma - 1.0)) if log_x < 700.0 else float("inf")
-        return _bounded(mach, input_kind, value)
+            raise DomainError('Flow ratios must be greater than zero.', field='value')
+        return ratio_inverse(input_kind, value, gamma, _MINIMUM_MACH, _MAXIMUM_MACH)
 
     if input_kind in {"area_ratio_subsonic", "area_ratio_supersonic"}:
         if value < 1.0:

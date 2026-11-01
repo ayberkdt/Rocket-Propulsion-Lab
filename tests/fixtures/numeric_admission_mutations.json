@@ -1097,5 +1097,124 @@
     "        return _export_exp(_logarithms(mach, gamma)[3], 'area_critical_ratio')",
     "        return precise_ratios(mach, gamma)['area_critical_ratio']",
     "tests/test_isentropic_forward_range.py::IsentropicForwardRangeTests::test_area_only_solver_does_not_require_unrelated_stagnation_outputs"
+  ],
+  [
+    "ratio_inverse_gamma_not_forwarded",
+    "src/rocket_propulsion/compressible/isentropic.py",
+    "        return ratio_inverse(input_kind, value, gamma, _MINIMUM_MACH, _MAXIMUM_MACH)",
+    "        return ratio_inverse(input_kind, value, 1.4, _MINIMUM_MACH, _MAXIMUM_MACH)",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_balanced_extreme_and_unit_gamma_false_refusals"
+  ],
+  [
+    "ratio_inverse_sonic_factor_rounded_early",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "            log_x += ((g+1)/2).ln()",
+    "            log_x += D.from_float((gamma+1)/2).ln()",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_sonic_critical_inputs_keep_the_complete_normalization"
+  ],
+  [
+    "ratio_inverse_sonic_factor_omitted",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "            log_x += ((g+1)/2).ln()",
+    "            log_x += 0",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_sonic_critical_inputs_keep_the_complete_normalization"
+  ],
+  [
+    "ratio_inverse_pressure_uses_density_power",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "        inverse_power = ((g-1)/g if kind.startswith('pressure')",
+    "        inverse_power = (g-1 if kind.startswith('pressure')",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_pressure_and_density_exponents_are_distinct"
+  ],
+  [
+    "ratio_inverse_density_uses_pressure_power",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "                         else g-1 if kind.startswith('density') else D(1))",
+    "                         else (g-1)/g if kind.startswith('density') else D(1))",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_pressure_and_density_exponents_are_distinct"
+  ],
+  [
+    "ratio_inverse_logarithm_sign_reversed",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "        log_x = -inverse_power*r.ln()",
+    "        log_x = inverse_power*r.ln()",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_pressure_and_density_exponents_are_distinct"
+  ],
+  [
+    "ratio_inverse_physical_domain_misclassified",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "        if log_x < 0:",
+    "        if False:",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_physical_domain_is_not_the_inverse_bracket"
+  ],
+  [
+    "ratio_inverse_minimum_bracket_removed",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "        log_lower = (1+(g-1)*lower*lower/2).ln()",
+    "        log_lower = D(0)",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_finite_roots_outside_the_inverse_bracket_are_refused"
+  ],
+  [
+    "ratio_inverse_maximum_bracket_removed",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "        log_upper = (1+(g-1)*upper*upper/2).ln()",
+    "        log_upper = D('Infinity')",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_finite_roots_outside_the_inverse_bracket_are_refused"
+  ],
+  [
+    "ratio_inverse_private_energy_exported_early",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "        return float((2*(log_x.exp()-1)/(g-1)).sqrt())",
+    "        return float((2*(D.from_float(float(log_x.exp()))-1)/(g-1)).sqrt())",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_balanced_extreme_and_unit_gamma_false_refusals"
+  ],
+  [
+    "ratio_inverse_context_inherits_caller",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "    return Context(prec=precision, rounding=ROUND_HALF_EVEN, Emin=-999999, Emax=999999,\n                   capitals=1, clamp=0, flags=[], traps=[InvalidOperation, DivisionByZero, Overflow])",
+    "    return __import__('decimal').getcontext()",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_active_decimal_environment_is_private_and_unchanged"
+  ],
+  [
+    "ratio_inverse_context_inherits_defaults",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "    return Context(prec=precision, rounding=ROUND_HALF_EVEN, Emin=-999999, Emax=999999,\n                   capitals=1, clamp=0, flags=[], traps=[InvalidOperation, DivisionByZero, Overflow])",
+    "    return Context(prec=precision)",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_default_decimal_environment_cannot_choose_inverse_behavior"
+  ],
+  [
+    "ratio_inverse_precision_reduced",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "    precision = 90 + max(0, D.from_float(gamma).adjusted()) + 2*abs(D.from_float(value).adjusted())",
+    "    precision = 20",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_sonic_critical_inputs_keep_the_complete_normalization"
+  ],
+  [
+    "ratio_inverse_power_before_bracket",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "        lower, upper = D.from_float(minimum), D.from_float(maximum)",
+    "        log_x.exp()\n        lower, upper = D.from_float(minimum), D.from_float(maximum)",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_huge_private_exponents_are_refused_before_power"
+  ],
+  [
+    "ratio_inverse_range_field_lost",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "                              code='outside_inverse_range', field='value')",
+    "                              code='outside_inverse_range', field='mach')",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_finite_roots_outside_the_inverse_bracket_are_refused"
+  ],
+  [
+    "ratio_inverse_decimal_text_replaces_supplied_float",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "        g, r = D.from_float(gamma), D.from_float(value)",
+    "        g, r = D(str(gamma)), D(str(value))",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_pressure_and_density_exponents_are_distinct"
+  ],
+  [
+    "ratio_inverse_bounds_checked_after_float_rounding",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "        if not log_lower <= log_x <= log_upper:",
+    "        if not minimum <= float((2*(log_x.exp()-1)/(g-1)).sqrt()) <= maximum:",
+    "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_neighboring_ratios_at_both_inverse_boundaries"
   ]
 ]

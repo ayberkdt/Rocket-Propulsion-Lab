@@ -1,0 +1,211 @@
+{
+  "parent_commit": "504dbbcc3a35051d267134aec4fd41a33efce7a3",
+  "scope": "Six scalar flow-ratio inverses of the perfect-gas model; not all angle/area inverses, global rounding enclosure or hardware qualification",
+  "reviewed_runtime_and_test_sha256": {
+    "src/rocket_propulsion/compressible/isentropic.py": "fb663b338b241afd4b2fba8b90c652c9192151af6970b8a3b71895bf9c133dc4",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py": "954237a2972a67d532040695e07d0ddcffb7a616d49f203f4dc68b107b999e6b",
+    "tests/test_isentropic_ratio_inverse.py": "72073ace3fb37f3e5c8a471d4c748f9207ed0d372b886be54d741e727d0b412d",
+    "tests/fixtures/numeric_admission_mutations.json": "b23f37ecbaf0406657f3ed948269d3735911c9fe950a327a0779276d47bc6794"
+  },
+  "independent_test": {
+    "methods": 14,
+    "subtests": 1312,
+    "precision_digits": 1200,
+    "valid_output_screening_ULP": 2,
+    "input_semantics": "Interpret the supplied binary64 ratio, not its unrounded generating Mach"
+  },
+  "regression": {
+    "modules": [
+      "test_isentropic_ratio_inverse",
+      "test_isentropic_forward_range",
+      "test_compressible_advanced",
+      "test_nozzle",
+      "test_off_design_nozzle",
+      "test_nozzle_separation",
+      "test_chemistry_nozzle",
+      "test_geometry_precision",
+      "test_geometry_generator_contract",
+      "test_geometry",
+      "test_geometry_export_contract",
+      "test_isentropic",
+      "test_oracle_compressible",
+      "test_moc_unit_process",
+      "test_regen_contour_contract",
+      "test_regen_chamber",
+      "test_regen_channel_geometry",
+      "test_regen_conjugate",
+      "test_api_numeric_admission",
+      "test_api",
+      "test_constants_and_references"
+    ],
+    "methods": 271,
+    "subtests": 12382,
+    "junit": {
+      "tests": 12653,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "runtime_and_tests_byte_bound": true
+  },
+  "mutation": {
+    "killed": 17,
+    "passing_original_restored_control_runs": 34,
+    "groups": [
+      {
+        "directory": "output\\assurance\\isentropic_ratio_inverse_mutations_20261101_a",
+        "killed": 9,
+        "passing_control_runs": 18,
+        "matched_source_test_files": 460,
+        "case_file_sha256": "b23f37ecbaf0406657f3ed948269d3735911c9fe950a327a0779276d47bc6794",
+        "baseline_archive_sha256": "e5bb8a14b86ee96a442a2aa25b3de7ed3b693bf46404a16b3ba8399b032b7a1b",
+        "post_run_report_changes": [
+          "docs/ISENTROPIC_RATIO_INVERSE_REVIEW.md"
+        ]
+      },
+      {
+        "directory": "output\\assurance\\isentropic_ratio_inverse_mutations_20261101_b",
+        "killed": 8,
+        "passing_control_runs": 16,
+        "matched_source_test_files": 460,
+        "case_file_sha256": "b23f37ecbaf0406657f3ed948269d3735911c9fe950a327a0779276d47bc6794",
+        "baseline_archive_sha256": "feef7bea7a28e8d81c0d9a3c146ec1a8979d8e65b110b9b17fa392bcf52eb992",
+        "post_run_report_changes": [
+          "docs/ISENTROPIC_RATIO_INVERSE_REVIEW.md"
+        ]
+      }
+    ]
+  },
+  "build": {
+    "build_passed": true,
+    "installed_wheel_smoke_passed": true,
+    "source_unchanged": true,
+    "artifacts": {
+      "rocket_propulsion_lab-0.9.0-py3-none-any.whl": "234c5cf3369e74196fd7731f3c485a447716b8b18710eceaed471e1d7800d97a",
+      "rocket_propulsion_lab-0.9.0.tar.gz": "e37d28defbc532a8f1c09086a911194eb691f1c1fc7d424ff14fbf31604aa755"
+    },
+    "scope": "Copied-source wheel/sdist build and isolated installed-wheel checks without test dependencies; same host, not hardware qualification"
+  },
+  "rounded_endpoint_traps": {
+    "count": 28,
+    "first_caught_by_mutant": {
+      "kind": "temperature_total_ratio",
+      "value": 1.999960000799982e-05,
+      "gamma": 1.1,
+      "exact_root_60_digits": "1000.00000000000004676095329768110847668385340561311293133272",
+      "rounded_root": 1000.0
+    }
+  },
+  "retained_findings": {
+    "initial_red": "initial_red.xml",
+    "remaining_inverse_cases": {
+      "scope": "Open area endpoint arithmetic and angle typed-refusal observations; not new physical range limits",
+      "cases": [
+        {
+          "kind": "area_ratio_supersonic",
+          "value": 2.0,
+          "gamma": 1.0000000000000002,
+          "expected_M": 1.9216228893541252,
+          "expected_status": "valid",
+          "actual_error": {
+            "type": "DomainError",
+            "code": "numeric_range",
+            "field": "area_critical_ratio"
+          }
+        },
+        {
+          "kind": "area_ratio_supersonic",
+          "value": 2.0,
+          "gamma": 1.001,
+          "expected_M": 1.922269768446455,
+          "expected_status": "valid",
+          "actual_error": {
+            "type": "DomainError",
+            "code": "numeric_range",
+            "field": "area_critical_ratio"
+          }
+        },
+        {
+          "kind": "area_ratio_supersonic",
+          "value": 2.0,
+          "gamma": 1.01,
+          "expected_M": 1.9281007423347374,
+          "expected_status": "valid",
+          "actual_error": {
+            "type": "DomainError",
+            "code": "numeric_range",
+            "field": "area_critical_ratio"
+          }
+        },
+        {
+          "kind": "area_ratio_supersonic",
+          "value": 2.0,
+          "gamma": 1.4,
+          "expected_M": 2.1971981216521863,
+          "expected_status": "valid",
+          "actual_M": 2.1971981216521868
+        },
+        {
+          "kind": "mach_angle_deg",
+          "value": 5e-324,
+          "gamma": 1.4,
+          "expected_status": "outside_inverse_range",
+          "actual_error": {
+            "type": "ZeroDivisionError",
+            "code": null,
+            "field": null
+          }
+        },
+        {
+          "kind": "mach_angle_deg",
+          "value": 1e-323,
+          "gamma": 1.4,
+          "expected_status": "outside_inverse_range",
+          "actual_error": {
+            "type": "ZeroDivisionError",
+            "code": null,
+            "field": null
+          }
+        },
+        {
+          "kind": "mach_angle_deg",
+          "value": 1e-320,
+          "gamma": 1.4,
+          "expected_status": "outside_inverse_range",
+          "actual_error": {
+            "type": "DomainError",
+            "code": "outside_inverse_range",
+            "field": "value"
+          }
+        }
+      ],
+      "source_sha256": "fb663b338b241afd4b2fba8b90c652c9192151af6970b8a3b71895bf9c133dc4"
+    }
+  },
+  "hardware": {
+    "trl5_achieved": false,
+    "unmet_gate_ids": [
+      "CONFIGURATION",
+      "RELEVANT_ENVIRONMENT",
+      "ACCEPTANCE",
+      "TEST_ARTICLE",
+      "MEASUREMENT",
+      "DEMONSTRATION",
+      "MODEL_VALIDATION",
+      "SCALING",
+      "REVIEW"
+    ],
+    "inventory_symbols": 3286
+  },
+  "runtime": {
+    "python": "3.12.1 (tags/v3.12.1:2305ca5, Dec  7 2023, 22:03:25) [MSC v.1937 64 bit (AMD64)]",
+    "reference_mpmath": "1.3.0",
+    "pytest": "9.0.2"
+  },
+  "post_run_report_changes": [
+    "docs/ISENTROPIC_RATIO_INVERSE_REVIEW.md"
+  ],
+  "post_run_report_additions": [
+    "docs/assurance/isentropic_ratio_inverse_verification.json"
+  ]
+}
