@@ -23,13 +23,22 @@ from __future__ import annotations
 
 from bisect import bisect_right
 from dataclasses import dataclass
+from fractions import Fraction as F
 from itertools import pairwise
-from math import asin, atan2, cos, degrees, pi, radians, sqrt, tan
+from math import asin, atan2, cos, degrees, pi, radians, tan
 
 from rocket_propulsion.compressible import calculate_isentropic, mach_from_isentropic
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
 from rocket_propulsion.core.validation import integer, numeric_range_guard
 
+from .dimensional_numerics import (
+    dimensional,
+    radial_growth,
+    radius_exit,
+    station_geometry,
+    throat_radius,
+    wall_area,
+)
 from .nozzle_contour import NozzleContour, NozzleStation, _checked_contour, _positive
 
 
@@ -234,7 +243,8 @@ def _state_gamma(theta: float, nu: float, gamma: float) -> _Point:
 
 
 def _normalized_mesh(
-    *, exit_mach: float, gamma: float, characteristic_count: int
+    *, exit_mach: float, gamma: float, characteristic_count: int,
+    wall_offset_coordinates: bool = False,
 ) -> tuple[list[list[_Point]], list[_Point]]:
     """Build the normalized minimum-length mesh with unit throat half-height.
 
@@ -265,12 +275,13 @@ def _normalized_mesh(
     exit_nu = calculate_isentropic(exit_mach, gamma).prandtl_meyer_deg
     assert exit_nu is not None
     maximum_wall_angle = 0.5 * exit_nu
+    throat_y, center_y = (0.0, -1.0) if wall_offset_coordinates else (1.0, 0.0)
     angle_step = maximum_wall_angle / characteristic_count
     rows: list[list[_Point]] = []
     wall: list[_Point] = []
     throat_wall = _state_gamma(maximum_wall_angle, maximum_wall_angle, gamma)
     throat_wall.x = 0.0
-    throat_wall.y = 1.0
+    throat_wall.y = throat_y
     throat_wall.boundary = "wall"
     wall.append(throat_wall)
 
@@ -303,7 +314,7 @@ def _normalized_mesh(
             if column == 0:
                 if row_index == 0:
                     source = _state_gamma(fan_angle, fan_angle, gamma)
-                    source_x, source_y = 0.0, 1.0
+                    source_x, source_y = 0.0, throat_y
                 else:
                     source = rows[row_index - 1][1]
                     source_x, source_y = source.x, source.y
@@ -320,8 +331,8 @@ def _normalized_mesh(
                 )
                 if abs(slope) < 1.0e-12:
                     raise ConvergenceError("MOC centerline characteristic has zero slope.")
-                point.x = source_x - source_y / slope
-                point.y = 0.0
+                point.x = source_x + (center_y-source_y) / slope
+                point.y = center_y
                 point.boundary = "centerline"
             elif column == length - 1:
                 lower = row[column - 1]
@@ -341,12 +352,12 @@ def _normalized_mesh(
                     radians(0.5 * (previous_wall.theta + point.theta))
                 )
                 point.x, point.y = _intersection(
-                    lower.x,
-                    lower.y,
-                    characteristic_slope,
                     previous_wall.x,
                     previous_wall.y,
                     wall_slope,
+                    lower.x,
+                    lower.y,
+                    characteristic_slope,
                 )
                 wall.append(point)
             else:
@@ -354,7 +365,7 @@ def _normalized_mesh(
                 if row_index == 0:
                     initial_angle = (fan_index + column) * angle_step
                     upper_state = _state_gamma(initial_angle, initial_angle, gamma)
-                    upper_x, upper_y = 0.0, 1.0
+                    upper_x, upper_y = 0.0, throat_y
                 else:
                     upper_state = rows[row_index - 1][column + 1]
                     upper_x, upper_y = upper_state.x, upper_state.y
@@ -411,43 +422,48 @@ def _build_design(
     length ``1.5 r_t`` from a chamber radius of ``2.5 r_t`` is prepended.
     """
     exit_mach = mach_from_isentropic("area_ratio_supersonic", area_ratio, gamma)
+    wall_offset = area_ratio <= 1.001
     rows, wall = _normalized_mesh(
         exit_mach=exit_mach,
         gamma=gamma,
         characteristic_count=characteristic_count,
+        wall_offset_coordinates=wall_offset,
     )
-    throat_radius = sqrt(throat_area_m2 / pi)
-    desired_exit_ratio = sqrt(area_ratio)
-    raw_exit_ratio = wall[-1].y
-    if raw_exit_ratio <= 1.0:
+    radius_throat = throat_radius(throat_area_m2)
+    radius_increment = radial_growth(radius_throat, area_ratio)
+    exit_radius = radius_exit(throat_area_m2, area_ratio)
+    raw_growth = wall[-1].y if wall_offset else wall[-1].y-1.0
+    if raw_growth <= 0.0:
         raise ConvergenceError(
             "MOC wall did not expand beyond the throat.",
             code="moc_invalid_contour",
         )
 
     def mapped_wall_radius(normalized_radius: float) -> float:
-        fraction = (normalized_radius - 1.0) / (raw_exit_ratio - 1.0)
-        return throat_radius * (1.0 + fraction * (desired_exit_ratio - 1.0))
+        if normalized_radius == wall[-1].y:
+            return exit_radius
+        growth = normalized_radius if wall_offset else normalized_radius-1.0
+        return dimensional(F(radius_throat)+F(growth)*F(radius_increment)/F(raw_growth), 'radius_m')
 
-    x_scale = throat_radius * (
-        (desired_exit_ratio - 1.0) / (raw_exit_ratio - 1.0)
-    )
+    x_scale = dimensional(F(radius_increment)/F(raw_growth), 'x_scale_m')
     wall_x = [point.x for point in wall]
 
     def wall_height_at(x_position: float) -> float:
         index = min(max(1, bisect_right(wall_x, x_position)), len(wall_x) - 1)
         left = wall[index - 1]
         right = wall[index]
-        if abs(right.x - left.x) < 1.0e-12:
-            return right.y
+        if right.x == left.x:
+            raise ConvergenceError('MOC wall interpolation has duplicate x.', code='moc_invalid_contour')
         fraction = (x_position - left.x) / (right.x - left.x)
         return left.y + fraction * (right.y - left.y)
 
     def mapped_mesh_radius(point: _Point) -> float:
         if point.boundary == "centerline":
             return 0.0
-        local_wall_height = max(wall_height_at(point.x), point.y, 1.0e-12)
+        local_wall_height = max(wall_height_at(point.x), point.y)
         local_wall_radius = mapped_wall_radius(local_wall_height)
+        if wall_offset:
+            return local_wall_radius * (1.0+point.y)/(1.0+local_wall_height)
         return local_wall_radius * point.y / local_wall_height
     characteristic_lines: list[tuple[CharacteristicPoint, ...]] = []
     for row_index, row in enumerate(rows):
@@ -469,17 +485,16 @@ def _build_design(
         )
         characteristic_lines.append(points)
 
-    chamber_radius = 2.5 * throat_radius
-    converging_length = 1.5 * throat_radius
+    chamber_radius = 2.5 * radius_throat
+    converging_length = 1.5 * radius_throat
     stations: list[NozzleStation] = []
     converging_count = max(15, characteristic_count)
     for index in range(converging_count):
         fraction = index / (converging_count - 1)
-        radius = chamber_radius + (throat_radius - chamber_radius) * (
-            0.5 - 0.5 * cos(pi * fraction)
+        radius = radius_throat + (chamber_radius-radius_throat) * (
+            0.5 + 0.5 * cos(pi * fraction)
         )
-        local_area = pi * radius**2
-        local_ratio = local_area / throat_area_m2
+        local_area, local_ratio = station_geometry(radius, radius_throat,throat_area_m2)
         mach = (
             1.0
             if index == converging_count - 1
@@ -499,14 +514,15 @@ def _build_design(
         )
     for index, point in enumerate(wall[1:], start=1):
         radius = mapped_wall_radius(point.y)
-        local_ratio = (radius / throat_radius) ** 2
+        area, local_ratio = station_geometry(radius, radius_throat,throat_area_m2,
+                                             area_ratio if index == len(wall)-1 else None)
         mach = point.mach
         flow = calculate_isentropic(mach, gamma)
         stations.append(
             NozzleStation(
                 x_m=point.x * x_scale,
                 radius_m=radius,
-                area_m2=pi * radius**2,
+                area_m2=area,
                 area_ratio=local_ratio,
                 mach=mach,
                 pressure_total_ratio=flow.pressure_total_ratio,
@@ -532,18 +548,13 @@ def _build_design(
         ),
         exit_mach_absolute=abs(wall[-1].mach - exit_mach),
     )
-    surface_area = sum(
-        pi
-        * (left.radius_m + right.radius_m)
-        * sqrt((right.x_m - left.x_m) ** 2 + (right.radius_m - left.radius_m) ** 2)
-        for left, right in pairwise(stations)
-    )
+    surface_area = wall_area(stations)
     diverging_length = stations[-1].x_m
     contour = NozzleContour(
         contour="moc-axisymmetric-corrected" if axisymmetric_correction else "moc-planar",
-        throat_radius_m=throat_radius,
+        throat_radius_m=radius_throat,
         chamber_radius_m=chamber_radius,
-        exit_radius_m=throat_radius * desired_exit_ratio,
+        exit_radius_m=exit_radius,
         converging_length_m=converging_length,
         diverging_length_m=diverging_length,
         total_length_m=converging_length + diverging_length,
@@ -656,9 +667,8 @@ def generate_moc_nozzle(
         characteristic_count=min(80, characteristic_count * 2),
         axisymmetric_correction=axisymmetric_correction,
     )
-    relative_change = abs(refined.diverging_length_m - contour.diverging_length_m) / max(
-        refined.diverging_length_m, 1.0e-12
-    )
+    relative_change = dimensional(abs(F(refined.diverging_length_m)-F(contour.diverging_length_m))
+                                  /F(refined.diverging_length_m), 'refined_length_change_relative')
     return MocDesign(
         contour=contour,
         characteristic_lines=lines,

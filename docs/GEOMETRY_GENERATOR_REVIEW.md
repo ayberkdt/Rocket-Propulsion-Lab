@@ -105,6 +105,11 @@ failures; they were **not** declared mathematically impossible or turned into
 tests that demand refusal. Cancellation-safe span/radius arithmetic and
 near-sonic inversion require a separate repair and independent numerical proof.
 
+That subsequent repair and its scope are recorded in
+[GEOMETRY_PRECISION_REVIEW.md](GEOMETRY_PRECISION_REVIEW.md). The six-witness
+receipt above remains a record of this page's baseline, not a current refusal
+policy or qualification of the full generator range.
+
 ## References
 
 - NACA Report 1135, isentropic area-Mach and stagnation relations:

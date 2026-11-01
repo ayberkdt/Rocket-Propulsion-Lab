@@ -12,8 +12,8 @@ References
 """
 
 from dataclasses import dataclass, fields
-from itertools import pairwise
-from math import cos, isfinite, pi, radians, sqrt, tan
+from fractions import Fraction as F
+from math import cos, isfinite, pi, radians, tan
 
 from rocket_propulsion.compressible.isentropic import (
     calculate_isentropic,
@@ -21,6 +21,15 @@ from rocket_propulsion.compressible.isentropic import (
 )
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.validation import integer, numeric_range_guard, real, text
+
+from .dimensional_numerics import (
+    dimensional,
+    radial_growth,
+    radius_exit,
+    station_geometry,
+    throat_radius,
+    wall_area,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,7 +171,7 @@ def _hermite_radius(
     fraction: float,
     length: float,
     throat_radius: float,
-    exit_radius: float,
+    radius_increment: float,
 ) -> float:
     """Return a smooth bell-like radius using endpoint slope constraints.
 
@@ -172,8 +181,8 @@ def _hermite_radius(
         Normalized position ``s`` in ``[0, 1]`` along the diverging section.
     length : float
         Diverging-section length ``L`` in m.
-    throat_radius, exit_radius : float
-        End radii in m.
+    throat_radius, radius_increment : float
+        Throat radius and exit-minus-throat radius in m, retained separately.
 
     Returns
     -------
@@ -184,18 +193,14 @@ def _hermite_radius(
         not an optimized or characteristic-based wall.
     """
 
-    h00 = 2.0 * fraction**3 - 3.0 * fraction**2 + 1.0
     h10 = fraction**3 - 2.0 * fraction**2 + fraction
     h01 = -2.0 * fraction**3 + 3.0 * fraction**2
     h11 = fraction**3 - fraction**2
     inlet_slope = tan(radians(30.0))
     exit_slope = tan(radians(8.0))
-    return (
-        h00 * throat_radius
-        + h10 * length * inlet_slope
-        + h01 * exit_radius
-        + h11 * length * exit_slope
-    )
+    return dimensional(F(throat_radius) + F(h10)*F(length)*F(inlet_slope)
+                       + F(h01)*F(radius_increment) + F(h11)*F(length)*F(exit_slope),
+                       'radius_m')
 
 
 @numeric_range_guard('geometry')
@@ -291,13 +296,14 @@ def generate_nozzle_contour(
     if not 41 <= station_count <= 401:
         raise DomainError("Station count must be between 41 and 401.", field='station_count')
 
-    throat_radius = sqrt(throat_area_m2 / pi)
-    exit_radius = throat_radius * sqrt(area_ratio)
-    chamber_radius = chamber_radius_ratio * throat_radius
-    converging_length = 1.5 * throat_radius
-    reference_cone_length = (exit_radius - throat_radius) / tan(radians(15.0))
+    radius_throat = throat_radius(throat_area_m2)
+    radius_increment = radial_growth(radius_throat, area_ratio)
+    exit_radius = radius_exit(throat_area_m2, area_ratio)
+    chamber_radius = chamber_radius_ratio * radius_throat
+    converging_length = 1.5 * radius_throat
+    reference_cone_length = dimensional(F(radius_increment)/F(tan(radians(15.0))), 'diverging_length_m')
     if normalized_contour == "conical":
-        diverging_length = (exit_radius - throat_radius) / tan(radians(half_angle_deg))
+        diverging_length = dimensional(F(radius_increment)/F(tan(radians(half_angle_deg))), 'diverging_length_m')
     else:
         diverging_length = bell_length_fraction * reference_cone_length
 
@@ -305,10 +311,10 @@ def generate_nozzle_contour(
     diverging_count = station_count - converging_count + 1
     stations: list[NozzleStation] = []
 
-    def append_station(x_position: float, radius: float, branch: str) -> None:
-        station_area = pi * radius**2
-        local_area_ratio = station_area / throat_area_m2
-        if abs(local_area_ratio - 1.0) < 1.0e-12:
+    def append_station(x_position: float, radius: float, branch: str, prescribed_ratio=None) -> None:
+        station_area, local_area_ratio = station_geometry(radius, radius_throat, throat_area_m2,
+                                                         prescribed_ratio)
+        if local_area_ratio == 1.0:
             mach = 1.0
         else:
             mach = mach_from_isentropic(f"area_ratio_{branch}", local_area_ratio, gamma)
@@ -328,7 +334,7 @@ def generate_nozzle_contour(
     for index in range(converging_count):
         fraction = index / (converging_count - 1)
         x_position = -converging_length * (1.0 - fraction)
-        radius = throat_radius + 0.5 * (chamber_radius - throat_radius) * (
+        radius = radius_throat + 0.5 * (chamber_radius - radius_throat) * (
             1.0 + cos(pi * fraction)
         )
         append_station(x_position, radius, "subsonic")
@@ -337,20 +343,19 @@ def generate_nozzle_contour(
         fraction = index / (diverging_count - 1)
         x_position = fraction * diverging_length
         if normalized_contour == "conical":
-            radius = throat_radius + fraction * (exit_radius - throat_radius)
+            radius = dimensional(F(radius_throat)+F(fraction)*F(radius_increment), 'radius_m')
         else:
-            radius = _hermite_radius(fraction, diverging_length, throat_radius, exit_radius)
-        append_station(x_position, radius, "supersonic")
+            radius = _hermite_radius(fraction, diverging_length, radius_throat, radius_increment)
+        last = index == diverging_count-1
+        append_station(x_position, exit_radius if last else radius, "supersonic",
+                       area_ratio if last else None)
 
-    surface_area = 0.0
-    for left, right in pairwise(stations):
-        segment = sqrt((right.x_m - left.x_m) ** 2 + (right.radius_m - left.radius_m) ** 2)
-        surface_area += pi * (left.radius_m + right.radius_m) * segment
+    surface_area = wall_area(stations)
     effective_angle = (0.0 if area_ratio == 1.0 else
                        half_angle_deg if normalized_contour == "conical" else 19.0)
     return _checked_contour(NozzleContour(
         contour=normalized_contour,
-        throat_radius_m=throat_radius,
+        throat_radius_m=radius_throat,
         chamber_radius_m=chamber_radius,
         exit_radius_m=exit_radius,
         converging_length_m=converging_length,

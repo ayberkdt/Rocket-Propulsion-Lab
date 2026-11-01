@@ -826,17 +826,17 @@
     "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_unity_ratio_is_a_resolved_converging_only_sonic_exit"
   ],
   [
-    "geometry_nonfinite_total_exported",
-    "src/rocket_propulsion/geometry/nozzle_contour.py",
-    "        if isinstance(value, (float, int)) and (not isfinite(value) or value < 0.\n                                               or (item.name in positive and value == 0.)):",
-    "        if False:",
+    "geometry_dimensional_range_label_lost",
+    "src/rocket_propulsion/geometry/dimensional_numerics.py",
+    "        return _finite_rational(value, label)",
+    "        return float(value)",
     "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_unrepresentable_total_wall_area_is_not_a_successful_infinite_result"
   ],
   [
     "geometry_conical_angle_ignored",
     "src/rocket_propulsion/geometry/nozzle_contour.py",
-    "        diverging_length = (exit_radius - throat_radius) / tan(radians(half_angle_deg))",
-    "        diverging_length = (exit_radius - throat_radius) / tan(radians(15.0))",
+    "        diverging_length = dimensional(F(radius_increment)/F(tan(radians(half_angle_deg))), 'diverging_length_m')",
+    "        diverging_length = dimensional(F(radius_increment)/F(tan(radians(15.0))), 'diverging_length_m')",
     "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_nondefault_conical_lengths_match_independent_tangent_geometry"
   ],
   [
@@ -849,8 +849,8 @@
   [
     "geometry_general_wall_area_scaled",
     "src/rocket_propulsion/geometry/nozzle_contour.py",
-    "        surface_area += pi * (left.radius_m + right.radius_m) * segment",
-    "        surface_area += 1.1 * pi * (left.radius_m + right.radius_m) * segment",
+    "    surface_area = wall_area(stations)",
+    "    surface_area = 1.1*wall_area(stations)",
     "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_independent_dimensions_area_mach_and_wall_area"
   ],
   [
@@ -866,5 +866,138 @@
     "        if area_ratio > 1.0:\n            contours += (",
     "        if area_ratio >= 1.0:\n            contours += (",
     "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_http_unity_comparison_keeps_supported_models_and_explains_exclusions"
+  ],
+  [
+    "geometry_throat_quotient_erased",
+    "src/rocket_propulsion/geometry/dimensional_numerics.py",
+    "    return _sqrt_output(F(area)/F(pi), 'throat_radius_m')",
+    "    return sqrt(area/pi)",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_all_six_finite_counterexamples_produce_resolved_usable_contours"
+  ],
+  [
+    "geometry_radial_growth_cancelled",
+    "src/rocket_propulsion/geometry/dimensional_numerics.py",
+    "    return dimensional(F(radius)*(F(area_ratio)-1)/(F(sqrt(area_ratio))+1), 'radial_growth_m')",
+    "    return radius*(sqrt(area_ratio)-1)",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_all_six_finite_counterexamples_produce_resolved_usable_contours"
+  ],
+  [
+    "geometry_station_area_private_product_erased",
+    "src/rocket_propulsion/geometry/dimensional_numerics.py",
+    "    area = F(pi)*F(radius)**2",
+    "    area = F(pi)*F(radius*radius)",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_all_six_finite_counterexamples_produce_resolved_usable_contours"
+  ],
+  [
+    "geometry_station_ratio_private_area_rounded",
+    "src/rocket_propulsion/geometry/dimensional_numerics.py",
+    "else dimensional(area/F(throat_area), 'area_ratio')",
+    "else dimensional(F(float(area))/F(throat_area), 'area_ratio')",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_subnormal_interior_area_ratios_are_not_quantized_before_division"
+  ],
+  [
+    "geometry_private_frustum_rounded_early",
+    "src/rocket_propulsion/geometry/dimensional_numerics.py",
+    "        area += F(pi)*(F(left.radius_m)+F(right.radius_m))*F(length)",
+    "        area += F(float(F(pi)*(F(left.radius_m)+F(right.radius_m))*F(length)))",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_tiny_sampled_wall_area_matches_independent_complete_quadrature"
+  ],
+  [
+    "sonic_area_inverse_bypassed",
+    "src/rocket_propulsion/compressible/isentropic.py",
+    "        if value <= 1.001:",
+    "        if False:",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_area_inverse_distinguishes_the_two_roots_at_one_ulp_above_sonic"
+  ],
+  [
+    "sonic_forward_area_bypassed",
+    "src/rocket_propulsion/compressible/isentropic.py",
+    "    if abs(mach-1.0) <= .01:\n        return sonic_area(mach, gamma)\n",
+    "",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_near_sonic_area_evaluation_matches_an_independent_mass_flux_ratio"
+  ],
+  [
+    "sonic_pm_precise_angle_bypassed",
+    "src/rocket_propulsion/compressible/isentropic.py",
+    "    if 1.0 <= mach <= 1.01 or gamma >= 1e6:\n        return sonic_pm(mach, gamma)\n",
+    "",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_pm_evaluation_matches_independent_scaled_differential_quadrature"
+  ],
+  [
+    "sonic_gamma_precision_not_adaptive",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    return 90+max(0, D.from_float(gamma).adjusted())",
+    "    return 90",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_small_pm_inverse_keeps_representable_mach_offsets"
+  ],
+  [
+    "sonic_inverse_caller_context_inherited",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    with localcontext(_context(gamma)):\n        g, wanted = D(gamma), D(target)",
+    "    with localcontext():\n        g, wanted = D(gamma), D(target)",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_private_decimal_arithmetic_ignores_hostile_caller_context"
+  ],
+  [
+    "moc_near_sonic_wall_offset_removed",
+    "src/rocket_propulsion/geometry/moc.py",
+    "    wall_offset = area_ratio <= 1.001",
+    "    wall_offset = False",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_moc_lengths_match_independent_high_precision_characteristic_intersections"
+  ],
+  [
+    "moc_mapped_growth_cancelled",
+    "src/rocket_propulsion/geometry/moc.py",
+    "    x_scale = dimensional(F(radius_increment)/F(raw_growth), 'x_scale_m')",
+    "    x_scale = dimensional(F(radius_throat*(area_ratio**.5-1))/F(raw_growth), 'x_scale_m')",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_all_six_finite_counterexamples_produce_resolved_usable_contours"
+  ],
+  [
+    "moc_wall_intersection_cancellation_restored",
+    "src/rocket_propulsion/geometry/moc.py",
+    "                point.x, point.y = _intersection(\n                    previous_wall.x,\n                    previous_wall.y,\n                    wall_slope,\n                    lower.x,\n                    lower.y,\n                    characteristic_slope,\n                )",
+    "                point.x, point.y = _intersection(\n                    lower.x,\n                    lower.y,\n                    characteristic_slope,\n                    previous_wall.x,\n                    previous_wall.y,\n                    wall_slope,\n                )",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_moc_lengths_match_independent_high_precision_characteristic_intersections"
+  ],
+  [
+    "moc_dimensional_refinement_floor_restored",
+    "src/rocket_propulsion/geometry/moc.py",
+    "/F(refined.diverging_length_m), 'refined_length_change_relative')",
+    "/F(max(refined.diverging_length_m,1e-12)), 'refined_length_change_relative')",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_moc_refinement_indicator_is_dimensionless_even_at_minimum_area"
+  ],
+  [
+    "rao_retained_control_growth_cancelled",
+    "src/rocket_propulsion/geometry/rao.py",
+    "    control_x = dimensional((F(radius_increment)-F(exit_slope)*F(diverging_length))",
+    "    control_x = dimensional(((F(exit_radius)-F(radius_throat))-F(exit_slope)*F(diverging_length))",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_rao_samples_keep_the_control_point_increment_before_adding_the_radius"
+  ],
+  [
+    "isentropic_exhausted_budget_exported",
+    "src/rocket_propulsion/compressible/isentropic.py",
+    "    raise ConvergenceError('Isentropic inverse exhausted its iteration budget.',\n                           code='isentropic_inverse_not_converged', field='value')",
+    "    return mach",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_exhausted_newton_budget_is_not_exported_as_a_converged_inverse"
+  ],
+  [
+    "isentropic_public_mach_untyped",
+    "src/rocket_propulsion/compressible/isentropic.py",
+    "    mach = real(mach, 'mach')",
+    "    mach = float(mach)",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_public_flow_boundary_owns_reals_and_refuses_malformed_values"
+  ],
+  [
+    "geometry_nominal_boundary_ratio_erased",
+    "src/rocket_propulsion/geometry/dimensional_numerics.py",
+    "    ratio = (prescribed_ratio if prescribed_ratio is not None else 1.0 if radius == throat\n             else dimensional(area/F(throat_area), 'area_ratio'))",
+    "    ratio = (1.0 if radius == throat\n             else dimensional(area/F(throat_area), 'area_ratio'))",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_nominal_boundary_data_and_export_redundancies_remain_coherent_across_scale"
+  ],
+  [
+    "sonic_mutable_defaults_inherited",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    return Context(prec=_precision(gamma), rounding=ROUND_HALF_EVEN,\n                   Emin=-999999, Emax=999999, capitals=1, clamp=0, flags=[],\n                   traps=[InvalidOperation, DivisionByZero, Overflow])",
+    "    return Context(prec=_precision(gamma))",
+    "tests/test_geometry_precision.py::GeometryPrecisionTests::test_mutable_decimal_defaults_cannot_configure_the_private_solver"
   ]
 ]

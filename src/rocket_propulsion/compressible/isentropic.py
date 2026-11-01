@@ -14,10 +14,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import asin, atan, degrees, expm1, isfinite, log, radians, sin, sqrt
 
-from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
+from rocket_propulsion.core.validation import real, text
 
-#: Bracket of the inverse relations (library choice): below 1e-8 or above 1000
-#: the perfect-gas Mach number carries no engineering meaning.
+from .sonic_numerics import sonic_area, sonic_inverse, sonic_pm
+
+#: Supported numerical inverse bracket; this is an implementation limit,
+#: not a physical validity boundary for a perfect gas.
 _MINIMUM_MACH = 1.0e-8
 _MAXIMUM_MACH = 1000.0
 
@@ -110,6 +113,8 @@ def calculate_isentropic(mach: float, gamma: float = 1.4) -> IsentropicResult:
            Compressible Flow", NACA Report 1135, 1953.
     """
 
+    gamma = real(gamma, 'gamma')
+    mach = real(mach, 'mach')
     _validate_gamma(gamma)
     _validate_mach(mach)
 
@@ -120,23 +125,14 @@ def calculate_isentropic(mach: float, gamma: float = 1.4) -> IsentropicResult:
     pressure_total = energy_factor ** (-gamma / (gamma - 1.0))
     density_total = energy_factor ** (-1.0 / (gamma - 1.0))
     critical_factor = (gamma + 1.0) / (2.0 * energy_factor)
-    area_ratio = (
-        (1.0 / mach)
-        * (2.0 * energy_factor / (gamma + 1.0))
-        ** ((gamma + 1.0) / (2.0 * (gamma - 1.0)))
-    )
+    area_ratio = _area_ratio(mach, gamma)
 
     if not (isfinite(area_ratio) and pressure_total > 0.0 and density_total > 0.0):
         raise DomainError(f"Mach number {mach:.6g} is outside the floating-point range of the "
                           "isentropic relations.", code="numeric_range", field="mach")
     if mach >= 1.0:
-        root = sqrt(max(0.0, mach * mach - 1.0))
         mach_angle = degrees(asin(1.0 / mach))
-        prandtl_meyer = degrees(
-            sqrt((gamma + 1.0) / (gamma - 1.0))
-            * atan(sqrt((gamma - 1.0) / (gamma + 1.0)) * root)
-            - atan(root)
-        )
+        prandtl_meyer = _prandtl_meyer_deg(mach, gamma)
     else:
         mach_angle = None
         prandtl_meyer = None
@@ -220,9 +216,10 @@ def mach_from_isentropic(
            Compressible Flow", NACA Report 1135, 1953.
     """
 
+    gamma = real(gamma, 'gamma')
+    value = real(value, 'value')
+    input_kind = text(input_kind, 'input_kind')
     _validate_gamma(gamma)
-    if not isfinite(value):
-        raise DomainError("Input value must be finite.")
     if input_kind == "mach":
         _validate_mach(value)
         return value
@@ -231,11 +228,14 @@ def mach_from_isentropic(
             raise DomainError("Mach angle must be in the interval (0, 90].")
         return _bounded(1.0 / sin(radians(value)), input_kind, value)
     if input_kind == "prandtl_meyer_deg":
-        maximum = degrees(0.5 * 3.141592653589793 * (sqrt((gamma + 1) / (gamma - 1)) - 1))
+        maximum = 180.0/(gamma-1)/(sqrt((gamma+1)/(gamma-1))+1)
         if not 0.0 <= value < maximum:
             raise DomainError(f"Prandtl-Meyer angle must be in [0, {maximum:g}).")
         if value == 0.0:
             return 1.0
+        if value <= 1.0e-4:
+            return sonic_inverse(value, gamma, area=False,
+                                  minimum_mach=_MINIMUM_MACH, maximum_mach=_MAXIMUM_MACH)
         return _newton_bracketed(lambda m: _prandtl_meyer_deg(m, gamma), _prandtl_meyer_slope(gamma),
                                  value, 1.0, _MAXIMUM_MACH, input_kind)
 
@@ -263,6 +263,10 @@ def mach_from_isentropic(
             raise DomainError("A/A* must be greater than or equal to 1.")
         if value == 1.0:
             return 1.0
+        if value <= 1.001:
+            return sonic_inverse(value, gamma, area=True,
+                                  subsonic=input_kind.endswith('subsonic'),
+                                  minimum_mach=_MINIMUM_MACH, maximum_mach=_MAXIMUM_MACH)
         lower, upper = (_MINIMUM_MACH, 1.0) if input_kind.endswith("subsonic") else (1.0, _MAXIMUM_MACH)
         return _newton_bracketed(lambda m: _area_ratio(m, gamma), _area_ratio_slope(gamma),
                                  value, lower, upper, input_kind)
@@ -280,6 +284,8 @@ def _bounded(mach: float, kind: str, value: float) -> float:
 
 
 def _area_ratio(mach: float, gamma: float) -> float:
+    if abs(mach-1.0) <= .01:
+        return sonic_area(mach, gamma)
     x = 1.0 + 0.5 * (gamma - 1.0) * mach * mach
     return (2.0 * x / (gamma + 1.0)) ** ((gamma + 1.0) / (2.0 * (gamma - 1.0))) / mach
 
@@ -291,7 +297,9 @@ def _area_ratio_slope(gamma: float):
 
 
 def _prandtl_meyer_deg(mach: float, gamma: float) -> float:
-    root = sqrt(max(0.0, mach * mach - 1.0))
+    if 1.0 <= mach <= 1.01 or gamma >= 1e6:
+        return sonic_pm(mach, gamma)
+    root = sqrt(max(0.0, (mach-1.0)*(mach+1.0)))
     return degrees(sqrt((gamma + 1.0) / (gamma - 1.0)) * atan(sqrt((gamma - 1.0) / (gamma + 1.0)) * root)
                    - atan(root))
 
@@ -307,8 +315,10 @@ def _newton_bracketed(function, slope, target: float, lower: float, upper: float
 
     Newton steps with an analytic slope, replaced by a bisection step whenever
     they would leave the current bracket; the bracket is updated from the sign
-    of every residual, so convergence is guaranteed and is quadratic near the
-    root. Stops when the bracket or the step is below 4 ulp of ``M``.
+    of every residual. Newton convergence is local and depends on a smooth,
+    well-resolved callback. Stops at a sampled zero or when
+    the bracket or step is below 4 ulp of ``M``. Rounded callback plateaus are
+    not a mathematical enclosure; exhausting the iteration budget is refused.
     """
     f_low, f_high = function(lower) - target, function(upper) - target
     if f_low == 0.0:
@@ -337,4 +347,5 @@ def _newton_bracketed(function, slope, target: float, lower: float, upper: float
         if abs(candidate - mach) <= 4.0 * 2.220446049250313e-16 * mach or upper - lower <= 4.0 * 2.220446049250313e-16 * upper:
             return candidate
         mach = candidate
-    return mach
+    raise ConvergenceError('Isentropic inverse exhausted its iteration budget.',
+                           code='isentropic_inverse_not_converged', field='value')

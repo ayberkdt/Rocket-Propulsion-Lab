@@ -72,6 +72,11 @@ Generator admission and the sonic, converging-only limit are reviewed in
 comparison boundary and finite sampled-output guards. This is separate from
 flow-model, continuous-wall and hardware validation.
 
+The near-sonic/minimum-area witnesses and dimensional MOC refinement are
+repaired separately in [GEOMETRY_PRECISION_REVIEW.md](GEOMETRY_PRECISION_REVIEW.md).
+Independent numerical controls do not close all forward/inverse ranges or
+physical/hardware validation.
+
 1. Repair the reproduced Ruff 0.17.2 diagnostics and the shared-root defects;
    test them against the current tree and actual optional NASA CEA provider.
 2. Reconcile prior thermochemistry corrections with the expanded catalogue,

@@ -16,6 +16,11 @@ documented scaling requirements.
 
 ## Evidence that exists (software, independent references)
 
+- Near-sonic and subnormal geometry has complete-expression, coordinate-offset,
+  high-precision and consumer controls (`GEOMETRY_PRECISION_REVIEW.md`). Synthetic
+  ranges and a discrete planar-net comparison do not establish an experimentally
+  validated flow or hardware environment.
+
 - Geometry generators own physical inputs and discrete resolutions before flow
   work, preserve the converging-only sonic limit, and refuse invalid sampled
   output (`GEOMETRY_GENERATOR_REVIEW.md`). Independent equation, scale, export

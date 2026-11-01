@@ -13,13 +13,21 @@ References
 
 from __future__ import annotations
 
-from itertools import pairwise
-from math import cos, pi, radians, sqrt, tan
+from fractions import Fraction as F
+from math import cos, pi, radians, tan
 
 from rocket_propulsion.compressible import calculate_isentropic, mach_from_isentropic
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.validation import integer, numeric_range_guard, real
 
+from .dimensional_numerics import (
+    dimensional,
+    radial_growth,
+    radius_exit,
+    station_geometry,
+    throat_radius,
+    wall_area,
+)
 from .nozzle_contour import NozzleContour, NozzleStation, _checked_contour, _positive
 
 
@@ -115,18 +123,18 @@ def generate_rao_contour(
     if not 41 <= station_count <= 401:
         raise DomainError("Station count must be between 41 and 401.", field='station_count')
 
-    throat_radius = sqrt(throat_area_m2 / pi)
-    exit_radius = throat_radius * sqrt(area_ratio)
-    chamber_radius = chamber_radius_ratio * throat_radius
-    converging_length = 1.5 * throat_radius
-    cone_length = (exit_radius - throat_radius) / tan(radians(15.0))
+    radius_throat = throat_radius(throat_area_m2)
+    radius_increment = radial_growth(radius_throat, area_ratio)
+    exit_radius = radius_exit(throat_area_m2, area_ratio)
+    chamber_radius = chamber_radius_ratio * radius_throat
+    converging_length = 1.5 * radius_throat
+    cone_length = dimensional(F(radius_increment)/F(tan(radians(15.0))), 'diverging_length_m')
     diverging_length = length_fraction * cone_length
     throat_slope = tan(radians(throat_angle_deg))
     exit_slope = tan(radians(exit_angle_deg))
-    control_x = (
-        exit_radius - throat_radius - exit_slope * diverging_length
-    ) / (throat_slope - exit_slope)
-    control_y = throat_radius + throat_slope * control_x
+    control_x = dimensional((F(radius_increment)-F(exit_slope)*F(diverging_length))
+                            /(F(throat_slope)-F(exit_slope)), 'control_x_m')
+    control_increment = dimensional(F(throat_slope)*F(control_x), 'control_radius_increment_m')
     if not 0.0 < control_x < diverging_length:
         raise DomainError(
             "Rao tangent lines do not intersect inside the nozzle length.",
@@ -138,12 +146,11 @@ def generate_rao_contour(
     diverging_count = station_count - converging_count + 1
     stations: list[NozzleStation] = []
 
-    def append(x_m: float, radius_m: float, branch: str) -> None:
-        area = pi * radius_m**2
-        local_ratio = area / throat_area_m2
+    def append(x_m: float, radius_m: float, branch: str, prescribed_ratio=None) -> None:
+        area, local_ratio = station_geometry(radius_m, radius_throat, throat_area_m2,prescribed_ratio)
         mach = (
             1.0
-            if abs(local_ratio - 1.0) <= 1.0e-12
+            if local_ratio == 1.0
             else mach_from_isentropic(f"area_ratio_{branch}", local_ratio, gamma)
         )
         flow = calculate_isentropic(mach, gamma)
@@ -161,31 +168,24 @@ def generate_rao_contour(
 
     for index in range(converging_count):
         fraction = index / (converging_count - 1)
-        radius = chamber_radius + (throat_radius - chamber_radius) * (
-            0.5 - 0.5 * cos(pi * fraction)
+        radius = radius_throat + (chamber_radius-radius_throat) * (
+            0.5 + 0.5 * cos(pi * fraction)
         )
         append(-converging_length * (1.0 - fraction), radius, "subsonic")
     for index in range(1, diverging_count):
         fraction = index / (diverging_count - 1)
         one_minus = 1.0 - fraction
         x_m = 2.0 * one_minus * fraction * control_x + fraction**2 * diverging_length
-        radius = (
-            one_minus**2 * throat_radius
-            + 2.0 * one_minus * fraction * control_y
-            + fraction**2 * exit_radius
-        )
-        append(x_m, radius, "supersonic")
+        radius = dimensional(F(radius_throat)+2*F(one_minus)*F(fraction)*F(control_increment)
+                             + F(fraction)**2*F(radius_increment), 'radius_m')
+        last = index == diverging_count-1
+        append(x_m, exit_radius if last else radius, "supersonic", area_ratio if last else None)
 
-    surface_area = sum(
-        pi
-        * (left.radius_m + right.radius_m)
-        * sqrt((right.x_m - left.x_m) ** 2 + (right.radius_m - left.radius_m) ** 2)
-        for left, right in pairwise(stations)
-    )
+    surface_area = wall_area(stations)
     effective_angle = 0.5 * (throat_angle_deg + exit_angle_deg)
     return _checked_contour(NozzleContour(
         contour="rao",
-        throat_radius_m=throat_radius,
+        throat_radius_m=radius_throat,
         chamber_radius_m=chamber_radius,
         exit_radius_m=exit_radius,
         converging_length_m=converging_length,

@@ -1,0 +1,56 @@
+{
+  "baseline_commit": "1b1028b6da3ba87f72718b17f5a23a609ff6fca6",
+  "transitions": [
+    {
+      "old": [
+        "geometry_conical_angle_ignored",
+        "src/rocket_propulsion/geometry/nozzle_contour.py",
+        "        diverging_length = (exit_radius - throat_radius) / tan(radians(half_angle_deg))",
+        "        diverging_length = (exit_radius - throat_radius) / tan(radians(15.0))",
+        "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_nondefault_conical_lengths_match_independent_tangent_geometry"
+      ],
+      "new": [
+        "geometry_conical_angle_ignored",
+        "src/rocket_propulsion/geometry/nozzle_contour.py",
+        "        diverging_length = dimensional(F(radius_increment)/F(tan(radians(half_angle_deg))), 'diverging_length_m')",
+        "        diverging_length = dimensional(F(radius_increment)/F(tan(radians(15.0))), 'diverging_length_m')",
+        "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_nondefault_conical_lengths_match_independent_tangent_geometry"
+      ],
+      "reason": "Same wrong-angle invariant, now anchored to the retained-growth expression."
+    },
+    {
+      "old": [
+        "geometry_general_wall_area_scaled",
+        "src/rocket_propulsion/geometry/nozzle_contour.py",
+        "        surface_area += pi * (left.radius_m + right.radius_m) * segment",
+        "        surface_area += 1.1 * pi * (left.radius_m + right.radius_m) * segment",
+        "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_independent_dimensions_area_mach_and_wall_area"
+      ],
+      "new": [
+        "geometry_general_wall_area_scaled",
+        "src/rocket_propulsion/geometry/nozzle_contour.py",
+        "    surface_area = wall_area(stations)",
+        "    surface_area = 1.1*wall_area(stations)",
+        "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_independent_dimensions_area_mach_and_wall_area"
+      ],
+      "reason": "Same wall-area scale fault after common complete-expression summation."
+    },
+    {
+      "old": [
+        "geometry_nonfinite_total_exported",
+        "src/rocket_propulsion/geometry/nozzle_contour.py",
+        "        if isinstance(value, (float, int)) and (not isfinite(value) or value < 0.\n                                               or (item.name in positive and value == 0.)):",
+        "        if False:",
+        "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_unrepresentable_total_wall_area_is_not_a_successful_infinite_result"
+      ],
+      "new": [
+        "geometry_dimensional_range_label_lost",
+        "src/rocket_propulsion/geometry/dimensional_numerics.py",
+        "        return _finite_rational(value, label)",
+        "        return float(value)",
+        "tests/test_geometry_generator_contract.py::GeneratorContractTests::test_unrepresentable_total_wall_area_is_not_a_successful_infinite_result"
+      ],
+      "reason": "Old postflight-only deletion is now redundant: checked dimensional export rejects first. Replace it with unchecked conversion that loses the computed output field on overflow. The old source-bound fault/receipt is retained as history, not claimed killed on the new source."
+    }
+  ]
+}
