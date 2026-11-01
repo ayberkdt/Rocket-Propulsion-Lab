@@ -1,4 +1,11 @@
-# Sentinel-1 ve Sentinel-2 serileri — karşılaştırmalı SASS raporu (V5)
+# Sentinel-1 ve Sentinel-2 serileri — karşılaştırmalı SASS raporu (V6)
+
+**V6 English deliverables:** [Source-located propulsion catalogue](PROPULSION_CATALOGUE.md)
+([structured JSON](PROPULSION_CATALOGUE.json)) and [detailed calculation appendix](CALCULATIONS_ENGLISH.md).
+The presentation now follows the supplied Murat template in **exactly nine English
+slides**. Detailed specifications remain in the catalogue. Its 31 critical records
+separate agreement across authorities, supplier-derived repetition, single-source
+claims and unresolved flight data. The previous long V5 presentation is superseded.
 
 **Kapsam:** Kullanıcının teyidiyle ilk nesil A/B/C/D araçları karşılaştırılır.
 C araçları, dolum bilgisi ve ayrıntılı manevra kayıtlarıyla hesap örnekleridir.

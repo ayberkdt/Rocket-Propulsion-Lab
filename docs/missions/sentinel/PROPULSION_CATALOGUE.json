@@ -1,0 +1,3935 @@
+{
+  "schema": "sentinel-propulsion-catalogue-v1",
+  "revision": "V6",
+  "source_cut": "2026-11-01",
+  "scope": "Published Sentinel-1/2 first-generation A/B/C/D propulsion details. Missing flight data remain null. No exhaustive access to private acceptance documents is claimed.",
+  "verification_policy": "Different official documents are compared by exact fact, vehicle, date, unit and condition. A repeated press release, supplier-derived NASA row or an older design value is not independent flight verification.",
+  "sources": {
+    "R24": {
+      "title": "Space Propulsion Technical Catalogue, 2024",
+      "authority": "Rafael",
+      "host_relationship": "official publisher",
+      "url": "https://www.rafael.co.il/wp-content/uploads/2024/05/SPACE-Propulsion-Technical-doc_compressed.pdf",
+      "local_file": "sources/Rafael_propulsion_2024.pdf",
+      "sha256": "f621c47cf06ed8f7064b7ec41217d950d10e562928169f1a8d80c3a44123ed1b",
+      "checked_on": "2026-11-01"
+    },
+    "AGPDF": {
+      "title": "Hydrazine Thrusters brochure",
+      "authority": "ArianeGroup",
+      "host_relationship": "official publisher",
+      "url": "https://www.space-propulsion.com/brochures/hydrazine-thrusters/hydrazine-thrusters.pdf",
+      "local_file": "sources/ArianeGroup_hydrazine_thrusters.pdf",
+      "sha256": "90068e721a853845c46f559ddb79cdc7c6276961bafdcc16d7152cd5d52d969b",
+      "checked_on": "2026-11-01"
+    },
+    "AGWEB": {
+      "title": "1 N Monopropellant Hydrazine Thruster",
+      "authority": "ArianeGroup",
+      "host_relationship": "official publisher",
+      "url": "https://www.space-propulsion.com/spacecraft-propulsion/hydrazine-thrusters/1n-hydrazine-thruster.html",
+      "local_file": "sources/ArianeGroup_1N_product.html",
+      "sha256": "20a5e656b2ad7fedad82bef52ecffadc273f6ed8874bcc625ee3c6eaf3f77a49",
+      "checked_on": "2026-11-01"
+    },
+    "S1360": {
+      "title": "Stop OCM Burn FDIR, SpaceOps 2025 #360",
+      "authority": "ESA / Serco mission operations",
+      "host_relationship": "official publisher",
+      "url": "https://publications.spaceops.org/2025/download_by_id.php?id=0360",
+      "local_file": "sources/SpaceOps_2025_0360_S1B_StopBurn.pdf",
+      "sha256": "153df80ffa07cf69e91b855cd1a34883bfd8a040570a832334350a420285ab89",
+      "checked_on": "2026-11-01"
+    },
+    "S1226": {
+      "title": "Sentinel-1B End-Of-Life Operations, SpaceOps 2025 #226",
+      "authority": "ESA mission operations",
+      "host_relationship": "official publisher",
+      "url": "https://publications.spaceops.org/2025/download_by_id.php?id=0226",
+      "local_file": "sources/SpaceOps_2025_0226_S1B_EndOfLife.pdf",
+      "sha256": "c03b7153b8c98f9f3d289e6edf6414f5f26499a0fe6a5871deb80cf6facb6afd",
+      "checked_on": "2026-11-01"
+    },
+    "S2617": {
+      "title": "Optimising Tandem Orbit Control, SpaceOps 2025 #617",
+      "authority": "ESA / CS Group mission operations",
+      "host_relationship": "official publisher",
+      "url": "https://publications.spaceops.org/2025/download_by_id.php?id=0617",
+      "local_file": "sources/SpaceOps_2025_0617_S2_Tandem.pdf",
+      "sha256": "53b1f906bc44082904d5192851a6631f526d4531b127d1dd36c1ccbf3e7f51de",
+      "checked_on": "2026-11-01"
+    },
+    "S1FD": {
+      "title": "Sentinel-1B LEOP and Reference Orbit Acquisition, 2017",
+      "authority": "ESA / ESOC flight dynamics",
+      "host_relationship": "official publisher",
+      "url": "https://issfd.org/ISSFD_2017/paper/ISTS-2017-d-029__ISSFD-2017-029.pdf",
+      "local_file": "sources/ISSFD_2017_S1_OrbitAcquisition.pdf",
+      "sha256": "f57ded32775361b2154c6a1a7387a72ee383a11f67044a71540091cb63d14370",
+      "checked_on": "2026-11-01"
+    },
+    "S1SP": {
+      "title": "SP-1322/1, 2012",
+      "authority": "ESA",
+      "host_relationship": "official publisher",
+      "url": "https://sentinels.copernicus.eu/documents/247904/349449/S1_SP-1322_1.pdf",
+      "local_file": "sources/Sentinel1_ESA_SP1322_2012.pdf",
+      "sha256": "b31d601a798a8cbf37614b8d5e78cb96499acaae9648c202e3b47ad61f9c5b8e",
+      "checked_on": "2026-11-01"
+    },
+    "S2SP": {
+      "title": "SP-1322/2, 2012",
+      "authority": "ESA",
+      "host_relationship": "official publisher",
+      "url": "https://sentinels.copernicus.eu/documents/247904/349490/S2_SP-1322_2.pdf",
+      "local_file": "sources/Sentinel2_ESA_SP1322_2012.pdf",
+      "sha256": "517366ed447a21e7e2f00188abc9b8e4c4228e133f6c9f07c473f1d894288fb4",
+      "checked_on": "2026-11-01"
+    },
+    "S209": {
+      "title": "Sentinel-2 AOCS Model-Based Design, DGLR 2009",
+      "authority": "EADS Astrium",
+      "host_relationship": "primary authors; university-hosted copy",
+      "url": "https://www.fzt.haw-hamburg.de/pers/Scholz/dglr/dlrk2009_mitReview/Papers/121179.pdf",
+      "local_file": "sources/Sentinel2_AOCS_ModelBasedDesign_DGLR2009.pdf",
+      "sha256": "a0e68403ad4894c3b6528dde54a7aa9d4743820f15b56528c9024030d41923e4",
+      "checked_on": "2026-11-01"
+    },
+    "S214": {
+      "title": "Sentinel-2 AOCS: Challenges and Solutions, GNC 2014",
+      "authority": "Airbus Defence and Space",
+      "host_relationship": "primary author copy on ResearchGate; full-text read; automated download unavailable",
+      "url": "https://www.researchgate.net/publication/271584776_THE_SENTINEL-2_SATELLITE_ATTITUDE_CONTROL_SYSTEM_-_CHALLENGES_AND_SOLUTIONS",
+      "local_file": null,
+      "sha256": null,
+      "checked_on": "2026-11-01"
+    },
+    "F1C": {
+      "title": "Sentinel-1C fuelled ahead of liftoff, 18 November 2024",
+      "authority": "ESA",
+      "host_relationship": "official publisher",
+      "url": "https://www.esa.int/Applications/Observing_the_Earth/Copernicus/Sentinel-1/Sentinel-1C_fuelled_ahead_of_liftoff",
+      "local_file": "sources/ESA_S1C_Fuel.html",
+      "sha256": "261a3a955f9104541bccae8d900036207964a8f532a5cd1cccb5fecf8de7dcea",
+      "checked_on": "2026-11-01"
+    },
+    "F2C": {
+      "title": "Sentinel-2C fully loaded, 19 August 2024",
+      "authority": "ESA",
+      "host_relationship": "official publisher",
+      "url": "https://blogs.esa.int/eolaunches/2024/08/19/sentinel-2c-fully-loaded/",
+      "local_file": "sources/ESA_S2C_Fuel.html",
+      "sha256": "bd8e7d9e607093ce45f458f90f9f1935770615e1937b4802261f820486250a9f",
+      "checked_on": "2026-11-01"
+    },
+    "FACT1": {
+      "title": "Sentinel-1 Facts and figures",
+      "authority": "ESA",
+      "host_relationship": "official publisher",
+      "url": "https://www.esa.int/Applications/Observing_the_Earth/Copernicus/Sentinel-1/Facts_and_figures",
+      "local_file": "sources/ESA_S1_Facts.html",
+      "sha256": "6faf70a76f55a1f53aee76757ccc267c7163ee2033062d306a318d3fd57ff81f",
+      "checked_on": "2026-11-01"
+    },
+    "FACT2": {
+      "title": "Sentinel-2 Facts and figures",
+      "authority": "ESA",
+      "host_relationship": "official publisher",
+      "url": "https://www.esa.int/Applications/Observing_the_Earth/Copernicus/Sentinel-2/Facts_and_figures",
+      "local_file": "sources/ESA_S2_Facts.html",
+      "sha256": "1b32fe6901d1b90875b09e89f2f829addb70c3bb95b0e1ec724dda26663fa3ea",
+      "checked_on": "2026-11-01"
+    },
+    "KIT1C": {
+      "title": "VV25 launch kit",
+      "authority": "Arianespace",
+      "host_relationship": "primary-authored third-party mirror; official-host copy not recovered",
+      "url": "https://sky-brokers.com/wp-content/uploads/2025/07/Arianespace-Launchkit-VV25-ESA-Copernicus-Sentinel-1c.pdf",
+      "local_file": "sources/S1C_VV25_LaunchKit_mirror.pdf",
+      "sha256": "5f387399c33840c042a6f353b7b4870ca4059305f7f153f8aea77c0afe5a2367",
+      "checked_on": "2026-11-01"
+    },
+    "KIT2C": {
+      "title": "VV24 launch kit",
+      "authority": "Arianespace",
+      "host_relationship": "official publisher",
+      "url": "https://newsroom.arianespace.com/download/?n=b694039895faf86c0a7a5bcab504d9a1.pdf&id=39971",
+      "local_file": "sources/S2C_VV24_Official_LaunchKit.pdf",
+      "sha256": "fd96c6f27b335d95e122fe48b2be51a02e70679939cc76c43d4c330f254dedd1",
+      "checked_on": "2026-11-01"
+    },
+    "NASA26": {
+      "title": "2026 State of the Art, In-Space Propulsion",
+      "authority": "NASA",
+      "host_relationship": "official compilation; table values supplied by manufacturers",
+      "url": "https://www.nasa.gov/smallsat-institute/sst-soa/in-space_propulsion/",
+      "local_file": "sources/NASA_propulsion_2026.html",
+      "sha256": "751ab86c4d9b85a464eb680d7a98eef7db1f6777aae3198bc28fd8b84fe7d89f",
+      "checked_on": "2026-11-01"
+    },
+    "N2H4": {
+      "title": "NASA/TM-2013-216560, Recommended Figures of Merit for Green Monopropellants",
+      "authority": "NASA",
+      "host_relationship": "official publisher",
+      "url": "https://ntrs.nasa.gov/api/citations/20140009582/downloads/20140009582.pdf",
+      "local_file": "sources/NASA_TM_2013_216560.pdf",
+      "sha256": "3758f8500534c4bd82b88c44cc7180df3b15e75d99a2e99b636494162434d6b8",
+      "checked_on": "2026-11-01"
+    },
+    "GUIDE": {
+      "title": "Guidelines for the computation of Delta-V and propellant budget, Issue 1 Rev 0, 11 November 2019",
+      "authority": "ESA EOP",
+      "host_relationship": "official publisher",
+      "url": "https://eopro.esa.int/wp-content/uploads/2020/10/Guidelines-for-DeltaV-and-propellant-budget-computation.pdf",
+      "local_file": "sources/ESA_DeltaV_Propellant_Guidelines_2019.pdf",
+      "sha256": "b1ea2d4cf311f825150b6590424514b55c37aae5d6a4574ba7612c7642cce7c2",
+      "checked_on": "2026-11-01"
+    }
+  },
+  "records": [
+    {
+      "id": "S1-001",
+      "system": "S1",
+      "group": "Architecture",
+      "parameter": "Propulsion type",
+      "value": "Catalytic hydrazine monopropellant",
+      "unit": "",
+      "applicability": "Sentinel-1 family; detailed operational evidence for B",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1FD",
+          "locator": "PDF p2"
+        },
+        {
+          "source": "R24",
+          "locator": "printed pp43–46 / PDF pp46–49"
+        }
+      ],
+      "verification_status": "MULTI_AUTHORITY_AGREEMENT",
+      "cross_check_note": "ESA flight-dynamics description and manufacturer product-family identification agree.",
+      "critical": true
+    },
+    {
+      "id": "S1-002",
+      "system": "S1",
+      "group": "Architecture",
+      "parameter": "Installed thruster count",
+      "value": 14,
+      "unit": "thrusters",
+      "applicability": "A/B operational architecture; C/D manufacturer deliveries",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "p2: two branches of seven"
+        },
+        {
+          "source": "S1FD",
+          "locator": "p2: three OCT pairs and four RCT pairs"
+        },
+        {
+          "source": "R24",
+          "locator": "printed p10: 28 for A/B and 28 delivered for C/D"
+        }
+      ],
+      "verification_status": "MULTI_AUTHORITY_AGREEMENT",
+      "cross_check_note": "Manufacturer delivery totals are consistent with 14 per spacecraft; operator paper states two times seven directly. This does not identify the Type 1/2 distribution.",
+      "critical": true
+    },
+    {
+      "id": "S1-003",
+      "system": "S1",
+      "group": "Architecture",
+      "parameter": "Nominal thruster class",
+      "value": 1,
+      "unit": "N",
+      "applicability": "Sentinel-1 operational architecture",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "p2"
+        },
+        {
+          "source": "S1FD",
+          "locator": "p2"
+        },
+        {
+          "source": "R24",
+          "locator": "printed p43"
+        }
+      ],
+      "verification_status": "MULTI_AUTHORITY_AGREEMENT",
+      "cross_check_note": "Operator and manufacturer agree on the 1 N class. Actual thrust varies with pressure and condition.",
+      "critical": true
+    },
+    {
+      "id": "S1-004",
+      "system": "S1",
+      "group": "Architecture",
+      "parameter": "Thruster supplier",
+      "value": "Rafael",
+      "unit": "",
+      "applicability": "Sentinel-1 A/B/C/D program selection",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p43; heritage printed p10"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "Direct manufacturer statement. A separate official operator source explicitly naming Rafael was not recovered.",
+      "critical": true
+    },
+    {
+      "id": "S1-005",
+      "system": "S1",
+      "group": "Architecture",
+      "parameter": "Redundant branches",
+      "value": 2,
+      "unit": "branches",
+      "applicability": "S1B documented architecture",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "p2"
+        },
+        {
+          "source": "S1FD",
+          "locator": "p2"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-006",
+      "system": "S1",
+      "group": "Architecture",
+      "parameter": "Thrusters per branch",
+      "value": 7,
+      "unit": "thrusters",
+      "applicability": "S1B documented architecture",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "p2"
+        },
+        {
+          "source": "S1FD",
+          "locator": "p2"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-007",
+      "system": "S1",
+      "group": "Architecture",
+      "parameter": "Orbit-control thrusters per branch",
+      "value": 3,
+      "unit": "thrusters",
+      "applicability": "S1B documented architecture",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "p2"
+        },
+        {
+          "source": "S1FD",
+          "locator": "p2"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-008",
+      "system": "S1",
+      "group": "Architecture",
+      "parameter": "Attitude thrusters per branch",
+      "value": 4,
+      "unit": "thrusters",
+      "applicability": "S1B documented architecture",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "p2"
+        },
+        {
+          "source": "S1FD",
+          "locator": "p2"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-009",
+      "system": "S1",
+      "group": "Architecture",
+      "parameter": "RCT1 function",
+      "value": "In-plane retrograde / orbit lowering",
+      "unit": "",
+      "applicability": "S1B documented architecture",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "p2"
+        },
+        {
+          "source": "S1FD",
+          "locator": "p2"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-010",
+      "system": "S1",
+      "group": "Architecture",
+      "parameter": "RCT2 function",
+      "value": "In-plane prograde / orbit raising",
+      "unit": "",
+      "applicability": "S1B documented architecture",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "p2"
+        },
+        {
+          "source": "S1FD",
+          "locator": "p2"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-011",
+      "system": "S1",
+      "group": "Architecture",
+      "parameter": "RCT3 function",
+      "value": "Out-of-plane control",
+      "unit": "",
+      "applicability": "S1B documented architecture",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "p2"
+        },
+        {
+          "source": "S1FD",
+          "locator": "p2"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-012",
+      "system": "S1",
+      "group": "Architecture",
+      "parameter": "OCT1 mounting side",
+      "value": "+X",
+      "unit": "spacecraft frame",
+      "applicability": "S1B documented architecture",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "p2"
+        },
+        {
+          "source": "S1FD",
+          "locator": "p2"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-013",
+      "system": "S1",
+      "group": "Architecture",
+      "parameter": "OCT2 mounting side",
+      "value": "−X",
+      "unit": "spacecraft frame",
+      "applicability": "S1B documented architecture",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "p2"
+        },
+        {
+          "source": "S1FD",
+          "locator": "p2"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-014",
+      "system": "S1",
+      "group": "Architecture",
+      "parameter": "OCT3 mounting side",
+      "value": "−Y",
+      "unit": "spacecraft frame",
+      "applicability": "S1B documented architecture",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "p2"
+        },
+        {
+          "source": "S1FD",
+          "locator": "p2"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-015",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Propellant",
+      "value": "N2H4",
+      "unit": "",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-016",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Type 1 inlet pressure",
+      "value": [
+        9,
+        24.5
+      ],
+      "unit": "bar abs",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "Manufacturer specification. Independent flight acceptance/performance data for this parameter were not recovered.",
+      "critical": true
+    },
+    {
+      "id": "S1-017",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Type 2 inlet pressure",
+      "value": [
+        5.5,
+        24.5
+      ],
+      "unit": "bar abs",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "Manufacturer specification. Independent flight acceptance/performance data for this parameter were not recovered.",
+      "critical": true
+    },
+    {
+      "id": "S1-018",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Type 1 BOL steady thrust",
+      "value": [
+        1.3,
+        1.4
+      ],
+      "unit": "N",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-019",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Type 2 BOL steady thrust",
+      "value": [
+        1,
+        1.1
+      ],
+      "unit": "N",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-020",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "EOL steady thrust",
+      "value": ">0.2",
+      "unit": "N",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-021",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Steady-state Isp at 22 bar",
+      "value": ">214",
+      "unit": "s",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "Catalogued pressure point, not a flight map",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "Manufacturer specification. Independent flight acceptance/performance data for this parameter were not recovered.",
+      "critical": true
+    },
+    {
+      "id": "S1-022",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Steady-state Isp at 5.5 bar",
+      "value": ">205",
+      "unit": "s",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "Applicable inlet range must include this pressure",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "Manufacturer specification. Independent flight acceptance/performance data for this parameter were not recovered.",
+      "critical": true
+    },
+    {
+      "id": "S1-023",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Minimum impulse bit",
+      "value": 0.008,
+      "unit": "N s",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "5.5 bar; 0.02 s on / 1 s cycle",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "Manufacturer specification. Independent flight acceptance/performance data for this parameter were not recovered.",
+      "critical": true
+    },
+    {
+      "id": "S1-024",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Nominal duty specification",
+      "value": "0.1 s on / 1 s cycle",
+      "unit": "",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-025",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Hot-pulse rise time",
+      "value": "<200",
+      "unit": "ms",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "At nominal duty",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-026",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Hot-pulse decay time",
+      "value": "<300",
+      "unit": "ms",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "At nominal duty",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-027",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Type 1 total delivered impulse",
+      "value": 100000,
+      "unit": "N s",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "Manufacturer specification. Independent flight acceptance/performance data for this parameter were not recovered.",
+      "critical": true
+    },
+    {
+      "id": "S1-028",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Type 2 total delivered impulse",
+      "value": 60000,
+      "unit": "N s",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "Manufacturer specification. Independent flight acceptance/performance data for this parameter were not recovered.",
+      "critical": true
+    },
+    {
+      "id": "S1-029",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Type 1 pulse qualification",
+      "value": 100000,
+      "unit": "pulses",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-030",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Type 2 pulse qualification",
+      "value": 58000,
+      "unit": "pulses",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-031",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Nozzle area ratio",
+      "value": 130,
+      "unit": "Ae/At",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-032",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Mass including 1000 mm leads",
+      "value": "<=310",
+      "unit": "g",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-033",
+      "system": "S1",
+      "group": "Thruster performance",
+      "parameter": "Combined storage and flight life",
+      "value": 15,
+      "unit": "years",
+      "applicability": "Rafael 1 N product family; flight unit subtypes not established",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p46 / PDF p49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-034",
+      "system": "S1",
+      "group": "Valve and interfaces",
+      "parameter": "Valve type",
+      "value": "Solenoid FCV, normally closed, two coils and two seats",
+      "unit": "",
+      "applicability": "Rafael 1 N product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp43,45–46 / PDF pp46,48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-035",
+      "system": "S1",
+      "group": "Valve and interfaces",
+      "parameter": "Closure mechanism",
+      "value": "Springs at both seats; de-energise to close",
+      "unit": "",
+      "applicability": "Rafael 1 N product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp43,45–46 / PDF pp46,48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-036",
+      "system": "S1",
+      "group": "Valve and interfaces",
+      "parameter": "FCV construction",
+      "value": "All-welded body, two springs and two plungers",
+      "unit": "",
+      "applicability": "Rafael 1 N product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp43,45–46 / PDF pp46,48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-037",
+      "system": "S1",
+      "group": "Valve and interfaces",
+      "parameter": "Inlet filter",
+      "value": 15,
+      "unit": "micrometre absolute",
+      "applicability": "Rafael 1 N product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp43,45–46 / PDF pp46,48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-038",
+      "system": "S1",
+      "group": "Valve and interfaces",
+      "parameter": "FCV supply voltage",
+      "value": [
+        23,
+        36
+      ],
+      "unit": "V DC",
+      "applicability": "Rafael 1 N product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp43,45–46 / PDF pp46,48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-039",
+      "system": "S1",
+      "group": "Valve and interfaces",
+      "parameter": "FCV power",
+      "value": 9.2,
+      "unit": "W",
+      "applicability": "Rafael 1 N product family",
+      "conditions": "At 28 V DC",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp43,45–46 / PDF pp46,48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-040",
+      "system": "S1",
+      "group": "Valve and interfaces",
+      "parameter": "Internal He leakage",
+      "value": "<1e-5",
+      "unit": "standard cm3/s",
+      "applicability": "Rafael 1 N product family",
+      "conditions": "5.5 and 24.5 bar as printed",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp43,45–46 / PDF pp46,48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-041",
+      "system": "S1",
+      "group": "Valve and interfaces",
+      "parameter": "External He leakage",
+      "value": "<1e-6",
+      "unit": "standard cm3/s",
+      "applicability": "Rafael 1 N product family",
+      "conditions": "24.5 bar",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp43,45–46 / PDF pp46,48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-042",
+      "system": "S1",
+      "group": "Valve and interfaces",
+      "parameter": "Threaded inlet",
+      "value": "MS 33656-4",
+      "unit": "",
+      "applicability": "Rafael 1 N product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp43,45–46 / PDF pp46,48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-043",
+      "system": "S1",
+      "group": "Valve and interfaces",
+      "parameter": "Optional welded inlet tubing",
+      "value": [
+        "1/4",
+        "3/8"
+      ],
+      "unit": "inch",
+      "applicability": "Rafael 1 N product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp43,45–46 / PDF pp46,48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-044",
+      "system": "S1",
+      "group": "Valve and interfaces",
+      "parameter": "Nozzle geometry",
+      "value": "Bell nozzle welded to decomposition chamber",
+      "unit": "",
+      "applicability": "Rafael 1 N product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp43,45–46 / PDF pp46,48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-045",
+      "system": "S1",
+      "group": "Valve and interfaces",
+      "parameter": "Thermal barrier",
+      "value": "Perforated Hayness-alloy tube between TCA and FCV",
+      "unit": "",
+      "applicability": "Rafael 1 N product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp43,45–46 / PDF pp46,48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-046",
+      "system": "S1",
+      "group": "Valve and interfaces",
+      "parameter": "TCA-to-FCV seal",
+      "value": "Metallic",
+      "unit": "",
+      "applicability": "Rafael 1 N product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp43,45–46 / PDF pp46,48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-047",
+      "system": "S1",
+      "group": "Thermal control",
+      "parameter": "Specified operating interface range",
+      "value": [
+        5,
+        90
+      ],
+      "unit": "degC",
+      "applicability": "Rafael 1 N product family; component limits have different boundaries",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp45–46 / PDF pp48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-048",
+      "system": "S1",
+      "group": "Thermal control",
+      "parameter": "Non-operating range",
+      "value": [
+        -10,
+        95
+      ],
+      "unit": "degC",
+      "applicability": "Rafael 1 N product family; component limits have different boundaries",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp45–46 / PDF pp48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-049",
+      "system": "S1",
+      "group": "Thermal control",
+      "parameter": "Catalyst-bed heater",
+      "value": "Two resistance coils",
+      "unit": "",
+      "applicability": "Rafael 1 N product family; component limits have different boundaries",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp45–46 / PDF pp48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-050",
+      "system": "S1",
+      "group": "Thermal control",
+      "parameter": "Heater voltage",
+      "value": [
+        23,
+        36
+      ],
+      "unit": "V DC",
+      "applicability": "Rafael 1 N product family; component limits have different boundaries",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp45–46 / PDF pp48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-051",
+      "system": "S1",
+      "group": "Thermal control",
+      "parameter": "Resistance per heater element",
+      "value": 257,
+      "unit": "ohm",
+      "applicability": "Rafael 1 N product family; component limits have different boundaries",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp45–46 / PDF pp48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-052",
+      "system": "S1",
+      "group": "Thermal control",
+      "parameter": "Recommended catalyst preheat temperature",
+      "value": 180,
+      "unit": "degC",
+      "applicability": "Rafael 1 N product family; component limits have different boundaries",
+      "conditions": "Heated catalyst bed, not the 5–90 degC interface envelope",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp45–46 / PDF pp48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-053",
+      "system": "S1",
+      "group": "Thermal control",
+      "parameter": "Typical preheat time from +25 degC",
+      "value": 20,
+      "unit": "min",
+      "applicability": "Rafael 1 N product family; component limits have different boundaries",
+      "conditions": "Manufacturer example, not a spacecraft procedure",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp45–46 / PDF pp48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-054",
+      "system": "S1",
+      "group": "Thermal control",
+      "parameter": "Heat-soak-back control",
+      "value": "Thermal barrier limits conduction to FCV",
+      "unit": "",
+      "applicability": "Rafael 1 N product family; component limits have different boundaries",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp45–46 / PDF pp48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-055",
+      "system": "S1",
+      "group": "Thermal control",
+      "parameter": "Additional FCV thermal fittings",
+      "value": "External free areas allow heater/thermistor bonding",
+      "unit": "",
+      "applicability": "Rafael 1 N product family; component limits have different boundaries",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp45–46 / PDF pp48–49"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-056",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Tank model",
+      "value": "PEPT-590GB",
+      "unit": "",
+      "applicability": "Sentinel-1 A/B/C/D manufacturer heritage",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p9; p41 / PDF pp12,44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "Direct manufacturer heritage; not a C/D signed as-built ICD.",
+      "critical": true
+    },
+    {
+      "id": "S1-057",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Nominal internal volume",
+      "value": 204,
+      "unit": "L",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-058",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Nominal propellant capacity",
+      "value": 154,
+      "unit": "kg",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "At stated 4:1 blow-down ratio",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-059",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Nominal outer diameter",
+      "value": 587,
+      "unit": "mm",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-060",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Nominal overall length",
+      "value": 1170,
+      "unit": "mm",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-061",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Shape",
+      "value": "Cylindrically extended hemispheres",
+      "unit": "",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-062",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Dry tank mass",
+      "value": 17.5,
+      "unit": "kg",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-063",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Tank material",
+      "value": "Ti-6Al-4V",
+      "unit": "",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-064",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Diaphragm",
+      "value": "EPN-40, silica free",
+      "unit": "",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-065",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Compatible media",
+      "value": [
+        "Hydrazine",
+        "IPA",
+        "distilled water",
+        "GN2",
+        "GHe"
+      ],
+      "unit": "",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-066",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Compatible pressurants",
+      "value": [
+        "GN2",
+        "GHe"
+      ],
+      "unit": "",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-067",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Liquid volumetric expulsion",
+      "value": ">99",
+      "unit": "percent",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "Does not include motor-pressure cutoff or unusable propellant from other causes",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-068",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Operating pressure",
+      "value": [
+        5.5,
+        27.4
+      ],
+      "unit": "bar",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "Pressure reference not explicit in this table",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-069",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Proof pressure",
+      "value": 41.1,
+      "unit": "bar",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-070",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Specified burst pressure",
+      "value": 54.8,
+      "unit": "bar",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-071",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Reported actual rupture pressure",
+      "value": 72,
+      "unit": "bar",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "Single catalogue statement, not a flight allowable",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-072",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Internal He leakage",
+      "value": "<1e-2",
+      "unit": "standard cm3/s",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-073",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "External He leakage",
+      "value": "<1e-6",
+      "unit": "standard cm3/s",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "At 27.4 bar",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-074",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Qualification operating temperature",
+      "value": [
+        4,
+        50
+      ],
+      "unit": "degC",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-075",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Qualification non-operating temperature",
+      "value": [
+        -20,
+        60
+      ],
+      "unit": "degC",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-076",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Storage life",
+      "value": 7,
+      "unit": "years",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-077",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Flight life",
+      "value": 15,
+      "unit": "years",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-078",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Mounting",
+      "value": "Polar",
+      "unit": "",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-079",
+      "system": "S1",
+      "group": "Tank",
+      "parameter": "Gas and liquid ports",
+      "value": "Weldable 1/4-inch titanium tubes",
+      "unit": "",
+      "applicability": "PEPT-590GB product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed pp40–41 / PDF pp43–44"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1C-080",
+      "system": "S1C",
+      "group": "Flight loading",
+      "parameter": "Loaded propellant",
+      "value": 154,
+      "unit": "kg",
+      "applicability": "Sentinel-1C, November 2024 campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "F1C",
+          "locator": "fuel-loading paragraph"
+        },
+        {
+          "source": "R24",
+          "locator": "printed p41 nominal product capacity, not the loading event"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "ESA directly confirms the flight loading. Rafael independently confirms a compatible nominal tank capacity, not the flight fill. No second independent fill measurement found.",
+      "critical": true
+    },
+    {
+      "id": "S1C-081",
+      "system": "S1C",
+      "group": "Flight loading",
+      "parameter": "Propellant identity",
+      "value": "Hydrazine",
+      "unit": "",
+      "applicability": "Sentinel-1C",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "R24",
+          "locator": "printed p43 A/B/C/D selection"
+        },
+        {
+          "source": "S1SP",
+          "locator": "hydrazine propulsion description"
+        }
+      ],
+      "verification_status": "MULTI_AUTHORITY_AGREEMENT",
+      "cross_check_note": "Manufacturer family selection agrees with ESA mission architecture.",
+      "critical": true
+    },
+    {
+      "id": "S1C-082",
+      "system": "S1C",
+      "group": "Flight loading",
+      "parameter": "Launch mass used for calculations",
+      "value": 2186,
+      "unit": "kg",
+      "applicability": "S1C VV25 launch-kit value",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "KIT1C",
+          "locator": "p3"
+        },
+        {
+          "source": "FACT1",
+          "locator": "generic family mass 2185 kg"
+        }
+      ],
+      "verification_status": "SOURCE_DISAGREEMENT_OR_VERSION",
+      "cross_check_note": "The vehicle-specific kit says 2186 kg and was recovered on a third-party mirror. ESA general facts says 2185 kg. Exact two-authority agreement is not claimed.",
+      "critical": true
+    },
+    {
+      "id": "S1B-083",
+      "system": "S1B",
+      "group": "Operational constraints",
+      "parameter": "Affected in-plane burn duration",
+      "value": 35,
+      "unit": "s",
+      "applicability": "Specific 2016 acquisition conditions, not all vehicles or epochs",
+      "conditions": "Reduced from 300 s because of plume constraints",
+      "evidence": [
+        {
+          "source": "S1FD",
+          "locator": "PDF pp2–3"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1B-084",
+      "system": "S1B",
+      "group": "Operational constraints",
+      "parameter": "Reported effective-thrust loss",
+      "value": "approximately 30",
+      "unit": "percent",
+      "applicability": "Specific 2016 acquisition conditions, not all vehicles or epochs",
+      "conditions": "Plume interaction; not a universal nozzle-efficiency factor",
+      "evidence": [
+        {
+          "source": "S1FD",
+          "locator": "PDF pp2–3"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1B-085",
+      "system": "S1B",
+      "group": "Operational constraints",
+      "parameter": "OCT3 large in-plane burn duration",
+      "value": 600,
+      "unit": "s",
+      "applicability": "Specific 2016 acquisition conditions, not all vehicles or epochs",
+      "conditions": "Special 90-degree slew procedure; not a universal out-of-plane limit",
+      "evidence": [
+        {
+          "source": "S1FD",
+          "locator": "PDF pp2–3"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1B-086",
+      "system": "S1B",
+      "group": "Operational constraints",
+      "parameter": "Recovery after OCT3 slew/burn/return sequence",
+      "value": 6,
+      "unit": "h",
+      "applicability": "Specific 2016 acquisition conditions, not all vehicles or epochs",
+      "conditions": "Nominal pointing restores thermal state and battery charge",
+      "evidence": [
+        {
+          "source": "S1FD",
+          "locator": "PDF pp2–3"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1B-087",
+      "system": "S1B",
+      "group": "End-of-life operation",
+      "parameter": "Simulated RCT4A / 5A / 6A / 7A forces",
+      "value": [
+        0.57,
+        0.56,
+        0.47,
+        0.58
+      ],
+      "unit": "N",
+      "applicability": "Specific 2023–2024 disposal campaign",
+      "conditions": "Simulator inputs representing a degraded flight condition",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "pp3,7,10,12"
+        },
+        {
+          "source": "S1226",
+          "locator": "pp16–21"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1B-088",
+      "system": "S1B",
+      "group": "End-of-life operation",
+      "parameter": "Residual-fuel uncertainty",
+      "value": "approximately 5",
+      "unit": "kg",
+      "applicability": "Specific 2023–2024 disposal campaign",
+      "conditions": "Campaign estimate, not a C/D requirement",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "pp3,7,10,12"
+        },
+        {
+          "source": "S1226",
+          "locator": "pp16–21"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1B-089",
+      "system": "S1B",
+      "group": "End-of-life operation",
+      "parameter": "Stop-Burn wheel speed threshold",
+      "value": 250,
+      "unit": "rad/s magnitude",
+      "applicability": "Specific 2023–2024 disposal campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "pp3,7,10,12"
+        },
+        {
+          "source": "S1226",
+          "locator": "pp16–21"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1B-090",
+      "system": "S1B",
+      "group": "End-of-life operation",
+      "parameter": "Stop-Burn attitude-error threshold",
+      "value": 0.01,
+      "unit": "rad magnitude",
+      "applicability": "Specific 2023–2024 disposal campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "pp3,7,10,12"
+        },
+        {
+          "source": "S1226",
+          "locator": "pp16–21"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1B-091",
+      "system": "S1B",
+      "group": "End-of-life operation",
+      "parameter": "Stop-Burn rate-error threshold",
+      "value": 0.001,
+      "unit": "rad/s magnitude",
+      "applicability": "Specific 2023–2024 disposal campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "pp3,7,10,12"
+        },
+        {
+          "source": "S1226",
+          "locator": "pp16–21"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1B-092",
+      "system": "S1B",
+      "group": "End-of-life operation",
+      "parameter": "Double-thruster failure validation",
+      "value": "Not performed in the reported study",
+      "unit": "",
+      "applicability": "Specific 2023–2024 disposal campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "pp3,7,10,12"
+        },
+        {
+          "source": "S1226",
+          "locator": "pp16–21"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1B-093",
+      "system": "S1B",
+      "group": "End-of-life operation",
+      "parameter": "Final reported orbit",
+      "value": [
+        580,
+        610
+      ],
+      "unit": "km perigee/apogee",
+      "applicability": "Specific 2023–2024 disposal campaign",
+      "conditions": "Approximate",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "pp3,7,10,12"
+        },
+        {
+          "source": "S1226",
+          "locator": "pp16–21"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1B-094",
+      "system": "S1B",
+      "group": "End-of-life operation",
+      "parameter": "Remaining fuel at campaign stop",
+      "value": "approximately 70",
+      "unit": "kg",
+      "applicability": "Specific 2023–2024 disposal campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "pp3,7,10,12"
+        },
+        {
+          "source": "S1226",
+          "locator": "pp16–21"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1B-095",
+      "system": "S1B",
+      "group": "End-of-life operation",
+      "parameter": "Predicted remaining orbital life",
+      "value": "approximately 24",
+      "unit": "years",
+      "applicability": "Specific 2023–2024 disposal campaign",
+      "conditions": "Model prediction, not observed re-entry",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "pp3,7,10,12"
+        },
+        {
+          "source": "S1226",
+          "locator": "pp16–21"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1B-096",
+      "system": "S1B",
+      "group": "End-of-life operation",
+      "parameter": "Dedicated in-orbit fuel vent",
+      "value": "Not present",
+      "unit": "",
+      "applicability": "Specific 2023–2024 disposal campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "pp3,7,10,12"
+        },
+        {
+          "source": "S1226",
+          "locator": "pp16–21"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1B-097",
+      "system": "S1B",
+      "group": "End-of-life operation",
+      "parameter": "Electrical passivation",
+      "value": "11–12 September 2024",
+      "unit": "UTC dates",
+      "applicability": "Specific 2023–2024 disposal campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "pp3,7,10,12"
+        },
+        {
+          "source": "S1226",
+          "locator": "pp16–21"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1B-098",
+      "system": "S1B",
+      "group": "End-of-life operation",
+      "parameter": "Complete fuel/pressure passivation",
+      "value": "Not achieved",
+      "unit": "",
+      "applicability": "Specific 2023–2024 disposal campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1360",
+          "locator": "pp3,7,10,12"
+        },
+        {
+          "source": "S1226",
+          "locator": "pp16–21"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-099",
+      "system": "S2",
+      "group": "Architecture",
+      "parameter": "Propulsion type",
+      "value": "Catalytic hydrazine monopropellant",
+      "unit": "",
+      "applicability": "Sentinel-2 family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S2SP",
+          "locator": "printed pp15–16 / PDF pp23–24"
+        },
+        {
+          "source": "S214",
+          "locator": "pp5,12"
+        },
+        {
+          "source": "F2C",
+          "locator": "loading paragraph"
+        }
+      ],
+      "verification_status": "MULTI_AUTHORITY_AGREEMENT",
+      "cross_check_note": "ESA mission design, Airbus design paper and C flight loading agree on hydrazine monopropulsion.",
+      "critical": true
+    },
+    {
+      "id": "S2-100",
+      "system": "S2",
+      "group": "Architecture",
+      "parameter": "Installed thruster count",
+      "value": 8,
+      "unit": "thrusters",
+      "applicability": "S2 A/B design; C/D detailed acceptance configuration not public",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "pp5,12: 2 cold-redundant branches of four"
+        },
+        {
+          "source": "S209",
+          "locator": "PDF p2: two times four thrusters"
+        }
+      ],
+      "verification_status": "REPORTED_IN_MULTIPLE_DOCUMENTS",
+      "cross_check_note": "Both primary design documents are from the Astrium/Airbus development chain. They are not independent measurements.",
+      "critical": true
+    },
+    {
+      "id": "S2-101",
+      "system": "S2",
+      "group": "Architecture",
+      "parameter": "Specific thruster model",
+      "value": "CHT1N-6",
+      "unit": "",
+      "applicability": "2014 A/B AOCS equipment selection",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "p9 Table 5"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "Primary author copy names EADS ST, Germany. Same C/D sub-version has not been independently established.",
+      "critical": true
+    },
+    {
+      "id": "S2-102",
+      "system": "S2",
+      "group": "Architecture",
+      "parameter": "Supplier/product-family association",
+      "value": "EADS ST / later ArianeGroup 1 N family",
+      "unit": "",
+      "applicability": "A/B design and manufacturer heritage",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "p9 Table 5"
+        },
+        {
+          "source": "AGPDF",
+          "locator": "p6: S2A and S2B heritage"
+        }
+      ],
+      "verification_status": "REPORTED_IN_MULTIPLE_DOCUMENTS",
+      "cross_check_note": "The A/B design and later manufacturer brochure identify the same supplier lineage. This is not evidence for an undisclosed C/D subtype.",
+      "critical": true
+    },
+    {
+      "id": "S2-103",
+      "system": "S2",
+      "group": "Architecture",
+      "parameter": "Branch redundancy",
+      "value": "Two cold-redundant branches",
+      "unit": "",
+      "applicability": "2014 A/B design",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "pp5,8,12"
+        },
+        {
+          "source": "S2SP",
+          "locator": "printed p16 / PDF p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-104",
+      "system": "S2",
+      "group": "Architecture",
+      "parameter": "Thrusters per active branch",
+      "value": 4,
+      "unit": "thrusters",
+      "applicability": "2014 A/B design",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "pp5,8,12"
+        },
+        {
+          "source": "S2SP",
+          "locator": "printed p16 / PDF p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-105",
+      "system": "S2",
+      "group": "Architecture",
+      "parameter": "Thruster installation",
+      "value": "Tilted relative to spacecraft x-axis",
+      "unit": "",
+      "applicability": "2014 A/B design",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "pp5,8,12"
+        },
+        {
+          "source": "S2SP",
+          "locator": "printed p16 / PDF p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-106",
+      "system": "S2",
+      "group": "Architecture",
+      "parameter": "Function",
+      "value": "Orbit manoeuvres and three-axis torque",
+      "unit": "",
+      "applicability": "2014 A/B design",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "pp5,8,12"
+        },
+        {
+          "source": "S2SP",
+          "locator": "printed p16 / PDF p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-107",
+      "system": "S2",
+      "group": "Architecture",
+      "parameter": "Integration",
+      "value": "Self-standing tank/pipe/thruster module through launcher interface ring",
+      "unit": "",
+      "applicability": "2014 A/B design",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "pp5,8,12"
+        },
+        {
+          "source": "S2SP",
+          "locator": "printed p16 / PDF p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-108",
+      "system": "S2",
+      "group": "Architecture",
+      "parameter": "OCM sequence",
+      "value": [
+        "Slew",
+        "Stabilise",
+        "Delta-V",
+        "Back slew"
+      ],
+      "unit": "",
+      "applicability": "2014 A/B design",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "pp5,8,12"
+        },
+        {
+          "source": "S2SP",
+          "locator": "printed p16 / PDF p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-109",
+      "system": "S2",
+      "group": "Architecture",
+      "parameter": "OCM attitude actuation",
+      "value": "Thruster off-modulation",
+      "unit": "",
+      "applicability": "2014 A/B design",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "pp5,8,12"
+        },
+        {
+          "source": "S2SP",
+          "locator": "printed p16 / PDF p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-110",
+      "system": "S2",
+      "group": "Architecture",
+      "parameter": "Normal attitude actuation",
+      "value": "Reaction wheels with magnetic momentum unloading",
+      "unit": "",
+      "applicability": "2014 A/B design",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "pp5,8,12"
+        },
+        {
+          "source": "S2SP",
+          "locator": "printed p16 / PDF p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-111",
+      "system": "S2",
+      "group": "Architecture",
+      "parameter": "Safe-mode actuation",
+      "value": "Thruster pulses supported by magnetic torquers",
+      "unit": "",
+      "applicability": "2014 A/B design",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "pp5,8,12"
+        },
+        {
+          "source": "S2SP",
+          "locator": "printed p16 / PDF p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-112",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Nominal thrust",
+      "value": 1,
+      "unit": "N",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-113",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Thrust range",
+      "value": [
+        0.32,
+        1.1
+      ],
+      "unit": "N",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-114",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Nominal Isp",
+      "value": 220,
+      "unit": "s",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "Manufacturer specification. Independent flight acceptance/performance data for this parameter were not recovered.",
+      "critical": true
+    },
+    {
+      "id": "S2-115",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Isp range",
+      "value": [
+        200,
+        223
+      ],
+      "unit": "s",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        },
+        {
+          "source": "NASA26",
+          "locator": "Table 4-2, ArianeGroup 1 N row"
+        }
+      ],
+      "verification_status": "OFFICIAL_COMPILATION_CROSS_CHECK",
+      "cross_check_note": "NASA and supplier values agree. NASA explicitly compiles manufacturer-provided data; independent experimental verification is not claimed.",
+      "critical": true
+    },
+    {
+      "id": "S2-116",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Nominal mass flow",
+      "value": 0.44,
+      "unit": "g/s",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-117",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Mass-flow range",
+      "value": [
+        0.142,
+        0.447
+      ],
+      "unit": "g/s",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-118",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Inlet pressure range",
+      "value": [
+        5.5,
+        22
+      ],
+      "unit": "bar",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "Pressure reference is not explicitly labelled in the cited table",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "Manufacturer specification. Independent flight acceptance/performance data for this parameter were not recovered.",
+      "critical": true
+    },
+    {
+      "id": "S2-119",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Minimum impulse bit",
+      "value": [
+        0.01,
+        0.043
+      ],
+      "unit": "N s",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "PDF unit; web page incorrectly prints N",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "Manufacturer specification. Independent flight acceptance/performance data for this parameter were not recovered.",
+      "critical": true
+    },
+    {
+      "id": "S2-120",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Nozzle area ratio",
+      "value": 80,
+      "unit": "Ae/At",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-121",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Thruster mass with valves",
+      "value": 290,
+      "unit": "g",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        },
+        {
+          "source": "NASA26",
+          "locator": "Table 4-2, ArianeGroup 1 N row"
+        }
+      ],
+      "verification_status": "OFFICIAL_COMPILATION_CROSS_CHECK",
+      "cross_check_note": "NASA and supplier values agree. NASA explicitly compiles manufacturer-provided data; independent experimental verification is not claimed.",
+      "critical": true
+    },
+    {
+      "id": "S2-122",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Propellant grade",
+      "value": "High-purity hydrazine",
+      "unit": "",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-123",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Total impulse qualification",
+      "value": 135000,
+      "unit": "N s",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        },
+        {
+          "source": "NASA26",
+          "locator": "Table 4-2, ArianeGroup 1 N row"
+        }
+      ],
+      "verification_status": "OFFICIAL_COMPILATION_CROSS_CHECK",
+      "cross_check_note": "NASA and supplier values agree. NASA explicitly compiles manufacturer-provided data; independent experimental verification is not claimed.",
+      "critical": true
+    },
+    {
+      "id": "S2-124",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Cycle-life qualification",
+      "value": 59000,
+      "unit": "cycles",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-125",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Propellant throughput qualification",
+      "value": 67,
+      "unit": "kg",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-126",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Single-burn life qualification",
+      "value": 12,
+      "unit": "h",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-127",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Accumulated burn-life qualification",
+      "value": 50,
+      "unit": "h",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-128",
+      "system": "S2",
+      "group": "Thruster performance",
+      "parameter": "Qualified cold starts below 10 degC",
+      "value": 10,
+      "unit": "starts",
+      "applicability": "ArianeGroup general 1 N catalogue; A/B heritage, not C/D acceptance map",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p6"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "characteristics table"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-129",
+      "system": "S2",
+      "group": "Valve and thermal design",
+      "parameter": "Flow-control valve",
+      "value": "Two identical monostable normally-closed valves in series, single housing",
+      "unit": "",
+      "applicability": "ArianeGroup general 1 N product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p5"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "general description"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-130",
+      "system": "S2",
+      "group": "Valve and thermal design",
+      "parameter": "Catalyst heater",
+      "value": "Internally redundant catalyst-bed heater",
+      "unit": "",
+      "applicability": "ArianeGroup general 1 N product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p5"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "general description"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-131",
+      "system": "S2",
+      "group": "Valve and thermal design",
+      "parameter": "Thermal protection",
+      "value": "Insulation and heat barrier to protect valve/structure",
+      "unit": "",
+      "applicability": "ArianeGroup general 1 N product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p5"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "general description"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-132",
+      "system": "S2",
+      "group": "Valve and thermal design",
+      "parameter": "Cold-start capability",
+      "value": "Multiple cold starts qualified",
+      "unit": "",
+      "applicability": "ArianeGroup general 1 N product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p5"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "general description"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-133",
+      "system": "S2",
+      "group": "Valve and thermal design",
+      "parameter": "Valve and chamber materials",
+      "value": "Selected for hydrazine compatibility; exact alloys not stated",
+      "unit": "",
+      "applicability": "ArianeGroup general 1 N product family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGPDF",
+          "locator": "p5"
+        },
+        {
+          "source": "AGWEB",
+          "locator": "general description"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-134",
+      "system": "S2",
+      "group": "Dimensions",
+      "parameter": "Valve-side reference length",
+      "value": 97,
+      "unit": "mm",
+      "applicability": "Manufacturer general 1 N drawing; not a C/D flight ICD",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGWEB",
+          "locator": "Elevation / Plan / Cut-out drawing links"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-135",
+      "system": "S2",
+      "group": "Dimensions",
+      "parameter": "Mounting-plane to hot-end reference length",
+      "value": 75,
+      "unit": "mm",
+      "applicability": "Manufacturer general 1 N drawing; not a C/D flight ICD",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGWEB",
+          "locator": "Elevation / Plan / Cut-out drawing links"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-136",
+      "system": "S2",
+      "group": "Dimensions",
+      "parameter": "Heater assembly reference length",
+      "value": 42,
+      "unit": "mm",
+      "applicability": "Manufacturer general 1 N drawing; not a C/D flight ICD",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGWEB",
+          "locator": "Elevation / Plan / Cut-out drawing links"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-137",
+      "system": "S2",
+      "group": "Dimensions",
+      "parameter": "Hot-end drawing reference diameter",
+      "value": 30,
+      "unit": "mm",
+      "applicability": "Manufacturer general 1 N drawing; not a C/D flight ICD",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGWEB",
+          "locator": "Elevation / Plan / Cut-out drawing links"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-138",
+      "system": "S2",
+      "group": "Dimensions",
+      "parameter": "Drawing reference diameter",
+      "value": 41,
+      "unit": "mm",
+      "applicability": "Manufacturer general 1 N drawing; not a C/D flight ICD",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGWEB",
+          "locator": "Elevation / Plan / Cut-out drawing links"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-139",
+      "system": "S2",
+      "group": "Dimensions",
+      "parameter": "Mounting hole diameter",
+      "value": 4.3,
+      "unit": "mm",
+      "applicability": "Manufacturer general 1 N drawing; not a C/D flight ICD",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGWEB",
+          "locator": "Elevation / Plan / Cut-out drawing links"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-140",
+      "system": "S2",
+      "group": "Dimensions",
+      "parameter": "Mounting feature reference dimension",
+      "value": 23,
+      "unit": "mm",
+      "applicability": "Manufacturer general 1 N drawing; not a C/D flight ICD",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "AGWEB",
+          "locator": "Elevation / Plan / Cut-out drawing links"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-141",
+      "system": "S2C",
+      "group": "Flight loading",
+      "parameter": "Loaded hydrazine",
+      "value": 133,
+      "unit": "kg",
+      "applicability": "16 August 2024 flight campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "F2C",
+          "locator": "loading paragraph"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "ESA flight-campaign record is direct. Multiple ESA image captions repeat the same campaign statement, not independent confirmation.",
+      "critical": true
+    },
+    {
+      "id": "S2C-142",
+      "system": "S2C",
+      "group": "Flight loading",
+      "parameter": "Pressurant",
+      "value": "Helium",
+      "unit": "",
+      "applicability": "16 August 2024 flight campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "F2C",
+          "locator": "loading paragraph"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "Flight loading confirmed by ESA. A second independent acceptance record was not recovered.",
+      "critical": true
+    },
+    {
+      "id": "S2C-143",
+      "system": "S2C",
+      "group": "Flight loading",
+      "parameter": "Tank loading pressure",
+      "value": 21,
+      "unit": "bar",
+      "applicability": "16 August 2024 flight campaign",
+      "conditions": "Absolute/gauge reference not stated; tank pressure, not motor inlet",
+      "evidence": [
+        {
+          "source": "F2C",
+          "locator": "loading paragraph"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": true
+    },
+    {
+      "id": "S2C-144",
+      "system": "S2C",
+      "group": "Flight loading",
+      "parameter": "Launch mass used for calculations",
+      "value": 1143,
+      "unit": "kg",
+      "applicability": "VV24 vehicle-specific launch-kit value",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "KIT2C",
+          "locator": "p3"
+        },
+        {
+          "source": "FACT2",
+          "locator": "generic 1140 kg including 123 kg fuel"
+        }
+      ],
+      "verification_status": "SOURCE_DISAGREEMENT_OR_VERSION",
+      "cross_check_note": "The flight kit is vehicle-specific. The general ESA fact-sheet value is not substituted for it. No exact two-source mass confirmation claimed.",
+      "critical": true
+    },
+    {
+      "id": "S2-145",
+      "system": "S2",
+      "group": "End-of-life plan",
+      "parameter": "Initial circular altitude",
+      "value": 786,
+      "unit": "km",
+      "applicability": "2014 family design; not an executed C/D campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-146",
+      "system": "S2",
+      "group": "End-of-life plan",
+      "parameter": "Disposal circular altitude",
+      "value": 653,
+      "unit": "km",
+      "applicability": "2014 family design; not an executed C/D campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-147",
+      "system": "S2",
+      "group": "End-of-life plan",
+      "parameter": "Planned delta-V",
+      "value": 73,
+      "unit": "m/s",
+      "applicability": "2014 family design; not an executed C/D campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-148",
+      "system": "S2",
+      "group": "End-of-life plan",
+      "parameter": "Planned propellant",
+      "value": 47,
+      "unit": "kg",
+      "applicability": "2014 family design; not an executed C/D campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-149",
+      "system": "S2",
+      "group": "End-of-life plan",
+      "parameter": "Planned manoeuvre count",
+      "value": 116,
+      "unit": "burns",
+      "applicability": "2014 family design; not an executed C/D campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-150",
+      "system": "S2",
+      "group": "End-of-life plan",
+      "parameter": "Planned burn duration",
+      "value": 600,
+      "unit": "s",
+      "applicability": "2014 family design; not an executed C/D campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-151",
+      "system": "S2",
+      "group": "End-of-life plan",
+      "parameter": "Planned frequency",
+      "value": "One burn per orbit",
+      "unit": "",
+      "applicability": "2014 family design; not an executed C/D campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2-152",
+      "system": "S2",
+      "group": "End-of-life plan",
+      "parameter": "Post-passivation re-entry target",
+      "value": 25,
+      "unit": "years",
+      "applicability": "2014 family design; not an executed C/D campaign",
+      "conditions": "Historical design requirement",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "p24"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-153",
+      "system": "S2C",
+      "group": "Published manoeuvres",
+      "parameter": "Large in-plane acquisition total",
+      "value": "approximately 6.33",
+      "unit": "m/s",
+      "applicability": "2024 acquisition/tandem summary; not a complete telemetry ledger",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S2617",
+          "locator": "pp15–16; Table 3"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-154",
+      "system": "S2C",
+      "group": "Published manoeuvres",
+      "parameter": "29 October fine acquisition",
+      "value": 0.012,
+      "unit": "m/s",
+      "applicability": "2024 acquisition/tandem summary; not a complete telemetry ledger",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S2617",
+          "locator": "pp15–16; Table 3"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-155",
+      "system": "S2C",
+      "group": "Published manoeuvres",
+      "parameter": "Initial out-of-plane total",
+      "value": "approximately 0.57",
+      "unit": "m/s",
+      "applicability": "2024 acquisition/tandem summary; not a complete telemetry ledger",
+      "conditions": "Source also uses planning language",
+      "evidence": [
+        {
+          "source": "S2617",
+          "locator": "pp15–16; Table 3"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-156",
+      "system": "S2C",
+      "group": "Published manoeuvres",
+      "parameter": "6 November calibrated OOP/IP components",
+      "value": [
+        0.9344,
+        0.0537
+      ],
+      "unit": "m/s",
+      "applicability": "2024 acquisition/tandem summary; not a complete telemetry ledger",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S2617",
+          "locator": "pp15–16; Table 3"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-157",
+      "system": "S2C",
+      "group": "Published manoeuvres",
+      "parameter": "6 November duration",
+      "value": 314.1,
+      "unit": "s",
+      "applicability": "2024 acquisition/tandem summary; not a complete telemetry ledger",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S2617",
+          "locator": "pp15–16; Table 3"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-158",
+      "system": "S2C",
+      "group": "Published manoeuvres",
+      "parameter": "23 November CAM components in separate burns",
+      "value": [
+        -0.0207,
+        0.0206
+      ],
+      "unit": "m/s",
+      "applicability": "2024 acquisition/tandem summary; not a complete telemetry ledger",
+      "conditions": "Fuel cost sums magnitudes, not signed cancellation",
+      "evidence": [
+        {
+          "source": "S2617",
+          "locator": "pp15–16; Table 3"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1C-159",
+      "system": "S1C",
+      "group": "Open flight data",
+      "parameter": "C/D as-built thruster subtype distribution",
+      "value": null,
+      "unit": "",
+      "applicability": "S1C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1C-160",
+      "system": "S1C",
+      "group": "Open flight data",
+      "parameter": "C/D thruster cant angles and moment arms",
+      "value": null,
+      "unit": "",
+      "applicability": "S1C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1C-161",
+      "system": "S1C",
+      "group": "Open flight data",
+      "parameter": "Flight thrust/Isp/mass-flow map versus P/T/duty",
+      "value": null,
+      "unit": "",
+      "applicability": "S1C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1C-162",
+      "system": "S1C",
+      "group": "Open flight data",
+      "parameter": "Flight residual P/T and pressurant mass",
+      "value": null,
+      "unit": "",
+      "applicability": "S1C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1C-163",
+      "system": "S1C",
+      "group": "Open flight data",
+      "parameter": "Motor-by-motor impulse/pulse/cold-start ledger",
+      "value": null,
+      "unit": "",
+      "applicability": "S1C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1C-164",
+      "system": "S1C",
+      "group": "Open flight data",
+      "parameter": "Current C/D EOL propellant allocation",
+      "value": null,
+      "unit": "",
+      "applicability": "S1C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1C-165",
+      "system": "S1C",
+      "group": "Open flight data",
+      "parameter": "Complete propulsion dry mass",
+      "value": null,
+      "unit": "",
+      "applicability": "S1C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1C-166",
+      "system": "S1C",
+      "group": "Open flight data",
+      "parameter": "Flight valve/heater switching power profile",
+      "value": null,
+      "unit": "",
+      "applicability": "S1C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-167",
+      "system": "S2C",
+      "group": "Open flight data",
+      "parameter": "C/D as-built thruster subtype distribution",
+      "value": null,
+      "unit": "",
+      "applicability": "S2C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-168",
+      "system": "S2C",
+      "group": "Open flight data",
+      "parameter": "C/D thruster cant angles and moment arms",
+      "value": null,
+      "unit": "",
+      "applicability": "S2C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-169",
+      "system": "S2C",
+      "group": "Open flight data",
+      "parameter": "Flight thrust/Isp/mass-flow map versus P/T/duty",
+      "value": null,
+      "unit": "",
+      "applicability": "S2C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-170",
+      "system": "S2C",
+      "group": "Open flight data",
+      "parameter": "Flight residual P/T and pressurant mass",
+      "value": null,
+      "unit": "",
+      "applicability": "S2C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-171",
+      "system": "S2C",
+      "group": "Open flight data",
+      "parameter": "Motor-by-motor impulse/pulse/cold-start ledger",
+      "value": null,
+      "unit": "",
+      "applicability": "S2C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-172",
+      "system": "S2C",
+      "group": "Open flight data",
+      "parameter": "Current C/D EOL propellant allocation",
+      "value": null,
+      "unit": "",
+      "applicability": "S2C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-173",
+      "system": "S2C",
+      "group": "Open flight data",
+      "parameter": "Complete propulsion dry mass",
+      "value": null,
+      "unit": "",
+      "applicability": "S2C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-174",
+      "system": "S2C",
+      "group": "Open flight data",
+      "parameter": "Flight valve/heater switching power profile",
+      "value": null,
+      "unit": "",
+      "applicability": "S2C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-175",
+      "system": "S2C",
+      "group": "Open flight data",
+      "parameter": "Tank supplier/model",
+      "value": null,
+      "unit": "",
+      "applicability": "S2C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-176",
+      "system": "S2C",
+      "group": "Open flight data",
+      "parameter": "Tank volume and dry mass",
+      "value": null,
+      "unit": "",
+      "applicability": "S2C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-177",
+      "system": "S2C",
+      "group": "Open flight data",
+      "parameter": "Tank material/diaphragm specification",
+      "value": null,
+      "unit": "",
+      "applicability": "S2C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-178",
+      "system": "S2C",
+      "group": "Open flight data",
+      "parameter": "Tank proof/burst pressures",
+      "value": null,
+      "unit": "",
+      "applicability": "S2C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-179",
+      "system": "S2C",
+      "group": "Open flight data",
+      "parameter": "Flight piping/filter pressure losses",
+      "value": null,
+      "unit": "",
+      "applicability": "S2C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S2C-180",
+      "system": "S2C",
+      "group": "Open flight data",
+      "parameter": "Valve power and heater resistance",
+      "value": null,
+      "unit": "",
+      "applicability": "S2C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1C-181",
+      "system": "S1C",
+      "group": "Open flight data",
+      "parameter": "Actual loaded pressurant species and initial pressure",
+      "value": null,
+      "unit": "",
+      "applicability": "S1C",
+      "conditions": "",
+      "evidence": [],
+      "verification_status": "NOT_PUBLICLY_ESTABLISHED",
+      "cross_check_note": "",
+      "critical": false
+    },
+    {
+      "id": "S1-182",
+      "system": "S1",
+      "group": "Feed system",
+      "parameter": "Feed mode",
+      "value": "Pressure-fed blow-down",
+      "unit": "",
+      "applicability": "Sentinel-1 family",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S1FD",
+          "locator": "p2"
+        },
+        {
+          "source": "R24",
+          "locator": "printed p41"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": true
+    },
+    {
+      "id": "S2-183",
+      "system": "S2",
+      "group": "Feed system",
+      "parameter": "Feed mode",
+      "value": "Helium-pressurised blow-down",
+      "unit": "",
+      "applicability": "A/B design; C helium loading confirmed",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "S214",
+          "locator": "p12"
+        },
+        {
+          "source": "F2C",
+          "locator": "loading paragraph"
+        }
+      ],
+      "verification_status": "MULTI_AUTHORITY_AGREEMENT",
+      "cross_check_note": "Airbus design explicitly specifies blow-down; ESA C campaign confirms helium pressurisation. A C pressure-performance map is unavailable.",
+      "critical": true
+    },
+    {
+      "id": "S2C-184",
+      "system": "S2C",
+      "group": "Feed system",
+      "parameter": "Latch-valve isolation",
+      "value": "Closed and verified during launch campaign",
+      "unit": "",
+      "applicability": "16 August 2024 campaign",
+      "conditions": "",
+      "evidence": [
+        {
+          "source": "F2C",
+          "locator": "post-loading spacecraft checks"
+        }
+      ],
+      "verification_status": "SINGLE_PRIMARY_SOURCE",
+      "cross_check_note": "",
+      "critical": false
+    }
+  ]
+}

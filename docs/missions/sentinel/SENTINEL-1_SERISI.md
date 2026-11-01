@@ -199,7 +199,8 @@ deneyimiyle kıyaslanan eğitim senaryosudur. Kesin yeniden üretim [HESAPLAR.md
 ### S1B: plan, uygulama ve son durumun ayrılması
 
 1B ediniminde plume nedeniyle bazı IP ateşlemeler 300 s yerine 35 s ile sınırlandırıldı;
-yaklaşık %30 etkili itki kaybı raporlandı. OOP için 600 s ve ardından 6 saat toparlanma
+yaklaşık %30 etkili itki kaybı raporlandı. OCT3'ü 90° dönüşle büyük IP manevrasına
+hizalayan özel prosedür için 600 s ve dönüşten sonra 6 saat nominal yönelimde toparlanma
 sınırı 2017 makalesinin operasyon koşuludur; bütün seri/ömür için değişmez limit değildir.
 [S1-ISSFD]
 
