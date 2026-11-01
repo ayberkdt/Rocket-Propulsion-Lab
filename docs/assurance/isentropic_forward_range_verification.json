@@ -1,0 +1,190 @@
+{
+  "parent_commit": "f62ad44",
+  "scope": "Selected perfect-gas forward arithmetic and consumers; no inverse closure, global rounding enclosure, real-flow or hardware qualification",
+  "reviewed_runtime_and_test_sha256": {
+    "src/rocket_propulsion/compressible/isentropic.py": "a59b47b5e79cd555f6b91a6f6bbbaa8e61985eaa6d3fec2f71900e1487172842",
+    "src/rocket_propulsion/compressible/isentropic_numerics.py": "b436f3c79ee9c961df9f2fd01d54b23e7f8846ccc6adf94f3aabf14ed2e427f3",
+    "tests/test_isentropic_forward_range.py": "7d8eba8e747c7c95ccf2c5fa8376116c887e5bcdb8bb087116b4d31600f54a56",
+    "tests/fixtures/numeric_admission_mutations.json": "21aec9c2d1af0087bc32d201111e7fc5442e7a4a1bd836e539bee44e056cce18"
+  },
+  "independent_test": {
+    "methods": 11,
+    "subtests": 885,
+    "precision_digits": 1200,
+    "bound_scope": "2 ULP selected complete cases; 64 ULP ordinary grid, not a global enclosure"
+  },
+  "regression": {
+    "modules": [
+      "test_isentropic_forward_range",
+      "test_compressible_advanced",
+      "test_nozzle",
+      "test_off_design_nozzle",
+      "test_nozzle_separation",
+      "test_chemistry_nozzle",
+      "test_geometry_precision",
+      "test_geometry_generator_contract",
+      "test_geometry",
+      "test_geometry_export_contract",
+      "test_isentropic",
+      "test_oracle_compressible",
+      "test_moc_unit_process",
+      "test_regen_contour_contract",
+      "test_regen_chamber",
+      "test_regen_channel_geometry",
+      "test_regen_conjugate",
+      "test_api_numeric_admission",
+      "test_api",
+      "test_constants_and_references"
+    ],
+    "methods": 257,
+    "subtests": 11070,
+    "junit": {
+      "tests": 11327,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "runtime_and_tests_byte_bound": true
+  },
+  "mutation": {
+    "killed": 14,
+    "passing_original_restored_control_runs": 28,
+    "groups": [
+      {
+        "directory": "output\\assurance\\isentropic_forward_mutations_final_20261101_a",
+        "killed": 7,
+        "passing_control_runs": 14,
+        "matched_source_test_files": 458,
+        "case_file_sha256": "21aec9c2d1af0087bc32d201111e7fc5442e7a4a1bd836e539bee44e056cce18",
+        "baseline_archive_sha256": "cbc3bb5977baec28b21c972841dcba4a1bedd2a4408d16340354d8c923506476",
+        "post_run_report_changes": [
+          "docs/ISENTROPIC_FORWARD_RANGE_REVIEW.md"
+        ]
+      },
+      {
+        "directory": "output\\assurance\\isentropic_forward_mutations_final_20261101_b",
+        "killed": 7,
+        "passing_control_runs": 14,
+        "matched_source_test_files": 458,
+        "case_file_sha256": "21aec9c2d1af0087bc32d201111e7fc5442e7a4a1bd836e539bee44e056cce18",
+        "baseline_archive_sha256": "fa8bfddbc72f78a99b80f2af4c97ca1b845ee3165df115b808bf2db83c0bc28d",
+        "post_run_report_changes": [
+          "docs/ISENTROPIC_FORWARD_RANGE_REVIEW.md"
+        ]
+      }
+    ]
+  },
+  "build": {
+    "build_passed": true,
+    "installed_wheel_smoke_passed": true,
+    "source_unchanged": true,
+    "artifacts": {
+      "rocket_propulsion_lab-0.9.0-py3-none-any.whl": "0262783925d23fdacaae99ee2a54fa47ee8f741279da8013c681ea7578580f31",
+      "rocket_propulsion_lab-0.9.0.tar.gz": "950140b28b0914b78b5b9aa25ea0cbc7919261be17b1e54aac67546eb6dac56a"
+    },
+    "scope": "Copied-source wheel/sdist build and isolated no-dependency wheel smoke on this host; not hardware or clean-machine validation"
+  },
+  "scale_sweep": {
+    "cases": 176,
+    "successful_finite_cases": 157,
+    "typed_unrepresentable_cases": 19,
+    "maximum_ratio_ULP": 11.0,
+    "failures": [],
+    "scope": "Exploratory seven-ratio forward matrix; angles and global rounding enclosure not asserted",
+    "source_inputs_unchanged": true
+  },
+  "retained_failures": {
+    "pre_amplification_scale_sweep": "pre_amplification/scale_sweep.json",
+    "new_test_before_fix": "amplification_red.xml",
+    "mistyped_installed_smoke_reference": "installed_initial_failure.txt",
+    "open_inverse_cases": {
+      "scope": "Open inverse arithmetic findings; expected values invert the supplied floats directly, not a forward/inverse round trip",
+      "cases": [
+        {
+          "kind": "temperature_total_ratio",
+          "value": 5e-309,
+          "gamma": 1e+308,
+          "reference_M_from_exact_float_input": 2.0,
+          "within_existing_inverse_bracket": true,
+          "actual_error": {
+            "type": "DomainError",
+            "code": "outside_inverse_range",
+            "field": "value",
+            "message": "temperature_total_ratio = 5e-309 corresponds to a Mach number outside [1e-08, 1000]."
+          }
+        },
+        {
+          "kind": "temperature_critical_ratio",
+          "value": 0.25,
+          "gamma": 1e+308,
+          "reference_M_from_exact_float_input": 2.0,
+          "within_existing_inverse_bracket": true,
+          "actual_error": {
+            "type": "DomainError",
+            "code": "outside_inverse_range",
+            "field": "value",
+            "message": "temperature_critical_ratio = 0.25 corresponds to a Mach number outside [1e-08, 1000]."
+          }
+        },
+        {
+          "kind": "temperature_critical_ratio",
+          "value": 1.0,
+          "gamma": 1.0000000000000002,
+          "reference_M_from_exact_float_input": 1.0,
+          "within_existing_inverse_bracket": true,
+          "actual_error": {
+            "type": "DomainError",
+            "code": "outside_inverse_range",
+            "field": "value",
+            "message": "temperature_critical_ratio = 1 corresponds to a Mach number outside [1e-08, 1000]."
+          }
+        },
+        {
+          "kind": "pressure_critical_ratio",
+          "value": 1.0,
+          "gamma": 1.0000000000000002,
+          "reference_M_from_exact_float_input": 1.0,
+          "within_existing_inverse_bracket": true,
+          "actual_error": {
+            "type": "DomainError",
+            "code": "outside_inverse_range",
+            "field": "value",
+            "message": "pressure_critical_ratio = 1 corresponds to a Mach number outside [1e-08, 1000]."
+          }
+        }
+      ],
+      "forward_repair_does_not_close_inverse": true,
+      "source_sha256": {
+        "isentropic.py": "a59b47b5e79cd555f6b91a6f6bbbaa8e61985eaa6d3fec2f71900e1487172842",
+        "isentropic_numerics.py": "b436f3c79ee9c961df9f2fd01d54b23e7f8846ccc6adf94f3aabf14ed2e427f3"
+      }
+    }
+  },
+  "hardware": {
+    "trl5_achieved": false,
+    "evidence_gates_unmet": 9,
+    "unmet_gate_ids": [
+      "CONFIGURATION",
+      "RELEVANT_ENVIRONMENT",
+      "ACCEPTANCE",
+      "TEST_ARTICLE",
+      "MEASUREMENT",
+      "DEMONSTRATION",
+      "MODEL_VALIDATION",
+      "SCALING",
+      "REVIEW"
+    ],
+    "inventory_symbols": 3284
+  },
+  "runtime": {
+    "python": "3.12.1 (tags/v3.12.1:2305ca5, Dec  7 2023, 22:03:25) [MSC v.1937 64 bit (AMD64)]",
+    "reference_library_mpmath": "1.3.0",
+    "pytest": "9.0.2"
+  },
+  "post_run_report_changes": [
+    "docs/ISENTROPIC_FORWARD_RANGE_REVIEW.md"
+  ],
+  "post_run_report_additions": [
+    "docs/assurance/isentropic_forward_range_verification.json"
+  ]
+}

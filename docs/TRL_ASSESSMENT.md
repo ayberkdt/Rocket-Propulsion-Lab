@@ -16,6 +16,11 @@ documented scaling requirements.
 
 ## Evidence that exists (software, independent references)
 
+- Complete forward isentropic ratios retain balanced extreme outputs and sonic
+  normalization, with entropy/continuity oracles and checked positive exports
+  (`ISENTROPIC_FORWARD_RANGE_REVIEW.md`). Synthetic arithmetic coverage does not
+  establish perfect-gas applicability, physical-flow accuracy or hardware TRL.
+
 - Near-sonic and subnormal geometry has complete-expression, coordinate-offset,
   high-precision and consumer controls (`GEOMETRY_PRECISION_REVIEW.md`). Synthetic
   ranges and a discrete planar-net comparison do not establish an experimentally

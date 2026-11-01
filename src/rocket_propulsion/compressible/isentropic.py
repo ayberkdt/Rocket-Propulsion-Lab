@@ -17,6 +17,7 @@ from math import asin, atan, degrees, expm1, isfinite, log, radians, sin, sqrt
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
 from rocket_propulsion.core.validation import real, text
 
+from .isentropic_numerics import precise_area, precise_ratios, requires_precise_ratios
 from .sonic_numerics import sonic_area, sonic_inverse, sonic_pm
 
 #: Supported numerical inverse bracket; this is an implementation limit,
@@ -118,18 +119,22 @@ def calculate_isentropic(mach: float, gamma: float = 1.4) -> IsentropicResult:
     _validate_gamma(gamma)
     _validate_mach(mach)
 
-    # mach * mach overflows to inf instead of raising like ``mach**2``; any
-    # non-representable result is refused below.
-    energy_factor = 1.0 + 0.5 * (gamma - 1.0) * mach * mach
-    temperature_total = energy_factor**-1.0
-    pressure_total = energy_factor ** (-gamma / (gamma - 1.0))
-    density_total = energy_factor ** (-1.0 / (gamma - 1.0))
-    critical_factor = (gamma + 1.0) / (2.0 * energy_factor)
-    area_ratio = _area_ratio(mach, gamma)
-
-    if not (isfinite(area_ratio) and pressure_total > 0.0 and density_total > 0.0):
-        raise DomainError(f"Mach number {mach:.6g} is outside the floating-point range of the "
-                          "isentropic relations.", code="numeric_range", field="mach")
+    if requires_precise_ratios(mach, gamma):
+        ratios = precise_ratios(mach, gamma)
+    else:
+        energy_factor = 1.0 + 0.5 * (gamma - 1.0) * mach * mach
+        critical_factor = (gamma + 1.0) / (2.0 * energy_factor)
+        ratios = {
+            'temperature_total_ratio': energy_factor**-1.0,
+            'pressure_total_ratio': energy_factor ** (-gamma / (gamma - 1.0)),
+            'density_total_ratio': energy_factor ** (-1.0 / (gamma - 1.0)),
+            'temperature_critical_ratio': critical_factor,
+            'pressure_critical_ratio': critical_factor ** (gamma / (gamma - 1.0)),
+            'density_critical_ratio': critical_factor ** (1.0 / (gamma - 1.0)),
+            'area_critical_ratio': _area_ratio(mach, gamma),
+        }
+        if any(not isfinite(value) or value <= 0 for value in ratios.values()):
+            ratios = precise_ratios(mach, gamma)
     if mach >= 1.0:
         mach_angle = degrees(asin(1.0 / mach))
         prandtl_meyer = _prandtl_meyer_deg(mach, gamma)
@@ -141,13 +146,7 @@ def calculate_isentropic(mach: float, gamma: float = 1.4) -> IsentropicResult:
         mach=mach,
         mach_angle_deg=mach_angle,
         prandtl_meyer_deg=prandtl_meyer,
-        pressure_total_ratio=pressure_total,
-        density_total_ratio=density_total,
-        temperature_total_ratio=temperature_total,
-        pressure_critical_ratio=critical_factor ** (gamma / (gamma - 1.0)),
-        density_critical_ratio=critical_factor ** (1.0 / (gamma - 1.0)),
-        temperature_critical_ratio=critical_factor,
-        area_critical_ratio=area_ratio,
+        **ratios,
     )
 
 
@@ -188,8 +187,8 @@ def mach_from_isentropic(
 
     Notes
     -----
-    Every relation is inverted to machine precision (library choice of
-    method; the forward relations are those of [1]_):
+    The implementation uses the following numerical inverses of [1]_. Rounded
+    forward plateaus and conditioning can limit recoverable Mach precision:
 
     * Mach angle: ``M = 1/sin(mu)``;
     * stagnation ratios, with ``X = 1 + (gamma-1) M^2/2``:
@@ -286,8 +285,11 @@ def _bounded(mach: float, kind: str, value: float) -> float:
 def _area_ratio(mach: float, gamma: float) -> float:
     if abs(mach-1.0) <= .01:
         return sonic_area(mach, gamma)
+    if requires_precise_ratios(mach, gamma):
+        return precise_area(mach, gamma)
     x = 1.0 + 0.5 * (gamma - 1.0) * mach * mach
-    return (2.0 * x / (gamma + 1.0)) ** ((gamma + 1.0) / (2.0 * (gamma - 1.0))) / mach
+    result = (2.0 * x / (gamma + 1.0)) ** ((gamma + 1.0) / (2.0 * (gamma - 1.0))) / mach
+    return result if isfinite(result) and result > 0 else precise_area(mach, gamma)
 
 
 def _area_ratio_slope(gamma: float):

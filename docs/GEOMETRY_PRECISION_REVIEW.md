@@ -116,8 +116,9 @@ are in `output/assurance/geometry_precision_review/summary.json`.
 
 ## Remaining scope
 
-A separate `gamma=1e308, M=2` forward-state range failure is still observed.
-Its complete-expression range is not repaired or qualified here. Ordinary
+A separate `gamma=1e308, M=2` forward-state range failure was recorded by this
+cohort. Its subsequent repair and independent scope are tracked in
+[ISENTROPIC_FORWARD_RANGE_REVIEW.md](ISENTROPIC_FORWARD_RANGE_REVIEW.md). Ordinary
 inverse rounding, all model domains, real-gas applicability, continuous-wall
 accuracy, manufactured geometry and motor/feed relevant-environment evidence
 remain separate work. These numerical controls do not establish hardware TRL.

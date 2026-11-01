@@ -9,6 +9,11 @@ function counts.
 
 ## Added scope
 
+- Forward isentropic arithmetic now has separate complete-expression,
+  positive-export and independent entropy/continuity controls
+  (`ISENTROPIC_FORWARD_RANGE_REVIEW.md`). Its tests remain numerical evidence,
+  separate from inverse conditioning and relevant-environment flow validation.
+
 - A new browser workbench, vendored display presets and a launcher.
 - A larger NASA thermochemistry catalogue, optional NASA CEA 3.3.4 provider,
   solver comparison fixtures and rocket performance calculations.

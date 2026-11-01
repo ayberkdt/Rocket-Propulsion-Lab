@@ -999,5 +999,103 @@
     "    return Context(prec=_precision(gamma), rounding=ROUND_HALF_EVEN,\n                   Emin=-999999, Emax=999999, capitals=1, clamp=0, flags=[],\n                   traps=[InvalidOperation, DivisionByZero, Overflow])",
     "    return Context(prec=_precision(gamma))",
     "tests/test_geometry_precision.py::GeometryPrecisionTests::test_mutable_decimal_defaults_cannot_configure_the_private_solver"
+  ],
+  [
+    "isentropic_precise_dispatch_disabled",
+    "src/rocket_propulsion/compressible/isentropic_numerics.py",
+    "    if gamma < 1.1 or gamma > 1e6 or mach < 1e-80 or mach > 1e3:\n        return True\n    energy = 1.0 + 0.5*(gamma-1.0)*mach*mach\n    critical = (gamma+1.0)/(2.0*energy)\n    # Rounded exponents lose accuracy in proportion to their log arguments.\n    # Select complete expressions before that amplification becomes large.\n    return max(abs(log(energy)), abs(log(critical)))*gamma/(gamma-1.0) > 16.0\n",
+    "    return False\n",
+    "tests/test_isentropic_forward_range.py::IsentropicForwardRangeTests::test_small_mach_high_gamma_area_does_not_become_inverse_mach"
+  ],
+  [
+    "isentropic_area_exponent_overflows_privately",
+    "src/rocket_propulsion/compressible/isentropic_numerics.py",
+    "    area = ((g+1)/(2*(g-1)))*((2*x)/(g+1)).ln()-m.ln()",
+    "    area = D.from_float((gamma+1)/(2*(gamma-1)))*((2*x)/(g+1)).ln()-m.ln()",
+    "tests/test_isentropic_forward_range.py::IsentropicForwardRangeTests::test_small_mach_high_gamma_area_does_not_become_inverse_mach"
+  ],
+  [
+    "isentropic_sonic_reference_rounded_first",
+    "src/rocket_propulsion/compressible/isentropic_numerics.py",
+    "    critical = ((g+1)/(2*x)).ln()",
+    "    critical = (D.from_float((gamma+1)/2)/x).ln()",
+    "tests/test_isentropic_forward_range.py::IsentropicForwardRangeTests::test_nearly_unit_gamma_retains_the_sonic_normalization"
+  ],
+  [
+    "isentropic_pressure_uses_density_exponent",
+    "src/rocket_propulsion/compressible/isentropic_numerics.py",
+    "'pressure_total_ratio': _export_exp(-g/(g-1)*total, 'pressure_total_ratio')",
+    "'pressure_total_ratio': _export_exp(-total/(g-1), 'pressure_total_ratio')",
+    "tests/test_isentropic_forward_range.py::IsentropicForwardRangeTests::test_nearly_unit_gamma_retains_the_sonic_normalization"
+  ],
+  [
+    "isentropic_sonic_density_uses_total_reference",
+    "src/rocket_propulsion/compressible/isentropic_numerics.py",
+    "'density_critical_ratio': _export_exp(critical/(g-1), 'density_critical_ratio')",
+    "'density_critical_ratio': _export_exp(-total/(g-1), 'density_critical_ratio')",
+    "tests/test_isentropic_forward_range.py::IsentropicForwardRangeTests::test_nearly_unit_gamma_retains_the_sonic_normalization"
+  ],
+  [
+    "isentropic_amplified_power_guard_disabled",
+    "src/rocket_propulsion/compressible/isentropic_numerics.py",
+    "    return max(abs(log(energy)), abs(log(critical)))*gamma/(gamma-1.0) > 16.0",
+    "    return False",
+    "tests/test_isentropic_forward_range.py::IsentropicForwardRangeTests::test_large_power_arguments_do_not_amplify_rounded_exponents"
+  ],
+  [
+    "isentropic_subnormal_cutoff_is_normal_only",
+    "src/rocket_propulsion/compressible/isentropic_numerics.py",
+    "    if not D(-800) < logarithm < D(800):",
+    "    if not D(-709) < logarithm < D(800):",
+    "tests/test_isentropic_forward_range.py::IsentropicForwardRangeTests::test_subnormal_rounding_is_not_confused_with_real_zero"
+  ],
+  [
+    "isentropic_false_zero_exported",
+    "src/rocket_propulsion/compressible/isentropic_numerics.py",
+    "    if not isfinite(result) or result <= 0:",
+    "    if not isfinite(result):",
+    "tests/test_isentropic_forward_range.py::IsentropicForwardRangeTests::test_genuinely_unrepresentable_results_are_typed_refusals"
+  ],
+  [
+    "isentropic_infinite_ratio_exported",
+    "src/rocket_propulsion/compressible/isentropic_numerics.py",
+    "    if not isfinite(result) or result <= 0:",
+    "    if result <= 0:",
+    "tests/test_isentropic_forward_range.py::IsentropicForwardRangeTests::test_genuinely_unrepresentable_results_are_typed_refusals"
+  ],
+  [
+    "isentropic_ratio_context_inherits_caller",
+    "src/rocket_propulsion/compressible/isentropic_numerics.py",
+    "    return Context(prec=precision, rounding=ROUND_HALF_EVEN, Emin=-999999, Emax=999999,\n                   capitals=1, clamp=0, flags=[], traps=[InvalidOperation, DivisionByZero, Overflow])",
+    "    return __import__('decimal').getcontext()",
+    "tests/test_isentropic_forward_range.py::IsentropicForwardRangeTests::test_active_decimal_environment_is_private_and_unchanged"
+  ],
+  [
+    "isentropic_ratio_context_inherits_defaults",
+    "src/rocket_propulsion/compressible/isentropic_numerics.py",
+    "    return Context(prec=precision, rounding=ROUND_HALF_EVEN, Emin=-999999, Emax=999999,\n                   capitals=1, clamp=0, flags=[], traps=[InvalidOperation, DivisionByZero, Overflow])",
+    "    return Context(prec=precision)",
+    "tests/test_isentropic_forward_range.py::IsentropicForwardRangeTests::test_process_decimal_defaults_cannot_poison_ratio_context"
+  ],
+  [
+    "isentropic_ratio_precision_insufficient",
+    "src/rocket_propulsion/compressible/isentropic_numerics.py",
+    "    precision = 90 + max(0, D.from_float(gamma).adjusted()) + 2*abs(D.from_float(mach).adjusted())",
+    "    precision = 20",
+    "tests/test_isentropic_forward_range.py::IsentropicForwardRangeTests::test_nearly_unit_gamma_retains_the_sonic_normalization"
+  ],
+  [
+    "isentropic_ratio_range_label_lost",
+    "src/rocket_propulsion/compressible/isentropic_numerics.py",
+    "    if not D(-800) < logarithm < D(800):\n        raise DomainError('Isentropic ratio is outside its positive finite output range.',\n                          code='numeric_range', field=field)",
+    "    if not D(-800) < logarithm < D(800):\n        raise DomainError('Isentropic ratio is outside its positive finite output range.',\n                          code='numeric_range', field='mach')",
+    "tests/test_isentropic_forward_range.py::IsentropicForwardRangeTests::test_genuinely_unrepresentable_results_are_typed_refusals"
+  ],
+  [
+    "isentropic_area_requires_unrelated_total_fields",
+    "src/rocket_propulsion/compressible/isentropic_numerics.py",
+    "        return _export_exp(_logarithms(mach, gamma)[3], 'area_critical_ratio')",
+    "        return precise_ratios(mach, gamma)['area_critical_ratio']",
+    "tests/test_isentropic_forward_range.py::IsentropicForwardRangeTests::test_area_only_solver_does_not_require_unrelated_stagnation_outputs"
   ]
 ]
