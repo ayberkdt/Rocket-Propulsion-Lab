@@ -8,6 +8,7 @@ References
 ----------
 .. [1] NACA-TR-1135. https://ntrs.nasa.gov/citations/19930091059
 .. [2] https://docs.python.org/3.12/library/decimal.html
+.. [3] https://dlmf.nist.gov/4.19.E1 and https://dlmf.nist.gov/4.24.E3
 """
 from decimal import (
     ROUND_HALF_EVEN,
@@ -19,7 +20,11 @@ from decimal import (
 )
 from decimal import Decimal as D
 
-from rocket_propulsion.core.errors import DomainError
+from rocket_propulsion.core.errors import ConvergenceError, DomainError
+
+from .sonic_numerics import _atan
+
+_ANGLE_SERIES_ITERATIONS = 2048
 
 
 def _context(value: float, gamma: float) -> Context:
@@ -46,3 +51,35 @@ def ratio_inverse(kind: str, value: float, gamma: float, minimum: float, maximum
             raise DomainError(f'{kind} corresponds to a Mach number outside [{minimum:g}, {maximum:g}].',
                               code='outside_inverse_range', field='value')
         return float((2*(log_x.exp()-1)/(g-1)).sqrt())
+
+
+def _sine(argument):
+    squared = argument*argument
+    term = total = argument
+    for n in range(1, _ANGLE_SERIES_ITERATIONS):
+        term *= -squared/((2*n)*(2*n+1))
+        following = total+term
+        if following == total:
+            return following
+        total = following
+    raise ConvergenceError('Mach-angle sine series did not settle.',
+                           code='mach_angle_not_converged', field='value')
+
+
+def mach_angle_inverse(value: float, minimum: float, maximum: float) -> float:
+    """Invert an admitted angle in degrees without private underflow or early rounding."""
+    if value == 90.0:
+        return 1.0
+    # Angle inversion has no gamma dependence; 1 is a neutral precision scale.
+    with localcontext(_context(value, 1.0)):
+        try:
+            pi_value = 4*_atan(D(1))
+        except ConvergenceError as error:
+            raise ConvergenceError('Mach-angle pi evaluation did not settle.',
+                                   code='mach_angle_not_converged', field='value') from error
+        angle = D.from_float(value)*pi_value/180
+        mach = 1/_sine(angle)
+        if not D.from_float(minimum) <= mach <= D.from_float(maximum):
+            raise DomainError('Mach angle corresponds to a root outside the inverse bracket.',
+                              code='outside_inverse_range', field='value')
+        return float(mach)

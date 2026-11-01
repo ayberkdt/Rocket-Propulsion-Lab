@@ -1,0 +1,39 @@
+{
+  "parent_commit": "cc089cf",
+  "transitions": [
+    {
+      "old": [
+        "sonic_area_inverse_bypassed",
+        "src/rocket_propulsion/compressible/isentropic.py",
+        "        if value <= 1.001:",
+        "        if False:",
+        "tests/test_geometry_precision.py::GeometryPrecisionTests::test_area_inverse_distinguishes_the_two_roots_at_one_ulp_above_sonic"
+      ],
+      "new": [
+        "sonic_area_inverse_bypassed",
+        "src/rocket_propulsion/compressible/isentropic.py",
+        "        return sonic_inverse(value, gamma, area=True,\n                             subsonic=input_kind.endswith('subsonic'),\n                             minimum_mach=_MINIMUM_MACH, maximum_mach=_MAXIMUM_MACH)",
+        "        return _newton_bracketed(lambda m: _area_ratio(m, gamma),\n                                 lambda m, a: a*(m*m-1)/(m*(1+.5*(gamma-1)*m*m)),\n                                 value, _MINIMUM_MACH if input_kind.endswith('subsonic') else 1.,\n                                 1. if input_kind.endswith('subsonic') else _MAXIMUM_MACH, input_kind)",
+        "tests/test_geometry_precision.py::GeometryPrecisionTests::test_area_inverse_distinguishes_the_two_roots_at_one_ulp_above_sonic"
+      ],
+      "reason": "All area ratios now use the complete logarithmic solver. Restore the prior rounded callback/endpoint path to preserve the existing bypass invariant and independent near-sonic selector; no historical kill is silently renewed."
+    },
+    {
+      "old": [
+        "ratio_inverse_range_field_lost",
+        "src/rocket_propulsion/compressible/isentropic_inverse.py",
+        "                              code='outside_inverse_range', field='value')",
+        "                              code='outside_inverse_range', field='mach')",
+        "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_finite_roots_outside_the_inverse_bracket_are_refused"
+      ],
+      "new": [
+        "ratio_inverse_range_field_lost",
+        "src/rocket_propulsion/compressible/isentropic_inverse.py",
+        "            raise DomainError(f'{kind} corresponds to a Mach number outside [{minimum:g}, {maximum:g}].',\n                              code='outside_inverse_range', field='value')",
+        "            raise DomainError(f'{kind} corresponds to a Mach number outside [{minimum:g}, {maximum:g}].',\n                              code='outside_inverse_range', field='mach')",
+        "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_finite_roots_outside_the_inverse_bracket_are_refused"
+      ],
+      "reason": "The new angle inverse adds another outside-range value field. Expand the existing ratio fault anchor to its complete ratio-specific raise; its wrong-field invariant and selector are unchanged."
+    }
+  ]
+}

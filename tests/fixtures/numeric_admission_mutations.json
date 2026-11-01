@@ -905,8 +905,8 @@
   [
     "sonic_area_inverse_bypassed",
     "src/rocket_propulsion/compressible/isentropic.py",
-    "        if value <= 1.001:",
-    "        if False:",
+    "        return sonic_inverse(value, gamma, area=True,\n                             subsonic=input_kind.endswith('subsonic'),\n                             minimum_mach=_MINIMUM_MACH, maximum_mach=_MAXIMUM_MACH)",
+    "        return _newton_bracketed(lambda m: _area_ratio(m, gamma),\n                                 lambda m, a: a*(m*m-1)/(m*(1+.5*(gamma-1)*m*m)),\n                                 value, _MINIMUM_MACH if input_kind.endswith('subsonic') else 1.,\n                                 1. if input_kind.endswith('subsonic') else _MAXIMUM_MACH, input_kind)",
     "tests/test_geometry_precision.py::GeometryPrecisionTests::test_area_inverse_distinguishes_the_two_roots_at_one_ulp_above_sonic"
   ],
   [
@@ -1199,8 +1199,8 @@
   [
     "ratio_inverse_range_field_lost",
     "src/rocket_propulsion/compressible/isentropic_inverse.py",
-    "                              code='outside_inverse_range', field='value')",
-    "                              code='outside_inverse_range', field='mach')",
+    "            raise DomainError(f'{kind} corresponds to a Mach number outside [{minimum:g}, {maximum:g}].',\n                              code='outside_inverse_range', field='value')",
+    "            raise DomainError(f'{kind} corresponds to a Mach number outside [{minimum:g}, {maximum:g}].',\n                              code='outside_inverse_range', field='mach')",
     "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_finite_roots_outside_the_inverse_bracket_are_refused"
   ],
   [
@@ -1216,5 +1216,152 @@
     "        if not log_lower <= log_x <= log_upper:",
     "        if not minimum <= float((2*(log_x.exp()-1)/(g-1)).sqrt()) <= maximum:",
     "tests/test_isentropic_ratio_inverse.py::IsentropicRatioInverseTests::test_neighboring_ratios_at_both_inverse_boundaries"
+  ],
+  [
+    "area_inverse_branch_selection_reversed",
+    "src/rocket_propulsion/compressible/isentropic.py",
+    "                             subsonic=input_kind.endswith('subsonic'),",
+    "                             subsonic=input_kind.endswith('supersonic'),",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_both_area_branches_match_independent_entropy_and_continuity"
+  ],
+  [
+    "area_inverse_unrelated_endpoint_state_required",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    log_left, log_right = value(lower), value(upper)",
+    "    from .isentropic import _area_ratio\n    _area_ratio(float(upper), float(gamma))\n    log_left, log_right = value(lower), value(upper)",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_valid_area_does_not_require_a_representable_endpoint_area"
+  ],
+  [
+    "area_inverse_sonic_reference_rounded_first",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    return ((gamma+1)/(2*(gamma-1)))*((2+(gamma-1)*m*m)/(gamma+1)).ln()-m.ln()",
+    "    return ((gamma+1)/(2*(gamma-1)))*((2+(gamma-1)*m*m)/D.from_float(float(gamma+1))).ln()-m.ln()",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_valid_area_does_not_require_a_representable_endpoint_area"
+  ],
+  [
+    "area_inverse_native_exponent_overflow_restored",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    return ((gamma+1)/(2*(gamma-1)))*((2+(gamma-1)*m*m)/(gamma+1)).ln()-m.ln()",
+    "    return D.from_float((float(gamma)+1)/(2*(float(gamma)-1)))*((2+(gamma-1)*m*m)/(gamma+1)).ln()-m.ln()",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_both_area_branches_match_independent_entropy_and_continuity"
+  ],
+  [
+    "area_inverse_continuity_factor_missing",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    return ((gamma+1)/(2*(gamma-1)))*((2+(gamma-1)*m*m)/(gamma+1)).ln()-m.ln()",
+    "    return ((gamma+1)/(2*(gamma-1)))*((2+(gamma-1)*m*m)/(gamma+1)).ln()",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_valid_area_does_not_require_a_representable_endpoint_area"
+  ],
+  [
+    "area_inverse_wrong_bracket_direction",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "        if (residual > 0) == (not subsonic):",
+    "        if (residual > 0) == subsonic:",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_both_area_branches_match_independent_entropy_and_continuity"
+  ],
+  [
+    "area_inverse_safeguard_removed",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "        if not lower < candidate < upper or candidate == mach:",
+    "        if False:",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_both_area_branches_match_independent_entropy_and_continuity"
+  ],
+  [
+    "area_inverse_absolute_interval_tolerance",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "        if float(lower) == float(upper):\n            return float(lower)\n        derivative = (mach*mach-1)/(mach*(1+(gamma-1)*mach*mach/2))",
+    "        if abs(upper-lower) < D('.001'):\n            return float(lower)\n        derivative = (mach*mach-1)/(mach*(1+(gamma-1)*mach*mach/2))",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_both_area_branches_match_independent_entropy_and_continuity"
+  ],
+  [
+    "area_inverse_exhausted_budget_exported",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    raise ConvergenceError('Area inverse exhausted its iteration budget.',\n                           code='area_inverse_not_converged', field='value')",
+    "    return float(mach)",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_area_budget_exhaustion_is_not_a_last_iterate"
+  ],
+  [
+    "area_inverse_outside_bracket_wrong_code",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "        raise DomainError('Requested area inverse is outside the Mach bracket.',\n                          code='outside_inverse_range', field='value')",
+    "        raise DomainError('Requested area inverse is outside the Mach bracket.',\n                          code='numeric_range', field='value')",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_area_boundary_neighbors_classify_before_float_export"
+  ],
+  [
+    "mach_angle_native_radians_reintroduced",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "        angle = D.from_float(value)*pi_value/180",
+    "        return 1/__import__('math').sin(__import__('math').radians(value))\n        angle = D.from_float(value)*pi_value/180",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_tiny_positive_mach_angles_have_typed_range_refusals"
+  ],
+  [
+    "mach_angle_degree_scale_wrong",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "        angle = D.from_float(value)*pi_value/180",
+    "        angle = D.from_float(value)*pi_value/360",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_angle_degree_conversion_and_gamma_independence"
+  ],
+  [
+    "mach_angle_root_rounded_before_bracket",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "        mach = 1/_sine(angle)",
+    "        mach = D.from_float(float(1/_sine(angle)))",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_angle_inverse_boundary_neighbors"
+  ],
+  [
+    "mach_angle_inverse_bracket_removed",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "        if not D.from_float(minimum) <= mach <= D.from_float(maximum):",
+    "        if False:",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_tiny_positive_mach_angles_have_typed_range_refusals"
+  ],
+  [
+    "mach_angle_range_field_lost",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "            raise DomainError('Mach angle corresponds to a root outside the inverse bracket.',\n                              code='outside_inverse_range', field='value')",
+    "            raise DomainError('Mach angle corresponds to a root outside the inverse bracket.',\n                              code='outside_inverse_range', field='mach')",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_tiny_positive_mach_angles_have_typed_range_refusals"
+  ],
+  [
+    "mach_angle_context_inherits_caller",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "    with localcontext(_context(value, 1.0)):",
+    "    with localcontext():",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_active_decimal_context_is_owned_and_unchanged"
+  ],
+  [
+    "mach_angle_context_inherits_defaults",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "    with localcontext(_context(value, 1.0)):",
+    "    with localcontext(Context(prec=90)):",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_default_decimal_context_cannot_choose_solver_behavior"
+  ],
+  [
+    "mach_angle_partial_sine_exported",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "    raise ConvergenceError('Mach-angle sine series did not settle.',\n                           code='mach_angle_not_converged', field='value')",
+    "    return total",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_angle_series_exhaustion_is_not_a_partial_sine"
+  ],
+  [
+    "mach_angle_failed_pi_exported_as_sonic",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "            raise ConvergenceError('Mach-angle pi evaluation did not settle.',\n                                   code='mach_angle_not_converged', field='value') from error",
+    "            return 1.0",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_pi_failure_is_propagated_as_a_typed_inverse_failure"
+  ],
+  [
+    "mach_angle_premature_sonic_tolerance",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "    if value == 90.0:",
+    "    if value >= 89.99:",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_angle_degree_conversion_and_gamma_independence"
+  ],
+  [
+    "mach_angle_linear_small_angle_used_globally",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py",
+    "            return following",
+    "            return argument",
+    "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_angle_degree_conversion_and_gamma_independence"
   ]
 ]

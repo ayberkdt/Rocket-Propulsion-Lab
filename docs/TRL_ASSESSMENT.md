@@ -16,6 +16,11 @@ documented scaling requirements.
 
 ## Evidence that exists (software, independent references)
 
+- Complete area/Mach-angle inverse arithmetic has independent entropy/mass-flux
+  and trigonometric controls (`AREA_ANGLE_INVERSE_REVIEW.md`). Its numerical
+  bracket and synthetic gamma matrix do not establish an operating envelope,
+  continuous physical flow or relevant-environment hardware validation.
+
 - Static/total and static/sonic scalar ratio inverses have exact-input
   entropy/energy controls and logarithmic bracket screening
   (`ISENTROPIC_RATIO_INVERSE_REVIEW.md`). This does not establish all inverse

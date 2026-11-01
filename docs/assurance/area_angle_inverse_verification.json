@@ -1,0 +1,361 @@
+{
+  "parent_commit": "cc089cf",
+  "scope": "Complete area and Mach-angle numerical inverses on tested inputs; no global rounding enclosure, PM closure, real-flow or motor/feed qualification",
+  "reviewed_runtime_and_test_sha256": {
+    "src/rocket_propulsion/compressible/isentropic.py": "3bb6bce2254a1fe451c14e6f823c55b8237b3832101547e32ded15ddead218e6",
+    "src/rocket_propulsion/compressible/isentropic_inverse.py": "e7d1b8107b9371f302ed4c880732f3f7987f6803d4603bd8c760f07c6839831a",
+    "src/rocket_propulsion/compressible/sonic_numerics.py": "6200c353c4c80e646f2994deeb2ee279c7cbfb194e66daa3ded7cbbe855caae2",
+    "tests/test_isentropic_area_angle_inverse.py": "5f47177823709dfaf6fce16b2c55dc33933f933184ada1165c2d84e37262698b",
+    "tests/fixtures/numeric_admission_mutations.json": "da5b2822838dc7926083ebc96ed2b6f6ad4cfa7b5c1b14a5237e8a4a2a31e3ad"
+  },
+  "independent_test": {
+    "methods": 15,
+    "subtests": 168,
+    "area_reference_digits": 600,
+    "area_reference_bisection_steps": 140,
+    "angle_reference_digits": 1200,
+    "valid_output_screening_ULP": 2,
+    "input_semantics": "Invert the supplied float, not the unrounded generating Mach"
+  },
+  "regression": {
+    "modules": [
+      "test_isentropic_area_angle_inverse",
+      "test_isentropic_ratio_inverse",
+      "test_isentropic_forward_range",
+      "test_compressible_advanced",
+      "test_nozzle",
+      "test_off_design_nozzle",
+      "test_nozzle_separation",
+      "test_chemistry_nozzle",
+      "test_geometry_precision",
+      "test_geometry_generator_contract",
+      "test_geometry",
+      "test_geometry_export_contract",
+      "test_isentropic",
+      "test_oracle_compressible",
+      "test_moc_unit_process",
+      "test_regen_contour_contract",
+      "test_regen_chamber",
+      "test_regen_channel_geometry",
+      "test_regen_conjugate",
+      "test_api_numeric_admission",
+      "test_api",
+      "test_constants_and_references"
+    ],
+    "methods": 286,
+    "subtests": 12550,
+    "junit": {
+      "tests": 12836,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "runtime_and_tests_byte_bound": true
+  },
+  "mutation": {
+    "killed": 23,
+    "passing_original_restored_control_runs": 46,
+    "groups": [
+      {
+        "directory": "output\\assurance\\area_angle_mutations_20261101_a",
+        "killed": 12,
+        "passing_control_runs": 24,
+        "matched_source_test_files": 461,
+        "case_file_sha256": "da5b2822838dc7926083ebc96ed2b6f6ad4cfa7b5c1b14a5237e8a4a2a31e3ad",
+        "baseline_archive_sha256": "a3c89eb8e02da5abea17fc19d0185766407b4cfb7053c782f5e288599cc227d5",
+        "post_run_report_changes": [
+          "docs/AREA_ANGLE_INVERSE_REVIEW.md"
+        ]
+      },
+      {
+        "directory": "output\\assurance\\area_angle_mutations_20261101_b",
+        "killed": 11,
+        "passing_control_runs": 22,
+        "matched_source_test_files": 461,
+        "case_file_sha256": "da5b2822838dc7926083ebc96ed2b6f6ad4cfa7b5c1b14a5237e8a4a2a31e3ad",
+        "baseline_archive_sha256": "c2025e65e8316699c7aa9dd230e8516edfb74af0ae86632cf967d4193447a173",
+        "post_run_report_changes": [
+          "docs/AREA_ANGLE_INVERSE_REVIEW.md"
+        ]
+      }
+    ],
+    "all_fixture_entries_compiled_only": 195,
+    "policy": "Arithmetic/domain failures on independently valid inputs are output-contract assertions; process/import/collection errors are not kills."
+  },
+  "build": {
+    "build_passed": true,
+    "installed_wheel_smoke_passed": true,
+    "source_unchanged": true,
+    "artifacts": {
+      "rocket_propulsion_lab-0.9.0-py3-none-any.whl": "d4ca39ef6422a8f087f689b38fd04c31f3cb82294ca1b1473da99af17144fb6e",
+      "rocket_propulsion_lab-0.9.0.tar.gz": "319e570e85652b7a4979ea9ac2f1ea32e8088d227631172eecbaf9ccf71751ba"
+    },
+    "scope": "Copied-source wheel/sdist build and isolated installed-wheel checks without test dependencies; same host, not hardware qualification"
+  },
+  "retained_findings": {
+    "initial_five_assertion_failures": "initial_red.xml",
+    "angle_float_before_bound_case_deg": 0.0572957890623832,
+    "PM_probe": {
+      "scope": "Exploratory retained Prandtl-Meyer paths; input quantisation is included in the reference, no empirical error bound is inferred",
+      "cases": [
+        {
+          "gamma": 1.01,
+          "supplied_angle_deg": 0.5876924091474898,
+          "generating_M_not_the_oracle": 1.05,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 1.05,
+          "actual_M": 1.0499999999999998,
+          "ULP_error": 1.0
+        },
+        {
+          "gamma": 1.01,
+          "supplied_angle_deg": 38.74984864973156,
+          "generating_M_not_the_oracle": 2.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 2.0,
+          "actual_M": 1.9999999999999998,
+          "ULP_error": 0.5
+        },
+        {
+          "gamma": 1.01,
+          "supplied_angle_deg": 412.82261689921813,
+          "generating_M_not_the_oracle": 10.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 10.0,
+          "actual_M": 10.0,
+          "ULP_error": 0.0
+        },
+        {
+          "gamma": 1.01,
+          "supplied_angle_deg": 1174.5118289472844,
+          "generating_M_not_the_oracle": 1000.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 999.999999999997,
+          "actual_M": 1000.0,
+          "ULP_error": 26.0
+        },
+        {
+          "gamma": 1.4,
+          "supplied_angle_deg": 0.48741074024957726,
+          "generating_M_not_the_oracle": 1.05,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 1.05,
+          "actual_M": 1.05,
+          "ULP_error": 0.0
+        },
+        {
+          "gamma": 1.4,
+          "supplied_angle_deg": 26.37976081341646,
+          "generating_M_not_the_oracle": 2.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 2.0,
+          "actual_M": 2.0,
+          "ULP_error": 0.0
+        },
+        {
+          "gamma": 1.4,
+          "supplied_angle_deg": 102.3162531732001,
+          "generating_M_not_the_oracle": 10.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 9.999999999999998,
+          "actual_M": 9.999999999999996,
+          "ULP_error": 1.0
+        },
+        {
+          "gamma": 1.4,
+          "supplied_angle_deg": 130.16759847813037,
+          "generating_M_not_the_oracle": 1000.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 999.9999999999694,
+          "actual_M": 1000.0,
+          "ULP_error": 269.0
+        },
+        {
+          "gamma": 10.0,
+          "supplied_angle_deg": 0.10237380037141904,
+          "generating_M_not_the_oracle": 1.05,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 1.05,
+          "actual_M": 1.0499999999999985,
+          "ULP_error": 7.0
+        },
+        {
+          "gamma": 10.0,
+          "supplied_angle_deg": 3.513951982621841,
+          "generating_M_not_the_oracle": 2.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 2.0,
+          "actual_M": 1.9999999999999964,
+          "ULP_error": 8.0
+        },
+        {
+          "gamma": 10.0,
+          "supplied_angle_deg": 8.228568481231619,
+          "generating_M_not_the_oracle": 10.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 10.000000000000005,
+          "actual_M": 9.99999999999987,
+          "ULP_error": 76.0
+        },
+        {
+          "gamma": 10.0,
+          "supplied_angle_deg": 9.48601131827985,
+          "generating_M_not_the_oracle": 1000.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 999.9999999999949,
+          "actual_M": 999.9999999998902,
+          "ULP_error": 921.0
+        },
+        {
+          "gamma": 1000.0,
+          "supplied_angle_deg": 0.001113615792028615,
+          "generating_M_not_the_oracle": 1.05,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 1.05,
+          "actual_M": 1.0500000000001015,
+          "ULP_error": 457.0
+        },
+        {
+          "gamma": 1000.0,
+          "supplied_angle_deg": 0.03518919264431897,
+          "generating_M_not_the_oracle": 2.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 2.0,
+          "actual_M": 2.0000000000000284,
+          "ULP_error": 64.0
+        },
+        {
+          "gamma": 1000.0,
+          "supplied_angle_deg": 0.07859364131142432,
+          "generating_M_not_the_oracle": 10.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 10.000000000000004,
+          "actual_M": 10.000000000007287,
+          "ULP_error": 4100.0
+        },
+        {
+          "gamma": 1000.0,
+          "supplied_angle_deg": 0.08993033878768658,
+          "generating_M_not_the_oracle": 1000.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 999.9999999999826,
+          "actual_error": {
+            "code": "outside_inverse_range",
+            "field": "value",
+            "type": "DomainError"
+          }
+        },
+        {
+          "gamma": 100000.0,
+          "supplied_angle_deg": 1.1145945747110045e-05,
+          "generating_M_not_the_oracle": 1.05,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 1.05,
+          "actual_M": 1.05,
+          "ULP_error": 0.0
+        },
+        {
+          "gamma": 100000.0,
+          "supplied_angle_deg": 0.000351901895840347,
+          "generating_M_not_the_oracle": 2.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 2.0,
+          "actual_M": 1.999999999986358,
+          "ULP_error": 30719.0
+        },
+        {
+          "gamma": 100000.0,
+          "supplied_angle_deg": 0.000785603078059918,
+          "generating_M_not_the_oracle": 10.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 9.999999999999998,
+          "actual_M": 9.999999999769193,
+          "ULP_error": 129932.0
+        },
+        {
+          "gamma": 100000.0,
+          "supplied_angle_deg": 0.0008988585731864637,
+          "generating_M_not_the_oracle": 1000.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 999.9999999999698,
+          "actual_error": {
+            "code": "outside_inverse_range",
+            "field": "value",
+            "type": "DomainError"
+          }
+        },
+        {
+          "gamma": 1000000.0,
+          "supplied_angle_deg": 1.1146034806508648e-06,
+          "generating_M_not_the_oracle": 1.05,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 1.05,
+          "actual_M": 1.05,
+          "ULP_error": 0.0
+        },
+        {
+          "gamma": 1000000.0,
+          "supplied_angle_deg": 3.519019869377418e-05,
+          "generating_M_not_the_oracle": 2.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 2.0,
+          "actual_M": 2.0,
+          "ULP_error": 0.0
+        },
+        {
+          "gamma": 1000000.0,
+          "supplied_angle_deg": 7.856000507742837e-05,
+          "generating_M_not_the_oracle": 10.0,
+          "expected_status": "valid",
+          "expected_M_from_supplied_float": 9.999999999999998,
+          "actual_M": 9.999999999999995,
+          "ULP_error": 2.0
+        },
+        {
+          "gamma": 1000000.0,
+          "supplied_angle_deg": 8.988545334552586e-05,
+          "generating_M_not_the_oracle": 1000.0,
+          "expected_status": "outside_inverse_range",
+          "expected_M_from_supplied_float": null,
+          "actual_error": {
+            "code": "outside_inverse_range",
+            "field": "value",
+            "type": "DomainError"
+          }
+        }
+      ],
+      "source_sha256": {
+        "isentropic.py": "3bb6bce2254a1fe451c14e6f823c55b8237b3832101547e32ded15ddead218e6",
+        "sonic_numerics.py": "6200c353c4c80e646f2994deeb2ee279c7cbfb194e66daa3ded7cbbe855caae2"
+      }
+    },
+    "PM_valid_refusals": 2,
+    "PM_above_64_ULP_exploratory": 7
+  },
+  "hardware": {
+    "trl5_achieved": false,
+    "unmet_gate_ids": [
+      "CONFIGURATION",
+      "RELEVANT_ENVIRONMENT",
+      "ACCEPTANCE",
+      "TEST_ARTICLE",
+      "MEASUREMENT",
+      "DEMONSTRATION",
+      "MODEL_VALIDATION",
+      "SCALING",
+      "REVIEW"
+    ],
+    "inventory_symbols": 3285
+  },
+  "runtime": {
+    "python": "3.12.1 (tags/v3.12.1:2305ca5, Dec  7 2023, 22:03:25) [MSC v.1937 64 bit (AMD64)]",
+    "reference_mpmath": "1.3.0",
+    "pytest": "9.0.2"
+  },
+  "post_run_report_changes": [
+    "docs/AREA_ANGLE_INVERSE_REVIEW.md"
+  ],
+  "post_run_report_additions": [
+    "docs/assurance/area_angle_inverse_verification.json"
+  ]
+}

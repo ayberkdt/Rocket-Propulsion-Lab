@@ -9,6 +9,11 @@ function counts.
 
 ## Added scope
 
+- Area and Mach-angle inverses now avoid private endpoint overflow and degree
+  underflow, and compare complete roots before export
+  (`AREA_ANGLE_INVERSE_REVIEW.md`). PM inversion and empirical motor/feed
+  qualification remain separately reviewable.
+
 - Six scalar flow-ratio inverses now retain complete sonic normalization and
   compare the logarithmic root against the existing numerical bracket before
   export (`ISENTROPIC_RATIO_INVERSE_REVIEW.md`). Angle/area inversion and

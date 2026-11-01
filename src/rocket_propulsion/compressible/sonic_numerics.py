@@ -1,9 +1,10 @@
-"""Near-sonic scalar evaluations before export to binary64.
+"""Complete area inversion and near-sonic scalars before export to binary64.
 
 Area inversion uses the logarithmic area relation with private Decimal context.
 The PM series factors 1-a^n=(1-a)*(1+...+a^(n-1)) before its leading terms can
-cancel. Bracketing stops when both bounds export to the same binary64 value;
-this is a numerical method, not an empirical validation or global root proof.
+cancel. Area inversion uses safeguarded Newton/bisection in a branch bracket.
+Computed zeros or bounds exporting to the same binary64 value terminate the
+iteration; this is not an empirical validation or global root proof.
 
 References
 ----------
@@ -22,6 +23,8 @@ from decimal import Decimal as D
 from math import pi
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
+
+_AREA_INVERSE_ITERATIONS = 512
 
 
 def _precision(gamma):
@@ -94,16 +97,43 @@ def sonic_area(mach, gamma):
         return float(logarithm.exp())
 
 
+def _area_inverse(wanted, gamma, lower, upper, subsonic):
+    """Solve log(A/A*) on one branch; private context is owned by sonic_inverse."""
+    def value(m):
+        return ((gamma+1)/(2*(gamma-1)))*((2+(gamma-1)*m*m)/(gamma+1)).ln()-m.ln()
+
+    log_left, log_right = value(lower), value(upper)
+    if not min(log_left, log_right) <= wanted <= max(log_left, log_right):
+        raise DomainError('Requested area inverse is outside the Mach bracket.',
+                          code='outside_inverse_range', field='value')
+    mach = (lower*upper).sqrt()
+    for _ in range(_AREA_INVERSE_ITERATIONS):
+        residual = value(mach)-wanted
+        if not residual:
+            return float(mach)
+        if (residual > 0) == (not subsonic):
+            upper = mach
+        else:
+            lower = mach
+        if float(lower) == float(upper):
+            return float(lower)
+        derivative = (mach*mach-1)/(mach*(1+(gamma-1)*mach*mach/2))
+        candidate = mach-residual/derivative if derivative else (lower*upper).sqrt()
+        if not lower < candidate < upper or candidate == mach:
+            candidate = (lower*upper).sqrt() if upper/lower > 4 else (lower+upper)/2
+        mach = candidate
+    raise ConvergenceError('Area inverse exhausted its iteration budget.',
+                           code='area_inverse_not_converged', field='value')
+
+
 def sonic_inverse(target, gamma, *, area, minimum_mach, maximum_mach, subsonic=False):
-    """Invert near-sonic area or small PM angle within the existing Mach bracket."""
+    """Invert any admitted area or small PM angle within the existing Mach bracket."""
     with localcontext(_context(gamma)):
         g, wanted = D(gamma), D(target)
         if area:
             lower, upper = (D(minimum_mach), D(1)) if subsonic else (D(1), D(maximum_mach))
             wanted = wanted.ln()
-
-            def value(m):
-                return ((g+1)/(2*(g-1)))*((2+(g-1)*m*m)/(g+1)).ln()-m.ln()
+            return _area_inverse(wanted, g, lower, upper, subsonic)
         else:
             lower, upper = D(1), D('1.01')
 

@@ -80,8 +80,10 @@ endpoint cannot export its area. Independent mass-flux roots are approximately
 1.9216228894, 1.9222697684 and 1.9281007423. Also, the two smallest positive
 Mach-angle inputs produce an untyped ZeroDivisionError instead of the expected
 inverse-range refusal. One ordinary area case and one larger tiny-angle case
-remain passing controls. These five defects are open; this scalar-ratio repair
-does not claim to close them.
+remain passing controls. Those five defects were open at this scalar-ratio
+checkpoint; their subsequent repair is tracked in
+[AREA_ANGLE_INVERSE_REVIEW.md](AREA_ANGLE_INVERSE_REVIEW.md). The original scalar
+receipts remain historical evidence for their archived bytes.
 
 ## Measured checkpoint
 
