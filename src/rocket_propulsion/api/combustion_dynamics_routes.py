@@ -20,7 +20,7 @@ References
 from __future__ import annotations
 
 import cmath
-from math import pi, sqrt
+from math import isfinite, pi, sqrt
 from typing import Any
 
 from rocket_propulsion.api.aero_routes import _clean, _linspace, _number, _positive, _text
@@ -136,16 +136,25 @@ def combustion_stability_route(payload: dict[str, Any]) -> dict[str, Any]:
     """
     pair_key = _text(payload, "propellant_pair", "LOX_CH4")
     pair = get_propellant_pair(pair_key)
-    ratio = _number(payload, "oxidizer_fuel_ratio", pair.reference_oxidizer_fuel_ratio)
-    pressure = _number(payload, "chamber_pressure_pa", 7.0e6)
+    ratio = _positive(payload, "oxidizer_fuel_ratio", pair.reference_oxidizer_fuel_ratio)
+    pressure = _positive(payload, "chamber_pressure_pa", 7.0e6)
     radius = _positive(payload, "chamber_radius_m", 0.10)
     length = _positive(payload, "chamber_length_m", 0.30)
     contraction = _number(payload, "contraction_ratio", 3.0)
     if contraction <= 1.0:
         raise InputError("contraction_ratio must exceed 1.", field="contraction_ratio")
-    ox_drop = _number(payload, "oxidizer_drop_fraction", 0.2)
-    fuel_drop = _number(payload, "fuel_drop_fraction", 0.2)
+    ox_drop = _positive(payload, "oxidizer_drop_fraction", 0.2)
+    fuel_drop = _positive(payload, "fuel_drop_fraction", 0.2)
     lag = _number(payload, "combustion_time_lag_s", 0.8e-3)
+    if lag < 0.0:
+        raise InputError("combustion_time_lag_s must be non-negative.", field="combustion_time_lag_s")
+    oxidizer_injector_drop = ox_drop * pressure
+    fuel_injector_drop = fuel_drop * pressure
+    for field, drop_pa in (("oxidizer_drop_fraction", oxidizer_injector_drop),
+                           ("fuel_drop_fraction", fuel_injector_drop)):
+        if not isfinite(drop_pa) or drop_pa <= 0.0:
+            raise InputError("Injector pressure drop is outside the positive float range.",
+                             code="numeric_range", field=field)
     state = _chamber_state(pair_key, pressure, ratio)
     cstar, _ = cea_characteristic_velocity_function(propellant_pair=pair_key, chamber_pressure_pa=pressure)
     c0 = cstar(ratio)
@@ -162,8 +171,8 @@ def combustion_stability_route(payload: dict[str, Any]) -> dict[str, Any]:
         maximum_frequency_hz=3.0 * one_t.frequency_hz, mean_mach_number=mach, max_order=4)
     chug = instability.chugging_stability(
         mixture_ratio=ratio, characteristic_velocity_m_s=c0, cstar_mixture_ratio_derivative_m_s=slope,
-        chamber_pressure_pa=pressure, oxidizer_injector_drop_pa=ox_drop * pressure,
-        fuel_injector_drop_pa=fuel_drop * pressure, gas_residence_time_s=theta, time_lag_s=lag)
+        chamber_pressure_pa=pressure, oxidizer_injector_drop_pa=oxidizer_injector_drop,
+        fuel_injector_drop_pa=fuel_injector_drop, gas_residence_time_s=theta, time_lag_s=lag)
     g_ox = (ratio / (1.0 + ratio)) / (2.0 * ox_drop)
     g_f = (1.0 / (1.0 + ratio)) / (2.0 * fuel_drop)
     nyquist = feed.feed_coupled_stability(

@@ -379,6 +379,8 @@ Sources below support the provisional study package; ITU course identity is not 
 ## Foundational textbooks and reports (bibliographic details verified 2026-10-25)
 
 - **NACA-TR-1135**: Ames Research Staff, *Equations, Tables, and Charts for Compressible Flow*, NACA Report 1135, 1953 — one-dimensional isentropic flow, normal and oblique shocks, Prandtl–Meyer expansion. <https://ntrs.nasa.gov/citations/19930091059>
+- **NASA-ICPTA-RCS-20170005403**: Atwell et al., *Characterization of a Pressure-Fed Liquid Oxygen/Liquid Methane Reaction Control System Under Simulated Altitude and Thermal Vacuum Conditions*, §III.B and Table 1. Reported liquid rocket feed-transient measurements and instantaneous-closure estimates. <https://ntrs.nasa.gov/citations/20170005403>
+- **NASA-GRC-PRANDTL-MEYER**: NASA Glenn Research Center, *Prandtl–Meyer Angle*. Calorically perfect-gas expansion angle and supersonic domain. <https://www.grc.nasa.gov/www/k-12/airplane/pranmyer.html>
 - **NACA-TN-1336**: B. L. Hicks, D. J. Montgomery and R. H. Wasserman, *On the One-Dimensional Theory of Steady Compressible Fluid Flow in Ducts with Friction and Heat Addition*, NACA TN 1336, 1947 — constant-area duct flow with friction (Fanno) and heat addition (Rayleigh). <https://ntrs.nasa.gov/citations/19930081963>
 - **RAO-1958**: G. V. R. Rao, *Exhaust Nozzle Contour for Optimum Thrust*, Jet Propulsion 28(6), 377–382, 1958. doi:10.2514/8.7324
 - **SUTTON-BIBLARZ-2017**: G. P. Sutton and O. Biblarz, *Rocket Propulsion Elements*, 9th ed., Wiley, 2017, ISBN 978-1-118-75365-1 — ideal rocket, nozzle, thrust-coefficient, staging and feed-system relations (bibliographic citation).

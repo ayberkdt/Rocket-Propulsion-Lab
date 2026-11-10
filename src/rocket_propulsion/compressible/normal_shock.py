@@ -9,10 +9,19 @@ References
 """
 
 from dataclasses import dataclass
+from decimal import (
+    ROUND_HALF_EVEN,
+    Context,
+    Decimal,
+    DivisionByZero,
+    InvalidOperation,
+    Overflow,
+    localcontext,
+)
 from math import isfinite
 
 from rocket_propulsion.core.errors import DomainError
-from rocket_propulsion.core.validation import numeric_range_guard
+from rocket_propulsion.core.validation import real
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,7 +52,14 @@ class NormalShockResult:
     stagnation_pressure_ratio: float
 
 
-@numeric_range_guard("upstream_mach")
+def _positive_export(value: Decimal, field: str) -> float:
+    result = float(value)
+    if not isfinite(result) or result <= 0.0:
+        raise DomainError("Normal shock result is outside the positive float range.",
+                          code="numeric_range", field=field)
+    return result
+
+
 def calculate_normal_shock(upstream_mach: float, gamma: float = 1.4) -> NormalShockResult:
     """Calculate Rankine-Hugoniot relations across a normal shock.
 
@@ -62,8 +78,8 @@ def calculate_normal_shock(upstream_mach: float, gamma: float = 1.4) -> NormalSh
     Raises
     ------
     DomainError
-        If ``gamma`` is invalid or the upstream flow is not supersonic, so the
-        state cannot contain a normal shock.
+        If the inputs are invalid, the upstream flow is not supersonic, or
+        an output has no positive finite binary64 representation.
 
     Notes
     -----
@@ -81,32 +97,40 @@ def calculate_normal_shock(upstream_mach: float, gamma: float = 1.4) -> NormalSh
            Compressible Flow", NACA Report 1135, 1953.
     """
 
-    if not isfinite(gamma) or gamma <= 1.0:
-        raise DomainError("Gamma must be finite and greater than 1.")
-    if not isfinite(upstream_mach) or upstream_mach <= 1.0:
-        raise DomainError("Upstream Mach number must be greater than 1.")
+    mach = real(upstream_mach, "upstream_mach")
+    specific_heat_ratio = real(gamma, "gamma")
+    if specific_heat_ratio <= 1.0:
+        raise DomainError("Gamma must be greater than 1.", field="gamma")
+    if mach <= 1.0:
+        raise DomainError("Upstream Mach number must be greater than 1.", field="upstream_mach")
 
-    mach_squared = upstream_mach**2
-    downstream_squared = (
-        1.0 + 0.5 * (gamma - 1.0) * mach_squared
-    ) / (gamma * mach_squared - 0.5 * (gamma - 1.0))
-    pressure_ratio = (2.0 * gamma * mach_squared - (gamma - 1.0)) / (gamma + 1.0)
-    density_ratio = ((gamma + 1.0) * mach_squared) / (
-        (gamma - 1.0) * mach_squared + 2.0
-    )
-    stagnation_pressure_ratio = (
-        ((gamma + 1.0) * mach_squared)
-        / ((gamma - 1.0) * mach_squared + 2.0)
-    ) ** (gamma / (gamma - 1.0)) * (
-        (gamma + 1.0) / (2.0 * gamma * mach_squared - (gamma - 1.0))
-    ) ** (1.0 / (gamma - 1.0))
-
-    return NormalShockResult(
-        upstream_mach=upstream_mach,
-        downstream_mach=downstream_squared**0.5,
-        pressure_ratio=pressure_ratio,
-        density_ratio=density_ratio,
-        temperature_ratio=pressure_ratio / density_ratio,
-        stagnation_pressure_ratio=stagnation_pressure_ratio,
-    )
+    # Evaluate complete ratios before export. In particular, the two individual
+    # recovery powers may overflow and underflow while their product is finite.
+    context = Context(prec=80, rounding=ROUND_HALF_EVEN,
+                      Emin=-999999, Emax=999999, capitals=1, clamp=0, flags=[],
+                      traps=[InvalidOperation, DivisionByZero, Overflow])
+    with localcontext(context):
+        g = Decimal.from_float(specific_heat_ratio)
+        gm = g - 1
+        m = Decimal.from_float(mach)
+        mach_squared = m * m
+        pressure_numerator = 2 * g * mach_squared - gm
+        density_denominator = gm * mach_squared + 2
+        pressure = pressure_numerator / (g + 1)
+        density = (g + 1) * mach_squared / density_denominator
+        downstream = (density_denominator / pressure_numerator).sqrt()
+        pressure_ratio = _positive_export(pressure, "pressure_ratio")
+        density_ratio = _positive_export(density, "density_ratio")
+        temperature_ratio = _positive_export(pressure / density, "temperature_ratio")
+        log_recovery = (g * density.ln() - pressure.ln()) / gm
+        # Below this log the exact result rounds to zero even as a subnormal.
+        recovery = log_recovery.exp() if log_recovery > -800 else Decimal(0)
+        return NormalShockResult(
+            upstream_mach=mach,
+            downstream_mach=_positive_export(downstream, "downstream_mach"),
+            pressure_ratio=pressure_ratio,
+            density_ratio=density_ratio,
+            temperature_ratio=temperature_ratio,
+            stagnation_pressure_ratio=_positive_export(recovery, "stagnation_pressure_ratio"),
+        )
 

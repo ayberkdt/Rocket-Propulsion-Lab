@@ -16,6 +16,16 @@ documented scaling requirements.
 
 ## Evidence that exists (software, independent references)
 
+- Normal-shock arithmetic retains finite complete perfect-gas outputs and
+  checks pressure recovery against independent mass, momentum and enthalpy
+  relations (`NORMAL_SHOCK_RANGE_REVIEW.md`). This is numerical evidence for
+  the gas model.
+
+- Prandtl–Meyer forward and inverse arithmetic has differential-quadrature and
+  exact-supplied-angle controls (`PRANDTL_MEYER_REVIEW.md`). Synthetic gamma
+  ranges and numerical bracket screening do not establish a gas-model operating
+  envelope or relevant-environment motor/feed hardware validation.
+
 - Complete area/Mach-angle inverse arithmetic has independent entropy/mass-flux
   and trigonometric controls (`AREA_ANGLE_INVERSE_REVIEW.md`). Its numerical
   bracket and synthetic gamma matrix do not establish an operating envelope,
@@ -107,6 +117,15 @@ with measurement the disagreement is reported, not tuned away: inviscid
 panel lift is about 14 % above measured section lift, and the Allen–Perkins
 normal force is 22–24 % above the TR 1048 measured point.
 
+The NASA ICPTA LOX/LCH4 test report supplies a separate empirical feed-model
+challenge. Three of eight ambient-thermal shutdown peaks in Table 1 exceed
+the corresponding nominal instantaneous-closure estimates. The largest
+reported pair is 91 versus 72 psid. Individual numerical uncertainties
+are absent from the table. Cold testing and opening transients used distinct
+conditions. The signed comparison is recorded under
+`output/assurance/icpta_feed_benchmark_20261110` and does not identify a
+single-pipe model or qualify the user's motor/feed configuration.
+
 ## What TRL 5 still needs
 
 - A defined relevant environment for the user's engine and vehicle
@@ -134,3 +153,5 @@ review are tracked in [CURRENT_UPSTREAM_REVIEW.md](CURRENT_UPSTREAM_REVIEW.md).
   https://nodis3.gsfc.nasa.gov/displayDir.cfm?Internal_ID=N_PR_7123_001D_&page_name=AppendixE
 - NASA-7009B, model credibility and verification reporting:
   https://standards.nasa.gov/sites/default/files/standards/NASA/B/1/NASA-STD-7009B-Final-3-5-2024.pdf
+- NASA NTRS 20170005403, ICPTA pressure-fed LOX/LCH4 RCS testing, §III.B and Table 1:
+  https://ntrs.nasa.gov/citations/20170005403

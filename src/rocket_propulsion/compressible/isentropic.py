@@ -12,7 +12,7 @@ References
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import asin, atan, degrees, isfinite, sqrt
+from math import asin, degrees, isfinite, sqrt
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
 from rocket_propulsion.core.validation import real, text
@@ -204,12 +204,13 @@ def mach_from_isentropic(
       logarithm, without first rounding the sonic temperature ratio;
     * area ratio: solve the complete logarithmic area relation inside the
       selected branch with safeguarded Decimal Newton/bisection steps;
-    * Prandtl-Meyer angle: complete small-angle inversion, or native Newton
-      iteration using ``d nu/dM = sqrt(M^2-1)/(M X)`` inside a shrinking bracket.
+    * Prandtl-Meyer angle: complete Decimal evaluations and degree conversion,
+      with safeguarded Newton/bisection inside a shrinking bracket using
+      ``d nu/dM = sqrt(M^2-1)/(M X)``.
 
     Derived results lie in ``[1e-8, 1000]``; the six scalar flow-ratio inverses
     compare their complete logarithmic root with these bounds before float
-    export. Mach-angle and area inverses also compare before export.
+    export. Mach-angle, area and Prandtl-Meyer inverses also compare before export.
     Direct ``input_kind='mach'`` validates and returns any positive
     finite Mach without imposing this inverse bracket. The area ratio is
     double-valued, so the subsonic or supersonic branch must be named explicitly;
@@ -234,16 +235,10 @@ def mach_from_isentropic(
             raise DomainError('Mach angle must be in the interval (0, 90].', field='value')
         return mach_angle_inverse(value, _MINIMUM_MACH, _MAXIMUM_MACH)
     if input_kind == "prandtl_meyer_deg":
-        maximum = 180.0/(gamma-1)/(sqrt((gamma+1)/(gamma-1))+1)
-        if not 0.0 <= value < maximum:
-            raise DomainError(f"Prandtl-Meyer angle must be in [0, {maximum:g}).")
         if value == 0.0:
             return 1.0
-        if value <= 1.0e-4:
-            return sonic_inverse(value, gamma, area=False,
-                                  minimum_mach=_MINIMUM_MACH, maximum_mach=_MAXIMUM_MACH)
-        return _newton_bracketed(lambda m: _prandtl_meyer_deg(m, gamma), _prandtl_meyer_slope(gamma),
-                                 value, 1.0, _MAXIMUM_MACH, input_kind)
+        return sonic_inverse(value, gamma, area=False,
+                              minimum_mach=_MINIMUM_MACH, maximum_mach=_MAXIMUM_MACH)
 
     if input_kind in {
         'pressure_total_ratio', 'pressure_critical_ratio',
@@ -277,11 +272,7 @@ def _area_ratio(mach: float, gamma: float) -> float:
 
 
 def _prandtl_meyer_deg(mach: float, gamma: float) -> float:
-    if 1.0 <= mach <= 1.01 or gamma >= 1e6:
-        return sonic_pm(mach, gamma)
-    root = sqrt(max(0.0, (mach-1.0)*(mach+1.0)))
-    return degrees(sqrt((gamma + 1.0) / (gamma - 1.0)) * atan(sqrt((gamma - 1.0) / (gamma + 1.0)) * root)
-                   - atan(root))
+    return sonic_pm(mach, gamma)
 
 
 def _prandtl_meyer_slope(gamma: float):

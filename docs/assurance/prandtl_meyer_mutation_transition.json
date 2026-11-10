@@ -1,0 +1,22 @@
+{
+  "parent_commit": "fa037cf",
+  "transitions": [
+    {
+      "old": [
+        "sonic_pm_precise_angle_bypassed",
+        "src/rocket_propulsion/compressible/isentropic.py",
+        "    if 1.0 <= mach <= 1.01 or gamma >= 1e6:\n        return sonic_pm(mach, gamma)\n",
+        "",
+        "tests/test_geometry_precision.py::GeometryPrecisionTests::test_pm_evaluation_matches_independent_scaled_differential_quadrature"
+      ],
+      "new": [
+        "sonic_pm_precise_angle_bypassed",
+        "src/rocket_propulsion/compressible/isentropic.py",
+        "    return sonic_pm(mach, gamma)",
+        "    from math import atan\n    root = sqrt(max(0.0, (mach-1.0)*(mach+1.0)))\n    return degrees(sqrt((gamma+1)/(gamma-1))*atan(sqrt((gamma-1)/(gamma+1))*root)-atan(root))",
+        "tests/test_geometry_precision.py::GeometryPrecisionTests::test_pm_evaluation_matches_independent_scaled_differential_quadrature"
+      ],
+      "reason": "All forward PM values now use the complete expression. Restore native cancellation under the existing differential-quadrature selector; no historical kill is silently renewed."
+    }
+  ]
+}

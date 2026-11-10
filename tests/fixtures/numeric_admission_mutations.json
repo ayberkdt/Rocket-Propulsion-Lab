@@ -919,8 +919,8 @@
   [
     "sonic_pm_precise_angle_bypassed",
     "src/rocket_propulsion/compressible/isentropic.py",
-    "    if 1.0 <= mach <= 1.01 or gamma >= 1e6:\n        return sonic_pm(mach, gamma)\n",
-    "",
+    "    return sonic_pm(mach, gamma)",
+    "    from math import atan\n    root = sqrt(max(0.0, (mach-1.0)*(mach+1.0)))\n    return degrees(sqrt((gamma+1)/(gamma-1))*atan(sqrt((gamma-1)/(gamma+1))*root)-atan(root))",
     "tests/test_geometry_precision.py::GeometryPrecisionTests::test_pm_evaluation_matches_independent_scaled_differential_quadrature"
   ],
   [
@@ -1363,5 +1363,187 @@
     "            return following",
     "            return argument",
     "tests/test_isentropic_area_angle_inverse.py::IsentropicAreaAngleInverseTests::test_angle_degree_conversion_and_gamma_independence"
+  ],
+  [
+    "pm_native_inverse_callback_restored",
+    "src/rocket_propulsion/compressible/isentropic.py",
+    "        return sonic_inverse(value, gamma, area=False,\n                              minimum_mach=_MINIMUM_MACH, maximum_mach=_MAXIMUM_MACH)",
+    "        return _newton_bracketed(lambda m: _prandtl_meyer_deg(m, gamma), _prandtl_meyer_slope(gamma),\n                                 value, 1.0, _MAXIMUM_MACH, input_kind)",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_exact_supplied_angles_resolve_beyond_native_callback_plateaus"
+  ],
+  [
+    "pm_endpoint_rounded_before_admission",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    if wanted > _pm(upper, gamma, pi_value):",
+    "    if wanted > D.from_float(float(_pm(upper, gamma, pi_value))):",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_upper_boundary_neighbors_classify_before_float_export"
+  ],
+  [
+    "pm_inverse_range_check_removed",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    if wanted > _pm(upper, gamma, pi_value):",
+    "    if False:",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_upper_boundary_neighbors_classify_before_float_export"
+  ],
+  [
+    "pm_inverse_range_wrong_field",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "        raise DomainError('PM angle corresponds to a root outside the inverse bracket.',\n                          code='outside_inverse_range', field='value')",
+    "        raise DomainError('PM angle corresponds to a root outside the inverse bracket.',\n                          code='outside_inverse_range', field='mach')",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_upper_boundary_neighbors_classify_before_float_export"
+  ],
+  [
+    "pm_inverse_range_wrong_code",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "        raise DomainError('PM angle corresponds to a root outside the inverse bracket.',\n                          code='outside_inverse_range', field='value')",
+    "        raise DomainError('PM angle corresponds to a root outside the inverse bracket.',\n                          code='numeric_range', field='value')",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_upper_boundary_neighbors_classify_before_float_export"
+  ],
+  [
+    "pm_physical_interval_not_checked",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    if not 0 <= wanted < limit:",
+    "    if False:",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_physical_refusals_identify_the_supplied_value"
+  ],
+  [
+    "pm_physical_refusal_wrong_field",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "        raise DomainError('PM angle is outside its physical interval.', field='value')",
+    "        raise DomainError('PM angle is outside its physical interval.', field='mach')",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_physical_refusals_identify_the_supplied_value"
+  ],
+  [
+    "pm_pi_rounded_to_binary64",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "        return 4*_atan(D(1))",
+    "        return D.from_float(__import__(\"math\").pi)",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_exact_supplied_angles_resolve_beyond_native_callback_plateaus"
+  ],
+  [
+    "pm_pi_cache_miss_inherits_defaults",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    context = Context(prec=precision, rounding=ROUND_HALF_EVEN,\n                      Emin=-999999, Emax=999999, capitals=1, clamp=0, flags=[],\n                      traps=[InvalidOperation, DivisionByZero, Overflow])",
+    "    context = Context(prec=precision)",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_pi_cache_misses_own_mutable_default_context"
+  ],
+  [
+    "pm_pi_cache_miss_inherits_caller",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    with localcontext(context):",
+    "    with localcontext():",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_pi_cache_seeded_by_low_precision_caller_cannot_corrupt_forward_or_inverse"
+  ],
+  [
+    "pm_inverse_budget_exported",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    raise ConvergenceError('PM inverse exhausted its iteration budget.',\n                           code='prandtl_meyer_not_converged', field='value')",
+    "    return float(mach)",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_exhausted_inverse_does_not_export_an_unresolved_iterate"
+  ],
+  [
+    "pm_failed_callback_exports_sonic",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "            raise ConvergenceError('PM inverse evaluation did not settle.',\n                                   code='prandtl_meyer_not_converged', field='value') from error",
+    "            return 1.0",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_failed_angle_evaluation_preserves_the_inverse_failure_cause"
+  ],
+  [
+    "pm_failed_callback_loses_cause",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "            raise ConvergenceError('PM inverse evaluation did not settle.',\n                                   code='prandtl_meyer_not_converged', field='value') from error",
+    "            raise ConvergenceError('PM inverse evaluation did not settle.',\n                                   code='prandtl_meyer_not_converged', field='value') from None",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_failed_angle_evaluation_preserves_the_inverse_failure_cause"
+  ],
+  [
+    "pm_inverse_premature_step_acceptance",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "        if float(lower) == float(upper):\n            return float(lower)\n        derivative = ((mach-1)*(mach+1)).sqrt()",
+    "        if abs(upper-lower) < D(\".01\"):\n            return float(lower)\n        derivative = ((mach-1)*(mach+1)).sqrt()",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_exact_supplied_angles_resolve_beyond_native_callback_plateaus"
+  ],
+  [
+    "pm_inverse_bracket_update_reversed",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "        if residual > 0:\n            upper = mach",
+    "        if residual < 0:\n            upper = mach",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_two_valid_upper_bracket_angles_are_not_falsely_refused"
+  ],
+  [
+    "pm_near_sonic_partial_series_exported",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    raise ConvergenceError('Near-sonic PM series did not settle.', field='prandtl_meyer_deg')",
+    "    return b*total*180/pi_value",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_forward_series_exhaustion_is_never_a_partial_angle"
+  ],
+  [
+    "pm_partial_arctangent_exported",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    raise ConvergenceError('Decimal arctangent did not settle.', field='prandtl_meyer_deg')",
+    "    return multiplier*total",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_forward_series_exhaustion_is_never_a_partial_angle"
+  ],
+  [
+    "pm_forward_underflow_exports_zero",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    if value and result == 0.:",
+    "    if False:",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_nonzero_unrepresentable_forward_angle_has_a_typed_refusal"
+  ],
+  [
+    "pm_forward_degree_scale_wrong",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "        return (factor*_atan(root/factor)-_atan(root))*180/pi_value",
+    "        return (factor*_atan(root/factor)-_atan(root))*90/pi_value",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_forward_angles_match_independent_differential_quadrature"
+  ],
+  [
+    "pm_unchecked_native_bracket_admitted",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    lo_exact = proposed_lo if _pm(proposed_lo, gamma, pi_value) <= wanted else D(1)\n    hi_exact = proposed_hi if _pm(proposed_hi, gamma, pi_value) >= wanted else maximum",
+    "    lo_exact, hi_exact = proposed_lo, proposed_hi",
+    "tests/test_prandtl_meyer_precision.py::PrandtlMeyerPrecisionTests::test_inaccurate_native_bracket_proposals_cannot_exclude_the_true_root"
+  ],
+  [
+    "normal_shock_entropy_sign_reversed",
+    "src/rocket_propulsion/compressible/normal_shock.py",
+    "        log_recovery = (g * density.ln() - pressure.ln()) / gm",
+    "        log_recovery = (pressure.ln() - g * density.ln()) / gm",
+    "tests/test_normal_shock_precision.py::test_normal_shock_complete_outputs_against_conservation[2.0-1.4]"
+  ],
+  [
+    "normal_shock_recovery_uses_rounded_static_ratios",
+    "src/rocket_propulsion/compressible/normal_shock.py",
+    "        log_recovery = (g * density.ln() - pressure.ln()) / gm",
+    "        log_recovery = (g * Decimal.from_float(density_ratio).ln() - Decimal.from_float(pressure_ratio).ln()) / gm",
+    "tests/test_normal_shock_precision.py::test_normal_shock_complete_outputs_against_conservation[1.0000000000000002-1.0000000000000002]"
+  ],
+  [
+    "normal_shock_accepts_zero_recovery",
+    "src/rocket_propulsion/compressible/normal_shock.py",
+    "    if not isfinite(result) or result <= 0.0:",
+    "    if not isfinite(result) or result < 0.0:",
+    "tests/test_normal_shock_precision.py::test_normal_shock_unrepresentable_outputs_have_typed_failures"
+  ],
+  [
+    "normal_shock_uses_inlet_label_for_pressure_overflow",
+    "src/rocket_propulsion/compressible/normal_shock.py",
+    "        pressure_ratio = _positive_export(pressure, \"pressure_ratio\")",
+    "        pressure_ratio = _positive_export(pressure, \"upstream_mach\")",
+    "tests/test_normal_shock_precision.py::test_normal_shock_unrepresentable_outputs_have_typed_failures"
+  ],
+  [
+    "normal_shock_inherits_caller_decimal_context",
+    "src/rocket_propulsion/compressible/normal_shock.py",
+    "    with localcontext(context):",
+    "    with localcontext():",
+    "tests/test_normal_shock_precision.py::test_normal_shock_route_retains_context_and_strict_json"
+  ],
+  [
+    "normal_shock_accepts_bool_gamma",
+    "src/rocket_propulsion/compressible/normal_shock.py",
+    "    specific_heat_ratio = real(gamma, \"gamma\")",
+    "    specific_heat_ratio = 1.4 if isinstance(gamma, bool) else real(gamma, \"gamma\")",
+    "tests/test_normal_shock_precision.py::test_normal_shock_direct_input_failure_identifies_the_field"
   ]
 ]

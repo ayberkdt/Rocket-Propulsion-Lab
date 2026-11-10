@@ -9,6 +9,16 @@ function counts.
 
 ## Added scope
 
+- Normal shocks now evaluate the coupled static ratios and log total-pressure
+  recovery before floating-point export. A conservation-based oracle reproduces
+  the old false total-pressure increase, false refusal and nonfinite results.
+  See `NORMAL_SHOCK_RANGE_REVIEW.md` for model scope and evidence.
+
+- Complete Prandtl–Meyer forward and inverse arithmetic now uses private
+  high-precision expressions, pre-export endpoint admission and typed failure
+  controls (`PRANDTL_MEYER_REVIEW.md`). Physical flow validation and motor/feed
+  readiness remain separate requirements.
+
 - Area and Mach-angle inverses now avoid private endpoint overflow and degree
   underflow, and compare complete roots before export
   (`AREA_ANGLE_INVERSE_REVIEW.md`). PM inversion and empirical motor/feed
