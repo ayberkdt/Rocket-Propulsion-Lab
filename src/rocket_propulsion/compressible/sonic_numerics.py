@@ -6,6 +6,14 @@ cancel. Area inversion uses safeguarded Newton/bisection in a branch bracket.
 Computed zeros or bounds exporting to the same binary64 value terminate the
 iteration; this is not an empirical validation or global root proof.
 
+A faster first stage returns the same binary64 values for most inputs. A
+native estimate proposes the nearest binary64 Mach number; lower-precision
+Decimal residuals with explicit error bounds then prove that the root lies
+between that value's two half-ULP boundaries. Forward angles are accepted
+only when the bounded interval rounds to one value. Any uncertain sign, tie,
+nonzero underflow or rejected estimate falls back to the complete algorithm
+below, which also performs every admission refusal.
+
 References
 ----------
 .. [1] NACA-TR-1135. https://ntrs.nasa.gov/citations/19930091059
@@ -17,11 +25,12 @@ from decimal import (
     DivisionByZero,
     InvalidOperation,
     Overflow,
+    getcontext,
     localcontext,
 )
 from decimal import Decimal as D
 from functools import lru_cache
-from math import atan, degrees, sqrt, ulp
+from math import atan, degrees, inf, isfinite, log, nextafter, sqrt, ulp
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
 
@@ -29,6 +38,12 @@ _AREA_INVERSE_ITERATIONS = 512
 _PM_INVERSE_ITERATIONS = 512
 _PM_SERIES_ITERATIONS = 512
 _ATAN_SERIES_ITERATIONS = 2048
+# First-stage controls: fewer digits than the complete stage, and an error
+# allowance of 10**(_BOUND_MARGIN - precision) times the term magnitudes.
+_FAST_PATH = True
+_FAST_DIGITS_BELOW_COMPLETE = 60
+_BOUND_MARGIN = 8
+_ROUNDING_STEPS = 6
 
 
 def _precision(gamma):
@@ -94,6 +109,10 @@ def _pm(mach, gamma, pi_value):
 
 def sonic_pm(mach, gamma):
     """Evaluate PM in degrees with independent decimal context and checked export."""
+    if _FAST_PATH:
+        fast = _fast_pm(mach, gamma)
+        if fast is not None:
+            return fast
     with localcontext(_context(gamma)):
         value = _pm(D(mach), D(gamma), _decimal_pi(_precision(gamma)))
         result = float(value)
@@ -111,10 +130,15 @@ def sonic_area(mach, gamma):
         return float(logarithm.exp())
 
 
+def _log_area(m, gamma):
+    """Complete log(A/A*) in the active Decimal context."""
+    return ((gamma+1)/(2*(gamma-1)))*((2+(gamma-1)*m*m)/(gamma+1)).ln()-m.ln()
+
+
 def _area_inverse(wanted, gamma, lower, upper, subsonic):
     """Solve log(A/A*) on one branch; private context is owned by sonic_inverse."""
     def value(m):
-        return ((gamma+1)/(2*(gamma-1)))*((2+(gamma-1)*m*m)/(gamma+1)).ln()-m.ln()
+        return _log_area(m, gamma)
 
     log_left, log_right = value(lower), value(upper)
     if not min(log_left, log_right) <= wanted <= max(log_left, log_right):
@@ -198,6 +222,11 @@ def _pm_inverse(wanted, gamma, maximum, pi_value):
 
 def sonic_inverse(target, gamma, *, area, minimum_mach, maximum_mach, subsonic=False):
     """Invert an area ratio or PM angle within the existing Mach bracket."""
+    if _FAST_PATH:
+        fast = (_fast_area_inverse(target, gamma, minimum_mach, maximum_mach, subsonic) if area
+                else _fast_pm_inverse(target, gamma, maximum_mach))
+        if fast is not None:
+            return fast
     with localcontext(_context(gamma)):
         g, wanted = D(gamma), D(target)
         if area:
@@ -210,3 +239,222 @@ def sonic_inverse(target, gamma, *, area, minimum_mach, maximum_mach, subsonic=F
         except ConvergenceError as error:
             raise ConvergenceError('PM inverse evaluation did not settle.',
                                    code='prandtl_meyer_not_converged', field='value') from error
+
+
+# --- Bounded first stage ---------------------------------------------------------
+
+
+def _fast_context(gamma):
+    """Own every setting, as _context does, at the first-stage precision."""
+    return Context(prec=_precision(gamma)-_FAST_DIGITS_BELOW_COMPLETE, rounding=ROUND_HALF_EVEN,
+                   Emin=-999999, Emax=999999, capitals=1, clamp=0, flags=[],
+                   traps=[InvalidOperation, DivisionByZero, Overflow])
+
+
+# Midpoints of two binary64 values have finite decimal expansions well below
+# this precision, so they are exact.
+_EXACT = Context(prec=1200, rounding=ROUND_HALF_EVEN, Emin=-999999, Emax=999999,
+                 capitals=1, clamp=0, flags=[], traps=[InvalidOperation, DivisionByZero, Overflow])
+
+
+def _midpoint(left, right):
+    return _EXACT.divide(_EXACT.add(D(left), D(right)), 2)
+
+
+def _bound(magnitude):
+    """Absolute error allowance at the active first-stage precision."""
+    return magnitude*D(10)**(_BOUND_MARGIN-getcontext().prec)
+
+
+def _sign(residual, allowance):
+    """Return the certain sign of a bounded residual, or 0 when it is uncertain."""
+    if abs(residual) <= allowance:
+        return 0
+    return 1 if residual > 0 else -1
+
+
+def _jump(point, residual, slope, value, direction, lower, upper):
+    """Next binary64 candidate on the proved side: a Newton step from ``point``.
+
+    The step only proposes a value; it is accepted later by its own boundary
+    proofs. It always moves at least one binary64 step toward the root.
+    """
+    try:
+        candidate = float(point-residual/slope(point))
+    except (ArithmeticError, OverflowError):
+        candidate = value
+    step = nextafter(value, direction)
+    if direction < 0:
+        candidate = min(candidate, step) if isfinite(candidate) else step
+    else:
+        candidate = max(candidate, step) if isfinite(candidate) else step
+    return min(max(candidate, lower), upper)
+
+
+def _nearest(estimate, normalized, slope, lower, upper):
+    """Return the binary64 value nearest the root, or None when it is not proved.
+
+    ``normalized(x)`` returns ``(sign, residual)`` of an increasing residual at
+    the exact decimal ``x``; the sign is 0 when the bound leaves it uncertain.
+    ``slope(x)`` is its positive derivative. The root rounds to ``value`` when
+    it lies strictly between that value's half-ULP boundaries; the caller has
+    admitted the bracket ends. Moves follow only a proved side.
+    """
+    if estimate is None or not isfinite(estimate):
+        return None
+    value = min(max(estimate, lower), upper)
+    for _ in range(_ROUNDING_STEPS):
+        if value > lower:
+            point = _midpoint(nextafter(value, -inf), value)
+            below, residual = normalized(point)
+            if below == 0:
+                return None
+            if below > 0:
+                value = _jump(point, residual, slope, value, -inf, lower, upper)
+                continue
+        if value < upper:
+            point = _midpoint(value, nextafter(value, inf))
+            above, residual = normalized(point)
+            if above == 0:
+                return None
+            if above < 0:
+                value = _jump(point, residual, slope, value, inf, lower, upper)
+                continue
+        return value
+    return None
+
+
+def _native_pm(mach, gamma):
+    """Native PM estimate in degrees; the near-sonic series avoids cancellation."""
+    squared = (mach-1.0)*(mach+1.0)
+    if squared <= 0.0:
+        return 0.0
+    root = sqrt(squared)
+    if mach > 1.1:
+        factor = sqrt((gamma+1.0)/(gamma-1.0))
+        return degrees(factor*atan(root/factor)-atan(root))
+    b = 2.0/(gamma+1.0)
+    a = 1.0-b
+    power, geometric, a_power, total = squared*root, 1.0, 1.0, 0.0
+    for n in range(1, 200):
+        term = geometric*power/(2*n+1)
+        previous = total
+        total += term if n % 2 else -term
+        if total == previous:
+            break
+        power *= squared
+        a_power *= a
+        geometric += a_power
+    return degrees(b*total)
+
+
+def _native_root(function, slope, lower, upper, increasing):
+    """Safeguarded native Newton/bisection estimate; None when it cannot proceed."""
+    try:
+        low, high = lower, upper
+        mach = 0.5*(low+high) if high < 10.0 else sqrt(low*high)
+        for _ in range(200):
+            residual = function(mach)
+            if residual == 0.0:
+                return mach
+            if (residual > 0.0) == increasing:
+                high = mach
+            else:
+                low = mach
+            derivative = slope(mach)
+            candidate = mach-residual/derivative if derivative and isfinite(derivative) else 0.5*(low+high)
+            if not low < candidate < high:
+                candidate = sqrt(low*high) if high/low > 4.0 else 0.5*(low+high)
+            if candidate == mach or high-low <= 4.0*ulp(high):
+                return candidate
+            mach = candidate
+    except (ArithmeticError, ValueError):
+        return None
+    return mach
+
+
+def _fast_pm(mach, gamma):
+    """Return the binary64 PM angle when a bounded first-stage value proves it."""
+    try:
+        with localcontext(_fast_context(gamma)):
+            m, g = D(mach), D(gamma)
+            value = _pm(m, g, _decimal_pi(getcontext().prec))
+            magnitude = (((g+1)/(g-1)).sqrt()+1)*90 if m > D('1.01') else 2*abs(value)
+            allowance = _bound(magnitude)
+            low, high = float(value-allowance), float(value+allowance)
+    except (ArithmeticError, ConvergenceError):
+        return None
+    return low if low == high and low != 0.0 else None
+
+
+def _fast_pm_inverse(target, gamma, maximum_mach):
+    """Nearest binary64 Mach for a PM angle, or None to use the complete stage."""
+    if not (1.05 <= gamma <= 1e6 and target > 0.0):
+        return None
+    try:
+        limit = degrees(0.5*3.141592653589793*(sqrt((gamma+1.0)/(gamma-1.0))-1.0))
+        # Conservative native admission: anything near the physical limit or
+        # the inverse bracket is left to the complete stage and its refusals.
+        if not (target < 0.999*limit and target < 0.999*_native_pm(maximum_mach, gamma)):
+            return None
+        estimate = _native_root(lambda m: _native_pm(m, gamma)-target,
+                                lambda m: degrees(sqrt(max(0.0, m*m-1.0))/(m*(1.0+0.5*(gamma-1.0)*m*m))),
+                                1.0, maximum_mach, True)
+        with localcontext(_fast_context(gamma)):
+            g, wanted = D(gamma), D(target)
+            pi_value = _decimal_pi(getcontext().prec)
+            factor_bound = (((g+1)/(g-1)).sqrt()+1)*90
+
+            def normalized(m):
+                value = _pm(m, g, pi_value)
+                magnitude = factor_bound if m > D('1.01') else 2*abs(value)
+                return _sign(value-wanted, _bound(magnitude+wanted)), value-wanted
+
+            def slope(m):
+                return ((m-1)*(m+1)).sqrt()/(m*(1+(g-1)*m*m/2))*180/pi_value
+
+            return _nearest(estimate, normalized, slope, 1.0, maximum_mach)
+    except (ArithmeticError, ConvergenceError, ValueError):
+        return None
+
+
+def _native_log_area(mach, gamma):
+    return (gamma+1.0)/(2.0*(gamma-1.0))*log((2.0+(gamma-1.0)*mach*mach)/(gamma+1.0))-log(mach)
+
+
+def _fast_area_inverse(target, gamma, minimum_mach, maximum_mach, subsonic):
+    """Nearest binary64 Mach for an area ratio on one branch, or None."""
+    if not (1.0 < gamma <= 1e6 and target > 1.0):
+        return None
+    lower, upper = (minimum_mach, 1.0) if subsonic else (1.0, maximum_mach)
+    try:
+        wanted_native = log(target)
+        endpoint = _native_log_area(minimum_mach if subsonic else maximum_mach, gamma)
+        # Conservative native admission; refusals stay with the complete stage.
+        if not wanted_native < endpoint-1e-6*(abs(endpoint)+1.0):
+            return None
+        estimate = _native_root(lambda m: _native_log_area(m, gamma)-wanted_native,
+                                lambda m: (m*m-1.0)/(m*(1.0+0.5*(gamma-1.0)*m*m)),
+                                lower, upper, not subsonic)
+        with localcontext(_fast_context(gamma)):
+            g = D(gamma)
+            wanted = D(target).ln()
+            scale = abs((g+1)/(2*(g-1)))
+
+            def normalized(m):
+                # Native magnitudes overestimate generously; the bound only needs scale.
+                native = float(m)
+                quotient = (2.0+(gamma-1.0)*native*native)/(gamma+1.0)
+                magnitude = 2*(scale*D(abs(log(quotient))+1.0)+D(abs(log(native))+1.0)+abs(wanted))
+                residual = _log_area(m, g)-wanted
+                certain = _sign(residual, _bound(magnitude))
+                return (-certain, -residual) if subsonic else (certain, residual)
+
+            def slope(m):
+                derivative = (m*m-1)/(m*(1+(g-1)*m*m/2))
+                return -derivative if subsonic else derivative
+
+            return _nearest(estimate, normalized, slope, lower, upper)
+    except (ArithmeticError, ConvergenceError, ValueError):
+        return None
+

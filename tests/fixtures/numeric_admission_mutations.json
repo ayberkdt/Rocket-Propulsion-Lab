@@ -1545,5 +1545,47 @@
     "    specific_heat_ratio = real(gamma, \"gamma\")",
     "    specific_heat_ratio = 1.4 if isinstance(gamma, bool) else real(gamma, \"gamma\")",
     "tests/test_normal_shock_precision.py::test_normal_shock_direct_input_failure_identifies_the_field"
+  ],
+  [
+    "sonic_fast_sign_bound_ignored",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    if abs(residual) <= allowance:",
+    "    if abs(residual) <= 0:",
+    "tests/test_sonic_fast_path.py::BoundedFirstStageTests::test_uncertain_signs_and_wide_intervals_defer_to_the_complete_stage"
+  ],
+  [
+    "sonic_fast_forward_unproved_interval_accepted",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    return low if low == high and low != 0.0 else None",
+    "    return low if low != 0.0 else None",
+    "tests/test_sonic_fast_path.py::BoundedFirstStageTests::test_uncertain_signs_and_wide_intervals_defer_to_the_complete_stage"
+  ],
+  [
+    "sonic_fast_midpoint_not_half_ulp",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    return _EXACT.divide(_EXACT.add(D(left), D(right)), 2)",
+    "    return D(left)",
+    "tests/test_sonic_fast_path.py::BoundedFirstStageTests::test_midpoints_are_exact_half_ulp_boundaries"
+  ],
+  [
+    "sonic_fast_lower_boundary_side_reversed",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "            if below > 0:\n                value = _jump(point, residual, slope, value, -inf, lower, upper)",
+    "            if below < 0:\n                value = _jump(point, residual, slope, value, -inf, lower, upper)",
+    "tests/test_sonic_fast_path.py::BoundedFirstStageTests::test_forward_and_inverse_values_match_the_complete_stage_bit_for_bit"
+  ],
+  [
+    "sonic_fast_upper_boundary_side_reversed",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "            if above < 0:\n                value = _jump(point, residual, slope, value, inf, lower, upper)",
+    "            if above > 0:\n                value = _jump(point, residual, slope, value, inf, lower, upper)",
+    "tests/test_sonic_fast_path.py::BoundedFirstStageTests::test_forward_and_inverse_values_match_the_complete_stage_bit_for_bit"
+  ],
+  [
+    "sonic_fast_subsonic_orientation_lost",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "                return (-certain, -residual) if subsonic else (certain, residual)",
+    "                return (certain, residual)",
+    "tests/test_sonic_fast_path.py::BoundedFirstStageTests::test_ordinary_nozzle_states_are_answered_by_the_first_stage"
   ]
 ]

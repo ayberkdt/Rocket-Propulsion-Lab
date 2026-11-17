@@ -1,5 +1,12 @@
 # Release notes
 
+Prandtl-Meyer angles and area and Prandtl-Meyer inverses first try a bounded
+lower-precision stage that proves the same binary64 result, and fall back to
+the unchanged complete Decimal stage otherwise. MOC meshes reuse repeated
+inversions within one build. Outputs are unchanged bit for bit; a 20-line MOC
+nozzle drops from 5.42 s to 0.16 s and Rao and bell contours from about 0.7 s
+to 0.1 s. See [SONIC_FIRST_STAGE_REVIEW.md](SONIC_FIRST_STAGE_REVIEW.md).
+
 Variable cooling-channel profiles now capture single-pass columns once,
 normalize physical values and own channel counts and helix inputs. Direct
 queries refuse malformed coordinates; interpolation preserves finite geometry

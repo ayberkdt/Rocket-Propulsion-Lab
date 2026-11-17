@@ -219,7 +219,9 @@ class PrandtlMeyerPrecisionTests(unittest.TestCase):
                 sonic_numerics._decimal_pi.cache_clear()
 
     def test_exhausted_inverse_does_not_export_an_unresolved_iterate(self):
+        # The budget belongs to the complete stage; select it explicitly.
         with (patch.object(sonic_numerics, '_PM_INVERSE_ITERATIONS', 1),
+              patch.object(sonic_numerics, '_FAST_PATH', False),
               self.assertRaises(ConvergenceError) as caught):
             mach_from_isentropic('prandtl_meyer_deg', 20., 1.4)
         self.assertEqual(caught.exception.code, 'prandtl_meyer_not_converged')

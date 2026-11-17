@@ -214,8 +214,12 @@ def _intersection(
     return x, y1 + slope1 * (x - x1)
 
 
-def _state_gamma(theta: float, nu: float, gamma: float) -> _Point:
+def _state_gamma(theta: float, nu: float, gamma: float,
+                 memo: dict[tuple[float, float], float] | None = None) -> _Point:
     """Return the node state for flow angle ``theta`` and Prandtl-Meyer angle ``nu``.
+
+    ``memo`` optionally reuses inverted Mach numbers for repeated ``(nu, gamma)``
+    within one mesh build; the inverse is a pure function of those floats.
 
     Mach number is obtained by inverting the Prandtl-Meyer function [1]_;
     ``mu = asin(1/M)`` and the invariants are ``K+ = theta - nu`` and
@@ -237,7 +241,12 @@ def _state_gamma(theta: float, nu: float, gamma: float) -> _Point:
             code="moc_invalid_state",
             details={"theta_deg": theta, "nu_deg": nu},
         )
-    mach = mach_from_isentropic("prandtl_meyer_deg", max(0.0, nu), gamma)
+    key = (max(0.0, nu), gamma)
+    mach = memo.get(key) if memo is not None else None
+    if mach is None:
+        mach = mach_from_isentropic("prandtl_meyer_deg", key[0], gamma)
+        if memo is not None:
+            memo[key] = mach
     mu = degrees(asin(1.0 / mach))
     return _Point(theta, nu, mach, mu, theta - nu, theta + nu)
 
@@ -272,6 +281,7 @@ def _normalized_mesh(
     .. [2] NASA-MOC-CARTESIAN-1993. Aldo and Argrow, Cartesian characteristic and
            compatibility equations (1a,b). https://ntrs.nasa.gov/citations/19940019183
     """
+    memo: dict[tuple[float, float], float] = {}
     exit_nu = calculate_isentropic(exit_mach, gamma).prandtl_meyer_deg
     assert exit_nu is not None
     maximum_wall_angle = 0.5 * exit_nu
@@ -279,7 +289,7 @@ def _normalized_mesh(
     angle_step = maximum_wall_angle / characteristic_count
     rows: list[list[_Point]] = []
     wall: list[_Point] = []
-    throat_wall = _state_gamma(maximum_wall_angle, maximum_wall_angle, gamma)
+    throat_wall = _state_gamma(maximum_wall_angle, maximum_wall_angle, gamma, memo=memo)
     throat_wall.x = 0.0
     throat_wall.y = throat_y
     throat_wall.boundary = "wall"
@@ -292,13 +302,13 @@ def _normalized_mesh(
         row: list[_Point] = []
         for column in range(length):
             if column == 0:
-                point = _state_gamma(0.0, 2.0 * fan_angle, gamma)
+                point = _state_gamma(0.0, 2.0 * fan_angle, gamma, memo=memo)
                 point.boundary = "centerline"
             elif column == length - 1:
                 incoming = row[column - 1]
                 theta = maximum_wall_angle - fan_angle
                 nu = theta - incoming.k_plus
-                point = _state_gamma(theta, nu, gamma)
+                point = _state_gamma(theta, nu, gamma, memo=memo)
                 point.boundary = "wall"
             else:
                 lower = row[column - 1]
@@ -308,12 +318,11 @@ def _normalized_mesh(
                 point = _state_gamma(
                     0.5 * (k_plus + k_minus),
                     0.5 * (k_minus - k_plus),
-                    gamma,
-                )
+                    gamma, memo=memo)
 
             if column == 0:
                 if row_index == 0:
-                    source = _state_gamma(fan_angle, fan_angle, gamma)
+                    source = _state_gamma(fan_angle, fan_angle, gamma, memo=memo)
                     source_x, source_y = 0.0, throat_y
                 else:
                     source = rows[row_index - 1][1]
@@ -364,7 +373,7 @@ def _normalized_mesh(
                 lower = row[column - 1]
                 if row_index == 0:
                     initial_angle = (fan_index + column) * angle_step
-                    upper_state = _state_gamma(initial_angle, initial_angle, gamma)
+                    upper_state = _state_gamma(initial_angle, initial_angle, gamma, memo=memo)
                     upper_x, upper_y = 0.0, throat_y
                 else:
                     upper_state = rows[row_index - 1][column + 1]

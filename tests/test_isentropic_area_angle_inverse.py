@@ -135,7 +135,10 @@ class IsentropicAreaAngleInverseTests(unittest.TestCase):
                 DefaultContext.flags=saved.flags;DefaultContext.traps=saved.traps
 
     def test_area_budget_exhaustion_is_not_a_last_iterate(self):
+        # The budget belongs to the complete stage; the bounded first stage
+        # would otherwise prove this ordinary root without iterating.
         with (patch('rocket_propulsion.compressible.sonic_numerics._AREA_INVERSE_ITERATIONS',0),
+              patch('rocket_propulsion.compressible.sonic_numerics._FAST_PATH',False),
               self.assertRaises(ConvergenceError) as caught):
             mach_from_isentropic('area_ratio_supersonic',2.,1.4)
         self.assertEqual(caught.exception.code,'area_inverse_not_converged')
