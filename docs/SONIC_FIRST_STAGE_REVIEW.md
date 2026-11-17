@@ -88,11 +88,32 @@ new first-stage cases (unproved interval, ignored allowance, unreset stage
 marker) are killed; the unproved-interval case first survived until a 1e-3
 allowance test was added.
 
+## Area inverses: table logarithm and anchored boundaries
+
+The area first stage no longer calls Decimal `ln` at each boundary. Its
+logarithm reduces a value to `2**k * u` with `1 <= u < 2` and uses a cached
+256-point table of `ln(1 + j/256)` (five guard digits) plus a short `log1p`
+series. The first boundary point is evaluated in full; nearby points within a
+relative distance of 1e-6 extrapolate from it with `log1p` series. These are
+first-stage arithmetic only; the complete stage still uses `_log_area`, and
+every result is still accepted only between proved half-ULP boundaries.
+
+- Warm area inverse on 300 mixed cases: 529 us at `eee42c1`, 161 us now, none
+  deferred to the complete stage.
+- Off-design nozzle call (area ratio 8, eight ambient pressures): 6.3 ms at
+  `ef00f3e`, 73.7 ms at `eee42c1`, 30.3 ms now.
+- Bit-for-bit comparison with two seeds: no difference; the 36 designs and
+  1,596-point sweep keep hash `9bbe8be8de885cc6`.
+- The table logarithm is checked against 60-digit Decimal `ln`, including
+  powers of two, table points and values beyond binary64. All 41 earlier sonic
+  mutation cases stay killed; four new cases (dropped power of two, wrong table
+  base, lost series sign, reversed anchor offset) are killed.
+
 ## Open
 
-Stagnation-ratio inverses still use only their complete stage. Off-design
-nozzle profiles make about 81 distinct area inverses each, at roughly 0.75 ms
-apiece in the first stage, so those tests remain slower than at `ef00f3e`.
+Stagnation-ratio inverses still use only their complete stage. Forward
+Prandtl-Meyer angles in the first stage still use the Decimal arctangent, so an
+off-design nozzle call remains about five times slower than at `ef00f3e`.
 The allowances are conservative engineering bounds derived from correctly
 rounded Decimal operations, not machine-checked proofs.
 

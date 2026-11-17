@@ -70,6 +70,22 @@ class BoundedFirstStageTests(unittest.TestCase):
             self.assertEqual(outcome(mach_from_isentropic, 'area_ratio_supersonic', 4., 1.22),
                              complete(mach_from_isentropic, 'area_ratio_supersonic', 4., 1.22))
 
+    def test_table_logarithm_stays_within_a_few_units_of_the_working_precision(self):
+        from decimal import Context, localcontext
+        rng = random.Random(7)
+        values = [Decimal(1), Decimal(2), Decimal('1.99999999999999999999'), Decimal(2)**-30, Decimal(2)**40,
+                  Decimal(1)+Decimal(1)/256, Decimal(1)+Decimal(255)/256, Decimal('7.31'), Decimal('1e-300'),
+                  Decimal('1e400'), Decimal('1e-400')]
+        values += [Decimal(math.exp(rng.uniform(-40., 40.))) for _ in range(60)]
+        for precision in (30, 36):
+            for value in values:
+                with self.subTest(precision=precision, value=value):
+                    with localcontext(Context(prec=precision, Emin=-999999, Emax=999999)):
+                        actual = sn._table_ln(value)
+                    with localcontext(Context(prec=precision+30, Emin=-999999, Emax=999999)):
+                        error = abs(actual-value.ln())
+                        self.assertLessEqual(error, (abs(value.ln())+1)*Decimal(10)**(3-precision))
+
     def test_midpoints_are_exact_half_ulp_boundaries(self):
         for value in (1., 1.5, 999.0, math.nextafter(1., 2.)):
             upper = math.nextafter(value, math.inf)

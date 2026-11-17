@@ -30,7 +30,7 @@ from decimal import (
 )
 from decimal import Decimal as D
 from functools import lru_cache
-from math import atan, degrees, inf, isfinite, log, nextafter, sqrt, ulp
+from math import atan, degrees, frexp, inf, isfinite, log, nextafter, sqrt, ulp
 
 from rocket_propulsion.core.errors import ConvergenceError, DomainError
 
@@ -44,6 +44,13 @@ _FAST_PATH = True
 _FAST_DIGITS_BELOW_COMPLETE = 60
 _BOUND_MARGIN = 8
 _ROUNDING_STEPS = 6
+# Boundary points within this relative distance of an evaluated anchor reuse
+# its complete log-area value through short log1p series.
+_ANCHOR_RADIUS = D('1e-6')
+_LOG1P_TERMS = 24
+# First-stage logarithms reduce y = 2**k * u, 1 <= u < 2, to a 256-point table
+# of ln(1 + j/256) and a short log1p series; the table is cached per precision.
+_LN_TABLE_SIZE = 256
 
 
 def _precision(gamma):
@@ -418,6 +425,57 @@ def _fast_pm_inverse(target, gamma, maximum_mach):
         return None
 
 
+def _log1p(value):
+    """Decimal ln(1 + value) for a small value, by its alternating series.
+
+    Terms are added until they fall below the active precision relative to
+    one; ``|value| <= _ANCHOR_RADIUS`` makes that a few terms. The truncation
+    is below the first-stage allowance, which also covers the rounding.
+    """
+    if not value:
+        return D(0)
+    limit = D(10)**(-getcontext().prec-2)
+    total, power = D(0), value
+    for n in range(1, _LOG1P_TERMS+1):
+        term = power/n
+        total += term if n % 2 else -term
+        if abs(term) < limit:
+            return total
+        power *= value
+    raise ConvergenceError('First-stage log1p series did not settle.', field='value')
+
+
+@lru_cache(maxsize=8)
+def _ln_table(precision):
+    """ln 2 and ln(1 + j/256), j = 0..255, with five guard digits."""
+    guarded = Context(prec=precision+5, rounding=ROUND_HALF_EVEN, Emin=-999999, Emax=999999,
+                      capitals=1, clamp=0, flags=[], traps=[InvalidOperation, DivisionByZero, Overflow])
+    with localcontext(guarded):
+        return D(2).ln(), tuple((1+D(j)/_LN_TABLE_SIZE).ln() for j in range(_LN_TABLE_SIZE))
+
+
+def _table_ln(value):
+    """First-stage natural logarithm of a positive Decimal in the active context.
+
+    Errors stay at a few units of the active precision: the table and ln 2
+    carry five guard digits, the reduced quotient is rounded once and the
+    series runs to below the precision. Values beyond binary64 use Decimal.ln.
+    """
+    native = float(value)
+    if not (isfinite(native) and native > 0.0):
+        return value.ln()
+    exponent = frexp(native)[1]-1
+    reduced = value/(D(2)**exponent) if exponent >= 0 else value*(D(2)**-exponent)
+    if reduced >= 2:
+        reduced, exponent = reduced/2, exponent+1
+    elif reduced < 1:
+        reduced, exponent = reduced*2, exponent-1
+    ln2, table = _ln_table(getcontext().prec)
+    index = min(int((reduced-1)*_LN_TABLE_SIZE), _LN_TABLE_SIZE-1)
+    base = 1+D(index)/_LN_TABLE_SIZE
+    return exponent*ln2+table[index]+_log1p(reduced/base-1)
+
+
 def _native_log_area(mach, gamma):
     return (gamma+1.0)/(2.0*(gamma-1.0))*log((2.0+(gamma-1.0)*mach*mach)/(gamma+1.0))-log(mach)
 
@@ -438,15 +496,30 @@ def _fast_area_inverse(target, gamma, minimum_mach, maximum_mach, subsonic):
                                 lower, upper, not subsonic)
         with localcontext(_fast_context(gamma)):
             g = D(gamma)
-            wanted = D(target).ln()
+            wanted = _table_ln(D(target))
             scale = abs((g+1)/(2*(g-1)))
+            anchor: list[D] = []
+
+            def log_area(m):
+                # One complete evaluation anchors nearby points: with
+                # q = (2+(g-1)m^2)/(g+1), log(A/A*) changes by
+                # scale*log1p(dq) - log1p(dm) between them.
+                q = (2+(g-1)*m*m)/(g+1)
+                if anchor:
+                    a, value, q_a = anchor
+                    dm, dq = (m-a)/a, (q-q_a)/q_a
+                    if abs(dm) <= _ANCHOR_RADIUS and abs(dq) <= _ANCHOR_RADIUS:
+                        return value+scale*_log1p(dq)-_log1p(dm)
+                value = scale*_table_ln(q)-_table_ln(m)
+                anchor[:] = (m, value, q)
+                return value
 
             def normalized(m):
                 # Native magnitudes overestimate generously; the bound only needs scale.
                 native = float(m)
                 quotient = (2.0+(gamma-1.0)*native*native)/(gamma+1.0)
                 magnitude = 2*(scale*D(abs(log(quotient))+1.0)+D(abs(log(native))+1.0)+abs(wanted))
-                residual = _log_area(m, g)-wanted
+                residual = log_area(m)-wanted
                 certain = _sign(residual, _bound(magnitude))
                 return (-certain, -residual) if subsonic else (certain, residual)
 

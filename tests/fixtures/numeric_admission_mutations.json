@@ -3302,5 +3302,33 @@
     "            _FIRST_STAGE.reset(token)",
     "            pass",
     "tests/test_normal_shock_first_stage.py::NormalShockFirstStageTests::test_stage_marker_is_restored_after_success_and_fallback"
+  ],
+  [
+    "sonic_table_ln_drops_power_of_two",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    return exponent*ln2+table[index]+_log1p(reduced/base-1)",
+    "    return table[index]+_log1p(reduced/base-1)",
+    "tests/test_sonic_fast_path.py::BoundedFirstStageTests::test_table_logarithm_stays_within_a_few_units_of_the_working_precision"
+  ],
+  [
+    "sonic_table_ln_wrong_table_base",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "    base = 1+D(index)/_LN_TABLE_SIZE",
+    "    base = 1+D(index+1)/_LN_TABLE_SIZE",
+    "tests/test_sonic_fast_path.py::BoundedFirstStageTests::test_table_logarithm_stays_within_a_few_units_of_the_working_precision"
+  ],
+  [
+    "sonic_log1p_series_sign_lost",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "        total += term if n % 2 else -term\n        if abs(term) < limit:",
+    "        total += term\n        if abs(term) < limit:",
+    "tests/test_sonic_fast_path.py::BoundedFirstStageTests::test_table_logarithm_stays_within_a_few_units_of_the_working_precision"
+  ],
+  [
+    "sonic_area_anchor_mach_offset_sign_reversed",
+    "src/rocket_propulsion/compressible/sonic_numerics.py",
+    "                        return value+scale*_log1p(dq)-_log1p(dm)",
+    "                        return value+scale*_log1p(dq)+_log1p(dm)",
+    "tests/test_sonic_fast_path.py::BoundedFirstStageTests::test_ordinary_nozzle_states_are_answered_by_the_first_stage"
   ]
 ]

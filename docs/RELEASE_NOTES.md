@@ -1,5 +1,11 @@
 # Release notes
 
+The area-inverse first stage uses a cached 256-point logarithm table with a
+short series and reuses one full evaluation for nearby boundary points. Results
+are unchanged bit for bit; an area inverse drops from about 530 us to 160 us
+and an off-design nozzle call from 74 ms to 30 ms. See
+[SONIC_FIRST_STAGE_REVIEW.md](SONIC_FIRST_STAGE_REVIEW.md).
+
 Normal-shock relations first evaluate their unchanged expressions at 28 digits
 and keep an output only when its bounded interval rounds to one binary64
 value; otherwise the 80-digit stage runs as before. Results are unchanged bit
