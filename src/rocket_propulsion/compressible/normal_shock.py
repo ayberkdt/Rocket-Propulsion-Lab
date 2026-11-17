@@ -2,12 +2,19 @@
 
 Steady, adiabatic, inviscid Rankine-Hugoniot jump relations [1]_.
 
+The same Decimal expressions run first at a lower precision. Each output is
+accepted there only when its relative allowance interval rounds to one
+positive binary64 value, which is then also the value of the 80-digit stage.
+Any unproved output reruns everything at 80 digits, where refusals are made.
+The first stage is limited to the gamma and Mach range of its error bound.
+
 References
 ----------
 .. [1] NACA-TR-1135. Ames Research Staff, "Equations, Tables, and Charts for
        Compressible Flow", NACA Report 1135, 1953.
 """
 
+from contextvars import ContextVar
 from dataclasses import dataclass
 from decimal import (
     ROUND_HALF_EVEN,
@@ -16,12 +23,27 @@ from decimal import (
     DivisionByZero,
     InvalidOperation,
     Overflow,
+    getcontext,
     localcontext,
 )
 from math import isfinite
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.validation import real
+
+# Bounded first stage. Outputs carry at most a few correctly rounded Decimal
+# operations; recovery adds two logarithms scaled by gamma/(gamma-1). Within
+# the admitted ranges their error stays far below 10**(_ALLOWANCE_DIGITS - prec).
+_FAST_PATH = True
+_FIRST_STAGE_DIGITS = 28
+_ALLOWANCE_DIGITS = 8
+_FIRST_STAGE_GAMMA = (1.05, 100.0)
+_FIRST_STAGE_MAXIMUM_MACH = 1e6
+_FIRST_STAGE: ContextVar[bool] = ContextVar('normal_shock_first_stage', default=False)
+
+
+class _Unproved(Exception):
+    """A first-stage output did not round to one positive binary64 value."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +75,12 @@ class NormalShockResult:
 
 
 def _positive_export(value: Decimal, field: str) -> float:
+    if _FIRST_STAGE.get():
+        allowance = abs(value)*Decimal(10)**(_ALLOWANCE_DIGITS-getcontext().prec)
+        low, high = float(value-allowance), float(value+allowance)
+        if low != high or not isfinite(low) or low <= 0.0:
+            raise _Unproved(field)
+        return low
     result = float(value)
     if not isfinite(result) or result <= 0.0:
         raise DomainError("Normal shock result is outside the positive float range.",
@@ -104,9 +132,24 @@ def calculate_normal_shock(upstream_mach: float, gamma: float = 1.4) -> NormalSh
     if mach <= 1.0:
         raise DomainError("Upstream Mach number must be greater than 1.", field="upstream_mach")
 
+    first = (_FAST_PATH and _FIRST_STAGE_GAMMA[0] <= specific_heat_ratio <= _FIRST_STAGE_GAMMA[1]
+             and mach <= _FIRST_STAGE_MAXIMUM_MACH)
+    if first:
+        token = _FIRST_STAGE.set(True)
+        try:
+            return _evaluate(mach, specific_heat_ratio, _FIRST_STAGE_DIGITS)
+        except (_Unproved, ArithmeticError):
+            pass
+        finally:
+            _FIRST_STAGE.reset(token)
+    return _evaluate(mach, specific_heat_ratio, 80)
+
+
+def _evaluate(mach: float, specific_heat_ratio: float, precision: int) -> NormalShockResult:
+    """Evaluate every output at one Decimal precision; see calculate_normal_shock."""
     # Evaluate complete ratios before export. In particular, the two individual
     # recovery powers may overflow and underflow while their product is finite.
-    context = Context(prec=80, rounding=ROUND_HALF_EVEN,
+    context = Context(prec=precision, rounding=ROUND_HALF_EVEN,
                       Emin=-999999, Emax=999999, capitals=1, clamp=0, flags=[],
                       traps=[InvalidOperation, DivisionByZero, Overflow])
     with localcontext(context):

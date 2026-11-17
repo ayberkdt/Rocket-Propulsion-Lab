@@ -1,5 +1,11 @@
 # Release notes
 
+Normal-shock relations first evaluate their unchanged expressions at 28 digits
+and keep an output only when its bounded interval rounds to one binary64
+value; otherwise the 80-digit stage runs as before. Results are unchanged bit
+for bit and a typical call is about 3.5 times faster. See
+[SONIC_FIRST_STAGE_REVIEW.md](SONIC_FIRST_STAGE_REVIEW.md).
+
 Prandtl-Meyer angles and area and Prandtl-Meyer inverses first try a bounded
 lower-precision stage that proves the same binary64 result, and fall back to
 the unchanged complete Decimal stage otherwise. MOC meshes reuse repeated

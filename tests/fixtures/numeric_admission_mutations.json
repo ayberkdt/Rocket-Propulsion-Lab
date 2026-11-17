@@ -3281,5 +3281,26 @@
     "if mapping[\"tick_period_s\"] is None:",
     "if True:",
     "tests/test_sass_native_trace.py::test_native_clock_scale_requires_approval_and_matches_pipeline_clock"
+  ],
+  [
+    "normal_shock_first_stage_interval_not_proved",
+    "src/rocket_propulsion/compressible/normal_shock.py",
+    "        if low != high or not isfinite(low) or low <= 0.0:",
+    "        if not isfinite(low) or low <= 0.0:",
+    "tests/test_normal_shock_first_stage.py::NormalShockFirstStageTests::test_wide_allowance_defers_every_output_to_the_complete_stage"
+  ],
+  [
+    "normal_shock_first_stage_allowance_ignored",
+    "src/rocket_propulsion/compressible/normal_shock.py",
+    "        allowance = abs(value)*Decimal(10)**(_ALLOWANCE_DIGITS-getcontext().prec)",
+    "        allowance = Decimal(0)",
+    "tests/test_normal_shock_first_stage.py::NormalShockFirstStageTests::test_wide_allowance_defers_every_output_to_the_complete_stage"
+  ],
+  [
+    "normal_shock_first_stage_marker_not_reset",
+    "src/rocket_propulsion/compressible/normal_shock.py",
+    "            _FIRST_STAGE.reset(token)",
+    "            pass",
+    "tests/test_normal_shock_first_stage.py::NormalShockFirstStageTests::test_stage_marker_is_restored_after_success_and_fallback"
   ]
 ]

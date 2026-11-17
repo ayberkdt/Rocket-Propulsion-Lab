@@ -72,11 +72,29 @@ The first stage is still slower than the original native code because each
 proof needs Decimal logarithms or arctangents. It is a rounding proof for the
 retained perfect-gas expressions, not a physical accuracy bound.
 
+## Normal shocks
+
+`compressible/normal_shock.py` runs its unchanged Decimal expressions first at
+28 digits, for 1.05 <= gamma <= 100 and Mach up to 1e6. Each output is
+accepted only when its relative interval of `10**(8 - 28)` rounds to one
+positive binary64 value; otherwise everything reruns at 80 digits, where all
+refusals are made. Within that range the outputs carry a few correctly rounded
+operations, and the recovery adds two logarithms scaled by gamma/(gamma-1);
+their estimated error stays about 5,000 times below the allowance. A call at
+Mach 2.7 and gamma 1.22 drops from 609 us to 173 us.
+`tests/test_normal_shock_first_stage.py` compares 612 gamma/Mach pairs bit for
+bit, refusals included. The six existing normal-shock mutation cases and three
+new first-stage cases (unproved interval, ignored allowance, unreset stage
+marker) are killed; the unproved-interval case first survived until a 1e-3
+allowance test was added.
+
 ## Open
 
-Stagnation-ratio inverses and normal shocks still use only their complete
-stage. The allowance is a conservative engineering bound derived from
-correctly rounded Decimal operations, not a machine-checked proof.
+Stagnation-ratio inverses still use only their complete stage. Off-design
+nozzle profiles make about 81 distinct area inverses each, at roughly 0.75 ms
+apiece in the first stage, so those tests remain slower than at `ef00f3e`.
+The allowances are conservative engineering bounds derived from correctly
+rounded Decimal operations, not machine-checked proofs.
 
 ## References
 
