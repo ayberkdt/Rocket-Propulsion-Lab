@@ -25,12 +25,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
-from math import exp, expm1, isfinite, log, log1p, sqrt
+from fractions import Fraction
+from math import isfinite
 from typing import TYPE_CHECKING
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.validation import coerce_fields, name_value_pairs, real
 
+from .isentropic_restriction import _restriction_flow
 from .numeric_outputs import _finite_rational, _fraction
 from .serialization import canonical_sha256
 
@@ -275,7 +277,7 @@ class RegulatedFeedState:
     Parameters
     ----------
     propellant_mass_kg : float
-        Positive liquid mass in the tank, kg.
+        Non-negative liquid mass in the tank, kg. Zero represents depletion.
     tank_pressurant_mass_kg : float
         Positive pressurant mass in the tank ullage, kg.
     tank_gas_temperature_k : float
@@ -290,8 +292,8 @@ class RegulatedFeedState:
     Raises
     ------
     DomainError
-        If a mass or temperature is not finite and positive, or the opening
-        lies outside ``[0, 1]``.
+        If liquid mass is negative, a pressurant mass or temperature is not
+        positive, a value is nonfinite, or opening lies outside ``[0, 1]``.
 
     Notes
     -----
@@ -315,8 +317,8 @@ class RegulatedFeedState:
 
     def __post_init__(self) -> None:
         coerce_fields(self, "Feed state")
+        _nonnegative(self.propellant_mass_kg, "Propellant mass")
         for value, label in (
-            (self.propellant_mass_kg, "Propellant mass"),
             (self.tank_pressurant_mass_kg, "Tank pressurant mass"),
             (self.tank_gas_temperature_k, "Tank gas temperature"),
             (self.bottle_pressurant_mass_kg, "Bottle pressurant mass"),
@@ -532,6 +534,17 @@ class FeedSystemEventSurface:
     kind: FeedEventKind
     stops_burn: bool = True
 
+    def __post_init__(self) -> None:
+        """Normalize registered kinds and require a literal stop flag."""
+        coerce_fields(self, "Feed event")
+        try:
+            kind = FeedEventKind(self.kind)
+        except (TypeError, ValueError) as error:
+            raise DomainError("Unknown feed event kind.", field="Feed event kind") from error
+        object.__setattr__(self, "kind", kind)
+        if not isinstance(self.stops_burn, bool):
+            raise DomainError("Feed event stops_burn must be a boolean.", field="Feed event stops_burn")
+
 
 @dataclass(frozen=True, slots=True)
 class FeedCouplingEvidence:
@@ -553,6 +566,11 @@ class FeedCouplingEvidence:
         Absolute demanded-minus-assumed flow residual, kg/s.
     injector_pressure_change_pa : float
         Injector-pressure change over the last iteration, Pa.
+    pressure_boundary_extension : bool, default False
+        The accepted motor evaluation used the nearest pressure-grid endpoint
+        for numerical event bracketing. Physical feed pressure is unchanged.
+    mass_flow_scale_floor_kg_s : float, default 1.0
+        Floor used in the reported relative flow-residual tolerance.
 
     Notes
     -----
@@ -574,6 +592,8 @@ class FeedCouplingEvidence:
     relaxation: float
     mass_flow_residual_kg_s: float
     injector_pressure_change_pa: float
+    pressure_boundary_extension: bool = False
+    mass_flow_scale_floor_kg_s: float = 1.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -776,7 +796,10 @@ class RegulatedFeedSystem:
                 "negative_liquid_flow": "signed_continuation_with_zero_static_resistance",
                 "physical_cutoff": "zero_liquid_flow",
                 "sustained_reverse_operation": "unsupported",
+                "cutoff_numerics": "complete_signed_margin_from_state_then_binary64_v1",
+                "empty_tank": "zero_liquid_mass_with_zero_demand",
             },
+            "regulator_numerics": "bounded_sonic_ratio_unrounded_head_command_and_scaled_flow_v2",
         }
         if include_hash:
             payload["model_hash"] = canonical_sha256(payload)
@@ -797,7 +820,7 @@ class RegulatedFeedSystem:
         Parameters
         ----------
         propellant_mass_kg : float
-            Positive liquid mass leaving positive ullage, kg.
+            Non-negative liquid mass leaving positive ullage, kg.
         tank_pressure_pa : float
             Positive initial ullage pressure, Pa.
         tank_gas_temperature_k : float
@@ -843,7 +866,7 @@ class RegulatedFeedSystem:
         bottle_gas_temperature_k = real(bottle_gas_temperature_k, "Initial bottle gas temperature")
         regulator_opening = real(regulator_opening, "Initial regulator opening")
 
-        _positive(propellant_mass_kg, "Initial propellant mass")
+        _nonnegative(propellant_mass_kg, "Initial propellant mass")
         _positive(tank_pressure_pa, "Initial tank pressure")
         _positive(tank_gas_temperature_k, "Initial tank gas temperature")
         _positive(bottle_pressure_pa, "Initial bottle pressure")
@@ -853,7 +876,7 @@ class RegulatedFeedSystem:
         return RegulatedFeedState(
             propellant_mass_kg=propellant_mass_kg,
             tank_pressurant_mass_kg=_finite_rational(
-                _fraction(tank_pressure_pa) * _fraction(ullage)
+                _fraction(tank_pressure_pa) * ullage
                 / (_fraction(gas_constant) * _fraction(tank_gas_temperature_k)),
                 "Initial tank pressurant mass",
             ),
@@ -867,11 +890,11 @@ class RegulatedFeedSystem:
             regulator_opening=regulator_opening,
         )
 
-    def _ullage_volume(self, propellant_mass_kg: float) -> float:
+    def _ullage_volume(self, propellant_mass_kg: float) -> Fraction:
         """Return the rigid-tank ullage volume ``V_tank - m_p / rho`` [1]_, m^3.
 
-        Raises `DomainError` unless the propellant leaves a positive,
-        representable ullage below tank capacity.
+        Check tank capacity before rounding the volume. Raises `DomainError`
+        unless a non-negative propellant mass leaves positive ullage.
 
         References
         ----------
@@ -879,53 +902,38 @@ class RegulatedFeedSystem:
                https://ntrs.nasa.gov/citations/19760015212
         """
         config = self.configuration
-        maximum_propellant = (
-            config.tank_internal_volume_m3 * config.propellant_density_kg_m3
+        _nonnegative(propellant_mass_kg, "Propellant mass")
+        ullage = _fraction(config.tank_internal_volume_m3) - (
+            _fraction(propellant_mass_kg) / _fraction(config.propellant_density_kg_m3)
         )
-        if not isfinite(propellant_mass_kg) or not 0.0 < propellant_mass_kg < maximum_propellant:
+        if ullage <= 0:
             raise DomainError(
-                "Propellant mass must leave positive ullage and remain below tank capacity."
+                "Propellant mass must leave positive ullage and remain below tank capacity.",
+                field="Tank ullage",
             )
-        ullage = config.tank_internal_volume_m3 - (
-            propellant_mass_kg / config.propellant_density_kg_m3
-        )
-        _positive(ullage, "Representable positive tank ullage")
         return ullage
 
-    def _pressures(self, state: RegulatedFeedState) -> tuple[float, float, float]:
-        """Return ``(ullage_m3, tank_pa, bottle_pa)`` from the ideal-gas law.
-
-        Each node pressure is ``p = m R T / V`` [1]_; non-positive or
-        non-representable pressures raise `DomainError`.
-
-        References
-        ----------
-        .. [1] NASA-GAS. NASA Glenn Research Center, "Equation of State (Ideal Gas)",
-               Beginner's Guide to Aeronautics, accessed 2026-10-18.
-        """
+    def _pressure_terms(self, state: RegulatedFeedState) -> tuple[Fraction, Fraction, Fraction]:
+        """Compute the ideal-gas pressure expressions before their binary64 export."""
         config = self.configuration
         ullage = self._ullage_volume(state.propellant_mass_kg)
-        gas_constant = config.gas.specific_gas_constant_j_kg_k
-        tank_pressure = _finite_rational(
-            _fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)
-            * _fraction(state.tank_gas_temperature_k) / _fraction(ullage),
-            "Tank pressure",
+        gas_constant = _fraction(config.gas.specific_gas_constant_j_kg_k)
+        tank = (
+            _fraction(state.tank_pressurant_mass_kg) * gas_constant
+            * _fraction(state.tank_gas_temperature_k) / ullage
         )
-        bottle_pressure = _finite_rational(
-            _fraction(state.bottle_pressurant_mass_kg) * _fraction(gas_constant)
-            * _fraction(state.bottle_gas_temperature_k) / _fraction(config.bottle_volume_m3),
-            "Bottle pressure",
+        bottle = (
+            _fraction(state.bottle_pressurant_mass_kg) * gas_constant
+            * _fraction(state.bottle_gas_temperature_k) / _fraction(config.bottle_volume_m3)
         )
-        _positive(tank_pressure, "Representable positive tank pressure")
-        _positive(bottle_pressure, "Representable positive bottle pressure")
-        return ullage, tank_pressure, bottle_pressure
+        return ullage, tank, bottle
 
     def _regulator_flow(
         self,
         *,
-        upstream_pressure_pa: float,
+        upstream_pressure_pa: float | Fraction,
         upstream_temperature_k: float,
-        downstream_pressure_pa: float,
+        downstream_pressure_pa: float | Fraction,
         opening: float,
     ) -> tuple[float, bool]:
         """Return the compressible regulator mass flow and whether it is choked.
@@ -941,8 +949,10 @@ class RegulatedFeedSystem:
         ``mdot = G sqrt(gamma) (1 + (gamma - 1) / 2)**(-(gamma+1) / (2 (gamma-1)))``
         otherwise.  ``log r`` is formed with ``log1p`` near equilibrium and the
         unchoked bracket is evaluated as ``r**(2/gamma) * -expm1(...)`` to
-        avoid cancellation.  Zero flow is returned when the regulator is
-        closed or the pressure difference is not forward.
+        avoid cancellation. For relative pressure head at or below ``2**-54``,
+        use the leading squared factor ``2 (1-r)`` before conversion to a float.
+        The complete squared flow is retained through the square root. Zero
+        flow is returned when the regulator is closed or head is non-positive.
 
         References
         ----------
@@ -951,34 +961,16 @@ class RegulatedFeedSystem:
         """
         config = self.configuration
         gas = config.gas
-        if upstream_pressure_pa <= downstream_pressure_pa or opening <= 0.0:
-            return 0.0, False
-        area = config.regulator_maximum_area_m2 * opening
-        delta_gamma = gas.gamma - 1.0
-        # log1p keeps the exact pressure gap near equilibrium; rounding
-        # p_down/p_up first and subtracting two powers would lose the flow.
-        log_ratio = (log1p((downstream_pressure_pa - upstream_pressure_pa) / upstream_pressure_pa)
-                     if downstream_pressure_pa > .5 * upstream_pressure_pa else
-                     log(downstream_pressure_pa) - log(upstream_pressure_pa))
-        critical_log = -(gas.gamma / delta_gamma) * log1p(.5 * delta_gamma)
-        common = (
-            config.regulator_discharge_coefficient
-            * area
-            * upstream_pressure_pa
-            / (sqrt(gas.specific_gas_constant_j_kg_k) * sqrt(upstream_temperature_k))
+        effective_area = (
+            _fraction(config.regulator_discharge_coefficient)
+            * _fraction(config.regulator_maximum_area_m2) * _fraction(opening)
         )
-        choked = log_ratio <= critical_log
-        if choked:
-            factor = sqrt(gas.gamma) * exp(
-                -(.5 + 1.0 / delta_gamma) * log1p(.5 * delta_gamma))
-        else:
-            # r^(2/gamma) * (1-r^((gamma-1)/gamma)); no near-equal power subtraction.
-            radicand = (2.0 * (gas.gamma / delta_gamma) * exp(2.0 * log_ratio / gas.gamma)
-                        * -expm1((delta_gamma / gas.gamma) * log_ratio))
-            factor = sqrt(radicand)
-        flow = real(common * factor, "Regulator mass flow")
-        _positive(flow, "Forward regulator flow in the representable numerical domain")
-        return flow, choked
+        return _restriction_flow(
+            gamma=gas.gamma, gas_constant=gas.specific_gas_constant_j_kg_k,
+            effective_area=effective_area, upstream=_fraction(upstream_pressure_pa),
+            temperature=upstream_temperature_k, downstream=_fraction(downstream_pressure_pa),
+            label="Regulator mass flow",
+        )
 
     def evaluate(
         self,
@@ -1011,7 +1003,8 @@ class RegulatedFeedSystem:
             If ``state`` has the wrong type, ``for_event_location`` is not a
             bool, a negative demand is supplied without
             ``for_event_location`` or with a non-zero static line resistance,
-            or a derived quantity is not finite and positive.
+            a nonzero flow is supplied at empty tank, or a derived quantity
+            is outside its numerical domain.
 
         Notes
         -----
@@ -1055,19 +1048,24 @@ class RegulatedFeedSystem:
         config = self.configuration
         if not isinstance(for_event_location, bool):
             raise DomainError("for_event_location must be a boolean.")
+        if state.propellant_mass_kg == 0.0 and propellant_mass_flow_kg_s != 0.0:
+            raise DomainError("An empty tank requires zero liquid demand.", field="Propellant mass flow")
         if propellant_mass_flow_kg_s < 0.0:
             if not for_event_location:
                 raise DomainError("Propellant mass-flow demand must be non-negative.")
             if config.feed_line_resistance_pa_s2_kg2 != 0.0:
                 raise DomainError("Reverse event continuation requires zero static line resistance.")
         gas = config.gas
-        ullage, tank_pressure, bottle_pressure = self._pressures(state)
-        pressure_error = config.regulator_set_pressure_pa - tank_pressure
-        command = min(1.0, max(0.0, pressure_error / config.regulator_full_open_error_pa))
+        ullage, tank, bottle = self._pressure_terms(state)
+        tank_pressure = _finite_rational(tank, "Tank pressure")
+        bottle_pressure = _finite_rational(bottle, "Bottle pressure")
+        pressure_error = _fraction(config.regulator_set_pressure_pa) - tank
+        command = min(Fraction(1), max(Fraction(0),
+                      pressure_error / _fraction(config.regulator_full_open_error_pa)))
         regulator_flow, choked = self._regulator_flow(
-            upstream_pressure_pa=bottle_pressure,
+            upstream_pressure_pa=bottle,
             upstream_temperature_k=state.bottle_gas_temperature_k,
-            downstream_pressure_pa=tank_pressure,
+            downstream_pressure_pa=tank,
             opening=state.regulator_opening,
         )
         ullage_rate = propellant_mass_flow_kg_s / config.propellant_density_kg_m3
@@ -1106,8 +1104,10 @@ class RegulatedFeedSystem:
             tank_gas_temperature_k_s=tank_temperature_rate,
             bottle_pressurant_mass_kg_s=-regulator_flow,
             bottle_gas_temperature_k_s=bottle_temperature_rate,
-            regulator_opening_s=(command - state.regulator_opening)
-            / config.valve_time_constant_s,
+            regulator_opening_s=_finite_rational(
+                (command - _fraction(state.regulator_opening)) / _fraction(config.valve_time_constant_s),
+                "Regulator opening rate",
+            ),
         )
         gas_constant = gas.specific_gas_constant_j_kg_k
         pressure_partials = FeedPressurePartials(
@@ -1117,7 +1117,7 @@ class RegulatedFeedSystem:
                     _finite_rational(
                         _fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)
                         * _fraction(state.tank_gas_temperature_k)
-                        / (_fraction(config.propellant_density_kg_m3) * _fraction(ullage)**2),
+                        / (_fraction(config.propellant_density_kg_m3) * ullage**2),
                         "Injector pressure derivative with respect to propellant mass",
                     ),
                 ),
@@ -1125,7 +1125,7 @@ class RegulatedFeedSystem:
                     "tank_pressurant_mass_kg",
                     _finite_rational(
                         _fraction(gas_constant) * _fraction(state.tank_gas_temperature_k)
-                        / _fraction(ullage),
+                        / ullage,
                         "Injector pressure derivative with respect to tank pressurant mass",
                     ),
                 ),
@@ -1133,7 +1133,7 @@ class RegulatedFeedSystem:
                     "tank_gas_temperature_k",
                     _finite_rational(
                         _fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)
-                        / _fraction(ullage),
+                        / ullage,
                         "Injector pressure derivative with respect to tank gas temperature",
                     ),
                 ),
@@ -1146,12 +1146,12 @@ class RegulatedFeedSystem:
             ),
         )
         return RegulatedFeedEvaluation(
-            tank_ullage_volume_m3=ullage,
+            tank_ullage_volume_m3=_finite_rational(ullage, "Tank ullage"),
             tank_pressure_pa=tank_pressure,
             bottle_pressure_pa=bottle_pressure,
             injector_pressure_pa=injector_pressure,
             feed_line_pressure_drop_pa=pressure_drop,
-            regulator_command=command,
+            regulator_command=_finite_rational(command, "Regulator command"),
             regulator_mass_flow_kg_s=regulator_flow,
             regulator_choked=choked,
             tank_heat_flow_w=tank_heat,
@@ -1227,7 +1227,8 @@ class RegulatedFeedSystem:
         Raises
         ------
         DomainError
-            If the event kind is unsupported or the feed evaluation fails.
+            If the state or event is invalid, an overpressure limit is absent,
+            or the requested signed margin cannot be represented.
 
         References
         ----------
@@ -1237,22 +1238,33 @@ class RegulatedFeedSystem:
                Orekit 13.1.5.
         """
 
+        if not isinstance(surface, FeedSystemEventSurface):
+            raise DomainError("Feed cutoff requires a FeedSystemEventSurface.", field="Feed event surface")
+        if not isinstance(state, RegulatedFeedState):
+            raise DomainError("Feed cutoff requires a RegulatedFeedState.", field="Feed event state")
+        demand = real(propellant_mass_flow_kg_s, "Propellant mass flow")
+        _nonnegative(demand, "Propellant mass-flow demand")
         config = self.configuration
-        evaluation = self.evaluate(state, propellant_mass_flow_kg_s)
         if surface.kind is FeedEventKind.PROPELLANT_RESERVE:
+            self._ullage_volume(state.propellant_mass_kg)
             return state.propellant_mass_kg - config.minimum_propellant_mass_kg
+
+        # The event depends on a signed pressure difference, not on a rounded
+        # pressure diagnostic or the regulator's temperature derivatives.
+        _, tank_pressure, bottle_pressure = self._pressure_terms(state)
         if surface.kind is FeedEventKind.INJECTOR_PRESSURE:
-            return evaluation.injector_pressure_pa - config.minimum_injector_pressure_pa
-        if surface.kind is FeedEventKind.BOTTLE_PRESSURE_MARGIN:
-            return (
-                evaluation.bottle_pressure_pa
-                - evaluation.tank_pressure_pa
-                - config.minimum_bottle_pressure_margin_pa
-            )
-        if surface.kind is FeedEventKind.TANK_OVERPRESSURE:
-            assert config.maximum_tank_pressure_pa is not None
-            return config.maximum_tank_pressure_pa - evaluation.tank_pressure_pa
-        raise DomainError(f"Unsupported feed event kind: {surface.kind}.")
+            loss = _fraction(config.feed_line_resistance_pa_s2_kg2) * _fraction(demand)**2
+            margin = tank_pressure - loss - _fraction(config.minimum_injector_pressure_pa)
+        elif surface.kind is FeedEventKind.BOTTLE_PRESSURE_MARGIN:
+            margin = bottle_pressure - tank_pressure - _fraction(config.minimum_bottle_pressure_margin_pa)
+        elif surface.kind is FeedEventKind.TANK_OVERPRESSURE:
+            if config.maximum_tank_pressure_pa is None:
+                raise DomainError("Tank overpressure cutoff requires a configured maximum.",
+                                  field="Maximum tank pressure")
+            margin = _fraction(config.maximum_tank_pressure_pa) - tank_pressure
+        else:
+            raise DomainError(f"Unsupported feed event kind: {surface.kind}.")
+        return _finite_rational(margin, "Feed cutoff margin")
 
 
 def evaluate_coupled_feed_propulsion(
@@ -1273,6 +1285,9 @@ def evaluate_coupled_feed_propulsion(
     relative_tolerance: float = 1e-10,
     relaxation: float = 0.5,
     maximum_iterations: int = 100,
+    side: str = "right",
+    for_pressure_event_location: bool = False,
+    mass_flow_scale_floor_kg_s: float = 1.0,
 ) -> CoupledFeedPropulsionEvaluation:
     """Close engine flow demand against the feed-line-dependent inlet pressure.
 
@@ -1311,6 +1326,16 @@ def evaluate_coupled_feed_propulsion(
         Under-relaxation factor in ``(0, 1]``.
     maximum_iterations : int, default 100
         Positive iteration limit.
+    side : str, default "right"
+        Profile boundary side passed to the motor bridge.
+    for_pressure_event_location : bool, default False
+        Clamp motor pressure queries to the performance axis endpoints for
+        event bracketing. The returned physical injector pressure retains its
+        value and sign. Outside-grid results carry an evidence flag and must
+        not be accepted as sustained engine operation.
+    mass_flow_scale_floor_kg_s : float, default 1.0
+        Nonnegative flow scale floor for the convergence tolerance. Set zero
+        for a purely relative residual check at small nonzero demands.
 
     Returns
     -------
@@ -1351,12 +1376,16 @@ def evaluate_coupled_feed_propulsion(
 
     if bridge.performance_surface is None:
         raise DomainError("Coupled feed evaluation requires a bridge performance surface.")
+    if not isinstance(for_pressure_event_location, bool):
+        raise DomainError("for_pressure_event_location must be a boolean.")
     axis_names = {axis.name for axis in bridge.performance_surface.axes}
     if pressure_condition_name not in axis_names:
         raise DomainError("Pressure condition is not an axis of the bridge performance surface.")
     if not pressure_condition_name.strip():
         raise DomainError("Pressure condition name must not be empty.")
     _nonnegative(initial_mass_flow_kg_s, "Initial coupled mass-flow guess")
+    mass_flow_scale_floor_kg_s = real(mass_flow_scale_floor_kg_s, "Coupled flow scale floor")
+    _nonnegative(mass_flow_scale_floor_kg_s, "Coupled flow scale floor")
     _positive(relative_tolerance, "Coupled relative tolerance")
     if not isfinite(relaxation) or not 0.0 < relaxation <= 1.0:
         raise DomainError("Coupling relaxation must be finite and in (0, 1].")
@@ -1365,6 +1394,8 @@ def evaluate_coupled_feed_propulsion(
     conditions = dict(other_operating_conditions or {})
     if pressure_condition_name in conditions:
         raise DomainError("Pressure condition is owned by the feed-system coupling.")
+    pressure_axis = next(axis for axis in bridge.performance_surface.axes
+                         if axis.name == pressure_condition_name)
 
     flow = initial_mass_flow_kg_s
     previous_pressure: float | None = None
@@ -1374,9 +1405,14 @@ def evaluate_coupled_feed_propulsion(
     residual = float("inf")
     for iteration in range(1, maximum_iterations + 1):
         feed = feed_system.evaluate(feed_state, flow)
+        motor_pressure = feed.injector_pressure_pa
+        if for_pressure_event_location:
+            motor_pressure = min(max(motor_pressure, pressure_axis.values[0]),
+                                 pressure_axis.values[-1])
+        pressure_extended = motor_pressure != feed.injector_pressure_pa
         active_conditions = {
             **conditions,
-            pressure_condition_name: feed.injector_pressure_pa,
+            pressure_condition_name: motor_pressure,
         }
         propulsion = bridge.evaluate(
             relative_time_s=relative_time_s,
@@ -1387,6 +1423,7 @@ def evaluate_coupled_feed_propulsion(
             parameter_overrides=parameter_overrides,
             apply_inventory_limits=apply_inventory_limits,
             ambient_pressure_pa=ambient_pressure_pa,
+            side=side,
         )
         demanded_flow = -propulsion.mass_derivative_kg_s
         residual = demanded_flow - flow
@@ -1395,7 +1432,7 @@ def evaluate_coupled_feed_propulsion(
             if previous_pressure is None
             else abs(feed.injector_pressure_pa - previous_pressure)
         )
-        scale = max(1.0, abs(demanded_flow), abs(flow))
+        scale = max(mass_flow_scale_floor_kg_s, abs(demanded_flow), abs(flow))
         if abs(residual) <= relative_tolerance * scale:
             acceleration_condition_partials = dict(
                 propulsion.partials.acceleration_wrt_conditions
@@ -1416,6 +1453,9 @@ def evaluate_coupled_feed_propulsion(
             demanded_flow_wrt_pressure = -mass_rate_condition_partials[
                 pressure_condition_name
             ]
+            if pressure_extended:
+                acceleration_wrt_pressure = (0.0, 0.0, 0.0)
+                demanded_flow_wrt_pressure = 0.0
             injector_pressure_wrt_flow = (
                 feed.pressure_partials.injector_pressure_wrt_propellant_flow
             )
@@ -1448,6 +1488,8 @@ def evaluate_coupled_feed_propulsion(
                 relaxation=relaxation,
                 mass_flow_residual_kg_s=abs(residual),
                 injector_pressure_change_pa=pressure_change,
+                pressure_boundary_extension=pressure_extended,
+                mass_flow_scale_floor_kg_s=mass_flow_scale_floor_kg_s,
             )
             return CoupledFeedPropulsionEvaluation(
                 propulsion,

@@ -57,6 +57,13 @@ Earth engine.
   has no public `PropulsionProvider` with additional states. Bridges with
   stream bindings or `AdditionalStateConstraint` reserves are refused. The
   vehicle-level reserve (`protected_dry_mass_kg`) is supported.
+  A runtime probe of the recorded Sidera source snapshot passed 13 values
+  to public `propagate`, comprising the seven orbital and mass states plus
+  the six regulated-feed states. The propagator rejected the shape before
+  integration. The propagator, result normalizer and state-vector validator
+  in the snapshot have the same file hashes as the current local sources.
+  The probe is recorded in
+  `output/assurance/sidera_snapshot_feed_state_admission_20261111.json`.
 - **Performance surfaces and ambient pressure.** Sidera has no public channel
   that passes operating conditions or ambient pressure to a thrust provider, so
   these bridges are refused.

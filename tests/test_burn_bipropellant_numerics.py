@@ -50,6 +50,122 @@ class BipropellantNumericalAttacks(unittest.TestCase):
         return self.scaled_coupling(scale).evaluate(
             self.case.state, relative_time_s=0.5, vehicle_mass_kg=100.0, direction=(1, 0, 0))
 
+    def evaluate_with_tolerance(self, state, tolerance, *, time=0.5):
+        coupling = replace(self.case.coupling, configuration=replace(
+            self.case.configuration, mass_closure_absolute_tolerance_kg_s=tolerance,
+        ))
+        return coupling.evaluate(state, relative_time_s=time, vehicle_mass_kg=100.0,
+                                 direction=(1, 0, 0))
+
+    def state_with_flows(self, oxidizer, fuel):
+        state = self.case.state
+        return replace(
+            state, oxidizer_line=replace(state.oxidizer_line, mass_flow_kg_s=oxidizer),
+            fuel_line=replace(state.fuel_line, mass_flow_kg_s=fuel),
+        )
+
+    def test_component_rounding_cannot_hide_error_above_tolerance(self):
+        state = self.case.state
+        state = replace(
+            state, oxidizer_line=replace(state.oxidizer_line, manifold_pressure_pa=1.3e6),
+            fuel_line=replace(state.fuel_line, manifold_pressure_pa=1.5e6),
+        )
+        result = self.case.evaluate(state)
+        with localcontext() as context:
+            context.prec = 1100
+            expected = abs(sum(map(Decimal.from_float, (
+                result.oxidizer_engine_flow_kg_s, result.fuel_engine_flow_kg_s,
+                result.propulsion.mass_derivative_kg_s,
+            ))))
+        self.assertGreater(expected, Decimal("1e-16"))
+        self.assertEqual(result.component_to_total_flow_closure_error_kg_s, float(expected))
+        with self.assertRaises(DomainError) as error:
+            self.evaluate_with_tolerance(state, 1e-16)
+        self.assertEqual(error.exception.field, "Bipropellant component closure")
+
+    def test_pressure_storage_rounding_does_not_false_reject_conservative_state(self):
+        result = self.evaluate_with_tolerance(self.state_with_flows(0.11, 0.3), 2e-16)
+        self.assertTrue(result.propulsion.active)
+        self.assertLess(result.vehicle_mass_closure_error_kg_s, 1e-16)
+
+    def test_vehicle_residual_audits_the_integrators_pressure_rates(self):
+        with self.assertRaises(DomainError) as error:
+            self.evaluate_with_tolerance(self.state_with_flows(0.0, 0.0), 1.5e-16)
+        self.assertEqual(error.exception.field, "Bipropellant vehicle closure")
+
+    def test_opposite_leg_errors_cannot_cancel_each_others_acceptance(self):
+        state = self.state_with_flows(0.1, -0.1)
+        result = self.evaluate_with_tolerance(state, 1e-17, time=3.0)
+        self.assertEqual(result.vehicle_mass_closure_error_kg_s, 0.0)
+        self.assertGreater(result.oxidizer_line.external_mass_closure_error_kg_s, 1e-18)
+        self.assertGreater(result.fuel_line.external_mass_closure_error_kg_s, 1e-18)
+        with self.assertRaises(DomainError) as error:
+            self.evaluate_with_tolerance(state, 1e-18, time=3.0)
+        self.assertEqual(error.exception.field, "Bipropellant oxidizer leg closure")
+
+    def test_either_leg_can_fail_while_the_vehicle_total_is_within_tolerance(self):
+        for flows, leg in (((0.25, 0.1), "oxidizer"), ((0.1, 0.25), "fuel")):
+            with self.subTest(leg=leg):
+                state = self.state_with_flows(*flows)
+                valid = self.evaluate_with_tolerance(state, 1e-17, time=3.0)
+                self.assertLess(valid.vehicle_mass_closure_error_kg_s, 4e-18)
+                with self.assertRaises(DomainError) as error:
+                    self.evaluate_with_tolerance(state, 4e-18, time=3.0)
+                self.assertEqual(error.exception.field, f"Bipropellant {leg} leg closure")
+
+    def test_exact_closure_boundary_is_inclusive(self):
+        coupling = replace(self.case.coupling, oxidizer_line=replace(
+            self.case.oxidizer_line, configuration=replace(
+                self.case.oxidizer_line.configuration, compliance_kg_pa=1.5,
+            ),
+        ))
+        self.case.coupling = coupling
+        state = self.state_with_flows(1.0, 0.0)
+        # C * rounded(1/C) − 1 is exactly −2**−54 for C = 1.5.
+        boundary = ldexp(1.0, -54)
+        result = self.evaluate_with_tolerance(state, boundary, time=3.0)
+        self.assertEqual(result.vehicle_mass_closure_error_kg_s, boundary)
+        with self.assertRaises(DomainError) as error:
+            self.evaluate_with_tolerance(state, nextafter(boundary, 0.0), time=3.0)
+        self.assertEqual(error.exception.field, "Bipropellant oxidizer leg closure")
+
+    def test_closure_threshold_uses_unrounded_error(self):
+        state = self.state_with_flows(1e-100, 0.3)
+        result = self.case.evaluate(state)
+        with localcontext() as context:
+            context.prec = 1100
+            compliance = Decimal(self.case.oxidizer_line.configuration.compliance_kg_pa)
+            pressure_rate = Decimal(result.oxidizer_line.derivative.manifold_pressure_pa_s)
+            exact = abs(
+                compliance * pressure_rate
+                + Decimal(result.oxidizer_feed.derivative.propellant_mass_kg_s)
+                + Decimal(result.oxidizer_engine_flow_kg_s)
+            )
+        displayed = float(exact)
+        self.assertGreater(exact, Decimal(displayed))
+        with self.assertRaises(DomainError) as error:
+            self.evaluate_with_tolerance(state, displayed)
+        self.assertEqual(error.exception.field, "Bipropellant oxidizer leg closure")
+        control = self.evaluate_with_tolerance(state, nextafter(displayed, inf))
+        self.assertEqual(control.vehicle_mass_closure_error_kg_s,
+                         result.vehicle_mass_closure_error_kg_s)
+
+    def test_active_pressure_jacobian_cannot_erase_a_nonzero_gradient(self):
+        scaled = self.scaled_coupling(1e-280)
+        nominal = scaled.evaluate(
+            self.case.state, relative_time_s=0.5, vehicle_mass_kg=100.0, direction=(1, 0, 0),
+        )
+        self.assertGreater(abs(nominal.partials.line_state_jacobian[1][1]), 0.0)
+        coupling = replace(scaled, oxidizer_line=replace(
+            scaled.oxidizer_line, configuration=replace(
+                scaled.oxidizer_line.configuration, compliance_kg_pa=1e100,
+            ),
+        ))
+        with self.assertRaises(DomainError) as error:
+            coupling.evaluate(self.case.state, relative_time_s=0.5, vehicle_mass_kg=100.0,
+                              direction=(1, 0, 0))
+        self.assertEqual(error.exception.field, "Oxidizer manifold self-pressure sensitivity")
+
     def test_representable_subnormal_products_do_not_erase_pressure_gradient(self):
         value = self.evaluate_scale(1e-160)
         derivatives = dict(value.partials.engine_mixture_ratio_wrt_conditions)

@@ -71,7 +71,7 @@ class FeedPressureRangeTests(unittest.TestCase):
                 Decimal(system.configuration.gas.specific_gas_constant_j_kg_k)
                 * Decimal.from_float(300.))
         self.assertTrue(math.isclose(state.tank_pressurant_mass_kg,float(expected),rel_tol=5e-14))
-        _,pressure,_ = system._pressures(state)
+        _,pressure,_ = system._pressure_terms(state)
         self.assertTrue(math.isclose(pressure,2e6,rel_tol=5e-14))
 
     def test_partial_sign_and_mass_pressure_elasticities_remain_physical(self):

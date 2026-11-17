@@ -39,9 +39,63 @@ Tank manifesti bu politikayı içerir; bağlı model hash'i de değişir.
 Manifest hash'i çalıştırılabilir kaynak kodunun hash'i değildir; test kanıtı
 kaynak hash'lerini ayrıca tutar.
 
-Çift hatlı araç kütle kapanışı, döndürülen tank türevleri, hat depolaması ve
-motorun dış kütle debisinden `fsum` ile hesaplanır. Girdi akışını yeniden
-yazarak hesaplanan bir kontrol artık gerçek türevlerin yerine geçmez.
+Çift hatlı kütle kapanışı, döndürülen tank ve basınç türevleri ile motorun
+döndürdüğü kütle debileri üzerinden hesaplanır. Her hattın depolaması
+`C * dp_manifold/dt` ile yeniden kurulur. Oksitleyici ve yakıt motor
+debilerinin toplamı, iki hattın ayrı kütle dengeleri ve araç dengesi dört
+ayrı kontroldür. Kabul, verilen binary64 sayıları temsil eden tam rasyonel
+değerler üzerinde yapılır. Toleransa eşit artık kabul edilir. Raporlanan
+artık daha sonra binary64'e yuvarlanır.
+
+### Kapanış kararının sayısal sınırları
+
+Sentetik aktif motorda 1,3 ve 1,5 MPa manifold basınçlarıyla bileşen debileri
+2,16 ve 0,8625 kg/s, toplam debi 3,0225000000000004 kg/s oldu. Eski
+toplama işlemi farkı sıfır gösterdi. Sağlanan değerlerin tam farkı
+yaklaşık 2,22 × 10⁻¹⁶ kg/s olduğundan 10⁻¹⁶ kg/s toleransında
+bileşen kontrolü durmalıdır.
+
+Tanklardan hatlara 0,11 ve 0,30 kg/s giderken eski araç artığı
+2,91 × 10⁻¹⁶ kg/s idi. Basınç türevlerinden hesaplanan araç artığı
+8,40 × 10⁻¹⁷ kg/s. Her hat da 2 × 10⁻¹⁶ kg/s sınırını sağlar. Buna
+karşılık motor kapalı, hat akışları +0,10 ve −0,10 kg/s iken araç artığı
+sıfır olsa da her bacağın mutlak artığı yaklaşık 3,46 × 10⁻¹⁸ kg/s.
+1 × 10⁻¹⁸ kg/s toleransında bu durum reddedilir. Negatif akış burada
+sıfır-akış olayını aramak için kullanılan bir deneme durumudur.
+
+Bağımsız Decimal denetimleri motor açık ve kapalıyken döndürülen
+türevlerden artığı hesaplar. Toleransa eşit ve komşu float sınırları,
+her bacağın ayrı reddi ve araç toplamının ayrı reddi sınanır. Bir
+sentetik durumda tam artık, ekranda gösterilen toleransı yaklaşık
+10⁻¹⁰⁰ kg/s aşar. Rapor ve tolerans float olarak eşit görünürken kabul
+kararı tam değeri kullanır.
+
+Manifold basınç Jacobian'ındaki dört motor-basınç terimi ve tank
+basıncından hat debisine olan duyarlılıklar tam bölümden sonra
+aktarılır. Ölçek testinde sıfır olmayan bir duyarlılık binary64
+aralığının dışında kalırsa alan adıyla hata döner. Manifest
+`mass_closure_numerics` alanında kapanış politikasını belirtir.
+Bu sayısal sınırlar ölçüm toleransı olarak kullanılmaz. [NASA nodal
+besleme modellemesi](https://ntrs.nasa.gov/citations/20240003493)
+
+### Kriyojenik tank deneyinde ölçütlerin ayrılması
+
+NASA TN D-7638'deki 1,52 m çaplı metan tankının altı statik helyum
+koşusu, 2025 tarihli GFSSP çalışmasının 3–6 numaralı tablolarında
+yeniden kullanılmıştır. Aynı çok düğümlü modelin basılı değerlerinden
+yeniden hesaplanan helyum tüketimi ortalama mutlak yüzde hatası %4,43.
+İlk basınçlandırmada metan yoğuşması ortalama %73,73 düşük, boşaltmada
+net buharlaşma ortalama %120,32 yüksek tahmin edildi. Bekletmede 36 ve
+40 numaralı koşuların raporlanan faz değişimi işareti modelle ters.
+Çalışma bu iki küçük ölçüm için belirsizlik tahmini vermez.
+
+Bir kriyojenik konfigürasyon seçilirse, toplam basınçlandırıcı kütlesi
+ile basınçlandırma, bekletme ve boşaltma evrelerindeki faz değişimi
+ayrı kanallarda karşılaştırılır. Bu kıyas başka bir tesisteki GFSSP
+sonuçlarını yeniden hesaplar. Bu depodaki regülatör modeline veya
+henüz seçilmemiş donanıma deney geçerlemesi atamaz.
+[Deney raporu](https://ntrs.nasa.gov/citations/19740019160)
+[Model karşılaştırması, Tablolar 3–6](https://ntrs.nasa.gov/citations/20240014846)
 
 ## Bağımsız kontroller
 

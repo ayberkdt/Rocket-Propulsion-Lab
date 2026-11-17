@@ -349,7 +349,12 @@ class TimelineCalibrationSassRouteTests(unittest.TestCase):
     def test_sass_default_override_and_document(self) -> None:
         result = default_result("/api/v1/sass/mission")
         self.assertEqual(result["summary"]["candidate_count"], 5)
-        self.assertEqual(result["summary"]["eligible_count"], 3)
+        self.assertEqual(result["summary"]["eligible_count"], 2)
+        ariane_1n = next(row for row in result["candidates"] if row["catalog_key"] == "ariane-1n")
+        self.assertEqual(ariane_1n["eligibility"], "incomplete")
+        self.assertIsNone(ariane_1n["score"])
+        self.assertIn("wet_mass", ariane_1n["metrics"])
+        self.assertTrue(any("mass flow falls outside" in reason for reason in ariane_1n["unresolved"]))
         self.assertNotIn("document", result)
         heavier = dispatch_calculation(
             "/api/v1/sass/mission", {"bus_dry_mass_kg": 60.0, "include_document": True}
@@ -359,6 +364,9 @@ class TimelineCalibrationSassRouteTests(unittest.TestCase):
         for before, after in zip(base_mass, new_mass, strict=True):
             if before is not None:
                 self.assertGreater(after, before)
+        document_row = next(row for row in heavier["document"]["candidates"]
+                            if row["configuration"]["catalog_key"] == "ariane-1n")
+        self.assertEqual(document_row["catalogue_flow_check"]["status"], "above_published_range")
         self.assertEqual(heavier["document"]["study_hash"], heavier["summary"]["study_hash"])
         self.assertNotEqual(heavier["summary"]["study_hash"], result["summary"]["study_hash"])
         with self.assertRaises(InputError):

@@ -17,6 +17,7 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 from rocket_propulsion.core.constants import STANDARD_GRAVITY_M_S2 as G0
 from rocket_propulsion.core.errors import DomainError, InputError
@@ -50,6 +51,7 @@ from rocket_propulsion.studies.sass import (
     size_mission,
     weighted_trade,
 )
+from rocket_propulsion.studies.sass import catalog as catalog_module
 from rocket_propulsion.studies.sass.__main__ import main
 from rocket_propulsion.studies.sass.evidence import derived
 
@@ -70,6 +72,43 @@ def maneuver(name: str, dv: float, isp: float = 200, thrust: float = 10,
 def example_request() -> dict:
     """Read the explicit synthetic scenario; NASA-SE-APP reproducible inputs."""
     return json.loads((ROOT / "examples" / "sass_mission.json").read_text(encoding="utf-8"))
+
+
+def catalogue_study():
+    """Run the normal sizing entry point with a fixed in-memory test case."""
+    return sass.analyze_project(
+        "Catalogue review fixture", q(50, "kg"), (DeltaVItem("burn", q(5, "m/s"), q(0), 1),),
+        (sass.Candidate("nitrogen", "moog-058e151", q(4, "kg"), 4, 2, q(1), q(1)),),
+        residual_fraction=q(0), fixed_reserve=q(0, "kg"), requirements=(),
+        criteria=(Criterion("wet_mass", q(55, "kg"), q(100, "kg"), q(1)),),
+    )
+
+
+def coherent_life_catalogue():
+    """Isolate life screening with a synthetic envelope around the Ariane 1 N study point."""
+    record = sass.thruster("ariane-1n")
+    flow = record.field("reported_mass_flow_range")
+    upper = replace(flow.upper, value=0.0005,
+                    citations=(Citation("ARIANE-1N", "Synthetic upper flow endpoint for life-test isolation"),))
+    fields = tuple(replace(field, upper=upper) if field is flow else field for field in record.fields)
+    catalogue = tuple(replace(item, fields=fields) if item is record else item
+                      for item in catalog_module.THRUSTERS)
+    return patch.object(catalog_module, "THRUSTERS", catalogue)
+
+
+def life_study(on_time, *, installed=1, firing=1, count=1, duty=1.0, axial=1.0, reserve=0.0):
+    """Choose delta-v from the independently specified firing time and retained mass."""
+    exhaust_speed = 220.0 * 9.80665
+    dry_mass = 500.0 + installed * 0.29
+    propellant = firing * on_time / exhaust_speed
+    delta_v = axial * exhaust_speed * math.log1p(propellant / (dry_mass + reserve))
+    with coherent_life_catalogue():
+        return sass.analyze_project(
+            "Life screening fixture", q(500, "kg"), (DeltaVItem("burn", q(delta_v / count, "m/s"), q(0), count),),
+            (sass.Candidate("hydrazine", "ariane-1n", q(0, "kg"), installed, firing, q(axial), q(duty)),),
+            residual_fraction=q(0), fixed_reserve=q(reserve, "kg"), requirements=(),
+            criteria=(Criterion("wet_mass", q(500, "kg"), q(3000, "kg"), q(1)),),
+        )
 
 
 class EvidenceTests(unittest.TestCase):
@@ -130,11 +169,12 @@ class EvidenceTests(unittest.TestCase):
             self.assertTrue(source.url.startswith("https://"))
 
     def test_bounds_and_source_disagreement_do_not_create_operating_points(self) -> None:
-        for key in ("ecaps-1n-hpgp", "busek-bit3-page"):
+        for key in ("ecaps-1n-hpgp", "ecaps-1n-hpgp-bradford", "busek-bit3-page"):
             with self.assertRaisesRegex(DomainError, "nominal"):
                 nominal_operating_point(key)
         bit = sass.thruster("busek-bit3-page")
         self.assertEqual({x.source_id for x in bit.citations}, {"BUSEK-BIT3", "BUSEK-RF"})
+        self.assertEqual(bit.field("dry_mass").upper.citations[0].source_id, "BUSEK-BIT3-PDF")
         with self.assertRaises(DomainError):
             sass.thruster("moog-058e151").field("tank_mass")
 
@@ -143,6 +183,64 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(point.get("reported_mass_flow").value, 0.00044)
         self.assertAlmostEqual(point.get("closed_mass_flow").value, 1 / (220 * G0))
         self.assertGreater(abs(point.get("reported_flow_relative_difference").value), 0.01)
+
+    def test_ecaps_sources_preserve_distinct_isp_and_preheat_power_scope(self) -> None:
+        survey = sass.thruster("ecaps-1n-hpgp")
+        supplier = sass.thruster("ecaps-1n-hpgp-bradford")
+        self.assertEqual(survey.field("isp").upper.value, 235)
+        self.assertEqual(supplier.field("isp").upper.value, 231)
+        self.assertEqual(survey.field("survey_power").upper.value, 10)
+        self.assertIn("reactor_preheat_power", {field.name for field in supplier.fields})
+        preheat = supplier.field("reactor_preheat_power")
+        self.assertEqual((preheat.lower.value, preheat.upper.value), (8, 10))
+        self.assertEqual(preheat.upper.citations[0].source_id, "ECAPS-1N-BRADFORD")
+        for record in (survey, supplier):
+            with self.assertRaises(DomainError):
+                record.field("power")
+
+    def test_nominal_labels_do_not_pair_different_operating_points_or_sources(self) -> None:
+        moog = sass.thruster("moog-058e151")
+        isp = moog.field("isp")
+        foreign = replace(isp.upper, citations=(Citation("ARIANE-1N", "different thruster"),))
+        for changed in (replace(isp, nominal_point_id=None),
+                        replace(isp, nominal_point_id="different-inlet-condition"),
+                        replace(isp, lower=foreign, upper=foreign)):
+            altered = replace(moog, fields=tuple(changed if field.name == "isp" else field
+                                                for field in moog.fields))
+            catalogue = (altered, *catalog_module.THRUSTERS[1:])
+            with self.subTest(isp=changed), patch.object(catalog_module, "THRUSTERS", catalogue):
+                with self.assertRaisesRegex(DomainError, "paired nominal"):
+                    nominal_operating_point(moog.key)
+                study = catalogue_study()
+                self.assertIsNone(study.candidates[0].sizing)
+                self.assertIsNone(study.scores[0].score)
+        with self.assertRaisesRegex(DomainError, "Only nominal fields"):
+            replace(moog.field("opening_power"), nominal_point_id=isp.nominal_point_id)
+
+    def test_study_point_cannot_publish_a_flow_range_endpoint_as_nominal(self) -> None:
+        original = sass.thruster("ariane-1n")
+        flow = original.field("reported_mass_flow")
+        interval = replace(flow, kind="range", lower=replace(flow.lower, value=0.00042))
+        altered = replace(original, fields=tuple(interval if field.name == flow.name else field
+                                                 for field in original.fields))
+        with patch.object(catalog_module, "THRUSTERS", (altered,)):
+            result = nominal_operating_point(original.key)
+            self.assertAlmostEqual(result.get("closed_mass_flow").value, 1 / (220 * G0))
+            with self.assertRaises(DomainError):
+                result.get("reported_mass_flow")
+
+    def test_nominal_flow_preserves_finite_result_across_intermediate_overflow(self) -> None:
+        original = sass.thruster("moog-058e151")
+        fields = []
+        for field in original.fields:
+            if field.name in ("thrust", "isp"):
+                value = replace(field.upper, value=5e307 if field.name == "thrust" else 1e308)
+                field = replace(field, lower=value, upper=value)
+            fields.append(field)
+        altered = replace(original, fields=tuple(fields))
+        with patch.object(catalog_module, "THRUSTERS", (altered,)):
+            result = nominal_operating_point(original.key)
+        self.assertAlmostEqual(result.get("closed_mass_flow").value, 0.5 / 9.80665, places=15)
 
 
 class ManeuverTests(unittest.TestCase):
@@ -352,6 +450,92 @@ class ProjectTests(unittest.TestCase):
         inputs = study.input_data
         inputs["items"][0]["nominal_delta_v"]["value"] = 999
         self.assertEqual(study.to_dict(), before)
+
+    def test_old_study_cannot_export_a_newer_catalogue_record(self) -> None:
+        study = catalogue_study()
+        original_document = study.to_dict()
+        moog = sass.thruster("moog-058e151")
+        mass = moog.field("dry_mass")
+        updated_mass = replace(mass.upper, value=0.17)
+        newer_mass = replace(mass, lower=updated_mass, upper=updated_mass)
+        newer_record = replace(moog, fields=tuple(newer_mass if field.name == "dry_mass" else field
+                                                   for field in moog.fields))
+        with patch.object(catalog_module, "THRUSTERS", (newer_record, *catalog_module.THRUSTERS[1:])):
+            self.assertEqual(study.to_dict(), original_document)
+            rerun = catalogue_study()
+            self.assertAlmostEqual(rerun.candidates[0].sizing.summary.get("dry_mass").value,
+                                   50 + 4 + 4 * 0.17)
+            self.assertNotEqual(rerun.to_dict()["study_hash"], original_document["study_hash"])
+
+    def test_catalogue_mass_with_wrong_units_or_sign_cannot_enter_bus_budget(self) -> None:
+        moog = sass.thruster("moog-058e151")
+        mass = moog.field("dry_mass")
+        for invalid in (replace(mass.upper, unit="g"), replace(mass.upper, value=-0.07)):
+            bad_mass = replace(mass, lower=invalid, upper=invalid)
+            bad_record = replace(moog, fields=tuple(bad_mass if field.name == "dry_mass" else field
+                                                     for field in moog.fields))
+            with self.subTest(mass=invalid), patch.object(
+                catalog_module, "THRUSTERS", (bad_record, *catalog_module.THRUSTERS[1:]),
+            ), self.assertRaises(DomainError):
+                catalogue_study()
+
+    def test_continuous_burn_limit_is_not_applied_to_aggregated_or_rotating_heads(self) -> None:
+        continuous = life_study(45_000, installed=2, firing=2)
+        check = {row.metric: row for row in continuous.candidates[0].catalogue_life_checks}
+        self.assertAlmostEqual(check["single_burn_life"].demand.value, 45_000)
+        self.assertEqual(check["single_burn_life"].published_limit.value, 43_200)
+        self.assertEqual(check["single_burn_life"].status, "exceeds_reference")
+        self.assertEqual(continuous.scores[0].eligibility, "incomplete")
+        self.assertIsNone(continuous.scores[0].score)
+        self.assertIn("exceeds reference", build_project_html(continuous))
+        for options in (
+            {"installed": 2, "firing": 2, "count": 2},
+            {"installed": 2, "firing": 2, "duty": 0.4},
+            {"installed": 3, "firing": 2},
+        ):
+            with self.subTest(options=options):
+                grouped = life_study(45_000, **options)
+                rows = {row.metric: row for row in grouped.candidates[0].catalogue_life_checks}
+                self.assertIsNone(rows["single_burn_life"].demand)
+                self.assertEqual(rows["single_burn_life"].status, "unassessed")
+                self.assertEqual(rows["cycle_life"].published_limit.value, 59_000)
+                self.assertIsNone(rows["cycle_life"].demand)
+                self.assertEqual(rows["cycle_life"].status, "unassessed")
+                self.assertIsNotNone(grouped.scores[0].score)
+
+    def test_accumulated_burn_reference_uses_simultaneous_and_installed_counts(self) -> None:
+        for firing, expected_demand, expected_status in (
+            (1, 95_000, "no_exceedance_identified"), (2, 190_000, "exceeds_reference"),
+        ):
+            with self.subTest(firing=firing):
+                study = life_study(190_000, installed=2, firing=firing, duty=0.25)
+                checks = {row.metric: row for row in study.candidates[0].catalogue_life_checks}
+                accumulated = checks["accumulated_burn_life"]
+                self.assertAlmostEqual(accumulated.demand.value, expected_demand)
+                self.assertEqual(accumulated.published_limit.value, 180_000)
+                self.assertEqual(accumulated.status, expected_status)
+                self.assertEqual(study.scores[0].score is None, firing == 2)
+                self.assertAlmostEqual(checks["propellant_throughput"].demand.value,
+                                       expected_demand / (9.80665 * 220.0))
+
+    def test_throughput_uses_consumed_propellant_and_impulse_uses_scalar_load(self) -> None:
+        # The reserve dwarfs the 67 kg reference but does not pass through the head.
+        # Axial efficiency makes delivered axial impulse 14,000 N s, while the
+        # head still delivers 140,000 N s of scalar impulse.
+        study = life_study(140_000, duty=0.4, axial=0.1, reserve=1000.0)
+        rows = {row.metric: row for row in study.candidates[0].catalogue_life_checks}
+        self.assertAlmostEqual(rows["propellant_throughput"].demand.value, 140_000 / (9.80665 * 220))
+        self.assertEqual(rows["propellant_throughput"].published_limit.value, 67)
+        self.assertEqual(rows["propellant_throughput"].status, "no_exceedance_identified")
+        self.assertAlmostEqual(rows["total_impulse_life"].demand.value, 140_000)
+        self.assertEqual(rows["total_impulse_life"].published_limit.value, 135_000)
+        self.assertEqual(rows["total_impulse_life"].status, "exceeds_reference")
+        self.assertIsNone(study.scores[0].score)
+        s10 = sass.thruster("ariane-s10-13")
+        self.assertEqual(s10.field("single_burn_life").upper.value, 28_800)
+        self.assertEqual(s10.field("accumulated_burn_life").upper.value, 248_400)
+        with self.assertRaises(DomainError):
+            s10.field("propellant_throughput")
 
     def test_report_keeps_citations_and_escapes_hostile_titles_and_notes(self) -> None:
         request = example_request()

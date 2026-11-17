@@ -149,29 +149,29 @@
   [
     "jacobian_erased",
     "src/rocket_propulsion/propulsion/burns/feed_system.py",
-    "_fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)\n                        * _fraction(state.tank_gas_temperature_k)\n                        / (_fraction(config.propellant_density_kg_m3) * _fraction(ullage)**2)",
+    "_fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)\n                        * _fraction(state.tank_gas_temperature_k)\n                        / (_fraction(config.propellant_density_kg_m3) * ullage**2)",
     "_fraction(0.0)",
     "tests/test_feed_pressure_range.py::FeedPressureRangeTests::test_representable_pressure_partials_survive_overflowing_ullage_square"
   ],
   [
     "jacobian_sign_reversed",
     "src/rocket_propulsion/propulsion/burns/feed_system.py",
-    "_fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)\n                        * _fraction(state.tank_gas_temperature_k)\n                        / (_fraction(config.propellant_density_kg_m3) * _fraction(ullage)**2)",
-    "-(_fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)\n                        * _fraction(state.tank_gas_temperature_k)\n                        / (_fraction(config.propellant_density_kg_m3) * _fraction(ullage)**2))",
+    "_fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)\n                        * _fraction(state.tank_gas_temperature_k)\n                        / (_fraction(config.propellant_density_kg_m3) * ullage**2)",
+    "-(_fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)\n                        * _fraction(state.tank_gas_temperature_k)\n                        / (_fraction(config.propellant_density_kg_m3) * ullage**2))",
     "tests/test_feed_pressure_range.py::FeedPressureRangeTests::test_partial_sign_and_mass_pressure_elasticities_remain_physical"
   ],
   [
     "initial_gas_mass_halved",
     "src/rocket_propulsion/propulsion/burns/feed_system.py",
-    "_fraction(tank_pressure_pa) * _fraction(ullage)",
-    "_fraction(tank_pressure_pa) * _fraction(ullage) / 2",
+    "_fraction(tank_pressure_pa) * ullage",
+    "_fraction(tank_pressure_pa) * ullage / 2",
     "tests/test_feed_pressure_range.py::FeedPressureRangeTests::test_initial_mass_and_recovered_pressure_survive_overflowing_pv_product"
   ],
   [
     "recovered_pressure_halved",
     "src/rocket_propulsion/propulsion/burns/feed_system.py",
-    "_fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)\n            * _fraction(state.tank_gas_temperature_k) / _fraction(ullage)",
-    "(_fraction(state.tank_pressurant_mass_kg) * _fraction(gas_constant)\n            * _fraction(state.tank_gas_temperature_k) / _fraction(ullage)) / 2",
+    "_fraction(state.tank_pressurant_mass_kg) * gas_constant\n            * _fraction(state.tank_gas_temperature_k) / ullage",
+    "_fraction(state.tank_pressurant_mass_kg) * gas_constant\n            * _fraction(state.tank_gas_temperature_k) / (2 * ullage)",
     "tests/test_feed_pressure_range.py::FeedPressureRangeTests::test_initial_mass_and_recovered_pressure_survive_overflowing_pv_product"
   ],
   [
@@ -1587,5 +1587,1699 @@
     "                return (-certain, -residual) if subsonic else (certain, residual)",
     "                return (certain, residual)",
     "tests/test_sonic_fast_path.py::BoundedFirstStageTests::test_ordinary_nozzle_states_are_answered_by_the_first_stage"
+  ],
+  [
+    "dynamic_line_rounds_friction_before_pressure_balance",
+    "src/rocket_propulsion/propulsion/burns/feed_line.py",
+    "(head - friction) / inertance",
+    "(head - Fraction(friction_drop)) / inertance",
+    "tests/test_dynamic_line_numerics.py::test_signed_acceleration_survives_head_loss_cancellation"
+  ],
+  [
+    "dynamic_line_drops_factor_two_from_jacobian",
+    "src/rocket_propulsion/propulsion/burns/feed_line.py",
+    "-2 * resistance_flow / inertance",
+    "-resistance_flow / inertance",
+    "tests/test_dynamic_line_numerics.py::test_finite_jacobian_when_doubling_resistance_would_overflow"
+  ],
+  [
+    "dynamic_line_reports_zero_pressure_rate_mass_residual",
+    "src/rocket_propulsion/propulsion/burns/feed_line.py",
+    "closure_error = float(abs(compliance * Fraction(pressure_rate) - storage))",
+    "closure_error = 0.0",
+    "tests/test_dynamic_line_numerics.py::test_mass_residual_audits_the_exported_pressure_rate"
+  ],
+  [
+    "dynamic_line_reverses_pressure_cutoff_direction",
+    "src/rocket_propulsion/propulsion/burns/feed_line.py",
+    "return state.manifold_pressure_pa - config.minimum_manifold_pressure_pa",
+    "return config.minimum_manifold_pressure_pa - state.manifold_pressure_pa",
+    "tests/test_dynamic_line_numerics.py::test_demand_step_reaches_pressure_cutoff_at_closed_form_time"
+  ],
+  [
+    "bipropellant_rounds_component_sum_before_acceptance",
+    "src/rocket_propulsion/propulsion/burns/bipropellant.py",
+    "oxidizer_engine_rate + fuel_engine_rate - total_engine_rate,",
+    "Fraction(oxidizer_engine_flow + fuel_engine_flow) - total_engine_rate,",
+    "tests/test_burn_bipropellant_numerics.py::BipropellantNumericalAttacks::test_component_rounding_cannot_hide_error_above_tolerance"
+  ],
+  [
+    "bipropellant_ignores_oxidizer_leg_error",
+    "src/rocket_propulsion/propulsion/burns/bipropellant.py",
+    "oxidizer_internal_rate + oxidizer_engine_rate,",
+    "Fraction(0),",
+    "tests/test_burn_bipropellant_numerics.py::BipropellantNumericalAttacks::test_either_leg_can_fail_while_the_vehicle_total_is_within_tolerance"
+  ],
+  [
+    "bipropellant_ignores_fuel_leg_error",
+    "src/rocket_propulsion/propulsion/burns/bipropellant.py",
+    "fuel_internal_rate + fuel_engine_rate,",
+    "Fraction(0),",
+    "tests/test_burn_bipropellant_numerics.py::BipropellantNumericalAttacks::test_either_leg_can_fail_while_the_vehicle_total_is_within_tolerance"
+  ],
+  [
+    "bipropellant_ignores_vehicle_pressure_storage_error",
+    "src/rocket_propulsion/propulsion/burns/bipropellant.py",
+    "oxidizer_internal_rate + fuel_internal_rate + total_engine_rate,",
+    "Fraction(0),",
+    "tests/test_burn_bipropellant_numerics.py::BipropellantNumericalAttacks::test_vehicle_residual_audits_the_integrators_pressure_rates"
+  ],
+  [
+    "bipropellant_silently_erases_self_pressure_gain",
+    "src/rocket_propulsion/propulsion/burns/bipropellant.py",
+    "                _finite_quotient(\n                    -oxidizer_demand[oxidizer_pressure], oxidizer_compliance,\n                    \"Oxidizer manifold self-pressure sensitivity\",\n                ),",
+    "                -oxidizer_demand[oxidizer_pressure] / oxidizer_compliance,",
+    "tests/test_burn_bipropellant_numerics.py::BipropellantNumericalAttacks::test_active_pressure_jacobian_cannot_erase_a_nonzero_gradient"
+  ],
+  [
+    "bipropellant_rounds_residual_before_tolerance_check",
+    "src/rocket_propulsion/propulsion/burns/bipropellant.py",
+    "    if magnitude > tolerance:",
+    "    if float(magnitude) > float(tolerance):",
+    "tests/test_burn_bipropellant_numerics.py::BipropellantNumericalAttacks::test_closure_threshold_uses_unrounded_error"
+  ],
+  [
+    "feed_rounds_liquid_volume_before_checking_tank_capacity",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "ullage = _fraction(config.tank_internal_volume_m3) - (\n            _fraction(propellant_mass_kg) / _fraction(config.propellant_density_kg_m3)\n        )",
+    "ullage = _fraction(config.tank_internal_volume_m3 - (\n            propellant_mass_kg / config.propellant_density_kg_m3\n        ))",
+    "tests/test_feed_physics_adversarial.py::FeedBoundaryAttacks::test_near_full_tank_preserves_positive_ullage_and_rejects_adjacent_overfill"
+  ],
+  [
+    "feed_cutoff_rounds_injector_before_threshold",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "margin = tank_pressure - loss - _fraction(config.minimum_injector_pressure_pa)",
+    "margin = _fraction(float(tank_pressure - loss)) - _fraction(config.minimum_injector_pressure_pa)",
+    "tests/test_feed_cutoff_precision.py::test_sub_display_pressure_margin_retains_both_signs_and_exact_zero[injector_pressure]"
+  ],
+  [
+    "feed_cutoff_rounds_bottle_and_tank_before_threshold",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "margin = bottle_pressure - tank_pressure - _fraction(config.minimum_bottle_pressure_margin_pa)",
+    "margin = _fraction(float(bottle_pressure)) - _fraction(float(tank_pressure)) - _fraction(config.minimum_bottle_pressure_margin_pa)",
+    "tests/test_feed_cutoff_precision.py::test_sub_display_pressure_margin_retains_both_signs_and_exact_zero[bottle_pressure_margin]"
+  ],
+  [
+    "feed_cutoff_rounds_tank_before_overpressure_check",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "margin = _fraction(config.maximum_tank_pressure_pa) - tank_pressure",
+    "margin = _fraction(config.maximum_tank_pressure_pa) - _fraction(float(tank_pressure))",
+    "tests/test_feed_cutoff_precision.py::test_sub_display_pressure_margin_retains_both_signs_and_exact_zero[tank_overpressure]"
+  ],
+  [
+    "feed_cutoff_reserve_reenters_full_rhs",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "            self._ullage_volume(state.propellant_mass_kg)\n            return state.propellant_mass_kg - config.minimum_propellant_mass_kg",
+    "            self.evaluate(state, demand)\n            return state.propellant_mass_kg - config.minimum_propellant_mass_kg",
+    "tests/test_feed_cutoff_precision.py::test_reserve_and_overpressure_queries_ignore_unrelated_static_loss_overflow"
+  ],
+  [
+    "feed_cutoff_accepts_forged_stop_flag",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "if not isinstance(self.stops_burn, bool):",
+    "if False:",
+    "tests/test_feed_cutoff_precision.py::test_cutoff_metadata_cannot_forge_a_stop_flag_or_an_event_kind"
+  ],
+  [
+    "feed_cutoff_reverses_injector_loss_sign",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "margin = tank_pressure - loss - _fraction(config.minimum_injector_pressure_pa)",
+    "margin = tank_pressure + loss - _fraction(config.minimum_injector_pressure_pa)",
+    "tests/test_feed_cutoff_precision.py::test_adiabatic_tank_reaches_injector_cutoff_at_closed_form_time"
+  ],
+  [
+    "regulator_rounds_upstream_before_checking_forward_head",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "            upstream_pressure_pa=bottle,\n",
+    "            upstream_pressure_pa=bottle_pressure,\n",
+    "tests/test_feed_physics_adversarial.py::FeedBoundaryAttacks::test_equal_display_pressures_still_resolve_forward_head"
+  ],
+  [
+    "regulator_rounds_tank_before_setpoint_error",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "pressure_error = _fraction(config.regulator_set_pressure_pa) - tank",
+    "pressure_error = _fraction(config.regulator_set_pressure_pa) - _fraction(tank_pressure)",
+    "tests/test_feed_physics_adversarial.py::FeedBoundaryAttacks::test_valve_motion_uses_unrounded_pressure_error_and_command"
+  ],
+  [
+    "regulator_rounds_command_before_actuator_rate",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "(command - _fraction(state.regulator_opening)) / _fraction(config.valve_time_constant_s)",
+    "(_fraction(float(command)) - _fraction(state.regulator_opening)) / _fraction(config.valve_time_constant_s)",
+    "tests/test_feed_physics_adversarial.py::FeedBoundaryAttacks::test_valve_motion_uses_unrounded_pressure_error_and_command"
+  ],
+  [
+    "regulator_rounds_effective_area_before_scaling",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "* _fraction(config.regulator_maximum_area_m2) * _fraction(opening)",
+    "* _fraction(config.regulator_maximum_area_m2 * opening)",
+    "tests/test_feed_physics_adversarial.py::FeedBoundaryAttacks::test_regulator_flow_survives_compensated_area_and_pressure_scales"
+  ],
+  [
+    "regulator_overflows_area_pressure_before_gas_scaling",
+    "src/rocket_propulsion/propulsion/burns/isentropic_restriction.py",
+    "area_pressure = effective_area * upstream",
+    "from .numeric_outputs import _finite_rational\n    area_pressure = Fraction(_finite_rational(effective_area * upstream, label))",
+    "tests/test_feed_physics_adversarial.py::FeedBoundaryAttacks::test_regulator_flow_survives_compensated_area_and_pressure_scales"
+  ],
+  [
+    "regulator_exports_near_equilibrium_head_before_square_root",
+    "src/rocket_propulsion/propulsion/burns/isentropic_restriction.py",
+    "        shape_squared = 2 * head",
+    "        shape_squared = Fraction(2 * float(head))",
+    "tests/test_feed_physics_adversarial.py::FeedBoundaryAttacks::test_regulator_flow_preserves_head_smaller_than_smallest_binary64"
+  ],
+  [
+    "feed_refuses_empty_tank_initial_state",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "_nonnegative(propellant_mass_kg, \"Initial propellant mass\")",
+    "_positive(propellant_mass_kg, \"Initial propellant mass\")",
+    "tests/test_feed_cutoff_precision.py::test_zero_reserve_admits_empty_tank_and_zero_demand_but_no_withdrawal"
+  ],
+  [
+    "feed_allows_withdrawal_after_depletion",
+    "src/rocket_propulsion/propulsion/burns/feed_system.py",
+    "if state.propellant_mass_kg == 0.0 and propellant_mass_flow_kg_s != 0.0:",
+    "if state.propellant_mass_kg == 0.0 and propellant_mass_flow_kg_s < 0.0:",
+    "tests/test_feed_cutoff_precision.py::test_zero_reserve_admits_empty_tank_and_zero_demand_but_no_withdrawal"
+  ],
+  [
+    "sonic_dynamic_reintroduces_binary64_log_cutoff",
+    "src/rocket_propulsion/propulsion/burns/isentropic_restriction.py",
+    "choked = _sonic_regime(ratio, gamma)",
+    "choked = log(float(ratio)) <= -(gamma / delta_gamma) * log1p(0.5 * delta_gamma)",
+    "tests/test_feed_physics_adversarial.py::FeedBoundaryAttacks::test_adjacent_sonic_states_match_independent_pressure_ratio"
+  ],
+  [
+    "sonic_direct_reintroduces_rounded_critical_pressure",
+    "src/rocket_propulsion/propulsion/burns/regulator_hysteresis.py",
+    "return _sonic_regime(Fraction(regulated) / Fraction(supply), gas.gamma)",
+    "return regulated <= supply * (2.0 / (gas.gamma + 1.0)) ** (gas.gamma / (gas.gamma - 1.0))",
+    "tests/test_feed_physics_adversarial.py::FeedBoundaryAttacks::test_adjacent_sonic_states_match_independent_pressure_ratio"
+  ],
+  [
+    "sonic_exact_boundary_is_treated_as_subsonic",
+    "src/rocket_propulsion/propulsion/burns/isentropic_restriction.py",
+    "if ratio <= lower:",
+    "if ratio < lower:",
+    "tests/test_feed_physics_adversarial.py::FeedBoundaryAttacks::test_exact_sonic_ratio_is_choked_and_has_distinct_adjacent_sides"
+  ],
+  [
+    "sonic_guesses_with_first_interval_midpoint",
+    "src/rocket_propulsion/propulsion/burns/isentropic_restriction.py",
+    "        if precision == _SONIC_PRECISIONS[0]:\n            exact_gamma = Fraction(gamma)",
+    "        if precision == _SONIC_PRECISIONS[0]:\n            return ratio <= (lower + upper) / 2",
+    "tests/test_feed_physics_adversarial.py::FeedBoundaryAttacks::test_sonic_regime_resolves_pressure_ratios_closer_than_initial_precision"
+  ],
+  [
+    "sonic_drops_exact_large_integer_power_comparison",
+    "src/rocket_propulsion/propulsion/burns/isentropic_restriction.py",
+    "if exponent.denominator == 1 and exponent.numerator < ratio.denominator.bit_length():",
+    "if False:",
+    "tests/test_feed_physics_adversarial.py::FeedBoundaryAttacks::test_exact_integer_power_sonic_equality_after_first_bound"
+  ],
+  [
+    "sonic_guesses_subsonic_after_precision_limit",
+    "src/rocket_propulsion/propulsion/burns/isentropic_restriction.py",
+    "    raise DomainError(\"Pressure ratio could not be separated from the sonic threshold.\",\n                      field=\"Sonic pressure ratio\")",
+    "    return False",
+    "tests/test_feed_physics_adversarial.py::FeedBoundaryAttacks::test_unresolved_sonic_side_is_refused_instead_of_guessed"
+  ],
+  [
+    "regulator_direct_erases_flow_at_near_equal_head",
+    "src/rocket_propulsion/propulsion/burns/regulator_hysteresis.py",
+    "    flow, _ = _restriction_flow(",
+    "    if (upstream / downstream) ** ((gas.gamma - 1.0) / gas.gamma) == 1.0:\n        return 0.0\n    flow, _ = _restriction_flow(",
+    "tests/test_feed_physics_adversarial.py::FeedBoundaryAttacks::test_direct_valve_flow_does_not_vanish_at_one_ulp_forward_head"
+  ],
+  [
+    "valve_response_uses_other_heads_observations",
+    "src/rocket_propulsion/studies/sass/valve_response.py",
+    "command_by_head[head], measured_by_head[head], head in observed_initial,",
+    "command_by_head[head], measured_by_head[commanded.head_ids[-1]], head in observed_initial,",
+    "tests/test_sass_valve_response.py::test_observation_on_other_head_cannot_satisfy_missing_response"
+  ],
+  [
+    "valve_response_matches_wrong_transition_direction",
+    "src/rocket_propulsion/studies/sass/valve_response.py",
+    "elif first < 0 or commands[first].opened != observation.opened:",
+    "elif first < 0:",
+    "tests/test_sass_valve_response.py::test_late_open_cannot_be_reassigned_across_a_superseding_close"
+  ],
+  [
+    "valve_response_ignores_relative_clock_error_in_latency_grade",
+    "src/rocket_propulsion/studies/sass/valve_response.py",
+    "\"late_response\" if bounds[0] > limit else\n                      \"within_limit\" if bounds[1] <= limit",
+    "\"late_response\" if delay > limit else\n                      \"within_limit\" if delay <= limit",
+    "tests/test_sass_valve_response.py::test_time_order_and_delay_classification_against_all_possible_clock_offsets"
+  ],
+  [
+    "valve_response_infers_failure_from_unverified_coverage",
+    "src/rocket_propulsion/studies/sass/valve_response.py",
+    "        if head not in verified:\n            responses.extend",
+    "        if False:\n            responses.extend",
+    "tests/test_sass_valve_response.py::test_absent_response_requires_verified_coverage_and_does_not_hide_other_failure"
+  ],
+  [
+    "valve_response_treats_an_unverified_idle_head_as_covered",
+    "src/rocket_propulsion/studies/sass/valve_response.py",
+    "not (unverified or initial_mismatch or issues)",
+    "not (initial_mismatch or issues)",
+    "tests/test_sass_valve_response.py::test_unverified_idle_head_cannot_be_inferred_closed_from_silence"
+  ],
+  [
+    "valve_response_ignores_end_window_clock_error",
+    "src/rocket_propulsion/studies/sass/valve_response.py",
+    "deadline = command.tick + limit + timing_error",
+    "deadline = command.tick + limit",
+    "tests/test_sass_valve_response.py::test_window_boundary_distinguishes_missing_from_unobservable"
+  ],
+  [
+    "valve_response_ignores_start_window_clock_error",
+    "src/rocket_propulsion/studies/sass/valve_response.py",
+    "            if command.tick < timing_error:",
+    "            if False:",
+    "tests/test_sass_valve_response.py::test_window_boundary_distinguishes_missing_from_unobservable"
+  ],
+  [
+    "valve_response_hides_multiple_observed_movements",
+    "src/rocket_propulsion/studies/sass/valve_response.py",
+    "        if len(matching) > 1:",
+    "        if False:",
+    "tests/test_sass_valve_response.py::test_multiple_matching_transitions_cannot_hide_oscillation_after_a_command"
+  ],
+  [
+    "valve_response_assigns_an_observation_across_command_boundaries",
+    "src/rocket_propulsion/studies/sass/valve_response.py",
+    "        if first != last or lower < 0 or upper > duration:",
+    "        if lower < 0 or upper > duration:",
+    "tests/test_sass_valve_response.py::test_uncertain_transition_ownership_keeps_both_neighboring_commands_open"
+  ],
+  [
+    "valve_response_uses_opening_delay_to_grade_closure",
+    "src/rocket_propulsion/studies/sass/valve_response.py",
+    "limit = limits.opening_ticks if command.opened else limits.closing_ticks",
+    "limit = limits.opening_ticks",
+    "tests/test_sass_valve_response.py::test_opening_and_closing_use_their_own_approved_limits"
+  ],
+  [
+    "valve_response_assigns_failure_to_ambiguous_prehistory",
+    "src/rocket_propulsion/studies/sass/valve_response.py",
+    "        elif first < 0 and initial_mismatch:",
+    "        elif False:",
+    "tests/test_sass_valve_response.py::test_left_boundary_state_disagreement_cannot_be_promoted_to_hardware_failure_or_pass"
+  ],
+  [
+    "command_life_counts_unobserved_opening_as_complete_cycle",
+    "src/rocket_propulsion/studies/sass/command_life.py",
+    "                if head in opened_in_window:\n                    cycles[head] += 1\n                    opened_in_window.remove(head)",
+    "                cycles[head] += 1\n                opened_in_window.discard(head)",
+    "tests/test_sass_command_life.py::test_atomic_head_swap_and_boundary_censoring"
+  ],
+  [
+    "command_life_drops_right_censored_open_time",
+    "src/rocket_propulsion/studies/sass/command_life.py",
+    "        total[head] += duration\n        longest[head] = max(longest[head], duration)\n    usage =",
+    "    usage =",
+    "tests/test_sass_command_life.py::test_atomic_head_swap_and_boundary_censoring"
+  ],
+  [
+    "command_life_counts_instantaneous_swap_as_overlap",
+    "src/rocket_propulsion/studies/sass/command_life.py",
+    "                opened_in_window.add(head)\n",
+    "                opened_in_window.add(head)\n                peak = max(peak, len(active))\n",
+    "tests/test_sass_command_life.py::test_atomic_head_swap_and_boundary_censoring"
+  ],
+  [
+    "command_life_rounds_large_epoch_before_subtracting_ticks",
+    "src/rocket_propulsion/studies/sass/command_life.py",
+    "                duration = tick - active.pop(head)",
+    "                duration = int(float(tick) - float(active.pop(head)))",
+    "tests/test_sass_command_life.py::test_integer_ticks_preserve_short_window_at_large_epoch_and_strict_boundary"
+  ],
+  [
+    "command_life_treats_equality_as_exceedance",
+    "src/rocket_propulsion/studies/sass/command_life.py",
+    "                if lower > threshold:",
+    "                if lower >= threshold:",
+    "tests/test_sass_command_life.py::test_command_cycles_cross_the_actual_59000_reference"
+  ],
+  [
+    "command_life_resolves_censored_below_limit_as_complete",
+    "src/rocket_propulsion/studies/sass/command_life.py",
+    "elif upper is not None and upper <= threshold and not (\n                    item.left_censored or item.right_censored\n                ):",
+    "elif upper is not None and upper <= threshold:",
+    "tests/test_sass_command_life.py::test_atomic_head_swap_and_boundary_censoring"
+  ],
+  [
+    "command_life_lets_clock_roundoff_create_exceedance",
+    "src/rocket_propulsion/studies/sass/command_life.py",
+    "                if lower > threshold:",
+    "                if exact > threshold:",
+    "tests/test_sass_command_life.py::test_decimal_clock_representation_near_duration_limit_requires_review"
+  ],
+  [
+    "command_life_project_ignores_head_exceedance",
+    "src/rocket_propulsion/studies/sass/project.py",
+    "            if any(check.status == \"exceeds_reference\" for check in command_review.comparisons):",
+    "            if False:",
+    "tests/test_sass_command_life.py::test_project_archives_history_and_blocks_a_head_exceedance_hidden_by_mean"
+  ],
+  [
+    "command_life_project_ignores_parallel_head_mismatch",
+    "src/rocket_propulsion/studies/sass/project.py",
+    "            if command_review.peak_simultaneous_open > config.firing_count:",
+    "            if False:",
+    "tests/test_sass_command_life.py::test_project_flags_peak_concurrency_and_requires_every_installed_head"
+  ],
+  [
+    "command_life_accepts_two_transitions_per_head_at_one_tick",
+    "src/rocket_propulsion/studies/sass/command_life.py",
+    "            if head not in total or head in seen:",
+    "            if head not in total:",
+    "tests/test_sass_command_life.py::test_ambiguous_or_inconsistent_transitions_cannot_produce_evidence[commands0]"
+  ],
+  [
+    "catalogue_life_treats_repeated_allocations_as_one_continuous_burn",
+    "src/rocket_propulsion/studies/sass/project.py",
+    "            if item.count == 1\n",
+    "            if True\n",
+    "tests/test_sass_studies.py::ProjectTests::test_continuous_burn_limit_is_not_applied_to_aggregated_or_rotating_heads"
+  ],
+  [
+    "catalogue_life_assumes_all_heads_are_fixed_despite_spares",
+    "src/rocket_propulsion/studies/sass/project.py",
+    "            and config.installed_count == config.firing_count):",
+    "            and True):",
+    "tests/test_sass_studies.py::ProjectTests::test_continuous_burn_limit_is_not_applied_to_aggregated_or_rotating_heads"
+  ],
+  [
+    "catalogue_life_assumes_intermittent_operation_is_continuous",
+    "src/rocket_propulsion/studies/sass/project.py",
+    "if (sizing is not None and config.duty_fraction.value == 1.0",
+    "if (sizing is not None",
+    "tests/test_sass_studies.py::ProjectTests::test_continuous_burn_limit_is_not_applied_to_aggregated_or_rotating_heads"
+  ],
+  [
+    "catalogue_life_drops_simultaneously_firing_heads_from_accumulation",
+    "src/rocket_propulsion/studies/sass/project.py",
+    "         Fraction(config.firing_count, installed), True,",
+    "         Fraction(1, installed), True,",
+    "tests/test_sass_studies.py::ProjectTests::test_accumulated_burn_reference_uses_simultaneous_and_installed_counts"
+  ],
+  [
+    "catalogue_life_charges_retained_propellant_as_throughput",
+    "src/rocket_propulsion/studies/sass/project.py",
+    "summary.get(\"consumed_propellant\"),",
+    "summary.get(\"loaded_propellant\"),",
+    "tests/test_sass_studies.py::ProjectTests::test_throughput_uses_consumed_propellant_and_impulse_uses_scalar_load"
+  ],
+  [
+    "catalogue_life_keeps_exceeded_alternative_ranked",
+    "src/rocket_propulsion/studies/sass/project.py",
+    "        replace(score, eligibility=\"incomplete\", score=None)",
+    "        score",
+    "tests/test_sass_studies.py::ProjectTests::test_continuous_burn_limit_is_not_applied_to_aggregated_or_rotating_heads"
+  ],
+  [
+    "catalogue_life_transfers_single_burn_limit_between_variants",
+    "src/rocket_propulsion/studies/sass/catalog.py",
+    "_field(\"single_burn_life\", \"upper_bound\", None, 8 * 3600,",
+    "_field(\"single_burn_life\", \"upper_bound\", None, 12 * 3600,",
+    "tests/test_sass_studies.py::ProjectTests::test_throughput_uses_consumed_propellant_and_impulse_uses_scalar_load"
+  ],
+  [
+    "catalog_pairs_nominals_at_different_conditions",
+    "src/rocket_propulsion/studies/sass/catalog.py",
+    "        if (force is None or isp is None or force.nominal_point_id is None\n                or force.nominal_point_id != isp.nominal_point_id):",
+    "        if force is None or isp is None:",
+    "tests/test_sass_studies.py::EvidenceTests::test_nominal_labels_do_not_pair_different_operating_points_or_sources"
+  ],
+  [
+    "catalog_pairs_nominals_from_different_sources",
+    "src/rocket_propulsion/studies/sass/catalog.py",
+    "        if not {citation.source_id for citation in force.upper.citations}.intersection(\n            citation.source_id for citation in isp.upper.citations\n        ):",
+    "        if False:",
+    "tests/test_sass_studies.py::EvidenceTests::test_nominal_labels_do_not_pair_different_operating_points_or_sources"
+  ],
+  [
+    "catalog_reports_flow_range_ceiling_as_nominal",
+    "src/rocket_propulsion/studies/sass/catalog.py",
+    "    if reported_field is not None and reported_field.kind == \"nominal\":",
+    "    if reported_field is not None:",
+    "tests/test_sass_studies.py::EvidenceTests::test_study_point_cannot_publish_a_flow_range_endpoint_as_nominal"
+  ],
+  [
+    "catalog_converts_through_overflowed_nominal_flow_denominator",
+    "src/rocket_propulsion/studies/sass/catalog.py",
+    "    return Fraction(force_value) / (Fraction(STANDARD_GRAVITY_M_S2) * Fraction(isp_value))",
+    "    return Fraction(force_value / (STANDARD_GRAVITY_M_S2 * isp_value))",
+    "tests/test_sass_studies.py::EvidenceTests::test_nominal_flow_preserves_finite_result_across_intermediate_overflow"
+  ],
+  [
+    "catalog_disguises_reactor_preheat_as_general_power",
+    "src/rocket_propulsion/studies/sass/catalog.py",
+    "_field(\"reactor_preheat_power\", \"range\", 8, 10, \"W\", \"ECAPS-1N-BRADFORD\",",
+    "_field(\"power\", \"range\", 8, 10, \"W\", \"ECAPS-1N-BRADFORD\",",
+    "tests/test_sass_studies.py::EvidenceTests::test_ecaps_sources_preserve_distinct_isp_and_preheat_power_scope"
+  ],
+  [
+    "catalog_exports_newer_record_than_the_one_used_for_sizing",
+    "src/rocket_propulsion/studies/sass/project.py",
+    "\"catalog_record\": asdict(item.catalog_record),",
+    "\"catalog_record\": asdict(thruster(item.candidate.catalog_key)),",
+    "tests/test_sass_studies.py::ProjectTests::test_old_study_cannot_export_a_newer_catalogue_record"
+  ],
+  [
+    "catalog_uses_unchecked_component_mass_in_bus_budget",
+    "src/rocket_propulsion/studies/sass/project.py",
+    "            installed_mass = quantity(component_mass, \"kg\", strictly_positive=True)",
+    "            installed_mass = component_mass.value",
+    "tests/test_sass_studies.py::ProjectTests::test_catalogue_mass_with_wrong_units_or_sign_cannot_enter_bus_budget"
+  ],
+  [
+    "validation_ignores_archived_model_bytes",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    if model_digest != evidence.model_sha256:",
+    "    if False:",
+    "tests/test_sass_validation.py::ArchivedPredictionAttacks::test_pass_requires_declared_archives_and_actual_matching_bytes"
+  ],
+  [
+    "validation_ignores_approved_prediction_archive_digest",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    if output_digest != approved_digest:",
+    "    if False:",
+    "tests/test_sass_validation.py::ArchivedPredictionAttacks::test_pass_requires_declared_archives_and_actual_matching_bytes"
+  ],
+  [
+    "validation_grades_missing_model_run_archives",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        status = \"not_declared\" if approved_digest is None else \"missing_archives\"\n        excluded = {} if approved_digest is None else dict.fromkeys(matched, \"missing_model_run_archives\")",
+    "        status = \"not_declared\"\n        excluded = {}",
+    "tests/test_sass_validation.py::ArchivedPredictionAttacks::test_pass_requires_declared_archives_and_actual_matching_bytes"
+  ],
+  [
+    "validation_trusts_prediction_without_matching_archive_row",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        elif row != (sample.condition_record, sample.predicted.unit, sample.predicted.value, bound):",
+    "        elif False:",
+    "tests/test_sass_validation.py::ArchivedPredictionAttacks::test_approved_row_cannot_replace_prediction_or_bound_from_same_run"
+  ],
+  [
+    "validation_accepts_prediction_archive_for_wrong_model_revision",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    if any(payload[key] != value for key, value in header.items()):",
+    "    if False:",
+    "tests/test_sass_validation.py::ArchivedPredictionAttacks::test_hash_match_does_not_override_schema_or_configuration_identity"
+  ],
+  [
+    "validation_accepts_duplicate_archive_sample_ids",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        if identifier in result:",
+    "        if False:",
+    "tests/test_sass_validation.py::ArchivedPredictionAttacks::test_hash_match_does_not_override_schema_or_configuration_identity"
+  ],
+  [
+    "validation_ignores_changed_reviewed_sample",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "elif actual != expected:",
+    "elif False:",
+    "tests/test_sass_validation.py::ValidationTranscriptAttacks::test_archived_file_hash_alone_does_not_validate_an_edited_row"
+  ],
+  [
+    "validation_accepts_unreviewed_numeric_row",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "excluded[sample.identifier] = \"missing_reviewed_sample_sha256\"",
+    "pass",
+    "tests/test_sass_validation.py::ValidationTranscriptAttacks::test_independent_row_review_cannot_follow_a_replaced_archive_or_model"
+  ],
+  [
+    "validation_omits_measurement_bound_from_review",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    payload: dict[str, object] = {\n        \"schema\": \"rocket-propulsion-validation-sample-v1\",",
+    "    sample_data.pop(\"measurement_bound\")\n    payload: dict[str, object] = {\n        \"schema\": \"rocket-propulsion-validation-sample-v1\",",
+    "tests/test_sass_validation.py::ValidationTranscriptAttacks::test_archived_file_hash_alone_does_not_validate_an_edited_row"
+  ],
+  [
+    "validation_omits_raw_archive_identity_from_review",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        \"schema\": \"rocket-propulsion-validation-sample-v1\",\n        \"test_article_id\": evidence.test_article_id,\n        \"raw_data_sha256\": evidence.raw_data_sha256,",
+    "        \"schema\": \"rocket-propulsion-validation-sample-v1\",\n        \"test_article_id\": evidence.test_article_id,\n        \"raw_data_sha256\": \"ignored\",",
+    "tests/test_sass_validation.py::ValidationTranscriptAttacks::test_independent_row_review_cannot_follow_a_replaced_archive_or_model"
+  ],
+  [
+    "validation_omits_model_digest_from_review",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        \"model_sha256\": evidence.model_sha256,\n        \"calibration_sample_ids\": sorted",
+    "        \"model_sha256\": \"ignored\",\n        \"calibration_sample_ids\": sorted",
+    "tests/test_sass_validation.py::ValidationTranscriptAttacks::test_independent_row_review_cannot_follow_a_replaced_archive_or_model"
+  ],
+  [
+    "validation_omits_domain_review_decision",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    sample_data = asdict(sample)",
+    "    sample_data = asdict(sample)\n    sample_data[\"in_validation_domain\"] = True",
+    "tests/test_sass_validation.py::ValidationTranscriptAttacks::test_archived_file_hash_alone_does_not_validate_an_edited_row"
+  ],
+  [
+    "validation_ignores_missing_planned_measurements",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "if missing or unexpected or mismatches",
+    "if unexpected or mismatches",
+    "tests/test_sass_validation.py::ValidationCoverageAttacks::test_missing_local_sensor_cannot_inherit_aggregate_peak_agreement"
+  ],
+  [
+    "validation_ignores_unplanned_measurements_in_coverage",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "if missing or unexpected or mismatches",
+    "if missing or mismatches",
+    "tests/test_sass_validation.py::ValidationCoverageAttacks::test_scope_and_allowance_cannot_be_changed_by_result_rows"
+  ],
+  [
+    "validation_accepts_an_inflated_error_allowance",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "if sample.allowable_error.value != target.allowable_error.value:",
+    "if False:",
+    "tests/test_sass_validation.py::ValidationCoverageAttacks::test_scope_and_allowance_cannot_be_changed_by_result_rows"
+  ],
+  [
+    "validation_accepts_a_different_test_condition",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "if sample.condition_record != target.condition_record:",
+    "if False:",
+    "tests/test_sass_validation.py::ValidationCoverageAttacks::test_scope_and_allowance_cannot_be_changed_by_result_rows"
+  ],
+  [
+    "validation_accepts_a_different_measurand_unit",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "if sample.measured.unit != target.allowable_error.unit:",
+    "if False:",
+    "tests/test_sass_validation.py::ValidationCoverageAttacks::test_scope_and_allowance_cannot_be_changed_by_result_rows"
+  ],
+  [
+    "validation_allows_same_run_in_calibration_and_holdout",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "if {target.condition_record for target in targets}.intersection(calibration):",
+    "if False:",
+    "tests/test_sass_validation.py::ValidationCoverageAttacks::test_same_run_cannot_cross_calibration_boundary_under_a_new_sensor_id"
+  ],
+  [
+    "validation_ignores_unreported_calibration_conditions",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "evidence.calibration_sample_ids and not plan.calibration_condition_records",
+    "False",
+    "tests/test_sass_validation.py::ValidationCoverageAttacks::test_same_run_cannot_cross_calibration_boundary_under_a_new_sensor_id"
+  ],
+  [
+    "trajectory_skips_protection_after_profile_jump",
+    "src/rocket_propulsion/integrations/regulated_feed_trajectory.py",
+    "        if cutoff_id is None:\n            cutoff_id = next((identifier",
+    "        if cutoff_id is None and time == 0.0:\n            cutoff_id = next((identifier",
+    "tests/test_regulated_feed_trajectory.py::test_demand_jump_trips_pressure_cutoff_at_exact_profile_boundary[4.0]"
+  ],
+  [
+    "trajectory_uses_right_motor_limit_at_segment_end",
+    "src/rocket_propulsion/integrations/regulated_feed_trajectory.py",
+    "            side = \"left\" if epoch == active_segment.end_time_s else \"right\"",
+    "            side = \"right\"",
+    "tests/test_regulated_feed_trajectory.py::test_nominal_stop_uses_left_limit_and_burn_cannot_restart_during_coast"
+  ],
+  [
+    "trajectory_queries_negative_trial_inventory_as_physical",
+    "src/rocket_propulsion/integrations/regulated_feed_trajectory.py",
+    "        if trial and liquid <= 0.0:",
+    "        if False:",
+    "tests/test_regulated_feed_trajectory.py::test_reserve_root_with_solver_overshoot_cannot_publish_negative_or_consumed_reserve"
+  ],
+  [
+    "trajectory_discards_gravity_after_motor_cutoff",
+    "src/rocket_propulsion/integrations/regulated_feed_trajectory.py",
+    "        return (*values[3:6], *gravity(values), *gas.derivative.as_tuple())",
+    "        return (*values[3:6], 0.0, 0.0, 0.0, *gas.derivative.as_tuple())",
+    "tests/test_regulated_feed_trajectory.py::test_coast_retains_central_gravity_against_exact_circular_orbit"
+  ],
+  [
+    "trajectory_continues_liquid_withdrawal_on_coast",
+    "src/rocket_propulsion/integrations/regulated_feed_trajectory.py",
+    "        gas = feed_system.evaluate(feed_state(values), 0.0)",
+    "        gas = feed_system.evaluate(feed_state(values), 0.01)",
+    "tests/test_regulated_feed_trajectory.py::test_pressure_cutoff_and_coast_match_sealed_adiabatic_tank_and_rocket_equation[0.07]"
+  ],
+  [
+    "trajectory_refuses_pressure_map_boundary_trials",
+    "src/rocket_propulsion/integrations/regulated_feed_trajectory.py",
+    "                for_pressure_event_location=True,",
+    "                for_pressure_event_location=False,",
+    "tests/test_regulated_feed_trajectory.py::test_pressure_map_lower_edge_stops_before_injector_protection_and_allows_bracketing"
+  ],
+  [
+    "trajectory_reintroduces_flow_scale_floor_for_tiny_motor",
+    "src/rocket_propulsion/integrations/regulated_feed_trajectory.py",
+    "                mass_flow_scale_floor_kg_s=0.0,",
+    "                mass_flow_scale_floor_kg_s=1.0,",
+    "tests/test_regulated_feed_trajectory.py::test_small_nonzero_flow_cannot_accelerate_without_draining_the_tank"
+  ],
+  [
+    "trajectory_skips_safe_to_unsafe_brackets",
+    "src/rocket_propulsion/integrations/regulated_feed_trajectory.py",
+    "            if bracket_value <= 0.0:",
+    "            if False:",
+    "tests/test_regulated_feed_trajectory.py::test_pressure_cutoff_and_coast_match_sealed_adiabatic_tank_and_rocket_equation[0.07]"
+  ],
+  [
+    "trajectory_ignores_recovering_margin",
+    "src/rocket_propulsion/integrations/regulated_feed_trajectory.py",
+    "            if left_rates[index] < 0.0 <= right_rates[index]:",
+    "            if False:",
+    "tests/test_regulated_feed_trajectory.py::test_pressure_cutoff_during_underpressure_excursion_with_safe_segment_endpoints[grazing]"
+  ],
+  [
+    "trajectory_ignores_time_dependent_flow_in_pressure_rate",
+    "src/rocket_propulsion/integrations/regulated_feed_trajectory.py",
+    "            injector_rate = ((tank_rate + line_term)",
+    "            injector_rate = ((tank_rate)",
+    "tests/test_regulated_feed_trajectory.py::test_pressure_cutoff_during_underpressure_excursion_with_safe_segment_endpoints[grazing]"
+  ],
+  [
+    "trajectory_chooses_later_crossing_in_same_scan_interval",
+    "src/rocket_propulsion/integrations/regulated_feed_trajectory.py",
+    "            return min(roots)",
+    "            return max(roots)",
+    "tests/test_regulated_feed_trajectory.py::test_pressure_cutoff_during_underpressure_excursion_with_safe_segment_endpoints[grazing-before-dry-mass]"
+  ],
+  [
+    "trajectory_reverses_bottle_margin_rate",
+    "src/rocket_propulsion/integrations/regulated_feed_trajectory.py",
+    "                FeedEventKind.BOTTLE_PRESSURE_MARGIN: bottle_rate - tank_rate,",
+    "                FeedEventKind.BOTTLE_PRESSURE_MARGIN: tank_rate - bottle_rate,",
+    "tests/test_regulated_feed_trajectory.py::test_bottle_pressure_margin_cuts_at_first_of_two_thermal_crossings"
+  ],
+  [
+    "trajectory_uses_fixed_absolute_root_time_tolerance",
+    "src/rocket_propulsion/integrations/regulated_feed_trajectory.py",
+    "    root_absolute_tolerance = nextafter(0.0, 1.0)",
+    "    root_absolute_tolerance = 8.881784197001252e-16",
+    "tests/test_regulated_feed_trajectory.py::test_pressure_cutoff_during_underpressure_excursion_with_safe_segment_endpoints[rescaled-time]"
+  ],
+  [
+    "trajectory_inverts_upper_performance_margin",
+    "src/rocket_propulsion/integrations/regulated_feed_trajectory.py",
+    "                           -map_upper.event_value(injector, state, demand)))",
+    "                           map_upper.event_value(injector, state, demand)))",
+    "tests/test_regulated_feed_trajectory.py::test_heated_sealed_tank_crosses_the_earliest_upper_pressure_bound[performance:pressure-maximum-2200000.0]"
+  ],
+  [
+    "trajectory_requests_motor_before_checking_initial_inventory",
+    "src/rocket_propulsion/integrations/regulated_feed_trajectory.py",
+    "        if current[6] <= config.minimum_propellant_mass_kg:",
+    "        if False:",
+    "tests/test_regulated_feed_trajectory.py::test_initial_unsafe_inventory_and_gas_cannot_request_engine_flow[empty]"
+  ],
+  [
+    "transient_omit_interior_peak",
+    "src/rocket_propulsion/studies/sass/transient_observation.py",
+    "        peak_hi = max(peak_hi, *(value for _, value in upper))",
+    "        peak_hi = max(peak_hi, hi1)",
+    "tests/test_sass_transient_observation.py::test_identical_samples_hide_the_largest_pressure_peak"
+  ],
+  [
+    "transient_use_trapezoid_between_samples",
+    "src/rocket_propulsion/studies/sass/transient_observation.py",
+    "    if slew == 0:\n        return ((Fraction(0), left), (elapsed, right))",
+    "    if slew >= 0:\n        return ((Fraction(0), left), (elapsed, right))",
+    "tests/test_sass_transient_observation.py::test_identical_samples_hide_the_largest_pressure_peak"
+  ],
+  [
+    "transient_midpoint_for_asymmetric_cones",
+    "src/rocket_propulsion/studies/sass/transient_observation.py",
+    "    crossing = (right - left + gradient * elapsed) / (2 * gradient)",
+    "    crossing = elapsed / 2",
+    "tests/test_sass_transient_observation.py::test_asymmetric_cone_crossing_at_a_subsample_time"
+  ],
+  [
+    "transient_missing_start_ignored",
+    "src/rocket_propulsion/studies/sass/transient_observation.py",
+    "first == stop or ticks[first] != start or ticks[stop - 1] != end",
+    "first == stop or ticks[stop - 1] != end",
+    "tests/test_sass_transient_observation.py::test_missing_edges_gaps_and_missing_slew_never_publish_bounds"
+  ],
+  [
+    "transient_missing_end_ignored",
+    "src/rocket_propulsion/studies/sass/transient_observation.py",
+    "first == stop or ticks[first] != start or ticks[stop - 1] != end",
+    "first == stop or ticks[first] != start",
+    "tests/test_sass_transient_observation.py::test_missing_edges_gaps_and_missing_slew_never_publish_bounds"
+  ],
+  [
+    "transient_gap_ignored",
+    "src/rocket_propulsion/studies/sass/transient_observation.py",
+    "    if max(gaps) > trace.max_gap_ticks:",
+    "    if min(gaps) > trace.max_gap_ticks:",
+    "tests/test_sass_transient_observation.py::test_missing_edges_gaps_and_missing_slew_never_publish_bounds"
+  ],
+  [
+    "transient_missing_slew_defaults_to_point",
+    "src/rocket_propulsion/studies/sass/transient_observation.py",
+    "        return TransientReview(\"missing_slew\", trace, window, review_record,\n                               positive_impulse_start_ticks=starts)",
+    "        return TransientReview(\"bounded\", trace, window, review_record)",
+    "tests/test_sass_transient_observation.py::test_missing_edges_gaps_and_missing_slew_never_publish_bounds"
+  ],
+  [
+    "transient_global_feasibility_bypassed",
+    "src/rocket_propulsion/studies/sass/transient_observation.py",
+    "    if not _tighten(ranges, steps, slew):",
+    "    if False and not _tighten(ranges, steps, slew):",
+    "tests/test_sass_transient_observation.py::test_pairwise_feasibility_does_not_establish_a_common_middle_value"
+  ],
+  [
+    "transient_future_constraint_ignored",
+    "src/rocket_propulsion/studies/sass/transient_observation.py",
+    "    for indices in (range(1, len(ranges)), range(len(ranges) - 2, -1, -1)):",
+    "    for indices in (range(1, len(ranges)),):",
+    "tests/test_sass_transient_observation.py::test_late_constraint_tightens_earlier_samples_even_with_zero_slew"
+  ],
+  [
+    "transient_tick_seconds_dropped",
+    "src/rocket_propulsion/studies/sass/transient_observation.py",
+    "    steps = [gap * period for gap in gaps]",
+    "    steps = [Fraction(gap) for gap in gaps]",
+    "tests/test_sass_transient_observation.py::test_clock_uses_exact_tick_differences_and_requested_window"
+  ],
+  [
+    "transient_forward_impulse_cancels",
+    "src/rocket_propulsion/studies/sass/transient_observation.py",
+    "            positive_lo += _area(lower, positive_only=True, start_at=latest_offset)",
+    "            positive_lo += _area(lower, positive_only=False, start_at=latest_offset)",
+    "tests/test_sass_transient_observation.py::test_reverse_thrust_cannot_erase_forward_impulse"
+  ],
+  [
+    "transient_upper_endpoint_rounds_inward",
+    "src/rocket_propulsion/studies/sass/rational_numerics.py",
+    "    if upward and Fraction(binary) < value:",
+    "    if upward and Fraction(binary) > value:",
+    "tests/test_sass_transient_observation.py::test_outward_rounding_keeps_nonzero_subnormal_area_enclosed"
+  ],
+  [
+    "replay_bypass_missing_archive",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        return _TransientReplay(\n            dict.fromkeys(matched & targets.keys(), \"missing_transient_archive\"),\n            {\"status\": \"missing_archive\", \"required_sample_ids\": sorted(targets)}, {}, {},\n        )",
+    "        return _TransientReplay({}, {\"status\": \"not_declared\"}, {}, {})",
+    "tests/test_sass_transient_validation.py::test_no_archive_cannot_be_treated_as_a_verified_transcription"
+  ],
+  [
+    "replay_allow_measurement_understatement",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "                  or sample.measurement_bound.value != result.absolute_error):",
+    "                  or False):",
+    "tests/test_sass_transient_validation.py::test_reapproved_understatement_still_fails_raw_replay"
+  ],
+  [
+    "replay_allow_measurement_center_change",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "elif (sample.measurement_bound is None or sample.measured.value != result.value",
+    "elif (sample.measurement_bound is None or False",
+    "tests/test_sass_transient_validation.py::test_reapproved_understatement_still_fails_raw_replay"
+  ],
+  [
+    "replay_channel_can_cross_runs",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        trace = channels.get((sample.condition_record, target.channel_id))",
+    "        trace = next((t for (_, c), t in channels.items() if c == target.channel_id), None)",
+    "tests/test_sass_transient_validation.py::test_synchronized_channel_name_cannot_cross_physical_runs"
+  ],
+  [
+    "replay_disable_archive_reconstruction_hash",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    if sha256(transient_archive_bytes(run)).hexdigest() != evidence.raw_data_sha256:",
+    "    if False and sha256(transient_archive_bytes(run)).hexdigest() != evidence.raw_data_sha256:",
+    "tests/test_sass_transient_validation.py::test_original_bytes_and_reconstructed_trace_are_both_bound"
+  ],
+  [
+    "replay_archive_ignores_acquisition_review",
+    "src/rocket_propulsion/studies/sass/transient_validation.py",
+    "            \"acquisition_review_record\": trace.acquisition_review_record,",
+    "            \"acquisition_review_record\": \"\",",
+    "tests/test_sass_transient_validation.py::test_original_bytes_and_reconstructed_trace_are_both_bound"
+  ],
+  [
+    "replay_digest_ignores_target_window",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        payload[\"transient_target\"] = asdict(transient_target)",
+    "        payload[\"transient_target\"] = {\"channel_id\": transient_target.channel_id}",
+    "tests/test_sass_transient_validation.py::test_same_numeric_value_cannot_reuse_a_digest_after_recipe_change"
+  ],
+  [
+    "replay_uses_signed_instead_of_forward_impulse",
+    "src/rocket_propulsion/studies/sass/transient_validation.py",
+    "        \"positive_impulse\": review.positive_impulse_ns,",
+    "        \"positive_impulse\": review.signed_integral,",
+    "tests/test_sass_transient_validation.py::test_valid_pressure_and_fixed_impulse_replay_on_same_run"
+  ],
+  [
+    "replay_rounds_recentered_radius_inward",
+    "src/rocket_propulsion/studies/sass/transient_validation.py",
+    "    radius = outward_endpoint(max(Fraction(center) - lo, hi - Fraction(center)), upward=True)",
+    "    radius = outward_endpoint(max(Fraction(center) - lo, hi - Fraction(center)), upward=False)",
+    "tests/test_sass_transient_validation.py::test_midpoint_rounding_cannot_shrink_the_transient_interval"
+  ],
+  [
+    "replay_accepts_assumed_clock_or_slew",
+    "src/rocket_propulsion/studies/sass/transient_validation.py",
+    "    if trace.tick_period.assumption_notes or slew.assumption_notes:",
+    "    if trace.tick_period.assumption_notes and slew.assumption_notes:",
+    "tests/test_sass_transient_validation.py::test_incomplete_acquisition_cannot_supply_a_measurement"
+  ],
+  [
+    "replay_mislabeled_pressure_time_unit",
+    "src/rocket_propulsion/studies/sass/transient_validation.py",
+    "    unit = trace.unit if target.metric == \"peak\" else f\"{trace.unit}*s\"",
+    "    unit = trace.unit",
+    "tests/test_sass_transient_validation.py::test_metric_dimensions_and_sign_do_not_cross"
+  ],
+  [
+    "replay_archive_accepts_noncanonical_bytes",
+    "src/rocket_propulsion/studies/sass/transient_validation.py",
+    "    if transient_archive_bytes(run) != data:",
+    "    if False and transient_archive_bytes(run) != data:",
+    "tests/test_sass_transient_validation.py::test_archive_reader_rejects_noncanonical_and_ambiguous_records"
+  ],
+  [
+    "shutdown_uses_first_closure",
+    "src/rocket_propulsion/studies/sass/shutdown_observation.py",
+    "    last = max(ticks.values())",
+    "    last = min(ticks.values())",
+    "tests/test_sass_shutdown_observation.py::test_last_physical_closure_and_both_clock_errors_anchor_impulse"
+  ],
+  [
+    "shutdown_uses_command_timestamps",
+    "src/rocket_propulsion/studies/sass/shutdown_observation.py",
+    "    last = max(ticks.values())",
+    "    last = max(command.tick for command in commands)",
+    "tests/test_sass_shutdown_observation.py::test_last_physical_closure_and_both_clock_errors_anchor_impulse"
+  ],
+  [
+    "shutdown_force_clock_error_ignored",
+    "src/rocket_propulsion/studies/sass/shutdown_observation.py",
+    "    total_error = valves.max_relative_timing_error_ticks + sync_error",
+    "    total_error = valves.max_relative_timing_error_ticks",
+    "tests/test_sass_shutdown_observation.py::test_last_physical_closure_and_both_clock_errors_anchor_impulse"
+  ],
+  [
+    "shutdown_unobserved_closure_falls_back_to_command",
+    "src/rocket_propulsion/studies/sass/shutdown_observation.py",
+    "    if len(ticks) != len(closures) or heads.intersection(valves.initial_state_mismatch_head_ids):",
+    "    ticks = {command.head_id: ticks.get(command.head_id, command.tick) for command in commands}\n    if heads.intersection(valves.initial_state_mismatch_head_ids):",
+    "tests/test_sass_shutdown_observation.py::test_no_command_based_fallback_when_physical_closure_is_unresolved"
+  ],
+  [
+    "shutdown_valve_tail_coverage_ignores_clock_error",
+    "src/rocket_propulsion/studies/sass/shutdown_observation.py",
+    "end + total_error > valves.duration_ticks",
+    "end > valves.duration_ticks",
+    "tests/test_sass_shutdown_observation.py::test_valve_and_force_records_both_cover_the_tail"
+  ],
+  [
+    "shutdown_ignores_reopening_before_final_close",
+    "src/rocket_propulsion/studies/sass/shutdown_observation.py",
+    "event.head_id in heads and ticks[event.head_id] < event.tick",
+    "event.head_id in heads and last < event.tick",
+    "tests/test_sass_shutdown_observation.py::test_reopening_before_the_last_closure_invalidates_shared_shutdown"
+  ],
+  [
+    "shutdown_opening_at_uncertain_tail_boundary_ignored",
+    "src/rocket_propulsion/studies/sass/shutdown_observation.py",
+    "           and event.tick - total_error <= end for event in observed.history.commands):",
+    "           and event.tick - total_error < end for event in observed.history.commands):",
+    "tests/test_sass_shutdown_observation.py::test_reopening_within_clock_error_at_tail_end_is_not_outside"
+  ],
+  [
+    "shutdown_later_open_command_ignored",
+    "src/rocket_propulsion/studies/sass/shutdown_observation.py",
+    "           and event.tick - sync_error <= end for event in commanded.commands):",
+    "           and event.tick - sync_error < end for event in commanded.commands):",
+    "tests/test_sass_shutdown_observation.py::test_issued_reopening_at_tail_boundary_is_a_new_condition"
+  ],
+  [
+    "shutdown_bounds_both_use_earliest_closure",
+    "src/rocket_propulsion/studies/sass/transient_observation.py",
+    "            positive_lo += _area(lower, positive_only=True, start_at=latest_offset)",
+    "            positive_lo += _area(lower, positive_only=True, start_at=earliest_offset)",
+    "tests/test_sass_shutdown_observation.py::test_analytic_linear_path_for_all_uncertain_closure_locations"
+  ],
+  [
+    "shutdown_subsample_start_is_rounded_to_old_left_force",
+    "src/rocket_propulsion/studies/sass/transient_observation.py",
+    "                y0 += (y1 - y0) * (start_at - left) / (right - left)",
+    "                y0 += 0",
+    "tests/test_sass_shutdown_observation.py::test_subsample_closure_does_not_erase_between_sample_force"
+  ],
+  [
+    "shutdown_replay_uses_valve_from_wrong_experiment",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        valve = valve_acquisitions.get(sample.condition_record)",
+    "        valve = next(iter(valve_acquisitions.values()), None)",
+    "tests/test_sass_shutdown_replay.py::test_no_valve_record_or_other_condition_cannot_supply_closure"
+  ],
+  [
+    "shutdown_replay_allows_missing_valve_record",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "            result = (\"missing_archived_valve_acquisition\" if valve is None\n                      else shutdown_measurement(trace, target, valve))",
+    "            result = (TransientMeasurement(\"N*s\", sample.measured.value, 4.0, (10.0, 18.0)) if valve is None\n                      else shutdown_measurement(trace, target, valve))",
+    "tests/test_sass_shutdown_replay.py::test_no_valve_record_or_other_condition_cannot_supply_closure"
+  ],
+  [
+    "shutdown_replay_digest_omits_selected_valves",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        payload[\"transient_target\"] = asdict(transient_target)",
+    "        recipe_fields = asdict(transient_target)\n        if isinstance(transient_target, ShutdownValidationTarget):\n            recipe_fields.pop(\"close_commands\")\n        payload[\"transient_target\"] = recipe_fields",
+    "tests/test_sass_shutdown_replay.py::test_review_digest_binds_recipe_even_for_unchanged_numerical_result"
+  ],
+  [
+    "shutdown_replay_archive_omits_valve_clock_review",
+    "src/rocket_propulsion/studies/sass/transient_validation.py",
+    "    data = asdict(row)\n    data[\"commanded\"][\"tick_period\"][\"value\"]",
+    "    data = asdict(row)\n    data[\"observed\"][\"clock_alignment_record\"] = \"\"\n    data[\"commanded\"][\"tick_period\"][\"value\"]",
+    "tests/test_sass_shutdown_replay.py::test_archived_alignment_and_observed_position_are_hash_bound"
+  ],
+  [
+    "shutdown_replay_archive_omits_observed_valve_position",
+    "src/rocket_propulsion/studies/sass/transient_validation.py",
+    "    data = asdict(row)\n    data[\"commanded\"][\"tick_period\"][\"value\"]",
+    "    data = asdict(row)\n    data[\"observed\"][\"history\"][\"commands\"] = []\n    data[\"commanded\"][\"tick_period\"][\"value\"]",
+    "tests/test_sass_shutdown_replay.py::test_archived_alignment_and_observed_position_are_hash_bound"
+  ],
+  [
+    "shutdown_replay_accepts_assumed_observed_clock",
+    "src/rocket_propulsion/studies/sass/transient_validation.py",
+    "        trace.tick_period, slew, valve.commanded.tick_period, valve.observed.history.tick_period,",
+    "        trace.tick_period, slew, valve.commanded.tick_period,",
+    "tests/test_sass_shutdown_replay.py::test_reapproved_input_does_not_replace_missing_closure_or_justify_assumed_clock"
+  ],
+  [
+    "shutdown_replay_overwrites_late_timing_failure",
+    "src/rocket_propulsion/studies/sass/transient_validation.py",
+    "final_closure_ticks=review.final_closure_ticks, valve_timing_status=review.valve_review.status,",
+    "final_closure_ticks=review.final_closure_ticks, valve_timing_status=\"pass\",",
+    "tests/test_sass_shutdown_replay.py::test_late_closure_can_agree_with_prediction_but_keeps_timing_failure"
+  ],
+  [
+    "shutdown_replay_emits_valve_data_under_legacy_schema",
+    "src/rocket_propulsion/studies/sass/transient_validation.py",
+    "        data[\"schema\"] = \"rocket-propulsion-transient-run-v2\"",
+    "        data[\"schema\"] = \"rocket-propulsion-transient-run-v1\"",
+    "tests/test_sass_shutdown_replay.py::test_shutdown_archive_roundtrip_preserves_actual_closed_window"
+  ],
+  [
+    "physical_limit_upper_exclusive",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "minimum <= lo and hi <= maximum",
+    "minimum <= lo and hi < maximum",
+    "tests/test_sass_physical_acceptance.py::test_inclusive_limits_and_one_ulp_straddles_in_both_directions"
+  ],
+  [
+    "physical_limit_lower_exclusive",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "minimum <= lo and hi <= maximum",
+    "minimum < lo and hi <= maximum",
+    "tests/test_sass_physical_acceptance.py::test_inclusive_limits_and_one_ulp_straddles_in_both_directions"
+  ],
+  [
+    "physical_limit_overlap_treated_as_pass",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "minimum <= lo and hi <= maximum",
+    "lo <= maximum and hi >= minimum",
+    "tests/test_sass_physical_acceptance.py::test_inclusive_limits_and_one_ulp_straddles_in_both_directions"
+  ],
+  [
+    "physical_gate_uses_widened_symmetric_bounds",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "            lo, hi = measurement.enclosure",
+    "            lo = Fraction(measurement.value) - Fraction(measurement.absolute_error)\n            hi = Fraction(measurement.value) + Fraction(measurement.absolute_error)",
+    "tests/test_sass_physical_acceptance.py::test_physical_band_uses_original_outward_interval_not_symmetrized_row"
+  ],
+  [
+    "physical_criteria_gate_depends_on_model_archive",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    physical_review = _check_physical_acceptance(plan, replay, exclusions)",
+    "    physical_review = _check_physical_acceptance(plan, _TransientReplay(replay.exclusions, replay.report, {key: value for key, value in replay.measurements.items() if key not in archive_exclusions}, replay.valve_timing), exclusions)",
+    "tests/test_sass_physical_acceptance.py::test_matching_prediction_and_missing_model_archive_cannot_hide_physical_failure"
+  ],
+  [
+    "physical_criteria_digest_omits_limits_and_approval",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        payload[\"physical_criteria\"] = limits",
+    "        payload[\"physical_criteria\"] = {}",
+    "tests/test_sass_physical_acceptance.py::test_edited_physical_limit_or_approval_cannot_reuse_prior_review"
+  ],
+  [
+    "physical_gate_ignores_failed_valve_timing",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        timing = timing_review.status if isinstance(timing_review, ValveResponseReview) else \"unassessed\"",
+    "        timing = \"pass\" if isinstance(timing_review, ValveResponseReview) else \"unassessed\"",
+    "tests/test_sass_physical_acceptance.py::test_timing_failure_dominates_passing_band_and_matching_prediction"
+  ],
+  [
+    "physical_gate_missing_measurement_treated_as_pass",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        band = \"unassessed\"\n        if measurement is not None:",
+    "        band = \"pass\"\n        if measurement is not None:",
+    "tests/test_sass_physical_acceptance.py::test_absent_required_measurement_cannot_turn_a_partial_pass_into_complete_pass"
+  ],
+  [
+    "physical_gate_missing_measurement_hides_a_confirmed_failure",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    status = (\"not_declared\" if not rows else \"fail\" if \"fail\" in states else",
+    "    status = (\"not_declared\" if not rows else \"fail\" if states == {\"fail\"} else",
+    "tests/test_sass_physical_acceptance.py::test_absent_required_measurement_cannot_turn_a_partial_pass_into_complete_pass"
+  ],
+  [
+    "valve_acceptance_no_force_hides_timing",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        if isinstance(target, ShutdownValidationTarget) and criteria is not None and criteria.require_valve_timing:",
+    "        if (trace is not None and isinstance(target, ShutdownValidationTarget)\n                and criteria is not None and criteria.require_valve_timing):",
+    "tests/test_sass_valve_acceptance.py::test_confirmed_late_close_survives_force_channel_absence"
+  ],
+  [
+    "valve_acceptance_missing_thrust_band_treated_as_pass",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    status = (\"fail\" if \"fail\" in states else \"pass\" if states == {\"pass\"} else\n              \"indeterminate\" if \"indeterminate\" in states else \"unassessed\")",
+    "    status = (\"fail\" if \"fail\" in states else \"pass\" if \"pass\" in states else\n              \"indeterminate\" if \"indeterminate\" in states else \"unassessed\")",
+    "tests/test_sass_valve_acceptance.py::test_passing_timing_only_criterion_does_not_supply_an_impulse"
+  ],
+  [
+    "valve_acceptance_reopens_but_force_refusal_hides_it",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        if isinstance(result, str):\n            exclusions[sample.identifier] = result",
+    "        if isinstance(result, str):\n            valve_timing.pop(sample.identifier, None)\n            exclusions[sample.identifier] = result",
+    "tests/test_sass_valve_acceptance.py::test_unexpected_reopening_remains_failure_even_when_tail_is_unassessable"
+  ],
+  [
+    "valve_acceptance_wrong_experiment_supplies_timing",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        valve = valve_acquisitions.get(sample.condition_record)",
+    "        valve = next(iter(valve_acquisitions.values()), None)",
+    "tests/test_sass_valve_acceptance.py::test_unreviewed_clock_or_substituted_condition_cannot_supply_timing"
+  ],
+  [
+    "valve_acceptance_assumed_clock_clears_admission",
+    "src/rocket_propulsion/studies/sass/transient_validation.py",
+    "    if command_clock.assumption_notes or observation_clock.assumption_notes:",
+    "    if command_clock.assumption_notes and observation_clock.assumption_notes:",
+    "tests/test_sass_valve_acceptance.py::test_unreviewed_clock_or_substituted_condition_cannot_supply_timing"
+  ],
+  [
+    "valve_acceptance_bad_force_transcription_masks_timing",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "                exclusions[sample.identifier] = \"replayed_transient_measurement_mismatch\"",
+    "                valve_timing.pop(sample.identifier, None)\n                exclusions[sample.identifier] = \"replayed_transient_measurement_mismatch\"",
+    "tests/test_sass_valve_acceptance.py::test_force_transcription_mismatch_cannot_erase_verified_timing"
+  ],
+  [
+    "valve_acceptance_invented_close_is_admitted",
+    "src/rocket_propulsion/studies/sass/transient_validation.py",
+    "    if not set(target.close_commands).issubset(valve.commanded.commands):\n        return \"shutdown_close_not_archived\"\n    command_clock",
+    "    if False and not set(target.close_commands).issubset(valve.commanded.commands):\n        return \"shutdown_close_not_archived\"\n    command_clock",
+    "tests/test_sass_valve_acceptance.py::test_required_timing_still_requires_reviewed_recipe_and_selected_commands"
+  ],
+  [
+    "catalogue_flow_rank_ignores_conflict",
+    "src/rocket_propulsion/studies/sass/project.py",
+    "            unresolved.append(\"Calculated nominal mass flow falls outside the published range. Review before ranking.\")\n            catalogue_review_needed.add(config.identifier)",
+    "            unresolved.append(\"Calculated nominal mass flow falls outside the published range. Review before ranking.\")",
+    "tests/test_sass_catalogue_flow.py::test_manufacturer_1n_conflict_is_retained_but_cannot_win_trade"
+  ],
+  [
+    "catalogue_flow_uses_reported_nominal_instead_of_equation",
+    "src/rocket_propulsion/studies/sass/catalog.py",
+    "    flow = _closed_flow(quantity(force, \"N\", strictly_positive=True),\n                        quantity(isp, \"s\", strictly_positive=True))",
+    "    flow = Fraction(operating.get(\"reported_mass_flow\").value)",
+    "tests/test_sass_catalogue_flow.py::test_manufacturer_1n_conflict_is_retained_but_cannot_win_trade"
+  ],
+  [
+    "catalogue_flow_can_mix_sources",
+    "src/rocket_propulsion/studies/sass/catalog.py",
+    "    if not set.intersection(*cited):",
+    "    if not set.union(*cited):",
+    "tests/test_sass_catalogue_flow.py::test_flow_comparison_does_not_assume_endpoint_from_different_sources"
+  ],
+  [
+    "catalogue_flow_rank_ignores_low_flow",
+    "src/rocket_propulsion/studies/sass/project.py",
+    "flow_check.status in (\"above_published_range\", \"below_published_range\")",
+    "flow_check.status == \"above_published_range\"",
+    "tests/test_sass_catalogue_flow.py::test_below_range_also_blocks_ranking_without_removing_budget"
+  ],
+  [
+    "catalogue_flow_range_comparison_rounds_first",
+    "src/rocket_propulsion/studies/sass/catalog.py",
+    "    status: Literal[\"below_published_range\", \"above_published_range\", \"within_published_range\"] = (",
+    "    flow = Fraction(float(flow))\n    status: Literal[\"below_published_range\", \"above_published_range\", \"within_published_range\"] = (",
+    "tests/test_sass_catalogue_flow.py::test_exact_flow_outside_range_cannot_round_itself_inside"
+  ],
+  [
+    "catalogue_flow_upper_end_substitution",
+    "src/rocket_propulsion/studies/sass/catalog.py",
+    "    hi = quantity(bounds.upper, \"kg/s\", strictly_positive=True)",
+    "    hi = quantity(bounds.lower, \"kg/s\", strictly_positive=True)",
+    "tests/test_sass_catalogue_flow.py::test_manufacturer_1n_conflict_is_retained_but_cannot_win_trade"
+  ],
+  [
+    "pressure_inlet_guesses_datum",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "    if window.reference == \"absolute\":",
+    "    if window.reference == \"absolute\" or window.gauge_reference_lower is None:",
+    "tests/test_sass_pressure_interface.py::test_unreferenced_gauge_and_differential_do_not_match_absolute_nominal"
+  ],
+  [
+    "pressure_inlet_discards_gauge_reference_upper",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "high + Fraction(window.gauge_reference_upper.value)",
+    "high + Fraction(window.gauge_reference_lower.value)",
+    "tests/test_sass_pressure_interface.py::test_actual_gauge_reference_is_added_at_both_endpoints"
+  ],
+  [
+    "pressure_inlet_rounds_before_comparison",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "    low, high = absolute\n    reported = (outward_endpoint(low, upward=False), outward_endpoint(high, upward=True))",
+    "    low, high = map(float, absolute)\n    reported = (outward_endpoint(low, upward=False), outward_endpoint(high, upward=True))",
+    "tests/test_sass_pressure_interface.py::test_nearby_window_is_not_rounded_onto_a_nominal_point"
+  ],
+  [
+    "pressure_inlet_assumes_unspecified_manufacturer_reference",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "source is None or source.pressure_reference != \"absolute\" or source.lower is None",
+    "source is None or source.lower is None",
+    "tests/test_sass_pressure_interface.py::test_unstated_manufacturer_datum_and_bipropellant_ports_stay_unassessed"
+  ],
+  [
+    "pressure_inlet_skips_missing_companion_port",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "    return tuple(_inlet_check(record, port, by_port.get(port)) for port in inlet_ports(record))",
+    "    return tuple(_inlet_check(record, port, by_port.get(port)) for port in by_port)",
+    "tests/test_sass_pressure_interface.py::test_declared_port_limits_cannot_substitute_for_companion_port"
+  ],
+  [
+    "pressure_inlet_uses_pressure_from_other_port",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "field for field in record.fields if field.pressure_port == port",
+    "field for field in record.fields if field.pressure_port == \"fuel_inlet\"",
+    "tests/test_sass_pressure_interface.py::test_declared_port_limits_cannot_substitute_for_companion_port"
+  ],
+  [
+    "pressure_inlet_accepts_unpaired_nominal",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "                or source.nominal_point_id != record.field(\"thrust\").nominal_point_id",
+    "                or False",
+    "tests/test_sass_pressure_interface.py::test_nominal_pressure_at_unpaired_point_is_not_reused"
+  ],
+  [
+    "pressure_inlet_drops_rank_gate",
+    "src/rocket_propulsion/studies/sass/project.py",
+    "                unresolved.append(f\"Review required for {check.port}: {check.reason}\")\n                catalogue_review_needed.add(config.identifier)",
+    "                unresolved.append(f\"Review required for {check.port}: {check.reason}\")",
+    "tests/test_sass_pressure_interface.py::test_unreferenced_gauge_and_differential_do_not_match_absolute_nominal"
+  ],
+  [
+    "pressure_referent_ignores_acquisition_mismatch",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "            if acquired_pressure != target.pressure_referent:",
+    "            if False:",
+    "tests/test_sass_pressure_referent.py::test_same_values_with_wrong_measured_location_or_datum_never_supply_a_result"
+  ],
+  [
+    "pressure_referent_ignores_prediction_mismatch",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "            if pressure_referents.get(sample.identifier) != reference:",
+    "            if False:",
+    "tests/test_sass_pressure_referent.py::test_model_location_and_datum_are_checked_even_with_identical_numbers"
+  ],
+  [
+    "pressure_referent_ignores_reference_location",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "            if pressure_referents.get(sample.identifier) != reference:",
+    "            if ((pressure_referents.get(sample.identifier) is None) != (reference is None)\n                    or (sample.identifier in pressure_referents and reference is not None\n                        and pressure_referents[sample.identifier].location != reference.location)):",
+    "tests/test_sass_pressure_referent.py::test_reference_node_and_differential_polarity_cannot_change"
+  ],
+  [
+    "pressure_referent_digest_ignores_pressure",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "if isinstance(transient_target, TransientValidationTarget) and transient_target.pressure_referent is None:",
+    "if isinstance(transient_target, TransientValidationTarget):",
+    "tests/test_sass_pressure_referent.py::test_independent_review_digest_binds_location_and_acquisition_bytes"
+  ],
+  [
+    "pressure_referent_allows_no_model_archive",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "                for key, recipe in expected_fixed.items() if key in matched",
+    "                for key, recipe in expected_fixed.items() if key in matched and recipe.pressure_referent is None",
+    "tests/test_sass_pressure_referent.py::test_legacy_prediction_or_missing_archive_cannot_clear_typed_pressure"
+  ],
+  [
+    "pressure_referent_archive_discards_physical_identity",
+    "src/rocket_propulsion/studies/sass/transient_validation.py",
+    "            channel_data[\"pressure_referent\"] = asdict(channel.pressure_referent)",
+    "            channel_data[\"pressure_referent\"] = None",
+    "tests/test_sass_pressure_referent.py::test_independent_review_digest_binds_location_and_acquisition_bytes"
+  ],
+  [
+    "pressure_referent_archive_drops_valves_in_v3",
+    "src/rocket_propulsion/studies/sass/transient_validation.py",
+    "    if \"valve_acquisitions\" in payload:",
+    "    if payload[\"schema\"] == \"rocket-propulsion-transient-run-v2\":",
+    "tests/test_sass_pressure_referent.py::test_pressure_and_valve_evidence_share_the_v3_archive"
+  ],
+  [
+    "prediction_pressure_window_ignores_start",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "(window.start_tick, window.end_tick, window.metric, window.window_review_record)",
+    "(recipe.start_tick, window.end_tick, window.metric, window.window_review_record)",
+    "tests/test_sass_pressure_prediction_window.py::test_reapproved_different_prediction_window_cannot_match_same_numeric_peak"
+  ],
+  [
+    "prediction_pressure_window_ignores_end",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "(window.start_tick, window.end_tick, window.metric, window.window_review_record)",
+    "(window.start_tick, recipe.end_tick, window.metric, window.window_review_record)",
+    "tests/test_sass_pressure_prediction_window.py::test_reapproved_different_prediction_window_cannot_match_same_numeric_peak"
+  ],
+  [
+    "prediction_pressure_window_ignores_alignment",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "(window.start_tick, window.end_tick, window.metric, window.window_review_record)",
+    "(window.start_tick, window.end_tick, window.metric, recipe.window_review_record)",
+    "tests/test_sass_pressure_prediction_window.py::test_reapproved_different_prediction_window_cannot_match_same_numeric_peak"
+  ],
+  [
+    "prediction_pressure_window_ignores_clock_scale",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "                elif clock is not None and window.tick_period_s != clock:",
+    "                elif False:",
+    "tests/test_sass_pressure_prediction_window.py::test_same_tick_numbers_with_different_clock_scale_cannot_match"
+  ],
+  [
+    "prediction_pressure_window_admits_missing_v2_scope",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "                if window is None:\n                    excluded[sample.identifier] = \"missing_pressure_prediction_window\"",
+    "                if window is None:\n                    pass",
+    "tests/test_sass_pressure_prediction_window.py::test_v2_archive_can_identify_pressure_but_cannot_establish_its_window"
+  ],
+  [
+    "prediction_pressure_window_allows_metric_unit_disagreement",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    if (metric, unit) not in ((\"peak\", \"Pa\"), (\"signed_integral\", \"Pa*s\")):",
+    "    if metric not in (\"peak\", \"signed_integral\"):",
+    "tests/test_sass_pressure_prediction_window.py::test_metric_with_wrong_unit_and_invalid_clock_cannot_enter_archive"
+  ],
+  [
+    "prediction_pressure_window_allows_incomplete_v3",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "            if (window is None) != (pressure is None):",
+    "            if False:",
+    "tests/test_sass_pressure_prediction_window.py::test_partial_v3_pressure_metadata_is_rejected"
+  ],
+  [
+    "prediction_pressure_window_compares_ticks_as_floats",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "                elif ((window.start_tick, window.end_tick, window.metric, window.window_review_record)\n                      != (recipe.start_tick, recipe.end_tick, recipe.metric, recipe.window_review_record)):",
+    "                elif ((float(window.start_tick), float(window.end_tick), window.metric, window.window_review_record)\n                      != (float(recipe.start_tick), float(recipe.end_tick), recipe.metric, recipe.window_review_record)):",
+    "tests/test_sass_pressure_prediction_window.py::test_valid_integral_with_large_exact_ticks_and_fractional_clock"
+  ],
+  [
+    "meop_uses_proof_as_operating_ceiling",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "    metric = Fraction(quantity(limit.upper, \"Pa\", strictly_positive=True))",
+    "    metric = Fraction(quantity(next((field.upper for field in fields if field.name == \"proof_pressure\"), limit.upper), \"Pa\", strictly_positive=True))",
+    "tests/test_sass_meop.py::test_meop_classifies_exact_boundary_crossing_and_exceedance"
+  ],
+  [
+    "meop_falls_back_to_proof_when_absent",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "    limit = next((field for field in fields if field.name == \"maximum_expected_operating_pressure\"), None)",
+    "    limit = next((field for field in fields if field.name in (\"maximum_expected_operating_pressure\", \"proof_pressure\")), None)",
+    "tests/test_sass_meop.py::test_proof_and_burst_cannot_be_used_as_performance_or_meop_fallback"
+  ],
+  [
+    "meop_uses_exclusive_instead_of_inclusive_ceiling",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "    if high <= lower_limit:",
+    "    if high < lower_limit:",
+    "tests/test_sass_meop.py::test_metric_boundary_is_inclusive_for_a_single_limit_or_a_higher_psia_limit"
+  ],
+  [
+    "meop_hides_possible_exceedance_in_uncertain_window",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "    if high <= lower_limit:",
+    "    if low <= lower_limit:",
+    "tests/test_sass_meop.py::test_meop_classifies_exact_boundary_crossing_and_exceedance"
+  ],
+  [
+    "meop_treats_crossing_as_definite_failure",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "    if low > upper_limit:",
+    "    if high > upper_limit:",
+    "tests/test_sass_meop.py::test_meop_classifies_exact_boundary_crossing_and_exceedance"
+  ],
+  [
+    "meop_bypasses_gauge_conversion",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "    meop = _meop_check(fields, absolute)",
+    "    meop = _meop_check(fields, None if window is None else (Fraction(window.lower.value), Fraction(window.upper.value)))",
+    "tests/test_sass_meop.py::test_gauge_datum_is_used_for_meop_and_missing_reference_stays_unassessed"
+  ],
+  [
+    "meop_ratings_replace_nominal_performance_source",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "    references = tuple(field for field in fields if field.name not in ratings)",
+    "    references = tuple(field for field in fields if field.name in (\"proof_pressure\", \"burst_pressure\"))[:1]",
+    "tests/test_sass_meop.py::test_proof_and_burst_cannot_be_used_as_performance_or_meop_fallback"
+  ],
+  [
+    "meop_rank_gate_ignored_when_nominal_matches",
+    "src/rocket_propulsion/studies/sass/project.py",
+    "                unresolved.append(f\"Operating pressure review required for {check.port}. {check.meop.reason}\")\n                catalogue_review_needed.add(config.identifier)",
+    "                unresolved.append(f\"Operating pressure review required for {check.port}. {check.meop.reason}\")",
+    "tests/test_sass_meop.py::test_matching_nominal_does_not_hide_an_operating_rating_conflict"
+  ],
+  [
+    "meop_drops_psia_expression",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "    imperial = metric if alternate is None else Fraction(alternate.value) * _PA_PER_PSI",
+    "    imperial = metric",
+    "tests/test_sass_meop.py::test_meop_classifies_exact_boundary_crossing_and_exceedance"
+  ],
+  [
+    "meop_drops_metric_expression",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "    lower_limit, upper_limit = sorted((metric, imperial))",
+    "    lower_limit = upper_limit = imperial",
+    "tests/test_sass_meop.py::test_meop_classifies_exact_boundary_crossing_and_exceedance"
+  ],
+  [
+    "meop_rounds_psia_conversion_before_comparison",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "    imperial = metric if alternate is None else Fraction(alternate.value) * _PA_PER_PSI",
+    "    imperial = metric if alternate is None else Fraction(float(Fraction(alternate.value) * _PA_PER_PSI))",
+    "tests/test_sass_meop.py::test_meop_keeps_exact_conversion_between_adjacent_binary_values"
+  ],
+  [
+    "meop_treats_unit_disagreement_as_admitted",
+    "src/rocket_propulsion/studies/sass/pressure_interface.py",
+    "        return CatalogueMeopCheck(\"meop_unit_disagreement\", limit,",
+    "        return CatalogueMeopCheck(\"within_meop_reference\", limit,",
+    "tests/test_sass_meop.py::test_matching_nominal_does_not_hide_an_operating_rating_conflict"
+  ],
+  [
+    "meop_accepts_alternate_from_another_row",
+    "src/rocket_propulsion/studies/sass/catalog.py",
+    "                    or self.pressure_port is None or self.reported_psia.status != \"published\"\n                    or not set(self.upper.citations).intersection(self.reported_psia.citations)):",
+    "                    or self.pressure_port is None or self.reported_psia.status != \"published\"):",
+    "tests/test_sass_meop.py::test_alternate_pressure_requires_same_row_and_absolute_inlet_scope"
+  ],
+  [
+    "shutdown_prediction_ignores_force_channel",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "(scope.channel_id, scope.closing_commands, scope.window)",
+    "(recipe.channel_id, scope.closing_commands, scope.window)",
+    "tests/test_sass_shutdown_replay.py::test_reapproved_shutdown_prediction_cannot_change_channel_commands_or_window"
+  ],
+  [
+    "shutdown_prediction_ignores_selected_valves",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "(scope.channel_id, scope.closing_commands, scope.window)",
+    "(scope.channel_id, commands, scope.window)",
+    "tests/test_sass_shutdown_replay.py::test_reapproved_shutdown_prediction_cannot_change_channel_commands_or_window"
+  ],
+  [
+    "shutdown_prediction_ignores_tail_review",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "(scope.channel_id, scope.closing_commands, scope.window)",
+    "(scope.channel_id, scope.closing_commands, recipe.window)",
+    "tests/test_sass_shutdown_replay.py::test_reapproved_shutdown_prediction_cannot_change_channel_commands_or_window"
+  ],
+  [
+    "shutdown_prediction_ignores_replayed_closure_band",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    if scope.final_closure_ticks != measurement.final_closure_ticks:",
+    "    if False:",
+    "tests/test_sass_shutdown_replay.py::test_reapproved_shutdown_prediction_cannot_change_channel_commands_or_window"
+  ],
+  [
+    "shutdown_prediction_ignores_clock_scale",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    if scope.tick_period_s != clock:\n        return \"shutdown_prediction_clock_mismatch\"",
+    "    if False:\n        return \"shutdown_prediction_clock_mismatch\"",
+    "tests/test_sass_shutdown_replay.py::test_reapproved_shutdown_prediction_cannot_change_channel_commands_or_window"
+  ],
+  [
+    "shutdown_prediction_accepts_legacy_scope",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    if scope is None:\n        return \"missing_shutdown_prediction_scope\"",
+    "    if scope is None:\n        return None",
+    "tests/test_sass_shutdown_replay.py::test_legacy_or_explicit_null_prediction_cannot_establish_shutdown_scope"
+  ],
+  [
+    "shutdown_prediction_allows_signed_impulse",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    if raw[\"metric\"] != \"post_closure_positive_impulse\" or unit != \"N*s\":",
+    "    if unit != \"N*s\":",
+    "tests/test_sass_shutdown_replay.py::test_prediction_cannot_use_signed_impulse_or_malformed_closure_scope"
+  ],
+  [
+    "fixed_prediction_ignores_channel_identity",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "(scope.channel_id, scope.start_tick, scope.end_tick, scope.metric, scope.window_review_record)",
+    "(recipe.channel_id, scope.start_tick, scope.end_tick, scope.metric, scope.window_review_record)",
+    "tests/test_sass_fixed_prediction.py::test_same_impulse_on_other_channel_window_clock_or_metric_cannot_match"
+  ],
+  [
+    "fixed_prediction_ignores_force_metric_sign",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "(scope.channel_id, scope.start_tick, scope.end_tick, scope.metric, scope.window_review_record)",
+    "(scope.channel_id, scope.start_tick, scope.end_tick, recipe.metric, scope.window_review_record)",
+    "tests/test_sass_fixed_prediction.py::test_same_impulse_on_other_channel_window_clock_or_metric_cannot_match"
+  ],
+  [
+    "fixed_prediction_rounds_large_integer_ticks",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "(scope.channel_id, scope.start_tick, scope.end_tick, scope.metric, scope.window_review_record) != (\n        recipe.channel_id, recipe.start_tick, recipe.end_tick, recipe.metric, recipe.window_review_record,",
+    "(scope.channel_id, float(scope.start_tick), float(scope.end_tick), scope.metric, scope.window_review_record) != (\n        recipe.channel_id, float(recipe.start_tick), float(recipe.end_tick), recipe.metric, recipe.window_review_record,",
+    "tests/test_sass_fixed_prediction.py::test_valid_typed_pressure_uses_exact_ticks_beyond_binary64_integer_precision"
+  ],
+  [
+    "fixed_prediction_accepts_absent_archive_scope",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    if scope is None:\n        return \"missing_fixed_prediction_scope\"",
+    "    if scope is None:\n        return None",
+    "tests/test_sass_fixed_prediction.py::test_legacy_numeric_prediction_and_null_scope_leave_valid_measurement_unassessed"
+  ],
+  [
+    "fixed_prediction_accepts_conflicting_window_types",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        if shutdown is not None and fixed is not None:",
+    "        if False:",
+    "tests/test_sass_fixed_prediction.py::test_invalid_fixed_metric_clock_or_dual_window_cannot_enter_archive"
+  ],
+  [
+    "fixed_prediction_ignores_window_alignment_record",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "(scope.channel_id, scope.start_tick, scope.end_tick, scope.metric, scope.window_review_record)",
+    "(scope.channel_id, scope.start_tick, scope.end_tick, scope.metric, recipe.window_review_record)",
+    "tests/test_sass_fixed_prediction.py::test_same_impulse_on_other_channel_window_clock_or_metric_cannot_match"
+  ],
+  [
+    "fixed_prediction_uses_clock_from_other_condition",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "                clock = None if recipe is None else clocks.get((sample.condition_record, recipe.channel_id))",
+    "                clock = None if recipe is None else next((period for (_, channel), period in clocks.items() if channel == recipe.channel_id), None)",
+    "tests/test_sass_fixed_prediction.py::test_same_impulse_on_other_channel_window_clock_or_metric_cannot_match"
+  ],
+  [
+    "partition_ignores_shared_firing_across_files",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        for condition in calibration_by_firing.get(scope.firing_id, ()):",
+    "        for condition in ():",
+    "tests/test_sass_acquisition_partition.py::test_new_names_and_reapproval_cannot_hide_shared_firing_or_native_indices"
+  ],
+  [
+    "partition_ignores_shared_native_indices_after_renaming",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "            if max(scope.first_index, other.first_index) < min(scope.past_end_index, other.past_end_index):",
+    "            if scope.firing_id == other.firing_id and max(scope.first_index, other.first_index) < min(scope.past_end_index, other.past_end_index):",
+    "tests/test_sass_acquisition_partition.py::test_new_names_and_reapproval_cannot_hide_shared_firing_or_native_indices"
+  ],
+  [
+    "partition_rounds_native_indices",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "            if max(scope.first_index, other.first_index) < min(scope.past_end_index, other.past_end_index):",
+    "            if float(max(scope.first_index, other.first_index)) < float(min(scope.past_end_index, other.past_end_index)):",
+    "tests/test_sass_acquisition_partition.py::test_new_names_and_reapproval_cannot_hide_shared_firing_or_native_indices"
+  ],
+  [
+    "partition_treats_adjacent_native_slices_as_overlap",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "            if max(scope.first_index, other.first_index) < min(scope.past_end_index, other.past_end_index):",
+    "            if max(scope.first_index, other.first_index) <= min(scope.past_end_index, other.past_end_index):",
+    "tests/test_sass_acquisition_partition.py::test_adjacent_native_slices_can_be_independent_if_the_firings_differ"
+  ],
+  [
+    "partition_accepts_edited_mapping_with_old_approval",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    if digest != plan.reviewed_acquisition_partition_sha256:",
+    "    if False:",
+    "tests/test_sass_acquisition_partition.py::test_model_bytes_and_sample_review_cannot_replace_partition_approval"
+  ],
+  [
+    "partition_ignores_calibration_sample_coverage",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    if missing or unexpected or missing_ids or unexpected_ids or not mapping_matches:",
+    "    if missing or unexpected or not mapping_matches:",
+    "tests/test_sass_acquisition_partition.py::test_model_bytes_and_sample_review_cannot_replace_partition_approval"
+  ],
+  [
+    "partition_approval_ignores_raw_archive_identity",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        \"schema\": \"rocket-propulsion-acquisition-partition-v1\",\n        \"test_article_id\": evidence.test_article_id,\n        \"raw_data_sha256\": evidence.raw_data_sha256,",
+    "        \"schema\": \"rocket-propulsion-acquisition-partition-v1\",\n        \"test_article_id\": evidence.test_article_id,",
+    "tests/test_sass_acquisition_partition.py::test_partition_approval_binds_raw_model_and_calibration_identifiers"
+  ],
+  [
+    "native_daq_accepts_declared_hash_without_reading_bytes",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "            actual = _file_sha256(sources[digest], \"Native acquisition file\")",
+    "            actual = digest",
+    "tests/test_sass_acquisition_partition.py::test_complete_native_file_content_is_checked_after_relocation_and_after_edit"
+  ],
+  [
+    "native_daq_hashes_only_first_block",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "            for block in iter(lambda: stream.read(1_048_576), b\"\"):\n                digest.update(block)",
+    "            digest.update(stream.read(1_048_576))",
+    "tests/test_sass_acquisition_partition.py::test_complete_native_file_content_is_checked_after_relocation_and_after_edit"
+  ],
+  [
+    "native_daq_ignores_missing_file_binding",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "not (missing or unplanned or repurposed or empty or unreadable or mismatches)",
+    "not (unplanned or repurposed or empty or unreadable or mismatches)",
+    "tests/test_sass_acquisition_partition.py::test_missing_unreadable_and_unplanned_sources_withhold_model_agreement"
+  ],
+  [
+    "native_daq_ignores_unreadable_file",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "not (missing or unplanned or repurposed or empty or unreadable or mismatches)",
+    "not (missing or unplanned or repurposed or empty or mismatches)",
+    "tests/test_sass_acquisition_partition.py::test_missing_unreadable_and_unplanned_sources_withhold_model_agreement"
+  ],
+  [
+    "native_daq_ignores_unplanned_binding",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "not (missing or unplanned or repurposed or empty or unreadable or mismatches)",
+    "not (missing or repurposed or empty or unreadable or mismatches)",
+    "tests/test_sass_acquisition_partition.py::test_missing_unreadable_and_unplanned_sources_withhold_model_agreement"
+  ],
+  [
+    "native_daq_accepts_model_or_derived_export",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    repurposed = expected & {\n        evidence.raw_data_sha256, evidence.model_sha256, plan.reviewed_predictions_sha256,\n    }",
+    "    repurposed = set()",
+    "tests/test_sass_acquisition_partition.py::test_model_exports_and_empty_file_cannot_stand_in_for_original_daq"
+  ],
+  [
+    "native_daq_accepts_empty_file_for_nonempty_slice",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    empty = expected & {sha256(b\"\").hexdigest()}",
+    "    empty = set()",
+    "tests/test_sass_acquisition_partition.py::test_model_exports_and_empty_file_cannot_stand_in_for_original_daq"
+  ],
+  [
+    "native_csv_ignores_reviewed_column",
+    "src/rocket_propulsion/studies/sass/native_trace.py",
+    "tick_column, value_column = header.index(\"tick\"), header.index(scope.value_column)",
+    "tick_column, value_column = header.index(\"tick\"), 1",
+    "tests/test_sass_native_trace.py::test_wrong_column_or_rows_fail_despite_matching_file_and_reviewed_digest"
+  ],
+  [
+    "native_csv_rounds_ticks_before_rebasing",
+    "src/rocket_propulsion/studies/sass/native_trace.py",
+    "if tick + scope.tick_offset != sample.tick or value.hex() != sample.value.hex():",
+    "if float(tick) + float(scope.tick_offset) != sample.tick or value.hex() != sample.value.hex():",
+    "tests/test_sass_native_trace.py::test_wrong_column_or_rows_fail_despite_matching_file_and_reviewed_digest"
+  ],
+  [
+    "native_csv_ignores_sample_center",
+    "src/rocket_propulsion/studies/sass/native_trace.py",
+    "if tick + scope.tick_offset != sample.tick or value.hex() != sample.value.hex():",
+    "if tick + scope.tick_offset != sample.tick:",
+    "tests/test_sass_native_trace.py::test_wrong_header_and_nonfinite_sample_cannot_enter_trace"
+  ],
+  [
+    "native_csv_trusts_hash_from_earlier_read",
+    "src/rocket_propulsion/studies/sass/native_trace.py",
+    "    if digest.hexdigest() != scope.native_sha256:",
+    "    if False:",
+    "tests/test_sass_native_trace.py::test_csv_bytes_must_match_while_parsing_even_after_initial_hash_check"
+  ],
+  [
+    "native_csv_approval_ignores_mapping",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "    if not plan.acquisition_partition.native_csv_traces:\n        partition.pop(\"native_csv_traces\")",
+    "    partition.pop(\"native_csv_traces\")",
+    "tests/test_sass_native_trace.py::test_csv_mapping_cannot_reuse_old_approval_or_move_to_another_channel"
+  ],
+  [
+    "native_csv_ignores_approved_source_slice",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "        elif not any(lo <= mapping.first_index and mapping.past_end_index <= hi\n                     for lo, hi in slices.get((condition, mapping.native_sha256), ())):",
+    "        elif False:",
+    "tests/test_sass_native_trace.py::test_wrong_column_or_rows_fail_despite_matching_file_and_reviewed_digest"
+  ],
+  [
+    "native_csv_allows_physical_pass_for_mistranscribed_trace",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "            key: value for key, value in replay.measurements.items() if key not in native_exclusions",
+    "            key: value for key, value in replay.measurements.items()",
+    "tests/test_sass_native_trace.py::test_wrong_column_or_rows_fail_despite_matching_file_and_reviewed_digest"
+  ],
+  [
+    "native_csv_drops_center_rounding_from_uncertainty",
+    "src/rocket_propulsion/studies/sass/native_trace.py",
+    "required = radius + abs(Fraction(sample.value) - center)",
+    "required = radius",
+    "tests/test_sass_native_trace.py::test_native_decimal_interval_must_fit_both_binary64_endpoints"
+  ],
+  [
+    "native_csv_rounds_uncertainty_inward",
+    "src/rocket_propulsion/studies/sass/native_trace.py",
+    "required = radius + abs(Fraction(sample.value) - center)",
+    "required = Fraction(float(radius)) + abs(Fraction(sample.value) - center)",
+    "tests/test_sass_native_trace.py::test_native_decimal_interval_must_fit_both_binary64_endpoints"
+  ],
+  [
+    "native_csv_absolute_error_column_not_bound_to_approval",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "if mapping[\"absolute_error_column\"] is None:",
+    "if True:",
+    "tests/test_sass_native_trace.py::test_narrowed_native_error_withholds_measurement_acceptance"
+  ],
+  [
+    "native_csv_narrowing_does_not_withhold_acceptance",
+    "src/rocket_propulsion/studies/sass/native_trace.py",
+    "mismatch = mismatch or \"native_csv_uncertainty_narrowed\"",
+    "mismatch = mismatch",
+    "tests/test_sass_native_trace.py::test_narrowed_native_error_withholds_measurement_acceptance"
+  ],
+  [
+    "native_csv_allows_wrong_clock_scale",
+    "src/rocket_propulsion/studies/sass/native_trace.py",
+    "if scope.tick_period_s is not None and trace.tick_period.value != scope.tick_period_s:",
+    "if False:",
+    "tests/test_sass_native_trace.py::test_native_clock_scale_requires_approval_and_matches_pipeline_clock"
+  ],
+  [
+    "native_csv_approval_ignores_clock_scale",
+    "src/rocket_propulsion/studies/sass/validation.py",
+    "if mapping[\"tick_period_s\"] is None:",
+    "if True:",
+    "tests/test_sass_native_trace.py::test_native_clock_scale_requires_approval_and_matches_pipeline_clock"
   ]
 ]

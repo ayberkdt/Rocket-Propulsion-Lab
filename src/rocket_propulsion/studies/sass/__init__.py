@@ -24,6 +24,12 @@ from .catalog import (
     nominal_operating_point,
     thruster,
 )
+from .command_life import (
+    CommandLifeReview,
+    ThrusterCommandHistory,
+    ValveCommand,
+    review_thruster_command_life,
+)
 from .evidence import AnalysisResult, Citation, CitedScalar, assumption
 from .maneuvers import (
     burn_duration_screen,
@@ -31,6 +37,7 @@ from .maneuvers import (
     hohmann_transfer,
     perigee_lowering_delta_v,
 )
+from .pressure_interface import CataloguePressureCheck, InletPressureWindow
 from .project import (
     Candidate,
     CandidateStudy,
@@ -42,6 +49,7 @@ from .project import (
 from .references import REFERENCES, Reference, reference
 from .report import build_project_html
 from .sensitivity import DesignCase, design_sensitivity
+from .shutdown_observation import ShutdownImpulseReview, ShutdownWindow, review_shutdown_impulse
 from .sizing import (
     DeltaVItem,
     Maneuver,
@@ -64,6 +72,18 @@ from .trade import (
     check_requirements,
     weighted_trade,
 )
+from .transient_observation import (
+    TransientReview,
+    TransientSample,
+    TransientTrace,
+    review_transient,
+)
+from .valve_response import (
+    ObservedValveTrace,
+    ValveLatencyLimits,
+    ValveResponseReview,
+    review_valve_responses,
+)
 
 __all__ = [
     "REFERENCES",
@@ -73,18 +93,31 @@ __all__ = [
     "Candidate",
     "CandidateStudy",
     "CatalogField",
+    "CataloguePressureCheck",
     "Citation",
     "CitedScalar",
+    "CommandLifeReview",
     "Criterion",
     "DeltaVItem",
     "DesignCase",
+    "InletPressureWindow",
     "Maneuver",
     "MissionSizing",
+    "ObservedValveTrace",
     "ProjectStudy",
     "Reference",
     "Requirement",
     "RequirementCheck",
+    "ShutdownImpulseReview",
+    "ShutdownWindow",
+    "ThrusterCommandHistory",
     "ThrusterRecord",
+    "TransientReview",
+    "TransientSample",
+    "TransientTrace",
+    "ValveCommand",
+    "ValveLatencyLimits",
+    "ValveResponseReview",
     "analyze_project",
     "assumption",
     "bipropellant_split",
@@ -105,6 +138,10 @@ __all__ = [
     "project_from_dict",
     "project_from_json",
     "reference",
+    "review_shutdown_impulse",
+    "review_thruster_command_life",
+    "review_transient",
+    "review_valve_responses",
     "size_mission",
     "thruster",
     "weighted_trade",

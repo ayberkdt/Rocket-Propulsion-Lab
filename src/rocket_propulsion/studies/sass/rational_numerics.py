@@ -9,7 +9,7 @@ References
 """
 
 from fractions import Fraction
-from math import isfinite
+from math import isfinite, nextafter
 
 from rocket_propulsion.core.errors import DomainError
 
@@ -55,3 +55,28 @@ def binary_ledger(rows: tuple[tuple[str, Fraction | int, str], ...], label: str)
             raise DomainError(f"{label} {name} is outside the representable binary output domain.")
         converted.append((name, binary, unit))
     return tuple(converted)
+
+
+def outward_endpoint(value: Fraction, *, upward: bool) -> float:
+    """Publish a finite enclosure endpoint without rounding into the interval.
+
+    References
+    ----------
+    .. [1] NASA-7009B. NASA, "Standard for Models and Simulations, NASA-STD-7009B";
+           declared numerical representation limits and error reporting.
+    .. [2] BIPM-SI. BIPM, "SI Brochure, 9th edition"; preserve the units of bounded
+           errors; rounding method defined in this module.
+    """
+    try:
+        binary = float(value)
+    except OverflowError as error:
+        raise DomainError("Interval exceeds the finite binary domain.") from error
+    if not isfinite(binary):
+        raise DomainError("Interval exceeds the finite binary domain.")
+    if upward and Fraction(binary) < value:
+        binary = nextafter(binary, float("inf"))
+    elif not upward and Fraction(binary) > value:
+        binary = nextafter(binary, -float("inf"))
+    if not isfinite(binary):
+        raise DomainError("Interval has no finite outward binary bound.")
+    return binary

@@ -321,6 +321,10 @@ Sources below support the provisional study package; ITU course identity is not 
 
 - **BUSEK-BIT3**: Busek, *BIT-3 RF Ion Thruster product page*. Performance panel: 56-75 W, up to 1.1 mN, up to 2150 s, system dry mass 1.40 kg with gimbal. Accessed 2026-10-18. <https://www.busek.com/bit3>
 
+- **BUSEK-BIT3-PDF**: Busek, *BIT-3 RF Ion Thruster datasheet v1.0*, August 2021. Standard Specifications. <https://www.busek.com/s/BIT3_v10.pdf>
+
+- **ECAPS-1N-BRADFORD**: Bradford ECAPS, *1N HPGP Thruster*, manufacturer specifications sheet hosted by SatCatalog. Typical steady-state vacuum Isp and regulated reactor preheat power. <https://satcatalog.s3.amazonaws.com/components/860/SatCatalog_-_Bradford_Space_-_1N_HPGP_-_Datasheet.pdf>
+
 - **BUSEK-RF**: Busek, *RF Ion Thrusters product family page*. BIT-3 panel differs from /bit3: 56-80 W, up to 1.25 mN and 2300 s. No silent merge. Accessed 2026-10-18. <https://www.busek.com/rf-ion-thrusters>
 
 - **BIPM-SI**: BIPM, *SI Brochure, 9th edition*. Conventional standard gravity and defining molar-gas constant; see core.constants. Accessed 2026-10-18. <https://www.bipm.org/en/publications/si-brochure>
@@ -635,3 +639,27 @@ pressurization chapter (download exceeded the fetch limit).
 - **NIST-DLMF-4.13-LAMBERT-W**: NIST Digital Library of Mathematical Functions, §4.13, Eq. (4.13.1), defining `W exp(W)=z` and its complex branches. Used for the independent delay-characteristic root witness in `test_feed_coupled_instability.py`; the root transformation is derived in the review rather than attributed to NIST. Accessed 2026-10-27. <https://dlmf.nist.gov/4.13>
 
 - **CANTERA-32-IDEAL-MIXTURE**: IdealGasPhase, frozen ideal gas standard/partial molar thermodynamic relations. Cross-implementation comparison shares NASA coefficients and is not empirical validation. <https://cantera.org/3.2/cxx/d7/dfa/classCantera_1_1IdealGasPhase.html>
+
+## Feed-system, regulator and SASS validation sources (integrated 2026-11-17)
+
+These entries index sources cited by the feed-dynamics, coupled-feed and TRL documents added in the
+2026-11-17 integration of the parallel SASS validation work. Each entry repeats the citing document's
+own link text; the sources were not re-read during that integration.
+
+- Deney raporu — cited in `COUPLED_FEED_REVIEW.md`. <https://ntrs.nasa.gov/citations/19740019160>
+- Model karşılaştırması, Tablolar 3–6 — cited in `COUPLED_FEED_REVIEW.md`. <https://ntrs.nasa.gov/citations/20240014846>
+- NASA CR-124308 — cited in `DYNAMIC_FEED_LINE.md`. <https://ntrs.nasa.gov/citations/19730020456>
+- Nahm Ho Lee, Georgia Tech, Table 5.1 — cited in `DYNAMIC_FEED_LINE.md`. <https://repository.gatech.edu/bitstreams/ec90ac9c-69b7-4b2b-b809-be7e2bd3e981/download>
+- SciPy DOP853 dense output — cited in `REGULATED_FEED_DYNAMICS.md`. <https://docs.scipy.org/doc/scipy-1.14.1/reference/generated/scipy.integrate.DOP853.html>
+- Williams, Table 3.2, NASA NTRS — cited in `TRL_ASSESSMENT.md`. <https://ntrs.nasa.gov/citations/20110007275>
+- Moog variant table — cited in `TRL_ASSESSMENT.md`. <https://www.moog.com/products/propulsion/space-propulsion/spacecraft-propulsion/propulsion-components/helium-regulator-pneumatic-pressure-regulator.html>
+- NASA Robotic Lunar Lander regulator test — cited in `TRL_ASSESSMENT.md`. <https://ntrs.nasa.gov/citations/20130014156>
+- Moog cold gas thrusters, 058E151 column — cited in `TRL_ASSESSMENT.md`. <https://www.moog.com/content/dam/moog/literature/sdg/space/propulsion/moog-coldgasthrusters-datasheet.pdf>
+- ArianeGroup portfolio, p. 6, both flow ranges — cited in `TRL_ASSESSMENT.md`. <https://www.ariane.group/app/uploads/2024/06/Orbital_Propulsion_2019_07_PB_EN_Web.pdf>
+- NBSIR 82-2401, Appendix 4, exact psi-to-Pa conversion — cited in `TRL_ASSESSMENT.md`. <https://nvlpubs.nist.gov/nistpubs/Legacy/IR/nbsir82-2401.pdf>
+- NASA-STD-7012A definitions — cited in `TRL_ASSESSMENT.md`. <https://standards.nasa.gov/sites/default/files/standards/NASA/A/0/2023-02-22-NASA-STD-7012A-Approved.pdf>
+- NASA JSC-67723, §§3.1.7–3.1.8 — cited in `TRL_ASSESSMENT.md`. <https://standards.nasa.gov/system/files/tmp/JSC-67723_Propulsion_Standard_Basic_Final%20%281%29_0.pdf>
+- NASA Ames testbed paper, NTRS 20140008531 — cited in `TRL_ASSESSMENT.md`. <https://ntrs.nasa.gov/citations/20140008531>
+- DASHLINK_947 — cited in `TRL_ASSESSMENT.md`. <https://data.nasa.gov/dataset/application-of-model-based-prognostics-to-pneumatic-valves-in-a-cryogenic-propellant-loadi>
+- DASHLINK_948 — cited in `TRL_ASSESSMENT.md`. <https://data.nasa.gov/dataset/a-testbed-for-implementing-prognostic-methodologies-on-cryogenic-propellant-loading-system>
+- NASA/TM-2012-217271, §§2 and 4 — cited in `TRL_ASSESSMENT.md`. <https://ntrs.nasa.gov/citations/20120003741>

@@ -29,12 +29,14 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from enum import Enum
-from math import isfinite, sqrt
+from fractions import Fraction
+from math import isfinite
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.validation import coerce_fields, real
 
 from .feed_system import IdealPressurantGas, RegulatedFeedConfiguration
+from .isentropic_restriction import _restriction_flow, _sonic_regime
 
 REGULATOR_HYSTERESIS_SCHEMA = "rocket_propulsion_regulator_hysteresis_v1"
 REGULATOR_HYSTERESIS_REFERENCE_IDS = (
@@ -123,18 +125,13 @@ def compressible_valve_mass_flow_kg_s(
     upstream = _positive(upstream_pressure_pa, "Upstream pressure")
     temperature = _positive(upstream_temperature_k, "Upstream temperature")
     downstream = _positive(downstream_pressure_pa, "Downstream pressure")
-    if area == 0.0 or downstream >= upstream:
-        return 0.0
-    gamma = gas.gamma
-    exponent = (gamma - 1.0) / gamma
-    # Isentropic eq. 6 inverted: (pt/p)**((gam-1)/gam) = 1 + (gam-1)/2 M**2.
-    ratio_power = (upstream / downstream) ** exponent
-    mach_squared = min(1.0, 2.0 / (gamma - 1.0) * (ratio_power - 1.0))
-    mach = sqrt(mach_squared)
-    bracket = 1.0 + 0.5 * (gamma - 1.0) * mach_squared
-    flow = (area * upstream / sqrt(temperature) * sqrt(gamma / gas.specific_gas_constant_j_kg_k)
-            * mach * bracket ** (-(gamma + 1.0) / (2.0 * (gamma - 1.0))))
-    return _nonnegative(flow, "Valve mass flow")
+    flow, _ = _restriction_flow(
+        gamma=gas.gamma, gas_constant=gas.specific_gas_constant_j_kg_k,
+        effective_area=Fraction(area), upstream=Fraction(upstream),
+        temperature=temperature, downstream=Fraction(downstream),
+        label="Valve mass flow",
+    )
+    return flow
 
 
 @dataclass(frozen=True, slots=True)
@@ -511,9 +508,7 @@ class RegulatorOperatingPoint:
 
 def _is_choked(gas: IdealPressurantGas, supply: float, regulated: float) -> bool:
     """Whether ``regulated / supply`` is at or below the critical ratio."""
-    gamma = gas.gamma
-    critical = (2.0 / (gamma + 1.0)) ** (gamma / (gamma - 1.0))
-    return regulated <= critical * supply
+    return _sonic_regime(Fraction(regulated) / Fraction(supply), gas.gamma)
 
 
 def _bisect(function, low: float, high: float) -> float:
@@ -613,7 +608,7 @@ def regulator_operating_point(
         return RegulatorOperatingPoint(
             mass_flow_kg_s=demand, supply_pressure_pa=supply,
             regulated_pressure_pa=pressure, stroke_m=stroke, branch=branch,
-            choked=_is_choked(regulator.gas, supply, pressure) and demand > 0.0,
+            choked=demand > 0.0 and _is_choked(regulator.gas, supply, pressure),
             saturated=saturated, droop_pa=lockup - pressure)
 
     if demand == 0.0:

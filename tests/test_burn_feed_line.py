@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 from dataclasses import replace
+from decimal import Context, Decimal, localcontext
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.propulsion.burns import (
@@ -221,6 +222,20 @@ class DynamicFeedPropulsionCouplingTests(unittest.TestCase):
             dict(value.propulsion.operating_conditions)["supply_pressure_pa"],
             self.line_state.manifold_pressure_pa,
         )
+
+    def test_coupled_line_resolves_signed_acceleration_near_pressure_balance(self) -> None:
+        self.line = example_line(resistance=20_000_000.0)
+        state = replace(self.line_state, mass_flow_kg_s=0.1)
+        value = self.evaluate(state)
+        self.assertTrue(value.propulsion.active)
+        with localcontext(Context(prec=1200)):
+            q = Decimal(state.mass_flow_kg_s)
+            head = Decimal(value.regulated_feed.tank_pressure_pa) - Decimal(
+                state.manifold_pressure_pa
+            )
+            expected = (head - Decimal(20_000_000) * q * q) / Decimal(1_000_000)
+        self.assertNotEqual(expected, 0)
+        self.assertEqual(value.feed_line.derivative.mass_flow_kg_s2, float(expected))
 
     def test_single_leg_signed_cutoff_trials_conserve_tank_and_line_inventory(self) -> None:
         for time in (0.5, 3.0):

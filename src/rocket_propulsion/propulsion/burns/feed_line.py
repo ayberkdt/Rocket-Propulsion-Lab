@@ -23,6 +23,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
+from fractions import Fraction
 from math import isfinite, sqrt
 from typing import TYPE_CHECKING
 
@@ -30,6 +31,7 @@ from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.validation import coerce_fields, real, real_tuple, strings, text
 
 from .feed_system import RegulatedFeedEvaluation, RegulatedFeedState, RegulatedFeedSystem
+from .numeric_outputs import _finite_rational
 from .serialization import canonical_sha256
 
 if TYPE_CHECKING:
@@ -293,7 +295,8 @@ class DynamicFeedLineEvaluation:
     stored_liquid_mass_rate_kg_s : float
         Rate of change of compliant line storage, ``q - q_engine``, kg/s.
     external_mass_closure_error_kg_s : float
-        Absolute residual of the tank-plus-line mass balance, kg/s.
+        Absolute residual of the tank-plus-line mass balance using the
+        exported manifold pressure derivative, kg/s. Rounded to binary64.
     natural_angular_frequency_rad_s : float
         Undamped first-mode frequency ``1 / sqrt(L C)`` [1]_, rad/s.
     damping_ratio : float
@@ -381,6 +384,18 @@ class DynamicFeedLineEventSurface:
     event_id: str
     kind: DynamicFeedLineEventKind
     stops_burn: bool = True
+
+    def __post_init__(self) -> None:
+        """Normalize registered kinds and require a literal stop flag."""
+        coerce_fields(self, "Dynamic line event")
+        try:
+            kind = DynamicFeedLineEventKind(self.kind)
+        except (TypeError, ValueError) as error:
+            raise DomainError("Unknown dynamic line event kind.", field="Dynamic line event kind") from error
+        object.__setattr__(self, "kind", kind)
+        if not isinstance(self.stops_burn, bool):
+            raise DomainError("Dynamic line event stops_burn must be a boolean.",
+                              field="Dynamic line event stops_burn")
 
 
 @dataclass(frozen=True, slots=True)
@@ -580,7 +595,8 @@ class DynamicFeedLine:
         Raises
         ------
         DomainError
-            If ``state`` has the wrong type or an input is outside its domain.
+        If ``state`` has the wrong type, an input is outside its domain, or a
+        nonzero physical output or sensitivity cannot be represented.
 
         Notes
         -----
@@ -590,8 +606,9 @@ class DynamicFeedLine:
         is not twice differentiable at ``q = 0``, so ``q`` is reported as a
         nonsmooth state there.  The modal diagnostics are
         ``omega_n = 1 / sqrt(L C)`` and ``zeta = R abs(q) sqrt(C / L)``.  The
-        closure residual checks that tank liquid plus compliant line storage
-        changes exactly by engine outflow, the nodal mass balance of [2]_.
+        closure residual compares storage implied by the exported pressure
+        derivative with line flow minus engine demand, the nodal balance
+        of [2]_.
 
         References
         ----------
@@ -609,41 +626,50 @@ class DynamicFeedLine:
         _positive(upstream_pressure_pa, "Dynamic-line upstream pressure")
         _nonnegative(engine_mass_flow_kg_s, "Engine mass-flow demand")
         config = self.configuration
-        flow = state.mass_flow_kg_s
-        friction_drop = config.resistance_pa_s2_kg2 * flow * abs(flow)
-        flow_rate = (
-            upstream_pressure_pa - state.manifold_pressure_pa - friction_drop
-        ) / config.inertance_pa_s2_kg
-        stored_mass_rate = flow - engine_mass_flow_kg_s
-        pressure_rate = stored_mass_rate / config.compliance_kg_pa
-        natural_frequency = (1.0 / sqrt(config.inertance_pa_s2_kg)) / sqrt(config.compliance_kg_pa)
-        damping_ratio = (
-            config.resistance_pa_s2_kg2
-            * abs(flow)
-            * (sqrt(config.compliance_kg_pa) / sqrt(config.inertance_pa_s2_kg))
+        flow = Fraction(state.mass_flow_kg_s)
+        inertance = Fraction(config.inertance_pa_s2_kg)
+        compliance = Fraction(config.compliance_kg_pa)
+        resistance_flow = Fraction(config.resistance_pa_s2_kg2) * abs(flow)
+        friction = resistance_flow * flow
+        friction_drop = _finite_rational(friction, "Feed-line friction pressure drop")
+        # Keep the signed loss unrounded when it nearly balances the head.
+        head = Fraction(upstream_pressure_pa) - Fraction(state.manifold_pressure_pa)
+        flow_rate = _finite_rational((head - friction) / inertance, "Feed-line flow derivative")
+        storage = flow - Fraction(engine_mass_flow_kg_s)
+        stored_mass_rate = _finite_rational(storage, "Feed-line storage mass derivative")
+        pressure_rate = _finite_rational(storage / compliance, "Feed-line pressure derivative")
+
+        inertance_root = sqrt(config.inertance_pa_s2_kg)
+        compliance_root = sqrt(config.compliance_kg_pa)
+        natural_frequency = (1.0 / inertance_root) / compliance_root
+        damping_ratio = _finite_rational(
+            resistance_flow * Fraction(compliance_root) / Fraction(inertance_root),
+            "Feed-line damping ratio",
         )
-        flow_derivative = -2.0 * config.resistance_pa_s2_kg2 * abs(flow) / config.inertance_pa_s2_kg
+        flow_derivative = _finite_rational(
+            -2 * resistance_flow / inertance, "Feed-line flow Jacobian"
+        )
+        inertance_gain = _finite_rational(1 / inertance, "Feed-line inertance gain")
+        compliance_gain = _finite_rational(1 / compliance, "Feed-line compliance gain")
         partials = DynamicFeedLinePartials(
             derivative_wrt_state=(
                 (
                     "mass_flow_kg_s",
-                    (flow_derivative, 1.0 / config.compliance_kg_pa),
+                    (flow_derivative, compliance_gain),
                 ),
                 (
                     "manifold_pressure_pa",
-                    (-1.0 / config.inertance_pa_s2_kg, 0.0),
+                    (-inertance_gain, 0.0),
                 ),
             ),
             derivative_wrt_upstream_pressure=(
-                1.0 / config.inertance_pa_s2_kg,
+                inertance_gain,
                 0.0,
             ),
-            derivative_wrt_engine_flow=(0.0, -1.0 / config.compliance_kg_pa),
+            derivative_wrt_engine_flow=(0.0, -compliance_gain),
             nonsmooth_state_names=("mass_flow_kg_s",) if flow == 0.0 else (),
         )
-        # Tank liquid plus compliant line storage changes exactly by engine
-        # outflow; the residual is exported so an adapter can monitor it.
-        closure_error = abs((-flow) + stored_mass_rate + engine_mass_flow_kg_s)
+        closure_error = float(abs(compliance * Fraction(pressure_rate) - storage))
         return DynamicFeedLineEvaluation(
             upstream_pressure_pa=upstream_pressure_pa,
             engine_mass_flow_kg_s=engine_mass_flow_kg_s,
@@ -712,7 +738,7 @@ class DynamicFeedLine:
         Raises
         ------
         DomainError
-            If the event kind is not supported.
+            If the surface or state is invalid or the kind is unsupported.
 
         References
         ----------
@@ -722,6 +748,12 @@ class DynamicFeedLine:
                Orekit 13.1.5.
         """
 
+        if not isinstance(surface, DynamicFeedLineEventSurface):
+            raise DomainError("Line cutoff requires a DynamicFeedLineEventSurface.",
+                              field="Dynamic line event surface")
+        if not isinstance(state, DynamicFeedLineState):
+            raise DomainError("Line cutoff requires a DynamicFeedLineState.",
+                              field="Dynamic line event state")
         config = self.configuration
         if surface.kind is DynamicFeedLineEventKind.REVERSE_FLOW:
             return state.mass_flow_kg_s

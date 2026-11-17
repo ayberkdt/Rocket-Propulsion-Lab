@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 from dataclasses import astuple, replace
+from decimal import Context, Decimal, localcontext
 from math import fsum
 
 from rocket_propulsion.core.errors import DomainError
@@ -201,13 +202,20 @@ class BipropellantDynamicFeedTests(unittest.TestCase):
                             fsum((feed.derivative.propellant_mass_kg_s, storage, engine)),
                             0.0, delta=1e-12)
                         self.assertEqual(feed.reverse_flow_event_extension, flow < 0.0)
-                    actual = abs(fsum((
-                        value.oxidizer_feed.derivative.propellant_mass_kg_s,
-                        value.fuel_feed.derivative.propellant_mass_kg_s,
-                        value.stored_liquid_mass_rate_kg_s,
-                        -value.propulsion.mass_derivative_kg_s,
-                    )))
+                    with localcontext(Context(prec=1100)):
+                        storage = (
+                            Decimal(self.oxidizer_line.configuration.compliance_kg_pa)
+                            * Decimal(value.oxidizer_line.derivative.manifold_pressure_pa_s)
+                            + Decimal(self.fuel_line.configuration.compliance_kg_pa)
+                            * Decimal(value.fuel_line.derivative.manifold_pressure_pa_s)
+                        )
+                        actual = float(abs(
+                            Decimal(value.oxidizer_feed.derivative.propellant_mass_kg_s)
+                            + Decimal(value.fuel_feed.derivative.propellant_mass_kg_s)
+                            + storage - Decimal(value.propulsion.mass_derivative_kg_s)
+                        ))
                     self.assertEqual(value.vehicle_mass_closure_error_kg_s, actual)
+                    self.assertEqual(value.stored_liquid_mass_rate_kg_s, float(storage))
                     self.assertLessEqual(actual, 1e-12)
                     self.assertEqual(value.reverse_flow_event_extension, ox < 0.0 or fuel < 0.0)
 
@@ -400,6 +408,10 @@ class BipropellantDynamicFeedTests(unittest.TestCase):
     def test_manifest_and_invalid_architectures_fail_closed(self) -> None:
         manifest = self.coupling.manifest()
         self.assertEqual(manifest["model_hash"], self.coupling.model_hash)
+        self.assertEqual(
+            manifest["mass_closure_numerics"],
+            "exact_returned_pressure_rates_per_leg_and_vehicle_v1",
+        )
         self.assertIn("NASA-20050206420", manifest["reference_ids"])
         with self.assertRaisesRegex(DomainError, "Static feed resistance"):
             BipropellantDynamicFeedCoupling(

@@ -98,6 +98,38 @@ def build_project_html(study: ProjectStudy) -> str:
         sections.append("<ul>" + "".join(f"<li>{escape(x)}</li>" for x in item.unresolved) + "</ul>")
         if item.operating_point is not None:
             sections.append("<h3>Published nominal study point</h3>" + _analysis_table(item.operating_point))
+        flow_check = item.catalogue_flow_check
+        if flow_check is not None:
+            flow_range = flow_check.reported_range
+            sections.append("<h3>Published mass-flow range</h3><p>"
+                            + escape(flow_check.status.replace("_", " ").capitalize()) + ". "
+                            + escape(flow_check.basis) + "</p>")
+            if flow_range.lower is not None:
+                sections.append(f"<p>{flow_range.lower.value:.9g} to {flow_range.upper.value:.9g} "
+                                + escape(flow_range.upper.unit) + " "
+                                + _citations(flow_range.lower) + " " + _citations(flow_range.upper) + "</p>")
+        pressure_ratings = [field for field in item.catalog_record.fields
+                            if field.name in ("maximum_expected_operating_pressure", "proof_pressure",
+                                              "burst_pressure")]
+        if pressure_ratings:
+            sections.append("<h3>Published component pressure ratings</h3><ul>")
+            for field in pressure_ratings:
+                rating, alternate = field.upper, field.reported_psia
+                printed = "" if alternate is None else f" ({alternate.value:.9g} {escape(alternate.unit)})"
+                sections.append(f"<li>{escape(field.name.replace('_', ' ').capitalize())} "
+                                f"{rating.value:.9g} {escape(rating.unit)}{printed} {_citations(rating)}</li>")
+            sections.append("</ul>")
+        if item.catalogue_pressure_checks:
+            sections.append("<h3>Thruster inlet pressure comparison</h3><ul>")
+            for pressure in item.catalogue_pressure_checks:
+                status = escape(pressure.status.replace("_", " "))
+                window = pressure.absolute_window_pa
+                detail = "" if window is None else f" Absolute window {window[0]:.9g} to {window[1]:.9g} Pa."
+                if pressure.meop is not None:
+                    detail += " " + escape(pressure.meop.reason)
+                sections.append(f"<li>{escape(pressure.port)}. {status}. "
+                                + escape(pressure.reason) + detail + "</li>")
+            sections.append("</ul>")
         if item.sizing is not None:
             sections.append("<h3>Mass and time budget</h3>" + _analysis_table(item.sizing.summary))
             sections.append("<details><summary>Numerical closure evidence</summary><p>"
@@ -110,6 +142,44 @@ def build_project_html(study: ProjectStudy) -> str:
             for name, burn in item.sizing.burns:
                 sections.append(f"<details><summary>{escape(name)}</summary>"
                                 + _analysis_table(burn) + "</details>")
+        life_checks = [check for check in item.catalogue_life_checks if check.published_limit is not None]
+        if life_checks:
+            sections.append("<h3>Published thruster life references</h3>"
+                            "<table><tr><th>Reference</th><th>Demand per head</th>"
+                            "<th>Published limit</th><th>Comparison</th><th>Basis</th></tr>")
+            for life in life_checks:
+                limit = life.published_limit
+                assert limit is not None
+                demand = ("unknown" if life.demand is None
+                          else f"{life.demand.value:.9g} {life.demand.unit}")
+                sections.append(f"<tr><th>{escape(life.metric)}</th><td>{escape(demand)}</td>"
+                                f"<td>{limit.value:.9g} {escape(limit.unit)} {_citations(limit)}</td>"
+                                f"<td>{escape(life.status.replace('_', ' '))}</td>"
+                                f"<td>{escape(life.basis)}</td></tr>")
+            sections.append("</table>")
+        command_review = item.command_life_review
+        if command_review is not None:
+            sections.append(
+                "<h3>Per-head command history</h3><p>Record: " + escape(command_review.source_record)
+                + f". Tick period {command_review.tick_period.value:.9g} s. "
+                f"Peak simultaneous open commands: {command_review.peak_simultaneous_open}.</p>"
+                "<table><tr><th>Head</th><th>Observed open ticks</th><th>Longest open interval (ticks)</th>"
+                "<th>Completed command cycles</th><th>Window boundary</th></tr>"
+            )
+            for usage in command_review.usage:
+                boundaries = [name for name, present in (
+                    ("left", usage.left_censored), ("right", usage.right_censored)) if present]
+                sections.append(
+                    f"<tr><th>{escape(usage.head_id)}</th><td>{usage.observed_open_ticks}</td>"
+                    f"<td>{usage.longest_open_ticks}</td><td>{usage.completed_cycles}</td>"
+                    f"<td>{', '.join(boundaries) or 'closed at boundaries'}</td></tr>"
+                )
+            sections.append("</table>")
+            exceeded = [f"{check.head_id}: {check.metric}" for check in command_review.comparisons
+                        if check.status == "exceeds_reference"]
+            if exceeded:
+                sections.append("<p>Published command-life references exceeded: "
+                                + escape(", ".join(exceeded)) + ".</p>")
         sections.append("<h3>Requirements screening</h3><table><tr><th>Requirement</th>"
                         "<th>Status</th><th>Margin</th><th>Evidence</th></tr>")
         for check in score.checks:

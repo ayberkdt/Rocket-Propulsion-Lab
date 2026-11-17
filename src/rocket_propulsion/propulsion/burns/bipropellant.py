@@ -25,7 +25,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from fractions import Fraction
-from math import fsum, inf, isfinite
+from math import inf, isfinite
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.core.validation import (
@@ -78,6 +78,14 @@ def _finite_quotient(numerator: float, denominator: float, label: str) -> float:
     if bottom <= 0.0:
         raise DomainError(f"{label} denominator must be positive.", field=label)
     return _finite_rational(Fraction(top) / Fraction(bottom), label)
+
+
+def _closure_error(residual: Fraction, tolerance: Fraction, label: str) -> float:
+    """Check the exact rate balance before rounding the displayed error."""
+    magnitude = abs(residual)
+    if magnitude > tolerance:
+        raise DomainError(f"{label} exceeds the configured mass-flow tolerance.", field=label)
+    return float(magnitude)
 
 
 def _mixture_ratio_partial(oxidizer: float, fuel: float,
@@ -151,7 +159,8 @@ class BipropellantDynamicFeedConfiguration:
     minimum_engine_mixture_ratio, maximum_engine_mixture_ratio : float
         Finite, positive, strictly ordered engine mixture-ratio limits.
     mass_closure_absolute_tolerance_kg_s : float, default 1.0e-10
-        Finite, positive absolute tolerance of the mass-closure checks, kg/s.
+        Positive absolute tolerance for the component sum, each propellant
+        leg, and the combined vehicle ledger, kg/s.
     model_id : str, default "dual-regulated-dynamic-feed"
         Non-blank model identifier.
     schema : str
@@ -508,7 +517,8 @@ class BipropellantDynamicFeedEvaluation:
     line_mixture_ratio : float or None
         Line-flow O/F; ``None`` unless the fuel line flow is positive.
     stored_liquid_mass_rate_kg_s : float
-        Rate of change of liquid stored in both compliant lines, kg/s.
+        Combined storage rate reconstructed from the returned line pressure
+        derivatives, kg/s.
     component_to_total_flow_closure_error_kg_s : float
         ``|O + F - total engine flow|``, kg/s.
     vehicle_mass_closure_error_kg_s : float
@@ -719,6 +729,7 @@ class BipropellantDynamicFeedCoupling:
                 "fuel_manifold_pressure_pa",
             ],
             "mixture_ratio_numerics": "exact_binary_rational_then_finite_output_v1",
+            "mass_closure_numerics": "exact_returned_pressure_rates_per_leg_and_vehicle_v1",
             "reference_ids": list(BIPROPELLANT_DYNAMIC_FEED_REFERENCE_IDS),
         }
         if include_hash:
@@ -864,8 +875,8 @@ class BipropellantDynamicFeedCoupling:
         ``C * dp/dt = mdot_line - mdot_engine(p_ox, p_fuel)`` [3]_, so the
         pressure rows of the Jacobian hold ``-d(mdot_engine)/dp / C``, which
         couples the oxidizer and fuel legs through the engine map [1]_.  Mass
-        conservation is checked over tanks, line storage and the vehicle
-        [2]_.
+        conservation is checked for each leg and the vehicle [2]_ using the
+        pressure derivatives supplied to the integrator.
 
         Negative line states are mathematical continuations used to locate the
         zero-flow cutoff and are marked ``reverse_flow_event_extension``; they
@@ -925,9 +936,15 @@ class BipropellantDynamicFeedCoupling:
         oxidizer_engine_flow = -state_drains[config.oxidizer_state_name]
         fuel_engine_flow = -state_drains[config.fuel_state_name]
         total_engine_flow = -propulsion.mass_derivative_kg_s
-        component_closure = abs(oxidizer_engine_flow + fuel_engine_flow - total_engine_flow)
-        if component_closure > config.mass_closure_absolute_tolerance_kg_s:
-            raise DomainError("Bipropellant component flows do not close to total engine flow.")
+        tolerance = Fraction(config.mass_closure_absolute_tolerance_kg_s)
+        oxidizer_engine_rate = Fraction(oxidizer_engine_flow)
+        fuel_engine_rate = Fraction(fuel_engine_flow)
+        total_engine_rate = Fraction(total_engine_flow)
+        component_closure = _closure_error(
+            oxidizer_engine_rate + fuel_engine_rate - total_engine_rate,
+            tolerance,
+            "Bipropellant component closure",
+        )
         if propulsion.active and fuel_engine_flow <= 0.0:
             raise DomainError("An active bipropellant engine requires positive fuel flow.")
         engine_mixture_ratio = (
@@ -959,17 +976,38 @@ class BipropellantDynamicFeedCoupling:
             if state.fuel_line.mass_flow_kg_s > 0.0
             else None
         )
-        stored_rate = (
-            oxidizer_line.stored_liquid_mass_rate_kg_s + fuel_line.stored_liquid_mass_rate_kg_s
+        oxidizer_compliance = self.oxidizer_line.configuration.compliance_kg_pa
+        fuel_compliance = self.fuel_line.configuration.compliance_kg_pa
+        oxidizer_storage = Fraction(oxidizer_compliance) * Fraction(
+            oxidizer_line.derivative.manifold_pressure_pa_s
         )
-        vehicle_closure = abs(fsum((
-            oxidizer_feed.derivative.propellant_mass_kg_s,
-            fuel_feed.derivative.propellant_mass_kg_s,
-            stored_rate,
-            total_engine_flow,
-        )))
-        if vehicle_closure > config.mass_closure_absolute_tolerance_kg_s:
-            raise DomainError("Bipropellant tank, line-storage, and vehicle mass do not close.")
+        fuel_storage = Fraction(fuel_compliance) * Fraction(
+            fuel_line.derivative.manifold_pressure_pa_s
+        )
+        oxidizer_internal_rate = (
+            Fraction(oxidizer_feed.derivative.propellant_mass_kg_s) + oxidizer_storage
+        )
+        fuel_internal_rate = (
+            Fraction(fuel_feed.derivative.propellant_mass_kg_s) + fuel_storage
+        )
+        _closure_error(
+            oxidizer_internal_rate + oxidizer_engine_rate,
+            tolerance,
+            "Bipropellant oxidizer leg closure",
+        )
+        _closure_error(
+            fuel_internal_rate + fuel_engine_rate,
+            tolerance,
+            "Bipropellant fuel leg closure",
+        )
+        vehicle_closure = _closure_error(
+            oxidizer_internal_rate + fuel_internal_rate + total_engine_rate,
+            tolerance,
+            "Bipropellant vehicle closure",
+        )
+        stored_rate = _finite_rational(
+            oxidizer_storage + fuel_storage, "Bipropellant stored liquid mass rate"
+        )
 
         condition_names = tuple(conditions)
         zero_by_condition = {name: 0.0 for name in condition_names}
@@ -994,8 +1032,6 @@ class BipropellantDynamicFeedCoupling:
         fuel_demand = component_flow_partials[config.fuel_state_name]
         oxidizer_local = dict(oxidizer_line.partials.derivative_wrt_state)
         fuel_local = dict(fuel_line.partials.derivative_wrt_state)
-        oxidizer_compliance = self.oxidizer_line.configuration.compliance_kg_pa
-        fuel_compliance = self.fuel_line.configuration.compliance_kg_pa
         jacobian = (
             (
                 oxidizer_local["mass_flow_kg_s"][0],
@@ -1005,9 +1041,15 @@ class BipropellantDynamicFeedCoupling:
             ),
             (
                 oxidizer_local["mass_flow_kg_s"][1],
-                -oxidizer_demand[oxidizer_pressure] / oxidizer_compliance,
+                _finite_quotient(
+                    -oxidizer_demand[oxidizer_pressure], oxidizer_compliance,
+                    "Oxidizer manifold self-pressure sensitivity",
+                ),
                 0.0,
-                -oxidizer_demand[fuel_pressure] / oxidizer_compliance,
+                _finite_quotient(
+                    -oxidizer_demand[fuel_pressure], oxidizer_compliance,
+                    "Oxidizer manifold fuel-pressure sensitivity",
+                ),
             ),
             (
                 0.0,
@@ -1017,21 +1059,31 @@ class BipropellantDynamicFeedCoupling:
             ),
             (
                 0.0,
-                -fuel_demand[oxidizer_pressure] / fuel_compliance,
+                _finite_quotient(
+                    -fuel_demand[oxidizer_pressure], fuel_compliance,
+                    "Fuel manifold oxidizer-pressure sensitivity",
+                ),
                 fuel_local["mass_flow_kg_s"][1],
-                -fuel_demand[fuel_pressure] / fuel_compliance,
+                _finite_quotient(
+                    -fuel_demand[fuel_pressure], fuel_compliance,
+                    "Fuel manifold self-pressure sensitivity",
+                ),
             ),
         )
 
         feed_partials: list[tuple[str, tuple[float, float, float, float]]] = []
-        oxidizer_upstream_gain = oxidizer_line.partials.derivative_wrt_upstream_pressure[0]
+        oxidizer_inertance = self.oxidizer_line.configuration.inertance_pa_s2_kg
         for name, derivative in oxidizer_feed.pressure_partials.injector_pressure_wrt_state:
-            feed_partials.append(
-                (f"oxidizer.{name}", (oxidizer_upstream_gain * derivative, 0.0, 0.0, 0.0))
+            gain = _finite_quotient(
+                derivative, oxidizer_inertance, f"Oxidizer flow sensitivity to {name}"
             )
-        fuel_upstream_gain = fuel_line.partials.derivative_wrt_upstream_pressure[0]
+            feed_partials.append((f"oxidizer.{name}", (gain, 0.0, 0.0, 0.0)))
+        fuel_inertance = self.fuel_line.configuration.inertance_pa_s2_kg
         for name, derivative in fuel_feed.pressure_partials.injector_pressure_wrt_state:
-            feed_partials.append((f"fuel.{name}", (0.0, 0.0, fuel_upstream_gain * derivative, 0.0)))
+            gain = _finite_quotient(
+                derivative, fuel_inertance, f"Fuel flow sensitivity to {name}"
+            )
+            feed_partials.append((f"fuel.{name}", (0.0, 0.0, gain, 0.0)))
 
         zero_acceleration = (0.0, 0.0, 0.0)
         state_order = (

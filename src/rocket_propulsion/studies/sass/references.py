@@ -145,17 +145,27 @@ REFERENCES = (
     Reference(
         "ARIANE-1N", "1 N Monopropellant Hydrazine Thruster", "ArianeGroup",
         "https://www.space-propulsion.com/spacecraft-propulsion/hydrazine-thrusters/1n-hydrazine-thruster.html",
-        "1N Monopropellant Thruster Characteristics: nominal thrust, Isp, reported flow and mass.",
+        "1N Monopropellant Thruster Characteristics: nominal thrust, Isp, reported flow range, inlet pressure range and mass.",
     ),
     Reference(
         "ARIANE-10N", "10 N Bipropellant Thruster", "ArianeGroup",
         "https://www.space-propulsion.com/spacecraft-propulsion/bipropellant-thrusters/10-bipropellant-thrusters.html",
-        "10N characteristics: nominal thrust/Isp, nominal mixture-ratio interval, valve-specific mass.",
+        "10N characteristics: nominal thrust/Isp, flow and inlet pressure ranges, nominal mixture ratio and valve-specific mass.",
+    ),
+    Reference(
+        "ECAPS-1N-BRADFORD", "Bradford ECAPS 1N HPGP Thruster specifications", "Bradford ECAPS",
+        "https://satcatalog.s3.amazonaws.com/components/860/SatCatalog_-_Bradford_Space_-_1N_HPGP_-_Datasheet.pdf",
+        "Manufacturer sheet: typical steady-state vacuum Isp, regulated reactor preheat power and thruster mass.",
     ),
     Reference(
         "BUSEK-BIT3", "BIT-3 RF Ion Thruster product page", "Busek",
         "https://www.busek.com/bit3",
         "Performance panel: 56-75 W, up to 1.1 mN, up to 2150 s, system dry mass 1.40 kg with gimbal.",
+    ),
+    Reference(
+        "BUSEK-BIT3-PDF", "BIT-3 RF Ion Thruster datasheet v1.0", "Busek",
+        "https://www.busek.com/s/BIT3_v10.pdf",
+        "August 2021, Standard Specifications: system power, upper thrust and Isp, gimbaled dry mass.",
     ),
     Reference(
         "BUSEK-RF", "RF Ion Thrusters product family page", "Busek",

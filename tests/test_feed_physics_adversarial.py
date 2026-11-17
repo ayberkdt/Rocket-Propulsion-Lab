@@ -13,6 +13,7 @@ import math
 import unittest
 from dataclasses import replace
 from decimal import Decimal, localcontext
+from fractions import Fraction
 
 from rocket_propulsion.core.errors import DomainError
 from rocket_propulsion.propulsion.burns import (
@@ -21,6 +22,10 @@ from rocket_propulsion.propulsion.burns import (
     IdealPressurantGas,
     RegulatedFeedState,
     RegulatedFeedSystem,
+)
+from rocket_propulsion.propulsion.burns.regulator_hysteresis import (
+    _is_choked,
+    compressible_valve_mass_flow_kg_s,
 )
 from tests.test_burn_feed_line import example_line
 from tests.test_burn_feed_system import example_feed_system
@@ -58,6 +63,214 @@ def step_rk4(rhs, values, dt):
 
 
 class FeedBoundaryAttacks(unittest.TestCase):
+    def test_adjacent_sonic_states_match_independent_pressure_ratio(self):
+        with localcontext() as context:
+            context.prec = 110
+            for gamma in (math.nextafter(1.0, math.inf), 1.01, 1.1, 1.4, 1.5, 1.667, 2.0, 5.0):
+                gas = IdealPressurantGas(1.0, gamma, "synthetic")
+                config = replace(example_feed_system().configuration, gas=gas)
+                system = RegulatedFeedSystem(config)
+                exact_gamma = Decimal(gamma)
+                critical = (Decimal(2) / (exact_gamma + 1))**(exact_gamma / (exact_gamma - 1))
+                for upstream in (1.0, 2.0, 2e6, 1e-100, 1e100):
+                    center = float(Decimal(upstream) * critical)
+                    for downstream in (
+                        math.nextafter(center, 0.0), center, math.nextafter(center, math.inf),
+                    ):
+                        with self.subTest(gamma=gamma, upstream=upstream, downstream=downstream):
+                            expected = Decimal(downstream) / Decimal(upstream) <= critical
+                            _, dynamic_flag = system._regulator_flow(
+                                upstream_pressure_pa=upstream, downstream_pressure_pa=downstream,
+                                upstream_temperature_k=300.0, opening=0.5,
+                            )
+                            actual = (dynamic_flag, _is_choked(gas, upstream, downstream))
+                            self.assertEqual(actual, (expected, expected))
+
+    def test_exact_sonic_ratio_is_choked_and_has_distinct_adjacent_sides(self):
+        # Exact fractions are (2/3)^2, (4/5)^3 and (8/9)^5.
+        for gamma, upstream, center in (
+            (2.0, 9.0, 4.0), (1.5, 125.0, 64.0), (1.25, 59049.0, 32768.0),
+        ):
+            gas = IdealPressurantGas(1.0, gamma, "synthetic")
+            system = RegulatedFeedSystem(replace(example_feed_system().configuration, gas=gas))
+            for downstream, expected in (
+                (math.nextafter(center, 0.0), True), (center, True),
+                (math.nextafter(center, math.inf), False),
+            ):
+                with self.subTest(gamma=gamma, downstream=downstream):
+                    flow, choked = system._regulator_flow(
+                        upstream_pressure_pa=upstream, downstream_pressure_pa=downstream,
+                        upstream_temperature_k=300.0, opening=0.5,
+                    )
+                    self.assertGreater(flow, 0.0)
+                    self.assertEqual((choked, _is_choked(gas, upstream, downstream)),
+                                     (expected, expected))
+
+    def test_direct_valve_flow_does_not_vanish_at_one_ulp_forward_head(self):
+        config = replace(
+            example_feed_system().configuration,
+            gas=IdealPressurantGas(300.0, math.nextafter(1.0, math.inf), "synthetic"),
+            regulator_discharge_coefficient=1.0,
+        )
+        upstream = 2e6
+        downstream = math.nextafter(upstream, 0.0)
+        expected, _ = decimal_orifice(config, upstream, downstream, 300.0, 1.0)
+        actual = compressible_valve_mass_flow_kg_s(
+            gas=config.gas, effective_area_m2=config.regulator_maximum_area_m2,
+            upstream_pressure_pa=upstream, downstream_pressure_pa=downstream,
+            upstream_temperature_k=300.0,
+        )
+        self.assertGreater(actual, 0.0)
+        self.assertTrue(math.isclose(actual, expected, rel_tol=8e-14))
+
+    def test_sonic_regime_resolves_pressure_ratios_closer_than_initial_precision(self):
+        gamma = 1.4
+        gas = IdealPressurantGas(1.0, gamma, "synthetic")
+        system = RegulatedFeedSystem(replace(example_feed_system().configuration, gas=gas))
+        with localcontext() as context:
+            context.prec = 380
+            g = Decimal(gamma)
+            critical = (Decimal(2) / (1 + g))**(g / (g - 1))
+            scale = 10**160
+            floor = int(critical * scale)
+            self.assertGreater(critical * scale - floor, 0)
+        for offset, expected in ((0, True), (1, False)):
+            ratio = Fraction(floor + offset, scale)
+            with self.subTest(offset=offset):
+                flow, choked = system._regulator_flow(
+                    upstream_pressure_pa=1.0, downstream_pressure_pa=ratio,
+                    upstream_temperature_k=300.0, opening=0.5,
+                )
+                self.assertGreater(flow, 0.0)
+                self.assertEqual(choked, expected)
+
+    def test_exact_integer_power_sonic_equality_after_first_bound(self):
+        gamma = 1.015625
+        gas = IdealPressurantGas(1.0, gamma, "synthetic")
+        system = RegulatedFeedSystem(replace(example_feed_system().configuration, gas=gas))
+        exact_limit = Fraction(128, 129)**65
+        try:
+            flow, choked = system._regulator_flow(
+                upstream_pressure_pa=1.0, downstream_pressure_pa=exact_limit,
+                upstream_temperature_k=300.0, opening=0.5,
+            )
+        except DomainError as error:
+            raise AssertionError("Exact equality was lost in rounded interval bounds.") from error
+        self.assertGreater(flow, 0.0)
+        self.assertTrue(choked)
+
+    def test_unresolved_sonic_side_is_refused_instead_of_guessed(self):
+        gamma = 1.4
+        gas = IdealPressurantGas(1.0, gamma, "synthetic")
+        system = RegulatedFeedSystem(replace(example_feed_system().configuration, gas=gas))
+        with localcontext() as context:
+            context.prec = 1600
+            g = Decimal(gamma)
+            near_sonic = Fraction((Decimal(2) / (1 + g))**(g / (g - 1)))
+        try:
+            system._regulator_flow(
+                upstream_pressure_pa=1.0, downstream_pressure_pa=near_sonic,
+                upstream_temperature_k=300.0, opening=0.5,
+            )
+        except DomainError as error:
+            self.assertEqual(error.field, "Sonic pressure ratio")
+        else:
+            raise AssertionError("An unresolved sonic-side decision was published.")
+
+    def test_equal_display_pressures_still_resolve_forward_head(self):
+        config = replace(
+            example_feed_system().configuration,
+            gas=IdealPressurantGas(1.0, 1.4, "synthetic"),
+            tank_internal_volume_m3=2.0, propellant_density_kg_m3=1.0,
+            bottle_volume_m3=1.0,
+        )
+        system = RegulatedFeedSystem(config)
+        gas_mass = math.nextafter(1.0, math.inf)
+        gas_temperature = math.nextafter(2.0, 0.0)
+        state = RegulatedFeedState(1.0, 1.0, 2.0, gas_mass, gas_temperature, 0.5)
+        with localcontext() as context:
+            context.prec = 100
+            upstream = Decimal(gas_mass) * Decimal(gas_temperature)
+            self.assertGreater(upstream, 2)
+            expected, _ = decimal_orifice(config, upstream, 2.0, gas_temperature, 0.5)
+        result = system.evaluate(state, 0.0)
+        self.assertEqual(result.tank_pressure_pa, result.bottle_pressure_pa)
+        self.assertGreater(result.regulator_mass_flow_kg_s, 0.0)
+        self.assertTrue(math.isclose(result.regulator_mass_flow_kg_s, expected, rel_tol=8e-14))
+        self.assertFalse(result.regulator_choked)
+        self.assertEqual(result.derivative.tank_pressurant_mass_kg_s, result.regulator_mass_flow_kg_s)
+        self.assertEqual(result.derivative.bottle_pressurant_mass_kg_s, -result.regulator_mass_flow_kg_s)
+        reverse = replace(state, tank_pressurant_mass_kg=gas_mass, tank_gas_temperature_k=gas_temperature,
+                          bottle_pressurant_mass_kg=1.0, bottle_gas_temperature_k=2.0)
+        equal = replace(reverse, tank_pressurant_mass_kg=1.0, tank_gas_temperature_k=2.0)
+        self.assertEqual(system.evaluate(reverse, 0.0).regulator_mass_flow_kg_s, 0.0)
+        self.assertEqual(system.evaluate(equal, 0.0).regulator_mass_flow_kg_s, 0.0)
+
+    def test_valve_motion_uses_unrounded_pressure_error_and_command(self):
+        config = replace(
+            example_feed_system().configuration,
+            gas=IdealPressurantGas(1.0, 1.4, "synthetic"),
+            tank_internal_volume_m3=2.0, propellant_density_kg_m3=1.0,
+            regulator_set_pressure_pa=2.5, regulator_full_open_error_pa=1.0,
+            valve_time_constant_s=0.5,
+        )
+        mass = math.nextafter(1.0, math.inf)
+        temperature = math.nextafter(math.nextafter(2.0, 0.0), 0.0)
+        state = RegulatedFeedState(1.0, mass, temperature, 1.0, 2.0, 0.5)
+        result = RegulatedFeedSystem(config).evaluate(state, 0.0)
+        with localcontext() as context:
+            context.prec = 100
+            pressure = Decimal(mass) * Decimal(temperature)
+            expected = (Decimal("2.5") - pressure - Decimal("0.5")) / Decimal("0.5")
+        self.assertGreater(expected, 0.0)
+        self.assertEqual(result.tank_pressure_pa, 2.0)
+        self.assertEqual(result.regulator_command, 0.5)
+        self.assertEqual(result.derivative.regulator_opening_s, float(expected))
+
+    def test_regulator_flow_survives_compensated_area_and_pressure_scales(self):
+        for area, opening, pressure, gas_r, temperature in (
+            (1e300, 1.0, 1e300, 1e307, 1e307),
+            (1e-300, 1e-100, 1e200, 300.0, 300.0),
+        ):
+            with self.subTest(area=area, opening=opening):
+                config = replace(
+                    example_feed_system().configuration,
+                    gas=IdealPressurantGas(gas_r, 1.4, "synthetic"),
+                    regulator_maximum_area_m2=area,
+                )
+                expected, choked = decimal_orifice(config, pressure, pressure / 2, temperature, opening)
+                self.assertGreater(expected, 0.0)
+                try:
+                    flow, actual_choked = RegulatedFeedSystem(config)._regulator_flow(
+                        upstream_pressure_pa=pressure, downstream_pressure_pa=pressure / 2,
+                        upstream_temperature_k=temperature, opening=opening,
+                    )
+                except DomainError as error:
+                    raise AssertionError("A representable flow was lost in an intermediate.") from error
+                self.assertEqual(actual_choked, choked)
+                self.assertTrue(math.isclose(flow, expected, rel_tol=8e-14))
+
+    def test_regulator_flow_preserves_head_smaller_than_smallest_binary64(self):
+        config = example_feed_system().configuration
+        head = Fraction(1, 1 << 1200)
+        with localcontext() as context:
+            context.prec = 100
+            # The relative correction to the square-root head limit is O(head).
+            h = Decimal(1) / Decimal(head.denominator)
+            expected = (Decimal(config.regulator_discharge_coefficient)
+                        * Decimal(config.regulator_maximum_area_m2)
+                        * (2 * h / (Decimal(config.gas.specific_gas_constant_j_kg_k)
+                                    * Decimal(300))).sqrt())
+        try:
+            flow, choked = RegulatedFeedSystem(config)._regulator_flow(
+                upstream_pressure_pa=1.0, downstream_pressure_pa=1 - head,
+                upstream_temperature_k=300.0, opening=1.0,
+            )
+        except DomainError as error:
+            raise AssertionError("A representable square-root flow was refused.") from error
+        self.assertFalse(choked)
+        self.assertTrue(math.isclose(flow, float(expected), rel_tol=8e-14))
+
     def test_near_equilibrium_regulator_flow_against_decimal(self):
         for gamma in (math.nextafter(1., math.inf), 1.000001, 1.1, 1.4, 1.667):
             config = replace(example_feed_system().configuration,
@@ -113,14 +326,49 @@ class FeedBoundaryAttacks(unittest.TestCase):
         with self.assertRaises(DomainError):
             system.evaluate(state, 1e200)
 
-    def test_rounded_zero_ullage_cannot_reach_pressure_division(self):
+    def test_near_full_tank_preserves_positive_ullage_and_rejects_adjacent_overfill(self):
         config = replace(example_feed_system().configuration,
             tank_internal_volume_m3=.0023993932475265857,
             propellant_density_kg_m3=404.72024715263893)
         system = RegulatedFeedSystem(config)
         state = RegulatedFeedState(.9710830281553327, .001, 300., .1, 300., .5)
+        with localcontext() as context:
+            context.prec = 1200
+            exact_ullage = Decimal(config.tank_internal_volume_m3) - (
+                Decimal(state.propellant_mass_kg) / Decimal(config.propellant_density_kg_m3)
+            )
+            expected_pressure = (
+                Decimal(state.tank_pressurant_mass_kg)
+                * Decimal(config.gas.specific_gas_constant_j_kg_k)
+                * Decimal(state.tank_gas_temperature_k) / exact_ullage
+            )
+            expected_mass_partial = (
+                expected_pressure / (Decimal(config.propellant_density_kg_m3) * exact_ullage)
+            )
+            expected_initial_mass = (
+                Decimal(2_000_000) * exact_ullage
+                / (Decimal(config.gas.specific_gas_constant_j_kg_k) * Decimal(300))
+            )
+        self.assertGreater(exact_ullage, 0)
+        try:
+            result = system.evaluate(state, 0.)
+        except DomainError as error:
+            raise AssertionError("Representable positive ullage was refused.") from error
+        self.assertEqual(result.tank_ullage_volume_m3, float(exact_ullage))
+        self.assertEqual(result.tank_pressure_pa, float(expected_pressure))
+        partials = dict(result.pressure_partials.injector_pressure_wrt_state)
+        self.assertEqual(partials["propellant_mass_kg"], float(expected_mass_partial))
+        initial = system.initial_state(
+            propellant_mass_kg=state.propellant_mass_kg,
+            tank_pressure_pa=2e6, tank_gas_temperature_k=300.0,
+            bottle_pressure_pa=20e6, bottle_gas_temperature_k=300.0,
+        )
+        self.assertEqual(initial.tank_pressurant_mass_kg, float(expected_initial_mass))
+        overfilled = replace(state, propellant_mass_kg=math.nextafter(
+            state.propellant_mass_kg, math.inf,
+        ))
         with self.assertRaises(DomainError):
-            system.evaluate(state, 0.)
+            system.evaluate(overfilled, 0.)
 
 
 class FeedConservationOracles(unittest.TestCase):
