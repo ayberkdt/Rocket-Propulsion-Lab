@@ -48,3 +48,7 @@ desktop.ini
 # Local verification archives and pinned external dependency snapshots
 /output/
 /.tmp/
+
+# Presentation: speaker notes stay local; Office lock files
+docs/missions/sentinel/sunum/ozel/
+~$*

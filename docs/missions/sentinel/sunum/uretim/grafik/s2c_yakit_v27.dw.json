@@ -1,0 +1,190 @@
+{
+ "surum": 1,
+ "ad": "s2c_yakit_v27",
+ "boyut_pt": [
+  425.2,
+  361.4
+ ],
+ "metin_kutusu_pt": [
+  10.8,
+  10.8,
+  400.5,
+  350.6
+ ],
+ "hedef": "sunum-yarim",
+ "ortam": "sunum",
+ "boyut_mm": [
+  150.0,
+  127.5
+ ],
+ "yazi_tipleri": [
+  "Source Sans 3"
+ ],
+ "punto": {
+  "tik": [
+   20.4
+  ],
+  "eksen_adi": [
+   24.0
+  ],
+  "baslik": [],
+  "lejant": [],
+  "panel": [],
+  "metin": [
+   20.4
+  ]
+ },
+ "punto_tepe": {
+  "tik": 20.4,
+  "eksen_adi": 24.0,
+  "metin": 20.4
+ },
+ "panel_harfleri": [],
+ "eksenler": [
+  {
+   "konum_pt": [
+    50.2,
+    59.5,
+    414.4,
+    319.8
+   ],
+   "baslik": "",
+   "seriler": [
+    {
+     "etiket": "Loaded",
+     "tur": "cubuk",
+     "renk": "#8299af",
+     "isaret": null,
+     "cizgi": null,
+     "kalinlik": null,
+     "isaret_boyu": null
+    },
+    {
+     "etiket": "Flown 2024",
+     "tur": "cubuk",
+     "renk": "#2967b4",
+     "isaret": null,
+     "cizgi": null,
+     "kalinlik": null,
+     "isaret_boyu": null
+    },
+    {
+     "etiket": "Ops 12 yr",
+     "tur": "cubuk",
+     "renk": "#c9d8ee",
+     "isaret": null,
+     "cizgi": null,
+     "kalinlik": null,
+     "isaret_boyu": null
+    },
+    {
+     "etiket": "EOL plan",
+     "tur": "cubuk",
+     "renk": "#c9d8ee",
+     "isaret": null,
+     "cizgi": null,
+     "kalinlik": null,
+     "isaret_boyu": null
+    },
+    {
+     "etiket": "Rest",
+     "tur": "cubuk",
+     "renk": "#ffffff",
+     "isaret": null,
+     "cizgi": null,
+     "kalinlik": null,
+     "isaret_boyu": null
+    }
+   ],
+   "eksen_turu": "rectilinear",
+   "sabit_oran": false,
+   "x": {
+    "ham": "",
+    "nicelik": "",
+    "birim": null,
+    "bicim": null,
+    "anahtar": null,
+    "harf": null,
+    "olcek": "linear",
+    "tarih": false,
+    "ters": false,
+    "sinir": [
+     -0.43360000000000004,
+     4.4336
+    ],
+    "gorunur": true,
+    "kategorik": true,
+    "kategoriler": [
+     "Loaded",
+     "Flown 2024",
+     "Ops 12 yr",
+     "EOL plan",
+     "Rest"
+    ],
+    "ondaliklar": [],
+    "ondalik_isareti": null,
+    "tikler": [
+     "Loaded",
+     "Flown 2024",
+     "Ops 12 yr",
+     "EOL plan",
+     "Rest"
+    ],
+    "eksi": null,
+    "e_gosterimi": false,
+    "ofset": "",
+    "etiket_pt": null
+   },
+   "y": {
+    "ham": "Hydrazine (kg)",
+    "nicelik": "Hydrazine",
+    "birim": "kg",
+    "bicim": "parantez",
+    "anahtar": "hydrazine",
+    "harf": "tek",
+    "olcek": "linear",
+    "tarih": false,
+    "ters": false,
+    "sinir": [
+     0.0,
+     175.0
+    ],
+    "gorunur": true,
+    "kategorik": false,
+    "kategoriler": [],
+    "ondaliklar": [
+     0
+    ],
+    "ondalik_isareti": null,
+    "tikler": [
+     "0",
+     "40",
+     "80",
+     "120",
+     "160"
+    ],
+    "eksi": null,
+    "e_gosterimi": false,
+    "ofset": "",
+    "etiket_pt": [
+     50.2,
+     327.6,
+     195.3,
+     350.6
+    ]
+   },
+   "lejant": [],
+   "dogrudan_etiket": [],
+   "izgara": {
+    "x": false,
+    "y": true
+   },
+   "cerceve": [],
+   "alan": false,
+   "cerceve_kalinlik": null,
+   "tik_yonu": 3,
+   "haritalar": []
+  }
+ ],
+ "renk_cubuklari": []
+}
