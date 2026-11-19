@@ -1,13 +1,13 @@
 --- a/src/lunaris/core/propagation/plans.py
 +++ b/src/lunaris/core/propagation/plans.py
-@@ -4,6 +4,7 @@
- 
- import json
+@@ -6,6 +6,7 @@
  import math
-+from decimal import Context, Decimal, localcontext
  from collections.abc import Callable
  from dataclasses import dataclass
++from decimal import Context, Decimal, localcontext
  from hashlib import sha256
+ from itertools import pairwise
+ from typing import Any, Literal
 @@ -153,11 +154,37 @@
      return dv[0] * r_hat + dv[1] * i_hat + dv[2] * c_hat
  
