@@ -49,3 +49,13 @@ python uretim/v32_pasivasyon.py
 ```
 
 Yeni sürüm için `v23_yerlesim.py` dosyasını kopyalayın, girdi olarak bir önceki sürümü, çıktı olarak bir sonraki numarayı verin ve bu tabloya bir satır ekleyin.
+
+## Hesaplar, kanıtlar ve testler
+
+- `uretim/hesap.py`: sunumdaki bütün sayılar tek yerden. Her girdi `KAYNAK` sözlüğünde bir kanıt kimliğine bağlıdır; `python uretim/hesap.py` bütün değerleri JSON olarak yazar.
+- `uretim/kanitlar.json`: kanıt defteri. Her kayıt belge, sayfa ve kısa alıntı taşır; `durum` birincil (alıntı belgede okundu), depo (depodaki rapordan) ya da varsayım. Table 2 ve Table 3'ün her hücresi bir ya da birkaç kayda bağlıdır.
+- `uretim/kanit_dogrula.py <metin_klasoru>`: alıntıları indirilmiş belgelerin metnine karşı arar. 2026-11-19 çıktısı `uretim/kanit_dogrulama_2026-11-19.txt` (82/82 alıntı bulundu).
+- `tests/test_sentinel_sunum.py` (depo kökünden `python -m pytest tests/test_sentinel_sunum.py`): roket denklemi (60 basamaklı Decimal, SASS ters kütle kapanışı, seri modeli), yörünge (SASS Hohmann, sayısal integralle sonlu yanma cezası), bütçe toplamları ve dayanıklılığı, makale sayılarının fizikle tutarlılığı, tank ve itici ömrü sınırları, kanıt defteri tamlığı ve v32 slaytlarındaki sayıların hesapla eşleşmesi.
+- `uretim/mutasyon_denetimi.py`: `hesap.py`'ye on bilinçli hata sokar ve testlerin her birini yakaladığını doğrular. 2026-11-19 çıktısı `uretim/mutasyon_denetimi_2026-11-19.txt` (10/10).
+
+Depo kaynaklı kalan kayıtlar: Airbus GNC 2014 (bertaraf planı 73 m/s, 47 kg, 116 × 10 dk; CHT1N-6; eğik iticiler; dört itici birlikte), Arianespace fırlatma kitlerindeki kütleler, hidrazin yoğunluğu. Bu belgeler 2026-11-19'da yeniden açılmadı.

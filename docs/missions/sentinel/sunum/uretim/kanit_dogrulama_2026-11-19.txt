@@ -1,0 +1,87 @@
+# kanit_dogrula.py çıktısı — 2026-11-19
+# Belgeler kanitlar.json'daki URL'lerden indirildi, PyMuPDF/pypdf ile metne çevrildi.
+
+RAFAEL-P44     BULUNDU (s. 44)              «Nominal Volume 204 liters»
+RAFAEL-P44     BULUNDU (s. 44)              «Propellant Nominal Capacity 154 kg @ 4: 1 blow-down ratio»
+RAFAEL-P44     BULUNDU (s. 44)              «Pressure Operating 27.4 to 5.5 bar»
+RAFAEL-P44     BULUNDU (s. 44)              «Diaphragm EPN-40»
+RAFAEL-P44     BULUNDU (s. 44)              «Weight 17.5 kg»
+RAFAEL-P44     BULUNDU (s. 44)              «587 mm x 1,170 mm»
+RAFAEL-P44     BULUNDU (s. 44)              «Liquid Volumetric Expulsion > 99%»
+RAFAEL-P12     BULUNDU (s. 12)              «Sentinel-1 ST1 A and B delivered to the customer»
+RAFAEL-P12     BULUNDU (başka sayfa: [13])  «28 units operational in-orbit (ST1 A & B), 28 units (ST1 C & D) were d»
+RAFAEL-P49     BULUNDU (s. 49)              «24.5 to 9 24.5 to 5.5»
+RAFAEL-P49     BULUNDU (s. 49)              «1.3 ÷ 1.4 1.0 ÷ 1.1»
+RAFAEL-P49     BULUNDU (s. 49)              «>214 @ 22 bar >205 @ 5.5 bar»
+RAFAEL-P49     BULUNDU (s. 49)              «0.008 @ 5.5 bar and D/C 0.02 sec/1 sec»
+RAFAEL-P49     BULUNDU (s. 49)              «100,000 60,000»
+RAFAEL-P49     BULUNDU (s. 49)              «100,000 58,000»
+AG-P6          BULUNDU (s. 6)               «Thrust Range 0.320 … 1.1 N»
+AG-P6          BULUNDU (s. 6)               «Specific Impulse, Nominal 220 s»
+AG-P6          BULUNDU (s. 6)               «Range 200 … 223 s»
+AG-P6          BULUNDU (s. 6)               «Mass Flow, Nominal 0.44 g/s»
+AG-P6          BULUNDU (s. 6)               «Inlet Pressure Range 5.5 … 22 bar»
+AG-P6          BULUNDU (s. 6)               «Minimum Impulse Bit 0.01 … 0.043 Ns»
+AG-P6          BULUNDU (s. 6)               «Total Impulse 135,000 Ns»
+AG-P6          BULUNDU (s. 6)               «Cycle Life 59,000 cycles»
+AG-P6          BULUNDU (s. 6)               «Propellant Throughput 67 kg»
+AG-P6          BULUNDU (s. 6)               «Single Burn Life 12 h»
+AG-P6          BULUNDU (s. 6)               «Accumulated Burn Life 50 h»
+AG-P6          BULUNDU (s. 6)               «Sentinel 2A 2015»
+AG-P5          BULUNDU (s. 5)               «internal redundant catalyst bed heater»
+SO360-P2       BULUNDU (s. 2)               «two redundant branches, each with seven 1 Newton RCTs»
+SO360-P2       BULUNDU (s. 2)               «RCT 3 – Out-of-Plane manoeuvres»
+SO360-P2       BULUNDU (s. 2)               «RCT 4, 5, 6, 7 – Attitude control after launcher separation and in Saf»
+SO360-P7       BULUNDU (s. 7)               «RCT 6A 0.47 N»
+SO360-P7       BULUNDU (s. 7)               «RCT 7A 0.58 N»
+ISSFD2017-P2   BULUNDU (s. 2)               «3 pairs of 1 N OCTs»
+ISSFD2017-P2   BULUNDU (s. 2)               «4 pairs of Reaction Control Thrusters»
+ISSFD2017-P2   BULUNDU (s. 2)               «respectively located on the spacecraft sides +X, -X and -Y»
+ISSFD2017-P2   BULUNDU (s. 2)               «35 seconds instead of 300 seconds»
+ISSFD2017-P2   BULUNDU (s. 2)               «monopropellant (hydrazine) propulsion system»
+ISSFD2017-P7   BULUNDU (s. 7)               «around -30% performance error»
+SO226-P15      BULUNDU (s. 15)              «The actual execution of the campaign began in February 2023»
+SO226-P16      BULUNDU (s. 16)              «reaction wheel overspeed protection 624 seconds into the third burn»
+SO226-P19      BULUNDU (s. 19)              «underperformance of up to 15.2%»
+SO226-P19      BULUNDU (s. 19)              «reduction in performance of 50.4%»
+SO226-P20      BULUNDU (s. 20)              «Out-Of-Plane thruster RCT-3B»
+SO226-P20      BULUNDU (s. 20)              «an apogee of around 610 km»
+SO226-P20      BULUNDU (s. 20)              «predicted time remaining in orbit of 24 years»
+SO226-P20      BULUNDU (s. 20)              «approx 70 kg of hydrazine»
+SO226-P1       BULUNDU (s. 1)               «partial passivation»
+SP1322-P23     BULUNDU (s. 23)              «Batteries and propellants are sized for 12 years, including provision »
+SP1322-P23     BULUNDU (s. 23)              «7.25 years, including a three-month in-orbit commissioning phase»
+SP1322-P23     BULUNDU (s. 23)              «hydrazine propellant and catalytic reaction thrusters»
+SP1322-P24     BULUNDU (s. 24)              «independent module that can be tested prior to its integration»
+SP1322-P24     BULUNDU (s. 24)              «avoided by a mechanical accommodation within the launcher adapter ring»
+DGLR2009-P2    BULUNDU (s. 2)               «two times four monopropellant thrusters (THR) used for orbit correctio»
+S2-FUEL        BULUNDU                      «133 kg of hydrazine»
+S2-FUEL        BULUNDU                      «pressurised the tank with helium up to 21 bars»
+S2-FUEL        BULUNDU                      «close the latch valves»
+S1-FUEL        BULUNDU                      «154 kg of fuel»
+S1-FUEL        BULUNDU                      «critical and hazardous process of fuelling»
+ISSFD134-T2    BULUNDU (s. 8)               «Semi-major axis -7.8 km 4.1 m/s»
+ISSFD134-T2    BULUNDU (s. 8)               «Inclination -16 mdeg 2.2 m/s»
+ISSFD134-P8    BULUNDU (s. 8)               «along -track performance error of -21 %»
+ISSFD134-P8    BULUNDU (s. 8)               «torques approximately ten»
+ISSFD134-P8    BULUNDU (s. 8)               «(- 30% approximately)»
+ISSFD134-P8    BULUNDU (s. 8)               «total delta -v per burn of 1 cm/s, instead of the almost 14 cm/s»
+ISSFD134-P8    BULUNDU (s. 8)               «65 k ilometres/day»
+ISSFD134-P14   BULUNDU (s. 14)              «nearly 500 manoeuvres and a fuel consumption of 8.4 kg»
+ISSFD137-P13   BULUNDU (s. 13)              «[0.00, - 0.22, 0.15] Nm»
+ISSFD137-P13   BULUNDU (s. 13)              «[0.0003, 0.0283, - 0.0054] Nm»
+ISSFD137-P14   BULUNDU (s. 14)              «from 300 to 30 seconds»
+SO617-P5       BULUNDU (s. 5)               «since 02 July 2015»
+SO617-P5       BULUNDU (s. 5)               «Up to March 2024, 64 orbit control manoeuvres»
+SO617-P5       BULUNDU (s. 5)               «24 pairs of collision avoidance manoeuvres»
+SO617-P5       BULUNDU (s. 5)               «average orbit maintenance manoeuvre size was 1.56 cm/s»
+SO617-P5       BULUNDU (s. 5)               «Taking an average CAM size of 4 cm/s»
+SO617-P15      BULUNDU (s. 15)              «injected 10.6 km below the nominal mission altitude»
+SO617-P15      BULUNDU (s. 15)              «total delta-v of about 6.33»
+SO617-P15      BULUNDU (s. 15)              «1.2 cm/s»
+SO617-P15      BULUNDU (başka sayfa: [16])  «total delta-v of 0.57 m/s»
+SO617-T3       BULUNDU (s. 16)              «OOP/IPP 314.1 0.9325/0.0530 0.9344/0.0537»
+SO617-T3       BULUNDU (s. 16)              «IPP 5.3 0.0150 0.0146»
+S2-SP1322      BULUNDU (s. 73)              «Sun-synchronous orbit at 786 km mean altitude»
+
+sonuç: TAMAM

@@ -1,0 +1,570 @@
+{
+  "surum": 1,
+  "tarih": "2026-11-19",
+  "aciklama": "hesap.py girdilerinin ve sunum tablolarının kanıt defteri. durum: 'birincil' = alıntı birincil belgede bu tarihte okundu ve kanit_dogrula.py ile metne karşı denetlendi; 'depo' = depodaki görev raporundan, birincil belge bu tarihte açılamadı ya da açılmadı; 'varsayim' = sunumun açık varsayımı.",
+  "belgeler": {
+    "RAFAEL": {
+      "ad": "Rafael, Space Propulsion technical document (2024)",
+      "url": "https://www.rafael.co.il/wp-content/uploads/2024/05/SPACE-Propulsion-Technical-doc_compressed.pdf",
+      "yerel": "rafael.txt"
+    },
+    "AG": {
+      "ad": "ArianeGroup, Hydrazine Thrusters brochure",
+      "url": "https://www.space-propulsion.com/brochures/hydrazine-thrusters/hydrazine-thrusters.pdf",
+      "yerel": "ag_hyd.txt"
+    },
+    "SO360": {
+      "ad": "SpaceOps 2025, paper 360 (Sentinel-1B)",
+      "url": "https://publications.spaceops.org/2025/download_by_id.php?id=0360",
+      "yerel": "so360.txt"
+    },
+    "SO226": {
+      "ad": "SpaceOps 2025, paper 226 (Sentinel-1B disposal)",
+      "url": "https://publications.spaceops.org/2025/download_by_id.php?id=0226",
+      "yerel": "so226.txt"
+    },
+    "SO617": {
+      "ad": "SpaceOps 2025, paper 617 (Sentinel-2 tandem)",
+      "url": "https://publications.spaceops.org/2025/download_by_id.php?id=0617",
+      "yerel": "so617.txt"
+    },
+    "ISSFD134": {
+      "ad": "ISSFD 2015, paper 134 (Sentinel-1A orbit acquisition)",
+      "url": "https://issfd.org/2015/files/downloads/papers/134_Vasconcelos.pdf",
+      "yerel": "issfd134.txt"
+    },
+    "ISSFD137": {
+      "ad": "ISSFD 2015, paper 137 (Sentinel-1A LEOP)",
+      "url": "https://issfd.org/2015/files/downloads/papers/137_Martin-Serrano.pdf",
+      "yerel": "issfd137.txt"
+    },
+    "ISSFD2017": {
+      "ad": "ISTS-ISSFD 2017, paper 029 (Sentinel-1B acquisition)",
+      "url": "https://issfd.org/ISSFD_2017/paper/ISTS-2017-d-029__ISSFD-2017-029.pdf",
+      "yerel": "issfd2017.txt"
+    },
+    "SP1322": {
+      "ad": "ESA SP-1322/2, Sentinel-2 (2012)",
+      "url": "https://sentinels.copernicus.eu/documents/247904/349490/S2_SP-1322_2.pdf",
+      "yerel": "sp1322_2.txt"
+    },
+    "DGLR2009": {
+      "ad": "EADS Astrium, DGLR 2009, Sentinel-2 AOCS",
+      "url": "https://www.fzt.haw-hamburg.de/pers/Scholz/dglr/dlrk2009_mitReview/Papers/121179.pdf",
+      "yerel": "dglr2009.txt"
+    },
+    "S2FUEL": {
+      "ad": "ESA blog, Sentinel-2C fully loaded (19.08.2024)",
+      "url": "https://blogs.esa.int/eolaunches/2024/08/19/sentinel-2c-fully-loaded/",
+      "yerel": "s2fuel.txt"
+    },
+    "S1FUEL": {
+      "ad": "ESA, Sentinel-1C fuelled ahead of liftoff (18.11.2024)",
+      "url": "https://www.esa.int/Applications/Observing_the_Earth/Copernicus/Sentinel-1/Sentinel-1C_fuelled_ahead_of_liftoff",
+      "yerel": "s1fuel.txt"
+    },
+    "REPO": {
+      "ad": "Depodaki görev raporları (SENTINEL-1C.md, SENTINEL-2C.md, SENTINEL-2_SERISI.md, HESAPLAR.md, DERIN_ITKI_ANALIZI.md, KAYNAKLAR.md)",
+      "url": "",
+      "yerel": ""
+    }
+  },
+  "kanitlar": [
+    {
+      "id": "RAFAEL-P44",
+      "belge": "RAFAEL",
+      "sayfa": "PDF 44 (basılı 41)",
+      "durum": "birincil",
+      "iddia": "PEPT-590GB: 204 L, 154 kg @ 4:1, 27,4 → 5,5 bar, Ti-6Al-4V, EPN-40, 17,5 kg, Ø587 × 1170 mm, boşaltma > %99",
+      "alintilar": [
+        "Nominal Volume 204 liters",
+        "Propellant Nominal Capacity 154 kg @ 4: 1 blow-down ratio",
+        "Pressure Operating 27.4 to 5.5 bar",
+        "Diaphragm EPN-40",
+        "Weight 17.5 kg",
+        "587 mm x 1,170 mm",
+        "Liquid Volumetric Expulsion > 99%"
+      ]
+    },
+    {
+      "id": "RAFAEL-P12",
+      "belge": "RAFAEL",
+      "sayfa": "PDF 12–13",
+      "durum": "birincil",
+      "iddia": "PEPT-590GB ve 1 N iticiler Sentinel-1 A–D için; 28 + 28 itici",
+      "alintilar": [
+        "Sentinel-1 ST1 A and B delivered to the customer",
+        "28 units operational in-orbit (ST1 A & B), 28 units (ST1 C & D) were delivered to the customer"
+      ]
+    },
+    {
+      "id": "RAFAEL-P49",
+      "belge": "RAFAEL",
+      "sayfa": "PDF 49 (basılı 46)",
+      "durum": "birincil",
+      "iddia": "Rafael 1 N: giriş basıncı, BOL itki, Isp, en küçük impuls biti, toplam impuls, darbe sayısı",
+      "alintilar": [
+        "24.5 to 9 24.5 to 5.5",
+        "1.3 ÷ 1.4 1.0 ÷ 1.1",
+        ">214 @ 22 bar >205 @ 5.5 bar",
+        "0.008 @ 5.5 bar and D/C 0.02 sec/1 sec",
+        "100,000 60,000",
+        "100,000 58,000"
+      ]
+    },
+    {
+      "id": "AG-P6",
+      "belge": "AG",
+      "sayfa": "PDF 6",
+      "durum": "birincil",
+      "iddia": "ArianeGroup 1 N: itki, Isp, debi, giriş basıncı, en küçük impuls biti, yeterlilik ömürleri, Sentinel-2 mirası",
+      "alintilar": [
+        "Thrust Range 0.320 … 1.1 N",
+        "Specific Impulse, Nominal 220 s",
+        "Range 200 … 223 s",
+        "Mass Flow, Nominal 0.44 g/s",
+        "Inlet Pressure Range 5.5 … 22 bar",
+        "Minimum Impulse Bit 0.01 … 0.043 Ns",
+        "Total Impulse 135,000 Ns",
+        "Cycle Life 59,000 cycles",
+        "Propellant Throughput 67 kg",
+        "Single Burn Life 12 h",
+        "Accumulated Burn Life 50 h",
+        "Sentinel 2A 2015"
+      ],
+      "not": "Broşürün miras listesi Sentinel 2B için 2016 yazar; 2B 7 Mart 2017'de fırlatıldı (SENTINEL-2_SERISI.md)."
+    },
+    {
+      "id": "AG-P5",
+      "belge": "AG",
+      "sayfa": "PDF 5",
+      "durum": "birincil",
+      "iddia": "Her iticide yedekli katalizör yatağı ısıtıcısı",
+      "alintilar": [
+        "internal redundant catalyst bed heater"
+      ]
+    },
+    {
+      "id": "SO360-P2",
+      "belge": "SO360",
+      "sayfa": "s. 2",
+      "durum": "birincil",
+      "iddia": "Sentinel-1B: iki yedekli dal × yedi 1 N itici; RCT1 düzlem içi geri, RCT2 düzlem içi ileri, RCT3 düzlem dışı, RCT4–7 yönelim (−Z paneli)",
+      "alintilar": [
+        "two redundant branches, each with seven 1 Newton RCTs",
+        "RCT 3 – Out-of-Plane manoeuvres",
+        "RCT 4, 5, 6, 7 – Attitude control after launcher separation and in Safe Mode"
+      ]
+    },
+    {
+      "id": "SO360-P7",
+      "belge": "SO360",
+      "sayfa": "s. 7, Tablo 3",
+      "durum": "birincil",
+      "iddia": "1B −Z iticilerinin bozulmuş kuvvetleri 0,47–0,58 N",
+      "alintilar": [
+        "RCT 6A 0.47 N",
+        "RCT 7A 0.58 N"
+      ]
+    },
+    {
+      "id": "ISSFD2017-P2",
+      "belge": "ISSFD2017",
+      "sayfa": "s. 2",
+      "durum": "birincil",
+      "iddia": "3 çift 1 N OCT + 4 çift RCT; OCT1/2/3 +X, −X, −Y yüzlerinde; plume SAR ve güneş paneline çarpıyor, 1B'de 300 s yerine 35 s; tek yakıtlı hidrazin sistem",
+      "alintilar": [
+        "3 pairs of 1 N OCTs",
+        "4 pairs of Reaction Control Thrusters",
+        "respectively located on the spacecraft sides +X, -X and -Y",
+        "35 seconds instead of 300 seconds",
+        "monopropellant (hydrazine) propulsion system"
+      ]
+    },
+    {
+      "id": "ISSFD2017-P7",
+      "belge": "ISSFD2017",
+      "sayfa": "s. 7",
+      "durum": "birincil",
+      "iddia": "1B'de OCT1/2 performansı plume çarpmasıyla yaklaşık −%30",
+      "alintilar": [
+        "around -30% performance error"
+      ]
+    },
+    {
+      "id": "SO226-P15",
+      "belge": "SO226",
+      "sayfa": "s. 15",
+      "durum": "birincil",
+      "iddia": "1B bertarafı Şubat 2023'te başladı",
+      "alintilar": [
+        "The actual execution of the campaign began in February 2023"
+      ]
+    },
+    {
+      "id": "SO226-P16",
+      "belge": "SO226",
+      "sayfa": "s. 16",
+      "durum": "birincil",
+      "iddia": "25 Temmuz 2023: üçüncü yanmanın 624. saniyesinde teker aşırı hız koruması, güvenli mod",
+      "alintilar": [
+        "reaction wheel overspeed protection 624 seconds into the third burn"
+      ]
+    },
+    {
+      "id": "SO226-P19",
+      "belge": "SO226",
+      "sayfa": "s. 19",
+      "durum": "birincil",
+      "iddia": "16 Nisan 2024 %15,2, 23 Nisan 2024 %50,4 düşük performans",
+      "alintilar": [
+        "underperformance of up to 15.2%",
+        "reduction in performance of 50.4%"
+      ]
+    },
+    {
+      "id": "SO226-P20",
+      "belge": "SO226",
+      "sayfa": "s. 20",
+      "durum": "birincil",
+      "iddia": "RCT-3B düşük performansı sürdürülemez bulundu; ~580 × 610 km, 24 yıl, ~70 kg kaldı",
+      "alintilar": [
+        "Out-Of-Plane thruster RCT-3B",
+        "an apogee of around 610 km",
+        "predicted time remaining in orbit of 24 years",
+        "approx 70 kg of hydrazine"
+      ]
+    },
+    {
+      "id": "SO226-P1",
+      "belge": "SO226",
+      "sayfa": "s. 1",
+      "durum": "birincil",
+      "iddia": "Pasivasyon kısmi kaldı",
+      "alintilar": [
+        "partial passivation"
+      ]
+    },
+    {
+      "id": "SP1322-P23",
+      "belge": "SP1322",
+      "sayfa": "PDF 23",
+      "durum": "birincil",
+      "iddia": "Sentinel-2: 7,25 yıl ömür; batarya ve yakıt bertaraf dahil 12 yıla göre; hidrazin ve katalitik iticiler",
+      "alintilar": [
+        "Batteries and propellants are sized for 12 years, including provision for deorbiting manoeuvres at end-of-life",
+        "7.25 years, including a three-month in-orbit commissioning phase",
+        "hydrazine propellant and catalytic reaction thrusters"
+      ]
+    },
+    {
+      "id": "SP1322-P24",
+      "belge": "SP1322",
+      "sayfa": "PDF 24",
+      "durum": "birincil",
+      "iddia": "İtki bağımsız test edilebilen modül; plume çarpması fırlatıcı adaptör halkası içindeki yerleşimle önlenir",
+      "alintilar": [
+        "independent module that can be tested prior to its integration",
+        "avoided by a mechanical accommodation within the launcher adapter ring"
+      ]
+    },
+    {
+      "id": "DGLR2009-P2",
+      "belge": "DGLR2009",
+      "sayfa": "s. 2",
+      "durum": "birincil",
+      "iddia": "Sentinel-2: 2 × 4 tek yakıtlı itici, yörünge düzeltme ve güvenli modda yönelim",
+      "alintilar": [
+        "two times four monopropellant thrusters (THR) used for orbit correction manoeuvres and attitude control in safe mode"
+      ]
+    },
+    {
+      "id": "S2-FUEL",
+      "belge": "S2FUEL",
+      "sayfa": "blog",
+      "durum": "birincil",
+      "iddia": "2C: 133 kg hidrazin, 21 bar helyum, latch vanaları kapatıldı",
+      "alintilar": [
+        "133 kg of hydrazine",
+        "pressurised the tank with helium up to 21 bars",
+        "close the latch valves"
+      ]
+    },
+    {
+      "id": "S1-FUEL",
+      "belge": "S1FUEL",
+      "sayfa": "haber",
+      "durum": "birincil",
+      "iddia": "1C: 154 kg yakıt; dolum kritik ve tehlikeli",
+      "alintilar": [
+        "154 kg of fuel",
+        "critical and hazardous process of fuelling"
+      ]
+    },
+    {
+      "id": "ISSFD134-T2",
+      "belge": "ISSFD134",
+      "sayfa": "s. 8, Tablo 2",
+      "durum": "birincil",
+      "iddia": "1A enjeksiyon hatası: yarı büyük eksen −7,8 km (4,1 m/s), eğim −16 mili derece (2,2 m/s)",
+      "alintilar": [
+        "Semi-major axis -7.8 km 4.1 m/s",
+        "Inclination -16 mdeg 2.2 m/s"
+      ]
+    },
+    {
+      "id": "ISSFD134-P8",
+      "belge": "ISSFD134",
+      "sayfa": "s. 8",
+      "durum": "birincil",
+      "iddia": "−%21 performans, ~10× tork, ~−%30 bozulma, yanma başına 14 yerine 1 cm/s, günde 65 km kayma",
+      "alintilar": [
+        "along -track performance error of -21 %",
+        "torques approximately ten",
+        "(- 30% approximately)",
+        "total delta -v per burn of 1 cm/s, instead of the almost 14 cm/s",
+        "65 k ilometres/day"
+      ]
+    },
+    {
+      "id": "ISSFD134-P14",
+      "belge": "ISSFD134",
+      "sayfa": "s. 14",
+      "durum": "birincil",
+      "iddia": "~500 manevra, 8,4 kg",
+      "alintilar": [
+        "nearly 500 manoeuvres and a fuel consumption of 8.4 kg"
+      ]
+    },
+    {
+      "id": "ISSFD137-P13",
+      "belge": "ISSFD137",
+      "sayfa": "s. 13",
+      "durum": "birincil",
+      "iddia": "Ölçülen tork [0,00; −0,22; 0,15] N·m, öngörülen [0,0003; 0,0283; −0,0054] N·m",
+      "alintilar": [
+        "[0.00, - 0.22, 0.15] Nm",
+        "[0.0003, 0.0283, - 0.0054] Nm"
+      ]
+    },
+    {
+      "id": "ISSFD137-P14",
+      "belge": "ISSFD137",
+      "sayfa": "s. 14",
+      "durum": "birincil",
+      "iddia": "Düzlem içi yanma 300 s'den 30 s'ye",
+      "alintilar": [
+        "from 300 to 30 seconds"
+      ]
+    },
+    {
+      "id": "SO617-P5",
+      "belge": "SO617",
+      "sayfa": "s. 5",
+      "durum": "birincil",
+      "iddia": "2A: 2 Tem 2015'ten Mart 2024'e 64 bakım manevrası (ort. 1,56 cm/s), 24 kaçınma çifti (örnek 4 cm/s)",
+      "alintilar": [
+        "since 02 July 2015",
+        "Up to March 2024, 64 orbit control manoeuvres",
+        "24 pairs of collision avoidance manoeuvres",
+        "average orbit maintenance manoeuvre size was 1.56 cm/s",
+        "Taking an average CAM size of 4 cm/s"
+      ]
+    },
+    {
+      "id": "SO617-P15",
+      "belge": "SO617",
+      "sayfa": "s. 15–16",
+      "durum": "birincil",
+      "iddia": "2C 10,6 km alçak; dört büyük manevra ~6,33 m/s; 29 Ekim 1,2 cm/s; 0,57 m/s planlandı",
+      "alintilar": [
+        "injected 10.6 km below the nominal mission altitude",
+        "total delta-v of about 6.33",
+        "1.2 cm/s",
+        "total delta-v of 0.57 m/s"
+      ]
+    },
+    {
+      "id": "SO617-T3",
+      "belge": "SO617",
+      "sayfa": "s. 16, Tablo 3",
+      "durum": "birincil",
+      "iddia": "2C tandem manevraları (kalibre Δv) ve 6 Kasım 314,1 s",
+      "alintilar": [
+        "OOP/IPP 314.1 0.9325/0.0530 0.9344/0.0537",
+        "IPP 5.3 0.0150 0.0146"
+      ]
+    },
+    {
+      "id": "S2-AOCS",
+      "belge": "REPO",
+      "sayfa": "Airbus GNC 2014 s. 24 (SENTINEL-2C.md B7, D4)",
+      "durum": "depo",
+      "iddia": "Bertaraf planı 786 → 653 km, 116 × 10 dk, 73 m/s, 47 kg; CHT1N-6; eğik iticiler; dört itici birlikte",
+      "alintilar": [],
+      "not": "ResearchGate otomatik indirmeyi engelliyor; bu tarihte birincil metin açılmadı."
+    },
+    {
+      "id": "VV24-KIT",
+      "belge": "REPO",
+      "sayfa": "Arianespace VV24 kiti (HESAPLAR.md §1)",
+      "durum": "depo",
+      "iddia": "2C fırlatma kütlesi 1143 kg",
+      "alintilar": []
+    },
+    {
+      "id": "VV25-KIT",
+      "belge": "REPO",
+      "sayfa": "Arianespace VV25 kiti (HESAPLAR.md §1)",
+      "durum": "depo",
+      "iddia": "1C fırlatma kütlesi 2186 kg",
+      "alintilar": []
+    },
+    {
+      "id": "VS07-KIT",
+      "belge": "REPO",
+      "sayfa": "Arianespace VS07 kiti (SENTINEL-1_SERISI.md A3)",
+      "durum": "depo",
+      "iddia": "1A fırlatma kütlesi 2157 kg",
+      "alintilar": []
+    },
+    {
+      "id": "S1-ESA",
+      "belge": "REPO",
+      "sayfa": "SENTINEL-1C.md A3",
+      "durum": "depo",
+      "iddia": "Sentinel-1 693 km",
+      "alintilar": []
+    },
+    {
+      "id": "S2-SP1322",
+      "belge": "SP1322",
+      "sayfa": "PDF 73",
+      "durum": "birincil",
+      "iddia": "Sentinel-2 786 km",
+      "alintilar": [
+        "Sun-synchronous orbit at 786 km mean altitude"
+      ]
+    },
+    {
+      "id": "DERIN-P330",
+      "belge": "REPO",
+      "sayfa": "DERIN_ITKI_ANALIZI.md (ρ = 1004 kg/m³)",
+      "durum": "depo",
+      "iddia": "Hidrazin yoğunluğu",
+      "alintilar": []
+    },
+    {
+      "id": "VARSAYIM",
+      "belge": "REPO",
+      "sayfa": "sunum varsayımı",
+      "durum": "varsayim",
+      "iddia": "Isp 220 s (2C), 214 s (1A, Rafael 22 bar alt sınırı)",
+      "alintilar": []
+    }
+  ],
+  "tablolar": {
+    "Table 2": {
+      "Propulsion type / Sentinel-1": [
+        "ISSFD2017-P2"
+      ],
+      "Propulsion type / Sentinel-2": [
+        "SP1322-P23",
+        "DGLR2009-P2"
+      ],
+      "Propellant / Sentinel-1": [
+        "ISSFD2017-P2"
+      ],
+      "Propellant / Sentinel-2": [
+        "S2-FUEL",
+        "SP1322-P23"
+      ],
+      "Thruster configuration / Sentinel-1": [
+        "ISSFD2017-P2",
+        "SO360-P2"
+      ],
+      "Thruster configuration / Sentinel-2": [
+        "DGLR2009-P2",
+        "S2-AOCS"
+      ],
+      "Thruster model / Sentinel-1": [
+        "RAFAEL-P12"
+      ],
+      "Thruster model / Sentinel-2": [
+        "S2-AOCS",
+        "AG-P6"
+      ],
+      "Propellant storage / Sentinel-1": [
+        "RAFAEL-P44",
+        "RAFAEL-P12"
+      ],
+      "Propellant storage / Sentinel-2": [
+        "S2-AOCS"
+      ],
+      "Pressurization / Sentinel-1": [
+        "RAFAEL-P44"
+      ],
+      "Pressurization / Sentinel-2": [
+        "S2-FUEL"
+      ],
+      "Propellant load / Sentinel-1": [
+        "S1-FUEL"
+      ],
+      "Propellant load / Sentinel-2": [
+        "S2-FUEL"
+      ],
+      "Thrust control / Sentinel-1": [
+        "RAFAEL-P49",
+        "ISSFD137-P14"
+      ],
+      "Thrust control / Sentinel-2": [
+        "S2-AOCS"
+      ],
+      "Physical location / Sentinel-1": [
+        "ISSFD2017-P2"
+      ],
+      "Physical location / Sentinel-2": [
+        "SP1322-P24"
+      ],
+      "Operational role / Sentinel-1": [
+        "SO360-P2"
+      ],
+      "Operational role / Sentinel-2": [
+        "DGLR2009-P2",
+        "SP1322-P23"
+      ]
+    },
+    "Table 3": {
+      "Inlet pressure / Rafael": [
+        "RAFAEL-P49"
+      ],
+      "Inlet pressure / ArianeGroup": [
+        "AG-P6"
+      ],
+      "Thrust / Rafael": [
+        "RAFAEL-P49"
+      ],
+      "Thrust / ArianeGroup": [
+        "AG-P6"
+      ],
+      "Specific impulse / Rafael": [
+        "RAFAEL-P49"
+      ],
+      "Specific impulse / ArianeGroup": [
+        "AG-P6"
+      ],
+      "Minimum impulse bit / Rafael": [
+        "RAFAEL-P49"
+      ],
+      "Minimum impulse bit / ArianeGroup": [
+        "AG-P6"
+      ],
+      "Flight heritage / Rafael": [
+        "RAFAEL-P12"
+      ],
+      "Flight heritage / ArianeGroup": [
+        "AG-P6"
+      ]
+    }
+  }
+}

@@ -1,0 +1,12 @@
+YAKALANDI  Isp varsayımı 220 → 222 s                     4 failed, 45 passed, 283 subtests passed in 3.25s
+YAKALANDI  Sonlu yanma cezası yanlış formül              3 failed, 46 passed, 283 subtests passed in 3.14s
+YAKALANDI  2A bakım ortalaması 1,56 → 1,65 cm/s          4 failed, 47 passed, 281 subtests passed in 3.06s
+YAKALANDI  expm1 yerine saf 1 − exp                      3 failed, 46 passed, 283 subtests passed in 2.67s
+YAKALANDI  Sıralı defterde kütle güncellenmiyor          4 failed, 45 passed, 283 subtests passed in 2.53s
+YAKALANDI  Kaçınma çifti tek manevra sayılıyor           8 failed, 47 passed, 277 subtests passed in 2.53s
+YAKALANDI  1A düzlem dışı itici de kayıplı sayılıyor     1 failed, 47 passed, 284 subtests passed in 2.52s
+YAKALANDI  Hohmann ikinci darbe unutuluyor               2 failed, 46 passed, 284 subtests passed in 2.68s
+YAKALANDI  Bertaraf tasarım yakıtı 47 → 45 kg            3 failed, 46 passed, 283 subtests passed in 3.28s
+YAKALANDI  Kaynak kimliği defterde yok                   2 failed, 47 passed, 280 subtests passed in 3.00s
+
+10/10 mutasyon yakalandı; hesap.py geri yüklendi
