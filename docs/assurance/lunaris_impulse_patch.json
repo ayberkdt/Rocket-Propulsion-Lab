@@ -8,5 +8,13 @@
   "patch_sha256": "53423101d980cbae38b5fd65221c95aea003965b295280305551adc1c8053f0a",
   "base_snapshot_manifest_sha256": "cd5ba1fa01cf9ff3cb1f0f7190801e81794f0d6c50d91616011ad7bdd7a05860",
   "status": "applied_to_live_source_sha_verified",
-  "live_target_sha256_after": "868b9c3106092fae02b7f000a21c470b7d86aab6f6aa0d370f487ab6e011090d"
+  "live_target_sha256_after": "868b9c3106092fae02b7f000a21c470b7d86aab6f6aa0d370f487ab6e011090d",
+  "live_commit": {
+    "repository": "LUNAR_SIMULATION (lunaris)",
+    "branch": "fix/impulse-norm-mass-numerics",
+    "commit": "886af1d8",
+    "date": "2026-11-19",
+    "committed_blob_sha256_lf": "3473a04c8d64c31ec183f46cb1454c6a23da092a0054316af229a2db7e88e30f",
+    "note": "First applied uncommitted on 2026-10-19; lost from the live tree in the 2026-10-28 clean-up (kept only on backup/local-wip-2026-10-28). Re-applied with scripts/apply_lunaris_impulse_patch.py and committed on its own branch cut from origin/main; pushed to origin on 2026-11-19; pull request pending."
+  }
 }
